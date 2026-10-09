@@ -672,5 +672,11 @@
   "ui.settings.protectLocalHint": "Snapshots backed up on this PC ({host}), and branches containing them, cannot be deleted; imported ones are not affected",
   "ui.settings.protectLocalOff": "With protection off, this PC's snapshots and branches can be deleted, and deletion cannot be undone. Turn it off?",
   "ui.history.protectedHint": "Save protection: snapshots backed up on this PC cannot be deleted (can be turned off in Settings)",
-  "ui.history.localBackup": "This PC"
+  "ui.history.localBackup": "This PC",
+  "ui.library.protectOn": "Protected",
+  "ui.library.protectOff": "Unprotected",
+  "ui.library.protectTipOn": "Save protection is on: snapshots and branches backed up on this PC ({host}) cannot be deleted. Click to turn off",
+  "ui.library.protectTipOff": "Save protection is off: this PC's snapshots and branches can be deleted, and deletion cannot be undone. Click to turn on",
+  "ui.library.protectEnabled": "Save protection on: snapshots and branches backed up on this PC ({host}) will not be deleted",
+  "ui.library.protectDisabled": "Save protection off: this PC's snapshots and branches can now be deleted, and deletion cannot be undone"
 }

@@ -56,6 +56,30 @@ describe("游戏库", () => {
   });
 });
 
+describe("存档安全保护开关", () => {
+  it("在游戏库中显示状态，关闭需确认并提示", async () => {
+    const info = { version: "0.1.0", portable: false, firstRun: false, locale: "zh-CN", theme: "auto" as const, configPath: "", defaultRepoDir: "", repoDir: "", configError: null, host: "MY-PC", protectLocal: true };
+    seed([row()]);
+    useStore.setState({ info });
+    const cfg = { general: { theme: "auto" as const, close_to_tray: true }, backup: { include_config_files: true, size_warning_gb: 2, disabled_platforms: [], protect_local: true }, metadata: { online: true, igdb_client_id: "", igdb_client_secret: "", steamgriddb_api_key: "" }, log: { level: "info", keep_days: 14 } };
+    api.getSettings.mockResolvedValue(cfg);
+    api.saveSettings.mockResolvedValue({ ...info, protectLocal: false });
+    render(<Library />);
+    const btn = screen.getByRole("button", { name: /存档安全保护已开启：本机（MY-PC）/ });
+    expect(btn).toHaveTextContent("保护已开启");
+    // 取消确认：不改动。
+    dialog.ask.mockResolvedValueOnce(false);
+    fireEvent.click(btn);
+    await waitFor(() => expect(dialog.ask).toHaveBeenCalled());
+    expect(api.saveSettings).not.toHaveBeenCalled();
+    fireEvent.click(btn);
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ backup: expect.objectContaining({ protect_local: false }) })));
+    expect(await screen.findByText("保护已关闭")).toBeInTheDocument();
+    expect(useStore.getState().toasts.map((t) => t.text)).toContain("已关闭存档安全保护：现在可以删除本机备份的快照和分支，删除后不能撤销");
+    useStore.setState({ info: null });
+  });
+});
+
 describe("导出多个游戏", () => {
   it("还没有快照的游戏不能选，导出所选为合集包", async () => {
     const rows = [row(), row({ id: "steam-1", name: "Cuphead", nameZh: null, snapshots: 0 })];

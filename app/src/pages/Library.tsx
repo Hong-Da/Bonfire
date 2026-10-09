@@ -10,6 +10,7 @@ import type { GameRow, Profile } from "../types";
 import BackupDialog from "./BackupDialog";
 import AddGameDialog from "./AddGameDialog";
 import { CollectionExportDialog, CollectionImportDialog } from "./CollectionDialogs";
+import ProtectSwitch from "../components/ProtectSwitch";
 
 const STATES: StateFilter[] = ["all", "has-changes", "never-backed-up", "up-to-date"];
 
@@ -214,6 +215,7 @@ export default function Library() {
             </form>
           )}
           <div className="grow" style={{ flex: 1 }} />
+          <ProtectSwitch />
           <span className="count num">{t("ui.library.selected", { n: selected.length })}</span>
           <button className="btn primary" disabled={selected.length === 0 || busy} onClick={() => setBackupOpen(true)}>
             <Icon name="backup" /> {t("ui.library.backupSelected")}

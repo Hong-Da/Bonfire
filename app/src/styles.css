@@ -201,6 +201,9 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .tag.not-installed { color: var(--muted); border: 1px dashed var(--faint); background: none; }
 /* 检查更新：点击后图标立即转动（文字与进度条只在较慢时出现，避免闪烁） */
 .btn.working svg { animation: spin 0.9s linear infinite; }
+/* 存档安全保护开关：开启为绿色盾牌，关闭为醒目的余烬色虚线框 */
+.btn.protect.on { color: var(--moss); border-color: color-mix(in srgb, var(--moss) 45%, var(--line)); }
+.btn.protect.off { color: var(--ember); border: 1px dashed var(--ember); background: var(--ember-soft); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .no-saves { margin: 8px 20px 96px; color: var(--muted); }
 .no-saves summary { cursor: pointer; padding: 6px 0; }
@@ -468,6 +471,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .toast { display: flex; gap: 10px; align-items: flex-start; max-width: 420px; padding: 10px 12px; background: var(--raised); border-radius: var(--radius); box-shadow: var(--shadow); border-left: 3px solid var(--muted); }
 .toast.error { border-left-color: var(--danger); }
 .toast.success { border-left-color: var(--moss); }
+.toast.info { border-left-color: var(--ember); }
 .toast button { margin-left: auto; }
 
 @media (max-width: 980px) {

@@ -672,5 +672,11 @@
   "ui.settings.protectLocalHint": "本机（{host}）备份的快照，以及包含它们的分支，都不能删除；从别的电脑导入的不受影响",
   "ui.settings.protectLocalOff": "关闭后，本机备份的快照和分支可以被删除，删除后不能撤销。确定关闭吗？",
   "ui.history.protectedHint": "存档安全保护：本机备份的快照不能删除（可在设置中关闭）",
-  "ui.history.localBackup": "本机备份"
+  "ui.history.localBackup": "本机备份",
+  "ui.library.protectOn": "保护已开启",
+  "ui.library.protectOff": "保护已关闭",
+  "ui.library.protectTipOn": "存档安全保护已开启：本机（{host}）备份的快照和分支不能删除。点击关闭",
+  "ui.library.protectTipOff": "存档安全保护已关闭：本机备份的快照和分支可以删除，删除后不能撤销。点击开启",
+  "ui.library.protectEnabled": "已开启存档安全保护：本机（{host}）备份的快照和分支不会被删除",
+  "ui.library.protectDisabled": "已关闭存档安全保护：现在可以删除本机备份的快照和分支，删除后不能撤销"
 }
