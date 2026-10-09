@@ -44,7 +44,9 @@
 
 ## 开发记录
 
-- M1-1（2026-10-09）：与方案的出入——Rust edition 改用 2024（cargo 默认，rust-version 1.85）；CLI `--help` 说明文字暂为中英并列，随语言切换在 M1-7 实现；GUI 主题与语言暂存于 WebView 本地存储，M3-1 与应用配置同步。
+- M1-1（2026-10-09）：与方案的出入——Rust edition 改用 2024（cargo 默认，rust-version 1.89，仓库锁使用标准库 File::try_lock）；CLI `--help` 说明文字暂为中英并列，随语言切换在 M1-7 实现；GUI 主题与语言暂存于 WebView 本地存储，M3-1 与应用配置同步。
+- M1-2（2026-10-09）：与文档 6.1 的出入——对象按类型分目录存放（`objects/chunks|blobs|trees|snapshots/ab/cdef…`），因为小文件的 Blob ID（整个文件的 BLAKE3）与其唯一 Chunk 的 ID 相同，同目录会冲突；临时文件在 `objects/tmp/`。每个对象文件是带 XXH64 校验和的 zstd 帧，Blob 的元数据也压缩存放。新增故障注入点 `BONFIRE_FAULT_INJECT=<点>[:<第 N 次>]`（before-rename / after-chunk / after-blob / after-tree / after-snapshot），供崩溃一致性测试使用。
+  - 待观察：每个对象写入后都 `fsync`，对吞吐（≥ 200 MB/s）的影响在 M4-5 基准测试中确认，必要时改为批量落盘。
 
 ## N 名称与标识
 
@@ -184,7 +186,7 @@ Cargo workspace，引擎层不感知界面：
 | 编号 | 内容 | 完成标准 | 对应测试 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
 | M1-1 | 骨架：Cargo workspace、Tauri 空壳、pnpm 前端、配置、日志、图标导出、start/cli/test 脚本、测试框架 | `start.bat` 启动空窗口；`test.bat` 跑通 cargo test 与 Vitest | 单元：配置加载与默认值；文档：目录结构一致 | — | M | 已完成（2026-10-09） |
-| M1-2 | 对象库：Chunk/Blob/Tree/Snapshot、BLAKE3、zstd、FastCDC、原子写、仓库锁、仓库版本号 | 往返一致；相同内容去重；锁防双写 | 单元 | M1-1 | L | 未开始 |
+| M1-2 | 对象库：Chunk/Blob/Tree/Snapshot、BLAKE3、zstd、FastCDC、原子写、仓库锁、仓库版本号 | 往返一致；相同内容去重；锁防双写 | 单元（含子进程故障注入的崩溃测试） | M1-1 | L | 已完成（2026-10-09） |
 | M1-3 | Refs：分支/标签/HEAD、reflog、notes、引用解析 | 解析与 reflog 正确 | 单元 | M1-2 | M | 未开始 |
 | M1-4 | SQLite 索引（FTS5）、ScanIndex 变更检测（racy-git、强制校验、并行）、reindex | 五种状态判定正确；删库后可重建 | 单元 | M1-2、M1-3 | M | 未开始 |
 | M1-5 | 备份服务：手动添加游戏、逐游戏备注与默认备注、无变化不建快照、`--force` | 备份后为“已是最新”；备注可搜索 | 单元、CLI | M1-4 | M | 未开始 |

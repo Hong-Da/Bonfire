@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 authors = ["kun"]
-rust-version = "1.85"
+rust-version = "1.89"
 
 [workspace.dependencies]
 bonfire-core = { path = "crates/bonfire-core" }

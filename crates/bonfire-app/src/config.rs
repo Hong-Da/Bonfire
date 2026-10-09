@@ -139,10 +139,10 @@ impl Config {
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
-        if let Some(lang) = &self.general.language {
-            if Locale::parse(lang).is_none() {
-                return Err(ConfigError::Invalid { key: "general.language", message: format!("{lang}（可选 zh-CN、en）") });
-            }
+        if let Some(lang) = &self.general.language
+            && Locale::parse(lang).is_none()
+        {
+            return Err(ConfigError::Invalid { key: "general.language", message: format!("{lang}（可选 zh-CN、en）") });
         }
         let level = self.log.level.to_ascii_lowercase();
         if !LOG_LEVELS.contains(&level.as_str()) {
@@ -151,7 +151,8 @@ impl Config {
         if !(1..=365).contains(&self.log.keep_days) {
             return Err(ConfigError::Invalid { key: "log.keep_days", message: format!("{}（范围 1–365）", self.log.keep_days) });
         }
-        if !(self.backup.size_warning_gb > 0.0) {
+        let gb = self.backup.size_warning_gb;
+        if gb.is_nan() || gb <= 0.0 {
             return Err(ConfigError::Invalid { key: "backup.size_warning_gb", message: format!("{}（必须大于 0）", self.backup.size_warning_gb) });
         }
         Ok(())

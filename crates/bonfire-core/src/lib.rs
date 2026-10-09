@@ -1,3 +1,16 @@
-//! 引擎·版本存储：对象库、refs、索引与变更检测。
+//! 引擎·版本存储：内容寻址对象库、refs、索引与变更检测（文档 §5、§6）。
 //!
-//! 本 crate 不感知界面，由 `bonfire-app` 的各服务调用。M1-2 起逐步实现。
+//! 本 crate 不感知界面，由 `bonfire-app` 的各服务调用。
+
+pub mod error;
+pub mod fault;
+pub mod id;
+pub mod object;
+pub mod repo;
+pub mod store;
+
+pub use error::{CoreError, Result};
+pub use id::ObjectId;
+pub use object::{Blob, FileTag, Kind, Snapshot, SnapshotStats, Tree, TreeEntry, Trigger};
+pub use repo::{Repo, RepoConfig, RepoLock};
+pub use store::WriteStats;

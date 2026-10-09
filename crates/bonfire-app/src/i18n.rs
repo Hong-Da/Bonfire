@@ -59,7 +59,7 @@ impl Locale {
 }
 
 /// 取文案。
-pub fn t<'a>(locale: Locale, key: &'a str) -> &'a str {
+pub fn t(locale: Locale, key: &str) -> &str {
     if let Some(v) = locale.table().get(key) {
         return v;
     }
