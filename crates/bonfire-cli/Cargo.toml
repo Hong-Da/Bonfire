@@ -1,0 +1,17 @@
+[package]
+name = "bonfire-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "bonfire"
+path = "src/main.rs"
+
+[dependencies]
+bonfire-app.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+tracing.workspace = true

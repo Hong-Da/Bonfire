@@ -1,0 +1,67 @@
+# CLI 用例：由 tests/cli 执行，in_docs = true 的用例同时生成 docs/cli.md 的示例。
+# 占位符 {inputs} 会替换为 tests/inputs 的绝对路径。
+# 每条用例都在临时的 BONFIRE_HOME 下运行，不读写本机真实配置与仓库。
+
+[[case]]
+id = "version-ok"
+title = { zh-CN = "查看版本", en = "Show version" }
+args = ["--version"]
+expect_exit = 0
+stdout_contains = ["bonfire "]
+in_docs = true
+
+[[case]]
+id = "help-ok"
+title = { zh-CN = "查看帮助", en = "Show help" }
+args = ["--help"]
+expect_exit = 0
+stdout_contains = ["--output", "--json", "--repo"]
+in_docs = false
+
+[[case]]
+id = "unknown-flag"
+title = { zh-CN = "未知参数返回退出码 2", en = "Unknown flag exits with 2" }
+args = ["--no-such-flag"]
+expect_exit = 2
+stderr_contains = ["--no-such-flag"]
+in_docs = true
+
+[[case]]
+id = "config-bad-syntax-json"
+title = { zh-CN = "配置文件格式错误（JSON 输出）", en = "Malformed config file (JSON output)" }
+args = ["--config", "{inputs}/config/bad-syntax.toml", "--json"]
+expect_exit = 3
+expect_stderr_json = { "error.code" = 3 }
+in_docs = true
+
+[[case]]
+id = "config-bad-syntax-zh"
+title = { zh-CN = "配置错误提示为中文", en = "Config error in Chinese" }
+args = ["--config", "{inputs}/config/bad-syntax.toml", "--lang", "zh-CN"]
+expect_exit = 3
+stderr_contains = ["配置错误", "bad-syntax.toml"]
+in_docs = false
+
+[[case]]
+id = "config-bad-syntax-en"
+title = { zh-CN = "配置错误提示为英文", en = "Config error in English" }
+args = ["--config", "{inputs}/config/bad-syntax.toml", "--lang", "en"]
+expect_exit = 3
+stderr_contains = ["Configuration error"]
+in_docs = false
+
+[[case]]
+id = "config-bad-value"
+title = { zh-CN = "配置取值无效", en = "Invalid config value" }
+args = ["--config", "{inputs}/config/bad-value.toml", "--output", "json"]
+expect_exit = 3
+expect_stderr_json = { "error.code" = 3 }
+stderr_contains = ["log.level"]
+in_docs = false
+
+[[case]]
+id = "config-unicode-ok"
+title = { zh-CN = "含中文与重音字符路径的配置可正常读取", en = "Config with non-ASCII paths loads" }
+args = ["--config", "{inputs}/config/zh-paths.toml", "--quiet"]
+expect_exit = 0
+in_docs = false

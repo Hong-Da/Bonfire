@@ -46,8 +46,10 @@ tests/
 |---|---|
 | `test.bat` | 运行全部测试（cargo test --workspace + Vitest） |
 | `test.bat --unit` / `--cli` / `--docs` / `--ui` | 只运行某一类 |
+| `test.bat --bless` | 重新生成 `docs/cli.md` 示例与 `config/config.example.toml`，再运行文档测试 |
 
-结束时输出各类通过 / 失败数量；有失败时退出码非 0 并 `pause`。
+- 各类输出写入 `tests/output/<类别>.log`，汇总写入 `tests/output/report.txt`。
+- 结束时输出各类通过 / 失败数量；有失败时退出码非 0。双击运行时失败会 `pause`；脚本或 Claude 调用时设置 `BONFIRE_NO_PAUSE=1` 跳过。
 
 ## Linux
 

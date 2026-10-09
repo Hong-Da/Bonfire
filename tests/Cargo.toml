@@ -1,0 +1,23 @@
+[package]
+name = "bonfire-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "CLI 与文档测试（只含测试目标）"
+
+[[test]]
+name = "cli"
+path = "cli/main.rs"
+
+[[test]]
+name = "docs"
+path = "docs/main.rs"
+
+[dev-dependencies]
+bonfire-app.workspace = true
+assert_cmd.workspace = true
+tempfile.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true

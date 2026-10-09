@@ -10,3 +10,5 @@ node_modules/
 *.log
 .vscode/
 .idea/
+*.tsbuildinfo
+/app/src-tauri/gen/

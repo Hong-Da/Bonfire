@@ -1,0 +1,4 @@
+# 含中文与带重音字符的路径，用于发现编码问题
+[general]
+language = "en"
+repo = 'D:\备份\Sauvegardes ã ç é'

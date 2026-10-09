@@ -1,0 +1,13 @@
+{
+  "app.name": "篝火",
+  "app.tagline": "游戏存档备份与版本历史",
+  "cli.about": "篝火 Bonfire：游戏存档备份与版本历史",
+  "cli.error.config": "配置错误",
+  "cli.error.general": "错误",
+  "ui.theme": "主题",
+  "ui.theme.auto": "自动",
+  "ui.theme.light": "明亮",
+  "ui.theme.dark": "暗色",
+  "ui.language": "语言",
+  "ui.placeholder": "核心库开发中，界面将在 M3 提供。"
+}

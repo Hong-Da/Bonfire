@@ -1,0 +1,13 @@
+{
+  "app.name": "Bonfire",
+  "app.tagline": "Game save backup with version history",
+  "cli.about": "Bonfire: game save backup with version history",
+  "cli.error.config": "Configuration error",
+  "cli.error.general": "Error",
+  "ui.theme": "Theme",
+  "ui.theme.auto": "Auto",
+  "ui.theme.light": "Light",
+  "ui.theme.dark": "Dark",
+  "ui.language": "Language",
+  "ui.placeholder": "The core library is under development; the UI arrives in M3."
+}

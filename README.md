@@ -8,7 +8,11 @@ Windows 桌面端游戏存档备份工具：自动扫描各平台的游戏存档
 
 ## 快速开始
 
-开发环境需要：Rust stable（MSVC）、Visual Studio Build Tools（C++ 生成工具 + Windows SDK）、Node.js 20+、pnpm、WebView2。
+开发环境需要：Rust stable（MSVC）、Visual Studio Build Tools（C++ 生成工具 + Windows SDK）、Node.js 20+、pnpm、WebView2。`start.bat` 会检查并提示缺少的项；Build Tools 可以这样安装：
+
+```bat
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22621"
+```
 
 ```bat
 start.bat        :: 检查环境、安装依赖、构建并启动桌面应用；首次运行进入配置向导
@@ -39,14 +43,13 @@ bonfire/
 │   ├── package.json            前端依赖（pnpm）
 │   ├── src/                    React + TypeScript 前端（页面、组件、i18n、主题）
 │   └── src-tauri/              Tauri 壳：命令层、托盘与自动备份、图标
-├── assets/brand/               Logo 源文件
+├── assets/
+│   └── brand/                  Logo 源文件
 ├── DevelopDocs/                开发文档：任务文档与相关文件（只读）
-│   ├── project-config/         选项页面与用户的选择（history/ 不入库）
-│   └── review/                 需求盘点结果（只新增，不覆盖）
+│   └── project-config/         选项页面与用户的选择（history/ 不入库）
 ├── docs/
 │   ├── project-spec.md         项目规范
 │   └── cli.md                  CLI 调用文档
-├── scripts/                    辅助脚本：生成文档示例、准备规则库快照等
 ├── tests/                      测试：输入、用例数据、CLI 与文档测试（见 tests/README.md）
 ├── target/                     Rust 构建输出（不入库）
 └── dist/                       打包结果（不入库）

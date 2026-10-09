@@ -1,0 +1,33 @@
+# 篝火 Bonfire 应用配置示例
+# 实际配置文件位置：%APPDATA%\Bonfire\config.toml（便携模式在程序目录旁的 data\config.toml）
+# 所有配置项都有默认值，可以只写需要修改的项。环境变量优先于本文件。
+
+[general]
+# 界面语言：zh-CN / en；不写时跟随系统语言。环境变量 BONFIRE_LANG
+# language = "zh-CN"
+# 界面主题：auto（跟随系统）/ light / dark
+theme = "auto"
+# 存档仓库位置；不写时为 %LOCALAPPDATA%\Bonfire\repo。可放在网盘同步目录中。环境变量 BONFIRE_REPO
+# repo = 'D:\Backups\Bonfire'
+
+[backup]
+# 是否同时备份游戏的配置文件（画质、按键等设置）
+include_config_files = true
+# 单个游戏存档超过该大小（GB）时提示，防止误匹配到整个安装目录
+size_warning_gb = 2.0
+# 不扫描的平台：steam / epic / gog / ubisoft / ea / xbox / battlenet
+disabled_platforms = []
+
+[metadata]
+# 是否联网获取游戏名称、封面等信息；只发送游戏 ID 或名称，不上传存档
+online = true
+# IGDB（Twitch 开发者凭证）与 SteamGridDB 的 API Key；不填则跳过这两个来源
+igdb_client_id = ""
+igdb_client_secret = ""
+steamgriddb_api_key = ""
+
+[log]
+# 日志级别：error / warn / info / debug / trace。环境变量 BONFIRE_LOG_LEVEL
+level = "info"
+# 日志保留天数（1–365），按日期轮转
+keep_days = 14

@@ -1,0 +1,16 @@
+[package]
+name = "bonfire-desktop"
+description = "篝火 Bonfire 桌面应用（Tauri 壳）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+bonfire-app.workspace = true
+serde.workspace = true
+tracing.workspace = true
+tauri = { version = "2", features = [] }

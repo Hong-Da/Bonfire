@@ -42,6 +42,10 @@
 
 - （暂无。阶段一的待确认事项已全部确认，见“已确认的待确认点”。）
 
+## 开发记录
+
+- M1-1（2026-10-09）：与方案的出入——Rust edition 改用 2024（cargo 默认，rust-version 1.85）；CLI `--help` 说明文字暂为中英并列，随语言切换在 M1-7 实现；GUI 主题与语言暂存于 WebView 本地存储，M3-1 与应用配置同步。
+
 ## N 名称与标识
 
 - N1 项目名称：中文名 **篝火**，英文名 **Bonfire**，项目标识 `bonfire`，CLI 命令 `bonfire`，Rust crate 前缀 `bonfire-`（方案选定：任务文档中的名称）【默认】
@@ -119,7 +123,7 @@
 
 | 层 | 选型 | 理由 |
 |---|---|---|
-| 核心库 | Rust（stable，edition 2021）：`blake3`、`zstd`、`fastcdc`、`rusqlite`（bundled，启用 FTS5）、`globset`、`serde`/`serde_json`、`toml`、`fs4`（文件锁）、`rayon`（并行哈希）、`thiserror` | 文档 10.2；IO 与并发性能好，crate 成熟 |
+| 核心库 | Rust（stable，edition 2024）：`blake3`、`zstd`、`fastcdc`、`rusqlite`（bundled，启用 FTS5）、`globset`、`serde`/`serde_json`、`toml`、`fs4`（文件锁）、`rayon`（并行哈希）、`thiserror` | 文档 10.2；IO 与并发性能好，crate 成熟 |
 | 存档发现 | `keyvalues-parser` 或自写 VDF 解析、`winreg`、`serde_yaml`（Ludusavi manifest）、`sysinfo`（进程检测） | 文档 §4 |
 | 游戏信息 | `reqwest`（rustls）、`image` + `webp` 编码 | 文档 4.3；联网失败不阻塞 |
 | CLI | `clap`（derive）、`anyhow` | 文档 10.2；与 GUI 共用核心 |
@@ -169,7 +173,7 @@ Cargo workspace，引擎层不感知界面：
 
 | 编号 | 目标 | 包含需求 | 交付物 | 验收方式 | 状态 |
 |---|---|---|---|---|---|
-| M1 | 核心库：对象库、快照、refs、变更检测、备份与恢复；手动添加路径；CLI 可用 | REQ-001（手动部分）、002–006、007（简化版） | Rust 核心库 + `bonfire` CLI | 随机断电（强杀 + 故障注入）测试无快照损坏；fsck 通过；CLI 端到端测试通过；用户验收 | 未开始 |
+| M1 | 核心库：对象库、快照、refs、变更检测、备份与恢复；手动添加路径；CLI 可用 | REQ-001（手动部分）、002–006、007（简化版） | Rust 核心库 + `bonfire` CLI | 随机断电（强杀 + 故障注入）测试无快照损坏；fsck 通过；CLI 端到端测试通过；用户验收 | 进行中 |
 | M2 | 存档发现：Steam、Epic、GOG + Ludusavi 规则库 + 游戏信息 | REQ-001 | `bonfire scan` 自动识别并补全信息 | 本机 Steam 已装游戏只读扫描识别率 ≥ 90%；伪造平台目录测试通过 | 未开始 |
 | M3 | GUI MVP：游戏库、备份确认、历史时间线、恢复；P0 全部交付 | REQ-001–006 | Tauri 桌面应用 + NSIS 安装包 | P0 在 GUI 中全部可用；前端测试通过；用户本机安装验收 | 未开始 |
 | M4 | 完善：其余平台、运行保护、自动备份、保留策略与 GC | REQ-001、007–009 | 全平台识别、托盘自动备份、历史清理 | 文档 10.1 指标：200 游戏增量扫描 < 3 秒、吞吐 ≥ 200 MB/s、托盘内存 < 80 MB；用户验收 | 未开始 |
@@ -179,7 +183,7 @@ Cargo workspace，引擎层不感知界面：
 
 | 编号 | 内容 | 完成标准 | 对应测试 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
-| M1-1 | 骨架：Cargo workspace、Tauri 空壳、pnpm 前端、配置、日志、图标导出、start/cli/test 脚本、测试框架 | `start.bat` 启动空窗口；`test.bat` 跑通 cargo test 与 Vitest | 单元：配置加载与默认值；文档：目录结构一致 | — | M | 未开始 |
+| M1-1 | 骨架：Cargo workspace、Tauri 空壳、pnpm 前端、配置、日志、图标导出、start/cli/test 脚本、测试框架 | `start.bat` 启动空窗口；`test.bat` 跑通 cargo test 与 Vitest | 单元：配置加载与默认值；文档：目录结构一致 | — | M | 已完成（2026-10-09） |
 | M1-2 | 对象库：Chunk/Blob/Tree/Snapshot、BLAKE3、zstd、FastCDC、原子写、仓库锁、仓库版本号 | 往返一致；相同内容去重；锁防双写 | 单元 | M1-1 | L | 未开始 |
 | M1-3 | Refs：分支/标签/HEAD、reflog、notes、引用解析 | 解析与 reflog 正确 | 单元 | M1-2 | M | 未开始 |
 | M1-4 | SQLite 索引（FTS5）、ScanIndex 变更检测（racy-git、强制校验、并行）、reindex | 五种状态判定正确；删库后可重建 | 单元 | M1-2、M1-3 | M | 未开始 |
@@ -257,6 +261,8 @@ Cargo workspace，引擎层不感知界面：
 | 测试全部集中在 `tests/` | 用例数据、输入、CLI 与文档测试集中在 `tests/`（作为 workspace 成员 crate `bonfire-tests`）；核心库的单元测试按 Rust 惯例写在模块内 `#[cfg(test)]`；前端测试与组件同目录 `*.test.tsx` | 单元测试需要访问私有项；Vitest 惯例 |
 | `scripts/build_icons.py` 导出图标 | 用 `pnpm tauri icon assets/brand/logo.svg` 生成全部尺寸图标 | 不引入 Python 依赖，Tauri 自带 |
 | `start.sh` / `test.sh` | 首版只提供 `.bat`；M5 Linux 支持时补齐 `.sh` | 首版仅 Windows |
+| `scripts/gen_docs.py` 生成文档示例 | 文档测试自带生成：`test.bat --bless` 改写 `docs/cli.md` 示例与 `config/config.example.toml` | 不引入 Python 依赖 |
+| 文案放在 `src/<包名>/i18n/locales/` | `crates/bonfire-app/locales/*.json`，CLI 内嵌、前端直接导入同一份文件 | CLI 与 GUI 共用文案 |
 | `config/config.toml` 在项目目录 | 运行时配置在 `%APPDATA%\Bonfire\`（便携模式在程序目录旁） | 桌面应用惯例（R2-Q4） |
 
 ## F 收尾辅助
