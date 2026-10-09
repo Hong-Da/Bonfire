@@ -1,0 +1,280 @@
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { open } from "@tauri-apps/plugin-dialog";
+import { api, errorMessage } from "../api";
+import { LANGUAGES, setLanguage } from "../i18n";
+import { bytes } from "../lib/format";
+import { useStore } from "../store";
+import { applyTheme } from "../theme";
+import type { Config, FsckReport, GameRecord, Theme } from "../types";
+
+export const PLATFORMS = ["steam", "epic", "gog"] as const;
+
+/** 设置（文档 9.1）：仓库位置、界面、平台开关、是否备份配置文件、游戏信息来源与 API Key、规则库、维护。 */
+export default function Settings() {
+  const { t } = useTranslation();
+  const store = useStore();
+  const [cfg, setCfg] = useState<Config | null>(null);
+  const [saved, setSaved] = useState<Config | null>(null);
+  const [rules, setRules] = useState<{ path: string | null; games: number; userGames: number } | null>(null);
+  const [fsck, setFsck] = useState<FsckReport | null>(null);
+  const [ignored, setIgnored] = useState<GameRecord[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getSettings().then((c) => {
+      setCfg(c);
+      setSaved(c);
+    });
+    api.rulesInfo().then(setRules).catch(() => setRules(null));
+    api.ignoredGames().then(setIgnored).catch(() => setIgnored([]));
+  }, []);
+
+  if (!cfg) return <div className="empty">{t("ui.loading")}</div>;
+  const dirty = JSON.stringify(cfg) !== JSON.stringify(saved);
+  const update = (f: (c: Config) => void) => {
+    const c = structuredClone(cfg);
+    f(c);
+    setCfg(c);
+  };
+
+  const save = async () => {
+    setBusy("save");
+    try {
+      const repoChanged = (cfg.general.repo ?? "") !== (saved?.general.repo ?? "");
+      const info = await api.saveSettings(cfg);
+      store.setInfo(info);
+      setSaved(cfg);
+      if (cfg.general.language) setLanguage(cfg.general.language);
+      applyTheme(cfg.general.theme);
+      store.toast("success", t("ui.settings.saved"));
+      if (repoChanged) await store.loadLibrary(false);
+    } catch (e) {
+      store.toast("error", errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const run = async (key: string, f: () => Promise<void>) => {
+    setBusy(key);
+    try {
+      await f();
+    } catch (e) {
+      store.toast("error", errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const pickRepo = async () => {
+    const r = await open({ directory: true, multiple: false, title: t("ui.settings.repo") });
+    if (typeof r === "string") update((c) => (c.general.repo = r));
+  };
+
+  return (
+    <>
+      <div className="toolbar">
+        <h1>{t("ui.nav.settings")}</h1>
+        <div className="grow" />
+        <button className="btn ghost" onClick={() => setCfg(saved)} disabled={!dirty}>
+          {t("ui.settings.revert")}
+        </button>
+        <button className="btn primary" onClick={save} disabled={!dirty || busy === "save"}>
+          {t("ui.save")}
+        </button>
+      </div>
+      <div className="page">
+        <div className="settings">
+          <section>
+            <h2>{t("ui.settings.repo")}</h2>
+            <div className="row">
+              <label>{t("ui.settings.repoPath")}</label>
+              <div className="inline">
+                <input className="field" style={{ flex: 1 }} value={cfg.general.repo ?? store.info?.defaultRepoDir ?? ""} onChange={(e) => update((c) => (c.general.repo = e.target.value || undefined))} aria-label={t("ui.settings.repoPath")} />
+                <button className="btn" onClick={pickRepo}>
+                  {t("ui.settings.browse")}
+                </button>
+              </div>
+            </div>
+            <p className="hint">{t("ui.settings.repoHint")}</p>
+          </section>
+
+          <section>
+            <h2>{t("ui.settings.appearance")}</h2>
+            <div className="row">
+              <label htmlFor="lang">{t("ui.language")}</label>
+              <select id="lang" className="field" value={cfg.general.language ?? ""} onChange={(e) => update((c) => (c.general.language = e.target.value || undefined))}>
+                <option value="">{t("ui.settings.followSystem")}</option>
+                {LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="row">
+              <label>{t("ui.theme")}</label>
+              <div className="chips" role="group" aria-label={t("ui.theme")}>
+                {(["auto", "light", "dark"] as Theme[]).map((th) => (
+                  <button key={th} className="chip" aria-pressed={cfg.general.theme === th} onClick={() => update((c) => (c.general.theme = th))}>
+                    {t(`ui.theme.${th}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2>{t("ui.settings.backup")}</h2>
+            <div className="row">
+              <label>{t("ui.settings.platforms")}</label>
+              <div className="inline">
+                {PLATFORMS.map((p) => (
+                  <label key={p} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input
+                      type="checkbox"
+                      className="check"
+                      checked={!cfg.backup.disabled_platforms.includes(p)}
+                      onChange={(e) =>
+                        update((c) => {
+                          c.backup.disabled_platforms = e.target.checked ? c.backup.disabled_platforms.filter((x) => x !== p) : [...c.backup.disabled_platforms, p];
+                        })
+                      }
+                    />
+                    {t(`ui.platform.${p}`)}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="row">
+              <label>{t("ui.settings.includeConfig")}</label>
+              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input type="checkbox" className="check" checked={cfg.backup.include_config_files} onChange={(e) => update((c) => (c.backup.include_config_files = e.target.checked))} />
+                {t("ui.settings.includeConfigHint")}
+              </label>
+            </div>
+            <div className="row">
+              <label htmlFor="warn">{t("ui.settings.sizeWarning")}</label>
+              <div className="inline">
+                <input id="warn" className="field num" type="number" min={0.1} step={0.5} style={{ width: 100 }} value={cfg.backup.size_warning_gb} onChange={(e) => update((c) => (c.backup.size_warning_gb = Number(e.target.value)))} />
+                <span>GB</span>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2>{t("ui.settings.info")}</h2>
+            <div className="row">
+              <label>{t("ui.settings.online")}</label>
+              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input type="checkbox" className="check" checked={cfg.metadata.online} onChange={(e) => update((c) => (c.metadata.online = e.target.checked))} />
+                {t("ui.settings.onlineHint")}
+              </label>
+            </div>
+            <KeyRow label="IGDB Client ID" value={cfg.metadata.igdb_client_id} onChange={(v) => update((c) => (c.metadata.igdb_client_id = v))} />
+            <KeyRow label="IGDB Client Secret" secret value={cfg.metadata.igdb_client_secret} onChange={(v) => update((c) => (c.metadata.igdb_client_secret = v))} />
+            <KeyRow label="SteamGridDB API Key" secret value={cfg.metadata.steamgriddb_api_key} onChange={(v) => update((c) => (c.metadata.steamgriddb_api_key = v))} />
+            <p className="hint">{t("ui.settings.keysHint")}</p>
+          </section>
+
+          <section>
+            <h2>{t("ui.settings.rules")}</h2>
+            <p className="muted">
+              {rules ? (rules.path ? t("ui.settings.rulesInfo", { games: rules.games, user: rules.userGames }) : t("ui.settings.rulesMissing")) : t("ui.loading")}
+            </p>
+            <button
+              className="btn"
+              disabled={busy === "rules"}
+              onClick={() =>
+                run("rules", async () => {
+                  const r = await api.updateRules();
+                  store.toast("success", r.result === "updated" ? t("ui.settings.rulesUpdated", { games: r.games, size: bytes(r.bytes) }) : t("ui.settings.rulesLatest"));
+                  setRules(await api.rulesInfo());
+                })
+              }
+            >
+              {t("ui.settings.updateRules")}
+            </button>
+          </section>
+
+          <section>
+            <h2>{t("ui.settings.maintenance")}</h2>
+            <div className="inline" style={{ display: "flex", gap: 8 }}>
+              <button className="btn" disabled={busy === "fsck"} onClick={() => run("fsck", async () => setFsck(await api.fsck(true)))}>
+                {t("ui.settings.fsck")}
+              </button>
+              <button
+                className="btn"
+                disabled={busy === "reindex"}
+                onClick={() =>
+                  run("reindex", async () => {
+                    const r = await api.reindex();
+                    store.toast("success", t("ui.settings.reindexed", { n: r.snapshots }));
+                  })
+                }
+              >
+                {t("ui.settings.reindex")}
+              </button>
+            </div>
+            {fsck && (
+              <div className={`callout${fsck.errors.length ? " error" : ""}`} role="status">
+                {fsck.errors.length === 0 ? t("ui.settings.fsckOk", { snapshots: fsck.snapshots, files: fsck.blobs }) : t("ui.settings.fsckErrors", { n: fsck.errors.length })}
+                {fsck.errors.slice(0, 10).map((e) => (
+                  <div key={e}>{e}</div>
+                ))}
+              </div>
+            )}
+            {ignored.length > 0 && (
+              <>
+                <h3 className="muted" style={{ font: "600 13px var(--font-sign)", margin: "16px 0 4px" }}>
+                  {t("ui.settings.ignored")}
+                </h3>
+                <ul className="file-list">
+                  {ignored.map((g) => (
+                    <li key={g.id}>
+                      <span />
+                      <span className="path">{g.name}</span>
+                      <button
+                        className="btn small"
+                        onClick={() =>
+                          run("enable", async () => {
+                            await api.enableGame(g.id);
+                            setIgnored(await api.ignoredGames());
+                            await store.refreshRow(g.id);
+                          })
+                        }
+                      >
+                        {t("ui.settings.unignore")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+
+          <section>
+            <h2>{t("ui.settings.about")}</h2>
+            <p className="muted num">
+              {t("ui.settings.version", { v: store.info?.version ?? "" })}
+              {store.info?.portable && <span style={{ marginLeft: 8 }}>{t("ui.settings.portable")}</span>}
+            </p>
+            <button className="btn small" onClick={() => store.info && api.openPath(store.info.configPath)}>
+              {t("ui.settings.openConfig")}
+            </button>
+          </section>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function KeyRow({ label, value, secret, onChange }: { label: string; value: string; secret?: boolean; onChange: (v: string) => void }) {
+  return (
+    <div className="row">
+      <label>{label}</label>
+      <input className="field" type={secret ? "password" : "text"} value={value} onChange={(e) => onChange(e.target.value)} aria-label={label} autoComplete="off" spellCheck={false} />
+    </div>
+  );
+}

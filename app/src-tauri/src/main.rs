@@ -3,36 +3,81 @@
 // 发布版不弹出控制台窗口。
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod commands;
+
+use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+
 use bonfire_app::{AppPaths, Config};
-use serde::Serialize;
-
-#[derive(Serialize)]
-struct AppInfo {
-    version: &'static str,
-    portable: bool,
-}
-
-#[tauri::command]
-fn app_info(paths: tauri::State<'_, AppPaths>) -> AppInfo {
-    AppInfo { version: bonfire_app::VERSION, portable: paths.portable }
-}
+use commands::Shared;
+use tauri::Manager;
 
 fn main() {
     let paths = AppPaths::resolve();
-    // 配置有误时先用默认值启动，错误写入日志；M3 起在界面中提示。
+    // 配置文件不存在：首次运行，等向导完成后再打开仓库。配置有误时用默认值启动并在界面中提示。
+    let first_run = !paths.config_file.is_file();
     let (config, config_error) = match Config::load(&paths.config_file) {
         Ok(c) => (c, None),
-        Err(e) => (Config::default(), Some(e)),
+        Err(e) => (Config::default(), Some(e.to_string())),
     };
     let _log_guard = bonfire_app::logging::init(&paths.logs_dir, &config.log, cfg!(debug_assertions));
-    if let Some(e) = config_error {
+    if let Some(e) = &config_error {
         tracing::error!("配置加载失败，使用默认配置：{e}");
     }
-    tracing::info!(version = bonfire_app::VERSION, portable = paths.portable, "桌面应用启动");
+    tracing::info!(version = bonfire_app::VERSION, portable = paths.portable, first_run, "桌面应用启动");
+
+    let shared = Shared { app: Mutex::new(None), paths, cancel: AtomicBool::new(false), config_error: Mutex::new(config_error) };
 
     tauri::Builder::default()
-        .manage(paths)
-        .invoke_handler(tauri::generate_handler![app_info])
+        .plugin(tauri_plugin_dialog::init())
+        .manage(shared)
+        .setup(move |app| {
+            if !first_run {
+                let h = app.handle().clone();
+                let shared = h.state::<Shared>();
+                if let Err(e) = commands::open_app(&h, &shared, config) {
+                    tracing::error!("打开仓库失败：{e}");
+                    *shared.config_error.lock().unwrap() = Some(e.to_string());
+                }
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::app_info,
+            commands::get_settings,
+            commands::save_settings,
+            commands::load_library,
+            commands::game_row,
+            commands::game_changes,
+            commands::cancel_task,
+            commands::run_backup,
+            commands::history,
+            commands::snapshot_files,
+            commands::diff,
+            commands::set_comment,
+            commands::create_ref,
+            commands::search_comments,
+            commands::plan_restore,
+            commands::restore,
+            commands::undo_restore,
+            commands::pending_undo,
+            commands::add_game,
+            commands::remove_game,
+            commands::confirm_locations,
+            commands::ignored_games,
+            commands::enable_game,
+            commands::game_info,
+            commands::refresh_info,
+            commands::set_info_field,
+            commands::profiles,
+            commands::save_profile,
+            commands::delete_profile,
+            commands::fsck,
+            commands::reindex,
+            commands::update_rules,
+            commands::rules_info,
+            commands::open_path,
+        ])
         .run(tauri::generate_context!())
         .expect("Tauri 运行失败");
 }

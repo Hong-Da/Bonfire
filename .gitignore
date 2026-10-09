@@ -12,3 +12,5 @@ node_modules/
 .idea/
 *.tsbuildinfo
 /app/src-tauri/gen/
+/app/src-tauri/binaries/
+/app/src-tauri/resources/

@@ -41,7 +41,8 @@ void i18n.use(initReactI18next).init({
   lng: detectLanguage(readSaved(), navigator.language),
   fallbackLng: "zh-CN",
   keySeparator: false,
-  interpolation: { escapeValue: false },
+  // 与 Rust 端一致：占位符写作 {name}。
+  interpolation: { escapeValue: false, prefix: "{", suffix: "}" },
 });
 
 export default i18n;

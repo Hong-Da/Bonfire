@@ -104,6 +104,38 @@ impl App {
         Ok(out)
     }
 
+    /// 规则库缺失或超过 7 天未更新时联网更新（文档 4.2：启动时增量更新）。
+    /// 关闭联网或更新失败时继续使用已有规则，返回是否更新了。
+    pub fn ensure_rules(&self) -> bool {
+        if !self.config.metadata.online {
+            return false;
+        }
+        let paths = self.manifest_paths();
+        let cached = paths.cache_dir.join(manifest::COMPACT_FILE);
+        let age_days = std::fs::metadata(&cached)
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .map(|d| d.as_secs() / 86_400);
+        if age_days.is_some_and(|d| d < 7) {
+            return false;
+        }
+        match self.update_rules(manifest::MANIFEST_URL, None) {
+            Ok(r) => {
+                tracing::info!(?r, "已更新规则库");
+                true
+            }
+            Err(e) => {
+                tracing::info!("规则库更新失败，继续使用已有规则：{e}");
+                // 避免离线时每次启动都等待超时：记下这次尝试的时间。
+                if cached.is_file() {
+                    let _ = std::fs::File::options().write(true).open(&cached).and_then(|f| f.set_modified(std::time::SystemTime::now()));
+                }
+                false
+            }
+        }
+    }
+
     /// 扫描本机已安装的平台（`only` 指定时只扫描该平台）。
     pub fn scan_platforms(&mut self, lock: &RepoLock, only: Option<&str>) -> Result<ScanReport> {
         let mut disabled = self.config.backup.disabled_platforms.clone();

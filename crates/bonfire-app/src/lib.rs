@@ -9,6 +9,7 @@ pub mod discover;
 pub mod error;
 pub mod history;
 pub mod i18n;
+pub mod library;
 pub mod logging;
 pub mod metadata;
 pub mod paths;

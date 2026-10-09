@@ -1,0 +1,6 @@
+{
+  "bundle": {
+    "externalBin": ["binaries/bonfire"],
+    "resources": { "resources/manifest.json.zst": "manifest.json.zst" }
+  }
+}
