@@ -808,22 +808,48 @@ pub async fn rules_info(h: AppHandle) -> CmdResult<bonfire_app::discovery::manif
     with_app(h, move |app, _| Ok(app.load_rules()?.1)).await
 }
 
-/// 在资源管理器中打开文件夹（或选中文件）。
+/// 在资源管理器中打开文件夹（或选中文件）。路径不存在时打开最近的上级目录。
 #[tauri::command]
 pub async fn open_path(path: PathBuf) -> CmdResult<()> {
-    // 资源管理器不认识正斜杠，带 `/` 的路径会被忽略并打开默认的用户目录。
-    let path = PathBuf::from(path.to_string_lossy().replace('/', "\\"));
+    let path = explorer_target(&path);
     let mut cmd = std::process::Command::new("explorer");
-    if path.is_file() {
-        cmd.arg(format!("/select,{}", path.display()));
-    } else {
-        cmd.arg(&path);
+    let arg = explorer_arg(&path, path.is_file());
+    #[cfg(windows)]
+    {
+        // 资源管理器不按常规规则解析参数：标准库给含空格的参数整体加引号（`"/select,D:\x y.zip"`），
+        // 它不认识这种写法，会打开默认的“文档”目录。只能原样传入 `/select,"D:\x y.zip"`。
+        use std::os::windows::process::CommandExt;
+        cmd.raw_arg(arg);
     }
+    #[cfg(not(windows))]
+    cmd.arg(arg);
     cmd.spawn().map_err(|e| CmdError {
         kind: "general",
         message: e.to_string(),
     })?;
     Ok(())
+}
+
+/// 规范化要打开的路径：正斜杠转为反斜杠（资源管理器不认识 `/`，会打开默认目录），
+/// 去掉 `\\?\` 前缀，不存在时取最近的存在的上级目录。
+fn explorer_target(path: &std::path::Path) -> PathBuf {
+    let s = path.to_string_lossy().replace('/', "\\");
+    let s = s.strip_prefix(r"\\?\").unwrap_or(&s).to_string();
+    let p = PathBuf::from(s);
+    p.ancestors()
+        .find(|a| !a.as_os_str().is_empty() && a.exists())
+        .map(PathBuf::from)
+        .unwrap_or(p)
+}
+
+/// 资源管理器的命令行：文件为 `/select,"<路径>"`，目录为 `"<路径>"`。
+fn explorer_arg(path: &std::path::Path, is_file: bool) -> String {
+    let quoted = format!("\"{}\"", path.display());
+    if is_file {
+        format!("/select,{quoted}")
+    } else {
+        quoted
+    }
 }
 
 // ---------- 导出与导入 ----------
@@ -850,13 +876,7 @@ pub async fn open_location(h: AppHandle, game_id: String, ord: usize) -> CmdResu
         })
     })
     .await?;
-    // 文件夹不存在时打开最近的上级目录。
-    let existing = path
-        .ancestors()
-        .find(|p| p.exists())
-        .map(PathBuf::from)
-        .unwrap_or(path);
-    open_path(existing).await
+    open_path(path).await
 }
 
 #[tauri::command]
@@ -1010,4 +1030,33 @@ pub async fn import_files_auto(
         Ok(app.import_files_auto(&lock, &src, comment, false)?)
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explorer_args_keep_spaces_inside_quotes() {
+        let p = std::path::Path::new(r"D:\Exports\Hollow Knight-20261009.zip");
+        assert_eq!(
+            explorer_arg(p, true),
+            r#"/select,"D:\Exports\Hollow Knight-20261009.zip""#
+        );
+        assert_eq!(
+            explorer_arg(std::path::Path::new(r"D:\My Saves"), false),
+            r#""D:\My Saves""#
+        );
+    }
+
+    #[test]
+    fn explorer_target_normalizes_and_falls_back_to_existing_parent() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a b.zip");
+        std::fs::write(&file, b"x").unwrap();
+        let slashed = file.to_string_lossy().replace('\\', "/");
+        assert_eq!(explorer_target(std::path::Path::new(&slashed)), file);
+        let missing = dir.path().join("gone").join("x.zip");
+        assert_eq!(explorer_target(&missing), dir.path());
+    }
 }

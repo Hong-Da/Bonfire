@@ -17,3 +17,6 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 serde_json.workspace = true
 jiff.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
