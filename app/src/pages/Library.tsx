@@ -107,6 +107,26 @@ export default function Library() {
           </div>
         ) : (
           <ul className="game-list">
+            {rows.length > 0 && (
+              <li className="game list-cols">
+                <input
+                  type="checkbox"
+                  className="check"
+                  aria-label={t("ui.scan.pickVisible")}
+                  checked={rows.every((r) => s.selected.has(r.id))}
+                  ref={(el) => {
+                    if (el) el.indeterminate = rows.some((r) => s.selected.has(r.id)) && !rows.every((r) => s.selected.has(r.id));
+                  }}
+                  onChange={() => (rows.every((r) => s.selected.has(r.id)) ? s.clearSelection() : s.selectAll(rows.map((r) => r.id)))}
+                />
+                <span />
+                <span>{t("ui.library.colGame")}</span>
+                <span>{t("ui.library.colState")}</span>
+                <span className="col-backup">{t("ui.library.colBackup")}</span>
+                <span className="col-size">{t("ui.library.colSize")}</span>
+                <span />
+              </li>
+            )}
             {rows.map((r) => (
               <GameLine key={r.id} row={r} lang={i18n.language} selected={s.selected.has(r.id)} onToggle={() => s.toggle(r.id)} onOpen={() => s.go({ name: "game", id: r.id })} />
             ))}
@@ -195,7 +215,7 @@ function GameLine({ row, lang, selected, onToggle, onOpen }: { row: GameRow; lan
   const name = displayName(row, lang);
   const changed = row.summary.added + row.summary.modified + row.summary.deleted;
   return (
-    <li className={`game${selected ? " selected" : ""}`}>
+    <li className={`game${selected ? " selected" : ""}${row.state === "has-changes" ? " changed" : ""}`}>
       <input type="checkbox" className="check" checked={selected} onChange={onToggle} aria-label={t("ui.library.selectGame", { name })} />
       <Cover row={row} />
       <div className="title" onClick={onOpen} onKeyDown={(e) => e.key === "Enter" && onOpen()} role="button" tabIndex={0}>
@@ -225,8 +245,8 @@ function GameLine({ row, lang, selected, onToggle, onOpen }: { row: GameRow; lan
         <b>{bytes(row.totalBytes)}</b>
         <div>{t("ui.library.files", { n: row.files })}</div>
       </div>
-      <button className="btn ghost small" onClick={onOpen} aria-label={t("ui.library.openHistory", { name })} title={t("ui.library.openHistory", { name })}>
-        <Icon name="restore" />
+      <button className="btn ghost small open" onClick={onOpen} aria-label={t("ui.library.openHistory", { name })} title={t("ui.library.openHistory", { name })}>
+        <Icon name="next" />
       </button>
     </li>
   );

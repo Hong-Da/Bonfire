@@ -144,7 +144,7 @@ export default function ScanPage() {
             {scan.platforms.length === 0 && <div className="callout warn" style={{ margin: "12px 20px" }}>{t("ui.scan.noPlatforms")}</div>}
             {scan.rules && !scan.rules.path && <div className="callout warn" style={{ margin: "12px 20px" }}>{t("ui.scan.noRules")}</div>}
             {visible.length > 0 && (
-              <div className="list-head">
+              <div className="game found list-cols list-head">
                 <input
                   type="checkbox"
                   className="check"
@@ -155,19 +155,26 @@ export default function ScanPage() {
                   onChange={() => pickVisible(visiblePicked === visible.length ? "none" : "all")}
                   aria-label={t("ui.scan.pickVisible")}
                 />
-                <span className="muted">{t(filtered ? "ui.scan.shownFiltered" : "ui.scan.shown", { n: visible.length, total: games.length })}</span>
-                {filtered && (
-                  <button
-                    className="btn ghost small"
-                    onClick={() => {
-                      setPlatform("all");
-                      setSource("all");
-                      setQuery("");
-                    }}
-                  >
-                    {t("ui.library.clearFilters")}
-                  </button>
-                )}
+                <span />
+                <span className="list-count">
+                  {t(filtered ? "ui.scan.shownFiltered" : "ui.scan.shown", { n: visible.length, total: games.length })}
+                  {filtered && (
+                    <button
+                      className="btn ghost small"
+                      onClick={() => {
+                        setPlatform("all");
+                        setSource("all");
+                        setQuery("");
+                      }}
+                    >
+                      {t("ui.library.clearFilters")}
+                    </button>
+                  )}
+                </span>
+                <span>{t("ui.scan.colLocation")}</span>
+                <span>{t("ui.scan.colSource")}</span>
+                <span className="col-size">{t("ui.library.colSize")}</span>
+                <span />
               </div>
             )}
             <ul className="game-list">
@@ -176,7 +183,22 @@ export default function ScanPage() {
               ))}
               {visible.length === 0 && (
                 <li className="empty">
-                  <p>{filter === "new" && games.length > 0 ? t("ui.scan.noneNew") : t("ui.library.noMatch")}</p>
+                  {filter === "new" && games.length > 0 && !filtered ? (
+                    <>
+                      <h2>{t("ui.scan.noneNew")}</h2>
+                      <p>{t("ui.scan.noneNewBody")}</p>
+                      <div className="actions">
+                        <button className="btn primary" onClick={() => store.go({ name: "library" })}>
+                          <Icon name="library" /> {t("ui.scan.toLibrary")}
+                        </button>
+                        <button className="btn" onClick={() => setFilter("all")}>
+                          {t("ui.scan.showAll")}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p>{t("ui.library.noMatch")}</p>
+                  )}
                 </li>
               )}
             </ul>

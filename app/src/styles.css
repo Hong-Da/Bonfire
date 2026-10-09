@@ -20,6 +20,8 @@
   --danger: #c2362f;
   --danger-soft: #f9e0de;
   --focus: #1f6feb;
+  /* 分支图中每条路线的颜色 */
+  --lane-0: #3b6fb6; --lane-1: #2f8f83; --lane-2: #8a55b8; --lane-3: #b7801a; --lane-4: #c2457a; --lane-5: #5b7a2e;
   --shadow: 0 1px 2px rgba(31, 36, 41, 0.08), 0 8px 24px rgba(31, 36, 41, 0.12);
   --radius: 6px;
   --font-ui: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
@@ -41,6 +43,7 @@
     --danger: #ef7a72;
     --danger-soft: #3b1f1d;
     --focus: #6aa7ff;
+    --lane-0: #7fa8e6; --lane-1: #5cc2b4; --lane-2: #b893e0; --lane-3: #e0b14f; --lane-4: #e889ae; --lane-5: #9cc265;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.45);
     color-scheme: dark;
   }
@@ -59,6 +62,7 @@
   --danger: #ef7a72;
   --danger-soft: #3b1f1d;
   --focus: #6aa7ff;
+  --lane-0: #7fa8e6; --lane-1: #5cc2b4; --lane-2: #b893e0; --lane-3: #e0b14f; --lane-4: #e889ae; --lane-5: #9cc265;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
 }
@@ -125,7 +129,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--surface);
 }
-.toolbar h1 { font: 600 20px/1.2 var(--font-sign); margin: 0 12px 0 0; letter-spacing: 0.01em; }
+.toolbar h1 { font: 700 22px/1.2 var(--font-sign); margin: 0 12px 0 4px; letter-spacing: 0.01em; }
 .toolbar .grow { flex: 1; }
 .chips { display: flex; gap: 4px; }
 .chip {
@@ -139,14 +143,24 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 /* ---------- 游戏库列表 ---------- */
 
 .library { flex: 1; overflow: auto; }
-.game-list { list-style: none; margin: 0; padding: 8px 12px 96px; }
+.game-list { list-style: none; margin: 0; padding: 4px 16px 96px; display: grid; gap: 6px; }
+/* 每个游戏一张卡片；有更新的左侧亮一道余烬色，勾选的整张卡片描边 */
 .game {
-  display: grid; grid-template-columns: 28px 40px minmax(180px, 1fr) 150px 140px 110px 32px; align-items: center; gap: 12px;
-  padding: 8px 8px; border-radius: var(--radius); border-bottom: 1px solid var(--line);
+  display: grid; grid-template-columns: 24px 44px minmax(180px, 1fr) 150px 130px 110px 32px; align-items: center; gap: 14px;
+  padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
+  transition: border-color 0.12s, background 0.12s;
 }
-.game:hover { background: var(--surface); }
-.game.selected { background: var(--raised); }
-.cover { width: 40px; height: 60px; border-radius: 3px; object-fit: cover; background: var(--line); display: block; }
+.game:hover { border-color: color-mix(in srgb, var(--muted) 45%, var(--line)); background: var(--raised); }
+.game.changed { box-shadow: inset 3px 0 0 var(--ember); }
+.game.selected { border-color: var(--ember); background: color-mix(in srgb, var(--ember) 5%, var(--raised)); }
+.game.list-cols {
+  position: sticky; top: 0; z-index: 2; padding: 10px 13px 6px; border: 0; border-radius: 0; background: var(--smoke);
+  font-size: 12px; color: var(--muted); box-shadow: none;
+}
+.game.list-cols:hover { background: var(--smoke); }
+.game .open { color: var(--faint); }
+.game:hover .open { color: var(--ember); }
+.cover { width: 44px; height: 66px; border-radius: 3px; object-fit: cover; background: var(--line); display: block; }
 .cover.placeholder { display: grid; place-items: center; color: var(--faint); font: 600 18px var(--font-sign); }
 .game .title { min-width: 0; cursor: pointer; }
 .game .title strong { display: block; font: 500 16px/1.25 var(--font-sign); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -166,16 +180,20 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 
 .empty { display: grid; place-content: center; text-align: center; gap: 10px; padding: 64px 24px; color: var(--muted); }
 .empty h2 { font: 500 20px var(--font-sign); color: var(--ink); margin: 0; }
+.empty p { max-width: 56ch; margin: 0 auto; }
 .empty .actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 
 /* 列表上方的全选框与筛选结果 */
 .list-head { display: flex; align-items: center; gap: 10px; padding: 8px 20px 8px 26px; font-size: 13px; border-bottom: 1px solid var(--line); }
+.list-head.list-cols { display: grid; margin: 8px 16px 0; padding: 4px 13px; border: 0; position: static; }
+.list-count { display: flex; align-items: center; gap: 8px; }
 
 /* 发现游戏页：存档位置与来源列 */
-.game.found { grid-template-columns: 28px 40px minmax(180px, 1fr) minmax(160px, 220px) 110px 100px 72px; }
+.game.found { grid-template-columns: 24px 44px minmax(180px, 1fr) minmax(160px, 240px) 110px 100px 76px; }
+.game.found .title { cursor: pointer; }
 .path-short { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
-.tag.found-new { color: var(--ember); background: var(--ember-soft); }
-.tag.found-managed { color: var(--moss); }
+.tag.found-new { color: var(--ember); background: var(--ember-soft); font-weight: 600; }
+.tag.found-managed { color: var(--moss); background: color-mix(in srgb, var(--moss) 12%, transparent); }
 .tag.found-ignored { color: var(--faint); }
 .no-saves { margin: 8px 20px 96px; color: var(--muted); }
 .no-saves summary { cursor: pointer; padding: 6px 0; }
@@ -217,6 +235,8 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .callout { padding: 10px 12px; border-radius: var(--radius); background: var(--smoke); margin: 8px 0; }
 .callout.warn { background: var(--ember-soft); }
 .callout.error { background: var(--danger-soft); color: var(--danger); }
+.callout.same { display: grid; gap: 8px; justify-items: start; background: var(--ember-soft); box-shadow: inset 3px 0 0 var(--ember); }
+.callout.same p { margin: 0; }
 
 /* ---------- 游戏详情 / 历史 ---------- */
 
@@ -265,7 +285,14 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .detail { flex: 1; display: grid; grid-template-columns: minmax(380px, 1.25fr) minmax(320px, 1fr); min-height: 0; }
 .detail > section { overflow: auto; min-height: 0; }
 .trail { padding: 0 16px 32px; }
-.trail-head { position: sticky; top: 0; z-index: 1; display: grid; gap: 8px; padding: 12px 0 10px; background: var(--smoke); }
+.trail-head { position: sticky; top: 0; z-index: 1; display: grid; gap: 8px; padding: 14px 0 10px; background: var(--smoke); }
+.graph-title { display: flex; align-items: baseline; gap: 10px; }
+.graph-title h2 { margin: 0; font: 600 17px var(--font-sign); }
+.graph-help {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line);
+  font-size: 12px; color: var(--muted); cursor: help; align-self: center;
+}
+.lane-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 2px; }
 .trail-head .field { width: 100%; }
 .ref-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .ref-chips:empty { display: none; }
@@ -278,7 +305,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .ref-chip:hover { border-color: var(--muted); }
 
 /* 时间线：每个快照是路线上的一处篝火 */
-.trail-row { display: flex; align-items: stretch; min-height: 64px; cursor: pointer; border-radius: var(--radius); }
+.trail-row { display: flex; align-items: stretch; min-height: 64px; cursor: pointer; border-radius: var(--radius); scroll-margin: 140px 0 16px; }
 .trail-row:hover { background: var(--surface); }
 .trail-row[aria-selected="true"] { background: var(--raised); box-shadow: inset 3px 0 0 var(--ember); }
 .trail-row svg { flex: none; }
@@ -292,11 +319,15 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .tag.current { color: var(--ember); border-color: var(--ember); }
 .tag.auto { color: var(--faint); }
 .tag.new { color: var(--moss); border: 1px dashed var(--moss); background: none; }
+.tag.same { color: var(--ember-ink); background: var(--ember); font-weight: 600; }
+.tag.pick { color: var(--ember); border: 1px solid var(--ember); background: none; }
 .trail-row.compact { min-height: 0; }
 .trail-row.compact .entry { padding: 5px 8px 5px 4px; }
 .trail-row.compact .entry .stats { display: none; }
 .trail-row.mark-out .entry { opacity: 0.45; }
 .trail-row.mark-pick { background: var(--ember-soft); }
+.trail-row.mark-same { background: var(--ember-soft); box-shadow: inset 3px 0 0 var(--ember); }
+.trail-row.mark-same .comment { font-weight: 600; }
 
 /* ---------- 导出与导入 ---------- */
 
@@ -316,7 +347,19 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .summary { margin: 4px 0 0; font-size: 13px; color: var(--ink); }
 .transfer-graph { border: 1px solid var(--line); border-radius: var(--radius); overflow: auto; max-height: 56vh; padding: 4px 8px; background: var(--smoke); }
 .graph-hint { padding: 6px 4px; }
-.source-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.source-picks { display: grid; gap: 8px; }
+.source-pick {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-align: left; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+}
+.source-pick:hover:not(:disabled) { border-color: var(--ember); }
+.source-pick:disabled { opacity: 0.5; cursor: default; }
+.source-pick svg { color: var(--ember); flex: none; }
+.source-pick b { display: block; font-weight: 600; }
+.source-pick small { display: block; color: var(--muted); font-size: 12px; }
+.source-picks.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.source-picks.compact .source-pick { padding: 6px 8px; gap: 6px; font-size: 13px; }
+.source-picks.compact .source-pick b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .source-path { margin: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .import-summary p { margin: 0 0 8px; font-size: 13px; }
 .ref-plans, .folder-map { list-style: none; margin: 0; padding: 0; font-size: 13px; }
@@ -361,17 +404,18 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 
 /* ---------- 设置与向导 ---------- */
 
-.page { flex: 1; overflow: auto; padding: 8px 24px 48px; }
-.settings { max-width: 720px; }
-.settings section { padding: 16px 0; border-bottom: 1px solid var(--line); }
-.settings h2 { font: 600 16px var(--font-sign); margin: 0 0 10px; }
+.page { flex: 1; overflow: auto; padding: 16px 24px 48px; }
+.settings { max-width: 780px; display: grid; gap: 14px; }
+.settings section { padding: 16px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.settings h2 { font: 600 16px var(--font-sign); margin: 0 0 8px; }
 .row { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: center; padding: 6px 0; }
 .row label { color: var(--muted); }
 .row .inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row .field { width: 100%; }
 .hint { font-size: 12px; color: var(--muted); margin: 2px 0 0; }
 
-.wizard { display: grid; place-items: center; height: 100%; padding: 24px; }
+/* 卡片固定在上方，每一步高度不同时标题与按钮不会上下跳动 */
+.wizard { display: grid; justify-items: center; align-items: start; height: 100%; padding: max(24px, 12vh) 24px 24px; overflow: auto; }
 .wizard .card { width: min(560px, 100%); background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); padding: 28px 32px; }
 .wizard .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .wizard .brand img { width: 44px; height: 44px; }
@@ -383,6 +427,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .wizard .options { display: grid; gap: 8px; margin: 14px 0; }
 .wizard .option { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
 .wizard .option:has(input:checked) { border-color: var(--ember); background: var(--raised); }
+.wizard .option input { accent-color: var(--ember); margin-top: 3px; }
 .wizard footer { display: flex; justify-content: space-between; margin-top: 18px; }
 .summary-list { margin: 10px 0; padding: 0; list-style: none; }
 .summary-list li { display: grid; grid-template-columns: 150px 1fr; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
@@ -398,9 +443,9 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .toast button { margin-left: auto; }
 
 @media (max-width: 980px) {
-  .game { grid-template-columns: 28px 40px 1fr 130px 32px; }
+  .game { grid-template-columns: 24px 44px 1fr 130px 32px; }
   .game .col-backup, .game .col-size { display: none; }
-  .game.found { grid-template-columns: 28px 40px 1fr 110px 72px; }
+  .game.found { grid-template-columns: 24px 44px 1fr 110px 76px; }
   .detail { grid-template-columns: 1fr; }
   .files { border: 0; }
   .transfer { grid-template-columns: 1fr; }

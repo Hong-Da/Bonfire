@@ -69,12 +69,20 @@ export default function ImportDialog({ hist, gameName, onClose, onDone }: { hist
   const mark = (id: string): Mark | undefined => {
     if (newIds.has(id)) return "new";
     if (loaded?.kind === "files") {
-      if (loaded.preview.identical === id) return "pick";
+      if (loaded.preview.identical === id) return "same";
       if (placement === "fork" && id === parent) return "pick";
-      if (placement === "continue" && id === branches.find((b) => b.name === onto)?.target) return "pick";
+      if (placement === "continue" && id === continueTip) return "pick";
     }
     return undefined;
   };
+
+  const continueTip = branches.find((b) => b.name === onto)?.target ?? null;
+  // 图中要突出的快照：内容相同的快照，或导入后的父快照。
+  const focus =
+    loaded?.kind === "files"
+      ? (loaded.preview.identical ?? (placement === "fork" ? parent : placement === "continue" ? continueTip : null))
+      : null;
+  const [focusTick, setFocusTick] = useState(0);
 
   const place = (): ImportPlace =>
     placement === "continue" ? { kind: "continue", branch: onto } : { kind: "newBranch", name: branchName.trim() || null, parent: placement === "fork" ? parent : null };
@@ -121,16 +129,22 @@ export default function ImportDialog({ hist, gameName, onClose, onDone }: { hist
     <Modal title={t("ui.transfer.importTitle", { name: gameName })} subtitle={t("ui.transfer.importSafe")} onClose={onClose} footer={footer} wide>
       <div className="transfer">
         <div className="transfer-options">
-          <div className="source-picks">
-            <button className="btn" onClick={() => void choose("bundle")} disabled={busy}>
-              <Icon name="branch" /> {t("ui.transfer.chooseBundle")}
-            </button>
-            <button className="btn" onClick={() => void choose("zip")} disabled={busy}>
-              <Icon name="import" /> {t("ui.transfer.chooseZip")}
-            </button>
-            <button className="btn" onClick={() => void choose("folder")} disabled={busy}>
-              <Icon name="folder" /> {t("ui.transfer.chooseFolder")}
-            </button>
+          <div className={`source-picks${loaded ? " compact" : ""}`}>
+            {(
+              [
+                ["bundle", "branch", "ui.transfer.chooseBundle", "ui.transfer.chooseBundleHint"],
+                ["zip", "import", "ui.transfer.chooseZip", "ui.transfer.chooseZipHint"],
+                ["folder", "folder", "ui.transfer.chooseFolder", "ui.transfer.chooseFolderHint"],
+              ] as const
+            ).map(([what, icon, key, hint]) => (
+              <button key={what} className="source-pick" onClick={() => void choose(what)} disabled={busy}>
+                <Icon name={icon} />
+                <span>
+                  <b>{t(key)}</b>
+                  {!loaded && <small>{t(hint)}</small>}
+                </span>
+              </button>
+            ))}
           </div>
           {!loaded && !error && <p className="hint">{t("ui.transfer.importIntro")}</p>}
           {error && <div className="callout error">{error}</div>}
@@ -181,7 +195,9 @@ export default function ImportDialog({ hist, gameName, onClose, onDone }: { hist
             <Timeline
               nodes={graph}
               head={hist.head}
-              selected={null}
+              selected={focus}
+              focus={focus}
+              focusKey={focusTick}
               onSelect={(id) => {
                 if (loaded?.kind === "files" && !newIds.has(id)) {
                   setPlacement("fork");
@@ -193,7 +209,7 @@ export default function ImportDialog({ hist, gameName, onClose, onDone }: { hist
               label={t("ui.transfer.graph")}
             />
           )}
-          {loaded?.kind === "files" && graph.length > 0 && <p className="hint graph-hint">{t("ui.transfer.graphForkHint")}</p>}
+          {loaded?.kind === "files" && !loaded.preview.identical && graph.length > 0 && <p className="hint graph-hint">{t("ui.transfer.graphForkHint")}</p>}
         </div>
       </div>
     </Modal>
@@ -258,7 +274,14 @@ export default function ImportDialog({ hist, gameName, onClose, onDone }: { hist
           ))}
         </ul>
         {p.unmapped.length > 0 && <div className="callout error">{t("ui.transfer.unmappedHint", { n: p.unmapped.length })}</div>}
-        {p.identical && <div className="callout">{t("ui.transfer.identical", { id: shortId(p.identical) })}</div>}
+        {p.identical && (
+          <div className="callout same">
+            <p>{t("ui.transfer.identical", { id: shortId(p.identical) })}</p>
+            <button className="btn small" onClick={() => setFocusTick((n) => n + 1)}>
+              {t("ui.transfer.showInGraph")}
+            </button>
+          </div>
+        )}
       </div>
     );
   }

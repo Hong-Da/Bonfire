@@ -767,6 +767,8 @@ pub async fn rules_info(h: AppHandle) -> CmdResult<bonfire_app::discovery::manif
 /// 在资源管理器中打开文件夹（或选中文件）。
 #[tauri::command]
 pub async fn open_path(path: PathBuf) -> CmdResult<()> {
+    // 资源管理器不认识正斜杠，带 `/` 的路径会被忽略并打开默认的用户目录。
+    let path = PathBuf::from(path.to_string_lossy().replace('/', "\\"));
     let mut cmd = std::process::Command::new("explorer");
     if path.is_file() {
         cmd.arg(format!("/select,{}", path.display()));
@@ -792,6 +794,10 @@ pub async fn open_location(h: AppHandle, game_id: String, ord: usize) -> CmdResu
             .nth(ord)
             .ok_or_else(|| AppError::Invalid(format!("存档位置 {ord} 不存在")))?;
         Ok(match loc.kind {
+            // 不含通配符的“通配位置”本身就是目录（如 `.../SaveGames`），直接打开它。
+            LocationKind::Glob if !loc.resolved_path.contains(['*', '?', '[']) => {
+                PathBuf::from(&loc.resolved_path)
+            }
             LocationKind::Glob => bonfire_app::core::scan::glob_base(&loc.resolved_path),
             LocationKind::Registry => {
                 return Err(AppError::Invalid("注册表存档没有文件夹".into()).into());

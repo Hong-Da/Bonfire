@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage, imageSrc } from "../api";
-import Timeline from "../components/Timeline";
+import Timeline, { laneColor } from "../components/Timeline";
 import { Icon, Menu, StatusBadge, displayName } from "../components/ui";
 import { bytes, dateTime, displayPath, hours, relative, shortId } from "../lib/format";
+import { layout } from "../lib/timeline";
 import { useStore } from "../store";
 import type { DiffEntry, HistoryView, LocationRecord, MetadataView, SnapshotNode, TreeEntry } from "../types";
 import BackupDialog, { MAX_COMMENT } from "./BackupDialog";
@@ -57,6 +58,9 @@ export default function GameDetail({ id }: { id: string }) {
     return q ? hist.nodes.filter((n) => n.comment.toLowerCase().includes(q) || n.refs.some((r) => r.toLowerCase().includes(q))) : hist.nodes;
   }, [hist, query]);
   const node = hist?.nodes.find((n) => n.id === selected) ?? null;
+  // 与时间线相同的布局：用来给分支按钮配上对应路线的颜色。
+  const graph = useMemo(() => layout(nodes), [nodes]);
+  const laneOf = useMemo(() => new Map(graph.rows.map((r) => [r.id, r.col])), [graph]);
 
   const afterChange = async () => {
     await reload();
@@ -113,12 +117,23 @@ export default function GameDetail({ id }: { id: string }) {
       <div className="detail">
         <section className="trail">
           <div className="trail-head">
+            <div className="graph-title">
+              <h2>{t("ui.history.graphTitle")}</h2>
+              <span className="muted num">{t("ui.history.graphBranches", { n: branches.length })}</span>
+              <span className="graph-help" tabIndex={0} title={t("ui.history.graphHint")} aria-label={t("ui.history.graphHint")}>
+                ?
+              </span>
+            </div>
             <div className="ref-chips" role="group" aria-label={t("ui.history.branches")}>
-              {branches.map((b) => (
-                <button key={b.name} className={`ref-chip branch${b.current ? " current" : ""}`} onClick={() => setSelected(b.target)} title={t("ui.history.goBranch", { name: b.name })}>
-                  <Icon name="branch" size={13} /> {b.name}
-                </button>
-              ))}
+              {branches.map((b) => {
+                const col = laneOf.get(b.target);
+                return (
+                  <button key={b.name} className={`ref-chip branch${b.current ? " current" : ""}`} onClick={() => setSelected(b.target)} title={t("ui.history.goBranch", { name: b.name })}>
+                    <i className="lane-dot" style={{ background: graph.columns > 1 && col != null ? laneColor(col) : "var(--faint)" }} />
+                    {b.name}
+                  </button>
+                );
+              })}
               {tags.map((g) => (
                 <button key={g.name} className="ref-chip" onClick={() => setSelected(g.target)} title={t("ui.history.goTag", { name: g.name })}>
                   <Icon name="tag" size={13} /> {g.name}
@@ -138,7 +153,7 @@ export default function GameDetail({ id }: { id: string }) {
               </div>
             </div>
           ) : (
-            <Timeline nodes={nodes} head={hist.head} selected={selected} onSelect={setSelected} />
+            <Timeline nodes={nodes} head={hist.head} selected={selected} onSelect={setSelected} focus={selected} />
           )}
         </section>
         <section className="files">

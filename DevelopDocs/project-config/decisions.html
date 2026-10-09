@@ -24,8 +24,8 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 33 项，更新于 2026-10-09 03:59。需要改动的项请在对话中告诉 Claude（附编号）。</p>
-<nav><a href="#s-0">全局</a><a href="#s-1">M1 核心库</a><a href="#s-2">M2 存档发现</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">用户修改</a></nav>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 37 项，更新于 2026-10-09 11:30。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<nav><a href="#s-0">全局</a><a href="#s-1">M1 核心库</a><a href="#s-2">M2 存档发现</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">用户修改</a><a href="#s-5">缺陷修复</a></nav>
 <section id="s-0"><h2>全局<small>1 项</small></h2>
       <article id="G-1">
         <header><code>G-1</code><h3>后续开发中的待确认事项如何处理？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
@@ -176,7 +176,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">等待用户本机安装验收</li><li class="chosen">自动化测试 + 真实窗口截图检查后视为通过；安装、卸载、升级由用户事后复核 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>为避免改动用户系统，未在本机执行静默安装；界面在临时仓库中用真实扫描数据逐页截图检查（游戏库、详情时间线、设置、暗色主题、备份与恢复弹窗）。安装包：target/release/bundle/nsis/Bonfire_0.1.0_x64-setup.exe。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-4"><h2>用户修改<small>8 项</small></h2>
+      </article></section><section id="s-4"><h2>用户修改<small>11 项</small></h2>
       <article id="U-1">
         <header><code>U-1</code><h3>数据存放位置（配置、仓库、日志、缓存）</h3><span class="status">用户指定</span></header>
         <ul><li class="">配置在 %APPDATA%/Bonfire，仓库、日志、缓存在 %LOCALAPPDATA%/Bonfire（原默认）</li><li class="chosen">全部放在项目（程序）目录下的 data：data/config.toml、data/repo、data/logs、data/cache、data/webview <b>✓ 采用</b></li></ul>
@@ -223,6 +223,30 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <header><code>U-5</code><h3>游戏截图备份方案（见 screenshot-design.html）</h3><span class="status">用户确认</span></header>
         <ul><li class="">按方案 S1–S6 推荐项</li><li class="chosen">按推荐项，并补充：S3 可设置定时备份（每天、每周等）；S1 增加 Windows Xbox 截图 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>用户 2026-10-09 确认方案并补充两点。</p><p class="impact"><span>影响</span>来源：Steam、Xbox（游戏栏 / Xbox 应用，读取系统“捕获”文件夹的实际位置）、手动文件夹；随每次备份收集，另可按天 / 周等定时收集；截图不进存档快照，单独成相册，与时间线按拍摄时间关联；原图入库；详情页“截图”标签页；可单独导出，历史包可选包含。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-6">
+        <header><code>U-6</code><h3>游戏库、发现游戏、设置、向导、导入对话框的界面优化（与详情页风格统一）</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">保持原样</li><li class="chosen">游戏库与发现页改为卡片行并加列标题（含全选框）；有更新的游戏左侧亮余烬色，勾选的整行描边；设置分组为卡片；向导卡片固定在上方、选项用品牌色；导入来源改为带说明的大按钮；发现页“没有新游戏”时给出去游戏库 / 查看全部的按钮 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09：游戏详情 UI 不错，其它地方 UI 有些丑，检查优化。</p><p class="impact"><span>影响</span>只改界面样式与少量结构，不影响功能；截图见 docs/acceptance/ui-polish/。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-6a">
+        <header><code>U-6a</code><h3>如何查看存档分支图？</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">另开一个分支图页面</li><li class="chosen">详情页左侧的时间线就是分支图：加标题“存档分支图”与分支数、说明；有分叉时每条路线一种颜色，分支按钮带同色圆点，点击跳到该分支并自动滚动到可见位置 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户不知道在哪里看分支图；原来只有灰色线条，看不出它是分支图。放在详情页最常用的位置，不另加页面。</p><p class="impact"><span>影响</span>Timeline 组件按列着色（--lane-0…5，明暗两套），导出 / 导入对话框中的分支图同样着色。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-6b">
+        <header><code>U-6b</code><h3>导入的存档与已有快照相同时，如何在图中标出？</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">原样：小圆圈 + 浅色底</li><li class="chosen">该快照整行高亮、左侧余烬色竖条、加粗备注并带实心“内容相同”标签；分支图自动滚动到它；提示框带“在图中定位”按钮 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈“怎么标出的不明显”。</p><p class="impact"><span>影响</span>Timeline 新增标记 same 与 focus 参数；选中的父快照 / 分支末端显示“已选”标签。</p>
+        <footer>2026-10-09</footer>
+      </article></section><section id="s-5"><h2>缺陷修复<small>1 项</small></h2>
+      <article id="U-6c">
+        <header><code>U-6c</code><h3>“打开存档位置”打开的是用户目录而不是存档目录</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>资源管理器不认识正斜杠路径（存档位置记录为 C:/Users/...），会忽略参数并打开默认目录；另外不含通配符的目录型位置被当成通配位置，打开了上一级。</p><p class="impact"><span>影响</span>open_path 打开前统一转为反斜杠（安装目录、导出位置同样受益）；不含通配符的位置直接打开该目录。</p>
         <footer>2026-10-09</footer>
       </article></section>
 </div></body></html>

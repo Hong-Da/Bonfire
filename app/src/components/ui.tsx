@@ -6,7 +6,7 @@ import type { GameRow } from "../types";
 
 type IconName =
   | "library" | "settings" | "scan" | "backup" | "restore" | "branch" | "tag" | "search" | "folder"
-  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron";
+  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next";
 
 const PATHS: Record<IconName, string> = {
   library: "M4 5h4v14H4zM10 5h4v14h-4zM16.5 5.5l3.8 1-3.6 13.5-3.8-1z",
@@ -30,6 +30,7 @@ const PATHS: Record<IconName, string> = {
   more: "M6 12h.01M12 12h.01M18 12h.01",
   game: "M7 8h10a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L14.5 13h-5l-1.1 1.8A3 3 0 0 1 3 13v-1a4 4 0 0 1 4-4zM8 10v3M6.5 11.5h3M16 11h.01M18 12.5h.01",
   chevron: "M8 10l4 4 4-4",
+  next: "M10 7l5 5-5 5",
 };
 
 export function Icon({ name, size = 18, label }: { name: IconName; size?: number; label?: string }) {
