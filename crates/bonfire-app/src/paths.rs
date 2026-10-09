@@ -1,14 +1,14 @@
-//! 应用目录解析：标准模式与便携模式。
+//! 应用目录解析。
 //!
-//! - 标准模式：配置在 `%APPDATA%\Bonfire\`，日志与缓存在 `%LOCALAPPDATA%\Bonfire\`；
-//!   默认仓库在程序目录下的 `data`（开发时为项目根目录下的 `data`），可在配置中修改。
-//! - 便携模式：程序目录下存在 `portable` 标记文件时，全部放在程序目录旁的 `data\` 下。
-//! - 环境变量 `BONFIRE_HOME` 指定一个根目录，效果同便携模式（测试与自动化使用）。
+//! 所有数据（配置 `config.toml`、仓库 `repo`、日志 `logs`、缓存 `cache`、窗口数据 `webview`）
+//! 都放在程序目录下的 `data` 中；开发时（从 `<项目>/target/debug|release` 运行）为项目根目录下的 `data`。
+//! 仓库位置可在配置中修改。
+//! - 程序目录下存在 `portable` 标记文件时同样使用 `<程序目录>\data`（与标准模式一致，标记仅用于界面提示）。
+//! - 环境变量 `BONFIRE_HOME` 指定另一个数据根目录（测试与自动化使用）。
 //! - 环境变量 `BONFIRE_CONFIG` 单独指定配置文件路径。
 
 use std::path::{Path, PathBuf};
 
-pub const APP_DIR_NAME: &str = "Bonfire";
 pub const PORTABLE_MARKER: &str = "portable";
 pub const ENV_HOME: &str = "BONFIRE_HOME";
 pub const ENV_CONFIG: &str = "BONFIRE_CONFIG";
@@ -50,18 +50,15 @@ impl AppPaths {
         }
     }
 
+    /// 标准模式：配置、仓库、日志、缓存都在程序（开发时为项目）目录下的 `data` 中。
     fn standard() -> Self {
-        // 两个系统目录都取不到时（极少见）退回当前目录，保证程序仍能启动。
-        let config_root = dirs::config_dir().unwrap_or_else(|| PathBuf::from(".")).join(APP_DIR_NAME);
-        let data_root = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from(".")).join(APP_DIR_NAME);
         let base = std::env::current_exe().ok().and_then(|exe| exe.parent().map(program_root)).unwrap_or_else(|| PathBuf::from("."));
-        Self {
-            config_file: config_root.join("config.toml"),
-            default_repo_dir: base.join(DATA_DIR),
-            logs_dir: data_root.join("logs"),
-            cache_dir: data_root.join("cache"),
-            portable: false,
-        }
+        Self::under_root(&base.join(DATA_DIR), false)
+    }
+
+    /// 窗口（WebView）数据目录，与其他数据放在一起。
+    pub fn webview_dir(&self) -> PathBuf {
+        self.logs_dir.parent().map(|p| p.join("webview")).unwrap_or_else(|| PathBuf::from("webview"))
     }
 }
 
@@ -100,12 +97,15 @@ mod tests {
     }
 
     #[test]
-    fn standard_uses_app_dir_name_and_project_data() {
+    fn standard_puts_everything_in_project_data() {
         let p = AppPaths::standard();
-        assert!(p.config_file.ends_with("Bonfire/config.toml"));
-        // 测试程序位于 <项目>/target/debug/deps，默认仓库是项目根目录下的 data。
-        let project = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap();
-        assert_eq!(p.default_repo_dir, project.join("data"));
+        // 测试程序位于 <项目>/target/debug/deps：全部数据在项目根目录下的 data。
+        let data = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap().join("data");
+        assert_eq!(p.config_file, data.join("config.toml"));
+        assert_eq!(p.default_repo_dir, data.join("repo"));
+        assert_eq!(p.logs_dir, data.join("logs"));
+        assert_eq!(p.cache_dir, data.join("cache"));
+        assert_eq!(p.webview_dir(), data.join("webview"));
         assert!(!p.portable);
     }
 

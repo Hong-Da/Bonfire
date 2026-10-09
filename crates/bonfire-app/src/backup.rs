@@ -566,6 +566,14 @@ mod tests {
     }
 
     #[test]
+    fn repo_cannot_share_dir_with_app_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = crate::AppPaths::under_root(dir.path(), false);
+        let r = crate::App::open(paths, crate::Config::default(), crate::Locale::ZhCn, dir.path());
+        assert!(matches!(r, Err(AppError::Invalid(_))));
+    }
+
+    #[test]
     fn find_game_by_name_and_remove() {
         let mut env = Env::new();
         let g = env.add_game("Hollow Knight");

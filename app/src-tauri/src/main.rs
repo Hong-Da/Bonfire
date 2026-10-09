@@ -26,12 +26,16 @@ fn main() {
     }
     tracing::info!(version = bonfire_app::VERSION, portable = paths.portable, first_run, "桌面应用启动");
 
+    let webview_dir = paths.webview_dir();
     let shared = Shared { app: Mutex::new(None), paths, cancel: AtomicBool::new(false), config_error: Mutex::new(config_error) };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(shared)
         .setup(move |app| {
+            // 窗口数据（WebView 本地存储等）也放在 data 中，而不是用户目录。
+            let window = app.config().app.windows.first().cloned().expect("tauri.conf.json 中定义了主窗口");
+            tauri::WebviewWindowBuilder::from_config(app.handle(), &window)?.data_directory(webview_dir).build()?;
             if !first_run {
                 let h = app.handle().clone();
                 let shared = h.state::<Shared>();

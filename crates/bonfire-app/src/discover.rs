@@ -18,6 +18,12 @@ pub const BUNDLED_MANIFEST: &str = manifest::COMPACT_FILE;
 /// 测试用：`BONFIRE_FAKE_ROOT` 指向伪造的“本机”，平台目录与系统已知目录都取自其中。
 pub const ENV_FAKE_ROOT: &str = "BONFIRE_FAKE_ROOT";
 
+/// 两个目录是否相同（不区分大小写与分隔符，忽略末尾分隔符）。
+pub fn same_dir(a: &std::path::Path, b: &std::path::Path) -> bool {
+    let abs = |p: &std::path::Path| std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
+    resolve::path_key(&abs(a).to_string_lossy()) == resolve::path_key(&abs(b).to_string_lossy())
+}
+
 pub fn fake_root() -> Option<PathBuf> {
     std::env::var_os(ENV_FAKE_ROOT).filter(|v| !v.is_empty()).map(PathBuf::from)
 }

@@ -56,6 +56,10 @@ pub struct NewGame {
 impl App {
     /// 打开（必要时初始化）仓库与索引。索引是新建的时，从 `games.toml` 恢复游戏并从对象库重建索引。
     pub fn open(paths: AppPaths, config: Config, locale: Locale, repo_dir: &Path) -> Result<Self> {
+        // 仓库自带的参数文件也叫 config.toml：仓库不能与应用配置放在同一目录。
+        if paths.config_file.parent().is_some_and(|d| crate::discover::same_dir(d, repo_dir)) {
+            return Err(AppError::Invalid(format!("仓库位置不能与数据目录相同：{}，请改用其下的子目录（如 repo）", repo_dir.display())));
+        }
         let fresh_db = !repo_dir.join("bonfire.db").exists();
         let repo = Repo::init(repo_dir)?;
         let index = Index::open_repo(&repo)?;

@@ -59,7 +59,7 @@
 
 | 变量 | 作用 |
 |---|---|
-| `BONFIRE_HOME` | 把配置、仓库、日志、缓存都放在该目录下（同便携模式） |
+| `BONFIRE_HOME` | 数据根目录（默认为程序目录下的 `data`，开发时为项目根目录下的 `data`）：配置、仓库 `repo`、日志、缓存都在其中 |
 | `BONFIRE_CONFIG` | 配置文件路径 |
 | `BONFIRE_REPO` | 仓库目录 |
 | `BONFIRE_LANG` | 语言 |

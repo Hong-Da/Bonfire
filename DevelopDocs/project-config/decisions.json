@@ -332,13 +332,13 @@
   {
     "id": "U-1",
     "stage": "用户修改",
-    "question": "默认仓库目录",
+    "question": "数据存放位置（配置、仓库、日志、缓存）",
     "options": [
-      "%LOCALAPPDATA%/Bonfire/repo（原默认）",
-      "项目（程序）目录下的 data：开发时为项目根目录下的 data，安装后为程序所在目录下的 data"
+      "配置在 %APPDATA%/Bonfire，仓库、日志、缓存在 %LOCALAPPDATA%/Bonfire（原默认）",
+      "全部放在项目（程序）目录下的 data：data/config.toml、data/repo、data/logs、data/cache、data/webview"
     ],
-    "chosen": "项目（程序）目录下的 data：开发时为项目根目录下的 data，安装后为程序所在目录下的 data",
-    "reason": "用户 2026-10-09 要求：默认仓库目录改为项目目录下的 data。配置、日志与缓存位置不变；便携模式与 BONFIRE_HOME 不受影响。项目的 .gitignore 已排除 /data/。",
+    "chosen": "全部放在项目（程序）目录下的 data：data/config.toml、data/repo、data/logs、data/cache、data/webview",
+    "reason": "用户 2026-10-09 要求默认仓库在项目目录下的 data，并选择配置、日志、缓存也一并放入（推荐项）。开发时为项目根目录下的 data（.gitignore 已排除），安装后为程序所在目录下的 data；仓库不能设为 data 本身（避免与应用配置文件同名冲突）。BONFIRE_HOME 仍可指定其他数据根目录。",
     "status": "用户指定",
     "date": "2026-10-09"
   }
