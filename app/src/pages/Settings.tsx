@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { open } from "@tauri-apps/plugin-dialog";
+import { ask, open } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
 import { LANGUAGES, setLanguage } from "../i18n";
 import { bytes } from "../lib/format";
@@ -160,6 +160,38 @@ export default function Settings() {
                 <input id="warn" className="field num" type="number" min={0.1} step={0.5} style={{ width: 100 }} value={cfg.backup.size_warning_gb} onChange={(e) => update((c) => (c.backup.size_warning_gb = Number(e.target.value)))} />
                 <span>GB</span>
               </div>
+            </div>
+          </section>
+
+          <section>
+            <h2>{t("ui.settings.safety")}</h2>
+            <div className="row">
+              <label>{t("ui.settings.protectLocal")}</label>
+              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  className="check"
+                  checked={cfg.backup.protect_local}
+                  onChange={async (e) => {
+                    const on = e.target.checked;
+                    // 关闭保护需要确认。
+                    if (!on && !(await ask(t("ui.settings.protectLocalOff"), { title: t("ui.settings.safety"), kind: "warning" }))) return;
+                    update((c) => (c.backup.protect_local = on));
+                  }}
+                />
+                {t("ui.settings.protectLocalHint", { host: store.info?.host ?? "" })}
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <h2>{t("ui.settings.window")}</h2>
+            <div className="row">
+              <label>{t("ui.settings.closeToTray")}</label>
+              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input type="checkbox" className="check" checked={cfg.general.close_to_tray} onChange={(e) => update((c) => (c.general.close_to_tray = e.target.checked))} />
+                {t("ui.settings.closeToTrayHint")}
+              </label>
             </div>
           </section>
 

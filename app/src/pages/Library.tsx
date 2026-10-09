@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
 import { Cover, Icon, Menu, StatusBadge, displayName } from "../components/ui";
 import { bytes, relative } from "../lib/format";
+import { checkAndReport } from "../lib/check";
 import { useDelayed } from "../lib/hooks";
 import { visibleRows, useStore, type StateFilter } from "../store";
 import type { GameRow, Profile } from "../types";
@@ -51,12 +52,7 @@ export default function Library() {
   };
 
   // 检查更新：按钮图标立即转动，完成后提示结果（很快完成时也有反馈，进度条与文字只在较慢时显示）。
-  const check = async () => {
-    await s.loadLibrary(false);
-    const list = Object.values(useStore.getState().rows);
-    const n = list.filter((r) => r.state === "has-changes").length;
-    s.toast("success", n > 0 ? t("ui.library.checkedChanges", { n }) : t("ui.library.checkedNone", { total: list.length }));
-  };
+  const check = checkAndReport;
 
   const phase = s.phase;
   const busy = useDelayed(s.loading);

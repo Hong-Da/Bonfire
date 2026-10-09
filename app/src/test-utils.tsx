@@ -59,6 +59,7 @@ export function mockApi() {
     deleteTag: vi.fn(),
     deleteSnapshot: vi.fn(),
     onLibraryRow: vi.fn().mockResolvedValue(() => {}),
+    onTrayCheck: vi.fn().mockResolvedValue(() => {}),
     onLibraryPhase: vi.fn().mockResolvedValue(() => {}),
     onBackupProgress: vi.fn().mockResolvedValue(() => {}),
   };

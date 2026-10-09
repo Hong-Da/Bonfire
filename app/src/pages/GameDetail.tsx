@@ -427,6 +427,9 @@ function SnapshotPanel({
     }
   };
 
+  // 存档安全保护：本机备份的快照不能删除（分支是否受保护由后端判断，预览时给出原因）。
+  const isLocal = !!store.info?.host && (node.host ?? "").toLowerCase() === store.info.host.toLowerCase();
+  const locked = isLocal && !!store.info?.protectLocal;
   const branchNames = node.refs.filter((r) => r.startsWith("heads/")).map((r) => r.slice("heads/".length));
   const tagNames = node.refs.filter((r) => r.startsWith("tags/")).map((r) => r.slice("tags/".length));
   const fail = (e: unknown) => store.toast("error", errorMessage(e));
@@ -497,6 +500,7 @@ function SnapshotPanel({
             </span>
           ))}
           {node.trigger !== "manual" && <span className="tag auto">{t(`ui.trigger.${node.trigger}`)}</span>}
+          {isLocal && <span className="tag auto" title={locked ? t("ui.history.protectedHint") : undefined}>{t("ui.history.localBackup")}</span>}
         </div>
       </div>
       {editing ? (
@@ -565,8 +569,8 @@ function SnapshotPanel({
             {
               label: t("ui.history.deleteSnapshot"),
               danger: true,
-              disabled: tagNames.length > 0,
-              hint: tagNames.length > 0 ? t("ui.history.deleteTagged") : undefined,
+              disabled: tagNames.length > 0 || locked,
+              hint: locked ? t("ui.history.protectedHint") : tagNames.length > 0 ? t("ui.history.deleteTagged") : undefined,
               onClick: () => void deleteSnapshot(),
             },
           ]}

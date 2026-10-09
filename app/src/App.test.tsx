@@ -18,7 +18,7 @@ import Wizard from "./pages/Wizard";
 import GameDetail from "./pages/GameDetail";
 import { nextTheme } from "./theme";
 
-const info = { version: "0.1.0", portable: false, firstRun: false, locale: "zh-CN", theme: "auto" as const, configPath: "C:/c.toml", defaultRepoDir: "C:/repo", repoDir: "C:/repo", configError: null };
+const info = { version: "0.1.0", portable: false, firstRun: false, locale: "zh-CN", theme: "auto" as const, configPath: "C:/c.toml", defaultRepoDir: "C:/repo", repoDir: "C:/repo", configError: null, host: "PC", protectLocal: true };
 
 function seed(rows = [row(), row({ id: "steam-1", name: "Cuphead", nameZh: null, state: "up-to-date" }), row({ id: "custom-x", name: "Celeste", nameZh: null, platform: "custom", state: "never-backed-up" })]) {
   const map = Object.fromEntries(rows.map((r) => [r.id, r]));

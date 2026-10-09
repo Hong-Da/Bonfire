@@ -28,10 +28,10 @@
 | `bonfire undo-restore <game>` | 撤销最近一次恢复（需确认；之后又备份过则不可撤销） |
 | `bonfire comment <game> <ref> -m <备注>` | 修改快照备注（保留修改历史） |
 | `bonfire branch <game> [<名称> [<ref>]]` | 创建分支；省略名称时列出分支与标签 |
-| `bonfire branch <game> -d <名称> [--dry-run]` | 删除分支（需确认）：只属于这个分支的快照一并删除，与其他分支、标签共用的保留；删除的是当前分支时切换到 main（或其他分支） |
+| `bonfire branch <game> -d <名称> [--dry-run]` | 删除分支（需确认）：只属于这个分支的快照一并删除，与其他分支、标签共用的保留；删除的是当前分支时切换到 main（或其他分支）。存档安全保护开启时（`backup.protect_local`，默认），会删掉本机备份快照的分支不能删除（退出码 2） |
 | `bonfire tag <game> [<名称> [<ref>]]` | 创建标签（不会被自动清理）；省略名称时列出 |
 | `bonfire tag <game> -d <名称>` | 删除标签（快照保留） |
-| `bonfire rm <game> <ref> [--dry-run]` | 删除快照（需确认）：后面的快照改接到它的上一个快照上（内容不变、ID 改变，分支、标签与备注随之更新）；分支的最新快照被删时分支退回上一个；带标签的快照受保护。被删快照占用的空间在之后的仓库清理（GC）时释放 |
+| `bonfire rm <game> <ref> [--dry-run]` | 删除快照（需确认）：后面的快照改接到它的上一个快照上（内容不变、ID 改变，分支、标签与备注随之更新）；分支的最新快照被删时分支退回上一个；带标签的快照受保护；存档安全保护开启时本机备份的快照（快照记录的电脑名与本机相同）不能删除。被删快照占用的空间在之后的仓库清理（GC）时释放 |
 | `bonfire profile list` / `save <名称> <game>... [-m <默认备注>]` / `rm <名称>` | 备份方案 |
 | `bonfire export <game> [<ref>] (--zip <文件> \| --folder <目录>)` | 导出存档文件：省略 `<ref>` 时导出当前磁盘上的存档；每个存档位置一个子文件夹，附 `bonfire-export.json`；`--folder` 在目录中新建文件夹；拒绝导出到存档位置或仓库中 |
 | `bonfire import <game> <zip或文件夹> [--branch <名称>] [--parent <ref>] [--onto <分支>] [-m <备注>] [--dry-run]` | 导入存档文件为新快照（触发方式“导入”），**不写入存档目录**；默认新分支、独立起点，`--parent` 从某个快照分出，`--onto` 接在分支之后；内容与已有快照相同时不重复生成 |
@@ -277,10 +277,18 @@ bonfire branch 空洞骑士 -d 二周目 -y
 
 退出码：0
 
-### 删除快照
+### 存档安全保护：本机备份的快照不能删除
 
 ```bat
 bonfire rm 空洞骑士 HEAD -y
+```
+
+退出码：2
+
+### 删除快照（已关闭存档安全保护）
+
+```bat
+bonfire --config tests/inputs/config/no-protect.toml rm 空洞骑士 HEAD -y
 ```
 
 退出码：0

@@ -24,7 +24,7 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 44 项，更新于 2026-10-09 15:57。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 46 项，更新于 2026-10-09 16:09。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">全局</a><a href="#s-1">M1 核心库</a><a href="#s-2">M2 存档发现</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">用户修改</a><a href="#s-5">缺陷修复</a></nav>
 <section id="s-0"><h2>全局<small>1 项</small></h2>
       <article id="G-1">
@@ -176,7 +176,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">等待用户本机安装验收</li><li class="chosen">自动化测试 + 真实窗口截图检查后视为通过；安装、卸载、升级由用户事后复核 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>为避免改动用户系统，未在本机执行静默安装；界面在临时仓库中用真实扫描数据逐页截图检查（游戏库、详情时间线、设置、暗色主题、备份与恢复弹窗）。安装包：target/release/bundle/nsis/Bonfire_0.1.0_x64-setup.exe。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-4"><h2>用户修改<small>15 项</small></h2>
+      </article></section><section id="s-4"><h2>用户修改<small>17 项</small></h2>
       <article id="U-1">
         <header><code>U-1</code><h3>数据存放位置（配置、仓库、日志、缓存）</h3><span class="status">用户指定</span></header>
         <ul><li class="">配置在 %APPDATA%/Bonfire，仓库、日志、缓存在 %LOCALAPPDATA%/Bonfire（原默认）</li><li class="chosen">全部放在项目（程序）目录下的 data：data/config.toml、data/repo、data/logs、data/cache、data/webview <b>✓ 采用</b></li></ul>
@@ -265,6 +265,18 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <header><code>U-7e</code><h3>导入未安装游戏的存档</h3><span class="status">默认推荐</span></header>
         <ul><li class="">要求先在游戏库中加入游戏</li><li class="chosen">游戏库中没有时自动加入并标为“未安装”：本机能确定的存档位置照常使用，需要安装目录的位置等装好并扫描后确定，之前恢复会提示 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>用户要求“可以导入未安装游戏的存档”。</p><p class="impact"><span>影响</span>历史包、合集包、带说明的存档 zip / 文件夹都支持；扫描到游戏后按模板对上原位置序号。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-8a">
+        <header><code>U-8a</code><h3>存档安全保护：保护本机的存档备份分支不被删除</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">不保护</li><li class="chosen">设置“保护本机的存档备份”（默认开启）：本机备份的快照（以电脑名区分）不能删除，会删掉这类快照的分支也不能删除；导入的分支与快照、删除标签不受影响；关闭需确认 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求“可以设置存档安全保护，保护由本机的存档备份分支不被删除”。快照本来就记录了备份的电脑名，据此判断最直接。</p><p class="impact"><span>影响</span>配置 backup.protect_local；CLI branch -d / rm 在保护开启时报错（退出码 2）；界面删除菜单置灰并说明。电脑改名后旧名字的快照不再视为本机备份。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-8b">
+        <header><code>U-8b</code><h3>托盘图标运行</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">关闭窗口即退出</li><li class="chosen">常驻托盘图标（打开篝火 / 检查更新 / 退出）；关闭窗口时留在托盘（可在设置中关闭），按 R2-Q1 销毁窗口以节省内存；只运行一个实例，再次启动时打开已运行的窗口 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求“添加托盘图标运行”；与第二轮确认的托盘形态（R2-Q1）一致。自动备份仍在 M4-3 中实现。</p><p class="impact"><span>影响</span>配置 general.close_to_tray；新增 tauri-plugin-single-instance。Windows 11 默认把新托盘图标放在任务栏“^”中。</p>
         <footer>2026-10-09</footer>
       </article></section><section id="s-5"><h2>缺陷修复<small>4 项</small></h2>
       <article id="U-6c">

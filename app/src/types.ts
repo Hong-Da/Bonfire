@@ -13,11 +13,15 @@ export interface AppInfo {
   defaultRepoDir: string;
   repoDir: string | null;
   configError: string | null;
+  /** 本机电脑名；快照记录的电脑名与它相同即为本机备份。 */
+  host: string;
+  /** 存档安全保护是否开启。 */
+  protectLocal: boolean;
 }
 
 export interface Config {
-  general: { language?: string; theme: Theme; repo?: string };
-  backup: { include_config_files: boolean; size_warning_gb: number; disabled_platforms: string[] };
+  general: { language?: string; theme: Theme; repo?: string; close_to_tray: boolean };
+  backup: { include_config_files: boolean; size_warning_gb: number; disabled_platforms: string[]; protect_local: boolean };
   metadata: { online: boolean; igdb_client_id: string; igdb_client_secret: string; steamgriddb_api_key: string };
   log: { level: string; keep_days: number };
 }

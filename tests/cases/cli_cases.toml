@@ -593,11 +593,21 @@ expect_exit = 0
 stdout_contains = ["已删除标签 Boss 前"]
 
 [[case]]
-id = "rm-snapshot"
-title = { zh-CN = "删除快照", en = "Delete a snapshot" }
+id = "rm-snapshot-protected"
+title = { zh-CN = "存档安全保护：本机备份的快照不能删除", en = "Protection: local backups cannot be deleted" }
 fixture = "basic"
 pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
 args = ["rm", "空洞骑士", "HEAD", "-y"]
+expect_exit = 2
+stderr_contains = ["存档安全保护"]
+in_docs = true
+
+[[case]]
+id = "rm-snapshot"
+title = { zh-CN = "删除快照（已关闭存档安全保护）", en = "Delete a snapshot (protection off)" }
+fixture = "basic"
+pre = [["--config", "{inputs}/config/no-protect.toml", "game", "add", "空洞骑士", "--path", "{saves}"], ["--config", "{inputs}/config/no-protect.toml", "backup", "空洞骑士"]]
+args = ["--config", "{inputs}/config/no-protect.toml", "rm", "空洞骑士", "HEAD", "-y"]
 expect_exit = 0
 stdout_contains = ["已删除快照", "分支 main 没有快照了"]
 expect_files = { "slot1.sav" = "level 1" }
@@ -608,7 +618,7 @@ id = "rm-snapshot-dry-run"
 title = { zh-CN = "预览删除快照", en = "Preview deleting a snapshot" }
 fixture = "basic"
 pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
-args = ["rm", "空洞骑士", "HEAD", "--dry-run"]
+args = ["--config", "{inputs}/config/no-protect.toml", "rm", "空洞骑士", "HEAD", "--dry-run"]
 expect_exit = 0
 stdout_contains = ["预览"]
 

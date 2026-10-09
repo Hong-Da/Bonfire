@@ -659,5 +659,18 @@
   "ui.history.notInstalledNote": "This game was imported and is not installed on this PC. Install it and scan on the Discover page; once its save locations are known you can restore.",
   "ui.collection.identical": "These saves are identical to snapshot {id} of “{name}”; nothing to import.",
   "ui.library.transfer": "Import / export",
-  "ui.library.importSaves": "Import saves…"
+  "ui.library.importSaves": "Import saves…",
+  "tray.open": "Open Bonfire",
+  "tray.check": "Check for changes",
+  "tray.quit": "Quit",
+  "tray.tooltip": "Bonfire",
+  "ui.settings.window": "Window",
+  "ui.settings.closeToTray": "When closing the window",
+  "ui.settings.closeToTrayHint": "Stay in the system tray (the Bonfire icon at the bottom right); quit from the tray menu",
+  "ui.settings.safety": "Save protection",
+  "ui.settings.protectLocal": "Protect this PC's backups",
+  "ui.settings.protectLocalHint": "Snapshots backed up on this PC ({host}), and branches containing them, cannot be deleted; imported ones are not affected",
+  "ui.settings.protectLocalOff": "With protection off, this PC's snapshots and branches can be deleted, and deletion cannot be undone. Turn it off?",
+  "ui.history.protectedHint": "Save protection: snapshots backed up on this PC cannot be deleted (can be turned off in Settings)",
+  "ui.history.localBackup": "This PC"
 }

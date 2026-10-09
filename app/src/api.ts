@@ -123,6 +123,7 @@ export const api = {
   deleteTag: (gameId: string, name: string) => invoke<void>("delete_tag", { gameId, name }),
   deleteSnapshot: (gameId: string, snapshot: string, dryRun: boolean) => invoke<DeleteReport>("delete_snapshot", { gameId, snapshot, dryRun }),
 
+  onTrayCheck: (cb: () => void): Promise<UnlistenFn> => listen("tray-check", () => cb()),
   onLibraryRow: (cb: (row: GameRow) => void): Promise<UnlistenFn> => listen<GameRow>("library-row", (e) => cb(e.payload)),
   onLibraryPhase: (cb: (p: Phase) => void): Promise<UnlistenFn> => listen<Phase>("library-phase", (e) => cb(e.payload)),
   onScanPhase: (cb: (phase: "rules" | "discovering" | "idle") => void): Promise<UnlistenFn> => listen<"rules" | "discovering" | "idle">("scan-phase", (e) => cb(e.payload)),

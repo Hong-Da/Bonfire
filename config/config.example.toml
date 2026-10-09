@@ -9,6 +9,8 @@
 theme = "auto"
 # 存档仓库位置；不写时为 data\repo。可放在网盘同步目录中，但不能是 data 本身。环境变量 BONFIRE_REPO
 # repo = 'D:\Backups\Bonfire'
+# 关闭窗口时留在系统托盘（不退出）；从托盘菜单“退出”才结束程序
+close_to_tray = true
 
 [backup]
 # 是否同时备份游戏的配置文件（画质、按键等设置）
@@ -17,6 +19,8 @@ include_config_files = true
 size_warning_gb = 2.0
 # 不扫描的平台：steam / epic / gog / ubisoft / ea / xbox / battlenet
 disabled_platforms = []
+# 存档安全保护：本机备份的快照（以电脑名区分）及包含它们的分支不能删除
+protect_local = true
 
 [metadata]
 # 是否联网获取游戏名称、封面等信息；只发送游戏 ID 或名称，不上传存档

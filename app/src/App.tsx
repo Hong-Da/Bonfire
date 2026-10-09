@@ -11,6 +11,7 @@ import Settings from "./pages/Settings";
 import Wizard from "./pages/Wizard";
 import { useStore } from "./store";
 import { applyTheme } from "./theme";
+import { checkAndReport } from "./lib/check";
 
 export default function App() {
   const { t } = useTranslation();
@@ -32,6 +33,18 @@ export default function App() {
       })
       .catch((e) => toast("error", errorMessage(e)))
       .finally(() => setReady(true));
+  }, []);
+
+  // 托盘菜单“检查更新”：回到游戏库并检查。
+  useEffect(() => {
+    const off = api.onTrayCheck(() => {
+      if (useStore.getState().info?.firstRun) return;
+      go({ name: "library" });
+      void checkAndReport();
+    });
+    return () => {
+      void off.then((f) => f());
+    };
   }, []);
 
   if (!ready) return null;

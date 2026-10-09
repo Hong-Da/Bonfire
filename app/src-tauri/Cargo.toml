@@ -13,8 +13,9 @@ tauri-build = { version = "2", features = [] }
 bonfire-app.workspace = true
 serde.workspace = true
 tracing.workspace = true
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
 tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
 serde_json.workspace = true
 jiff.workspace = true
 

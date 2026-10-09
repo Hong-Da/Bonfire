@@ -4,6 +4,8 @@
 //! - **删除快照**：从历史中“压掉”——它的子快照改为接在它的父快照上（类似 rebase）。子孙快照的父指针变了，
 //!   会得到新的 ID，指向它们的分支、标签、备注与“已从某快照恢复”的标记随之更新；分支的最新快照被删除时，分支退回上一个快照。
 //! - 带标签的快照受保护：先删除标签再删快照。
+//! - 存档安全保护（设置 `backup.protect_local`，默认开启）：本机备份的快照（快照记录的电脑名与本机相同）不能删除，
+//!   会删掉这类快照的分支也不能删除；从别处导入的分支与快照不受影响。
 //!
 //! 被删除快照引用的清单与文件仍留在对象库中，由 GC（M4）回收空间。只改仓库，不碰存档目录。
 
@@ -17,6 +19,7 @@ use serde::Serialize;
 
 use crate::app::App;
 use crate::error::{AppError, Result};
+use crate::util::host_name;
 
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,6 +66,12 @@ impl App {
             .filter(|id| !keep.contains(id))
             .collect();
         removed.sort();
+        if let Some(local) = self.local_among(&removed)? {
+            return Err(protected(&format!(
+                "分支「{name}」中有本机备份的快照（如 {}）",
+                local.short(12)
+            )));
+        }
         let new_head = (head.branch == name).then(|| other_branch(&refs, name));
         let report = DeleteReport {
             removed: removed.clone(),
@@ -123,6 +132,9 @@ impl App {
             )));
         }
         let gone = self.repo.get_snapshot(&target)?;
+        if self.local_among(&[target])?.is_some() {
+            return Err(protected("这个快照是本机备份的"));
+        }
 
         // 子孙快照：按父在前的顺序重写。
         let rows = self.index.snapshots_of(&game.id)?;
@@ -310,6 +322,20 @@ impl App {
         Ok(())
     }
 
+    /// 存档安全保护开启时，返回其中第一个本机备份的快照。
+    fn local_among(&self, ids: &[ObjectId]) -> Result<Option<ObjectId>> {
+        if !self.config.backup.protect_local {
+            return Ok(None);
+        }
+        let host = host_name();
+        for id in ids {
+            if self.repo.get_snapshot(id)?.host.eq_ignore_ascii_case(&host) {
+                return Ok(Some(*id));
+            }
+        }
+        Ok(None)
+    }
+
     /// 当前所在快照的清单。
     fn head_tree(&self, game_id: &str) -> Result<Option<ObjectId>> {
         Ok(match self.repo.head_snapshot(game_id)? {
@@ -338,6 +364,12 @@ impl App {
         }
         Ok(())
     }
+}
+
+fn protected(what: &str) -> AppError {
+    AppError::Invalid(format!(
+        "{what}，存档安全保护开启时不能删除；如确实要删，请先在设置中关闭“保护本机的存档备份”"
+    ))
 }
 
 /// 删除当前分支后切换到的分支：优先 main，其次按名称排第一的分支；没有其他分支时为 None（保留空分支名）。
@@ -452,8 +484,9 @@ mod tests {
         v
     }
 
-    /// main: A - B - C；alt 从 A 分出：A - D。
+    /// main: A - B - C；alt 从 A 分出：A - D。测试删除逻辑时关闭存档安全保护（快照都是本机备份的）。
     fn forked(env: &mut Env) -> (GameRecord, [ObjectId; 4]) {
+        env.app.config.backup.protect_local = false;
         env.write("a.sav", b"1");
         let g = env.add_game("Game");
         let a = backup(env, &g, "A");
@@ -608,5 +641,46 @@ mod tests {
             .unwrap();
         assert_eq!(r.branches_deleted, ["alt"]);
         assert!(env.app.fsck(false).unwrap().ok());
+    }
+
+    #[test]
+    fn protection_keeps_local_backups() {
+        let mut env = Env::new();
+        let (g, [_a, b, _c, d]) = forked(&mut env);
+        env.app.config.backup.protect_local = true;
+        let lock = env.app.repo.lock().unwrap();
+        let err = env.app.delete_branch(&lock, &g, "alt", true).unwrap_err();
+        assert!(err.to_string().contains("存档安全保护"), "{err}");
+        let err = env
+            .app
+            .delete_snapshot(&lock, &g, &b.to_string(), false)
+            .unwrap_err();
+        assert!(err.to_string().contains("本机备份"), "{err}");
+        assert!(env.app.repo.has(bonfire_core::Kind::Snapshot, &d));
+        // 只是指针、不会删除快照的操作不受影响：删除标签。
+        env.app
+            .create_ref(&lock, &g, RefKind::Tag, "t", Some(&b.to_string()))
+            .unwrap();
+        env.app.delete_tag(&lock, &g, "t").unwrap();
+        // 别的电脑备份的快照可以删除。
+        env.app.config.backup.protect_local = false;
+        let lock2 = &lock;
+        let mut s = env.app.repo.get_snapshot(&d).unwrap();
+        s.host = "OTHER-PC".into();
+        s.parents = vec![d];
+        let other = env.app.repo.put_snapshot(&s).unwrap();
+        env.app.index.add_snapshot(&other, &s, "x").unwrap();
+        env.app
+            .create_ref(
+                lock2,
+                &g,
+                RefKind::Branch,
+                "friend",
+                Some(&other.to_string()),
+            )
+            .unwrap();
+        env.app.config.backup.protect_local = true;
+        let r = env.app.delete_branch(&lock, &g, "friend", false).unwrap();
+        assert_eq!(r.removed, vec![other]);
     }
 }

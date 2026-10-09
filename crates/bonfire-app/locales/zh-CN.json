@@ -659,5 +659,18 @@
   "ui.history.notInstalledNote": "这个游戏是从别处导入的，这台电脑上还没有安装。装好游戏后在“发现”页扫描，存档位置确定后即可恢复。",
   "ui.collection.identical": "这些存档与「{name}」已有的快照 {id} 完全相同，无需再导入。",
   "ui.library.transfer": "导入 / 导出",
-  "ui.library.importSaves": "导入存档…"
+  "ui.library.importSaves": "导入存档…",
+  "tray.open": "打开篝火",
+  "tray.check": "检查更新",
+  "tray.quit": "退出",
+  "tray.tooltip": "篝火 Bonfire",
+  "ui.settings.window": "窗口",
+  "ui.settings.closeToTray": "关闭窗口时",
+  "ui.settings.closeToTrayHint": "留在系统托盘（任务栏右下角的篝火图标），从托盘菜单“退出”才结束程序",
+  "ui.settings.safety": "存档安全保护",
+  "ui.settings.protectLocal": "保护本机的存档备份",
+  "ui.settings.protectLocalHint": "本机（{host}）备份的快照，以及包含它们的分支，都不能删除；从别的电脑导入的不受影响",
+  "ui.settings.protectLocalOff": "关闭后，本机备份的快照和分支可以被删除，删除后不能撤销。确定关闭吗？",
+  "ui.history.protectedHint": "存档安全保护：本机备份的快照不能删除（可在设置中关闭）",
+  "ui.history.localBackup": "本机备份"
 }

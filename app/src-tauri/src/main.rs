@@ -4,11 +4,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod tray;
 
 use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 
-use bonfire_app::{AppPaths, Config};
+use bonfire_app::{AppPaths, Config, Locale};
 use commands::Shared;
 use tauri::Manager;
 
@@ -32,7 +33,7 @@ fn main() {
         "桌面应用启动"
     );
 
-    let webview_dir = paths.webview_dir();
+    let locale = Locale::resolve(config.general.language.as_deref());
     let shared = Shared {
         app: Mutex::new(None),
         paths,
@@ -41,20 +42,15 @@ fn main() {
     };
 
     tauri::Builder::default()
+        // 只运行一个实例：再次启动时显示已在运行（可能隐藏在托盘中）的窗口。
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            tray::show_main(app)
+        }))
         .plugin(tauri_plugin_dialog::init())
         .manage(shared)
         .setup(move |app| {
-            // 窗口数据（WebView 本地存储等）也放在 data 中，而不是用户目录。
-            let window = app
-                .config()
-                .app
-                .windows
-                .first()
-                .cloned()
-                .expect("tauri.conf.json 中定义了主窗口");
-            tauri::WebviewWindowBuilder::from_config(app.handle(), &window)?
-                .data_directory(webview_dir)
-                .build()?;
+            tray::create_main_window(app.handle())?;
+            tray::create(app.handle(), locale)?;
             if !first_run {
                 let h = app.handle().clone();
                 let shared = h.state::<Shared>();
@@ -120,6 +116,7 @@ fn main() {
             commands::rules_info,
             commands::open_path,
         ])
-        .run(tauri::generate_context!())
-        .expect("Tauri 运行失败");
+        .build(tauri::generate_context!())
+        .expect("Tauri 启动失败")
+        .run(tray::on_run_event);
 }

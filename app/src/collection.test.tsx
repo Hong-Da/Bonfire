@@ -149,6 +149,23 @@ describe("删除", () => {
     await waitFor(() => expect(api.deleteTag).toHaveBeenCalledWith("steam-367520", "Boss 前"));
   });
 
+  it("存档安全保护：本机备份的快照不能删除", async () => {
+    seed([row()]);
+    const node = history().nodes.find((n) => n.id === "b3:cccccccc")!;
+    useStore.setState({ info: { version: "0.1.0", portable: false, firstRun: false, locale: "zh-CN", theme: "auto", configPath: "", defaultRepoDir: "", repoDir: "", configError: null, host: node.host, protectLocal: true } });
+    api.history.mockResolvedValue(history());
+    api.snapshotFiles.mockResolvedValue([]);
+    api.diff.mockResolvedValue([]);
+    render(<GameDetail id="steam-367520" />);
+    await screen.findAllByText("白宫之前");
+    expect(screen.getByText("本机备份")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "更多操作" }).at(-1)!);
+    const item = screen.getByRole("menuitem", { name: "删除这个快照…" });
+    expect(item).toBeDisabled();
+    expect(item).toHaveAttribute("title", "存档安全保护：本机备份的快照不能删除（可在设置中关闭）");
+    useStore.setState({ info: null });
+  });
+
   it("删除分支时说明会删除多少个快照", async () => {
     seed([row()]);
     api.history.mockResolvedValue(history());

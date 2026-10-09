@@ -9,8 +9,8 @@ import type { Config } from "../types";
 import { PLATFORMS } from "./Settings";
 
 export const DEFAULT_CONFIG: Config = {
-  general: { theme: "auto" },
-  backup: { include_config_files: true, size_warning_gb: 2, disabled_platforms: [] },
+  general: { theme: "auto", close_to_tray: true },
+  backup: { include_config_files: true, size_warning_gb: 2, disabled_platforms: [], protect_local: true },
   metadata: { online: true, igdb_client_id: "", igdb_client_secret: "", steamgriddb_api_key: "" },
   log: { level: "info", keep_days: 14 },
 };
@@ -23,7 +23,7 @@ export default function Wizard({ onDone }: { onDone: (config: Config) => void })
   const { t, i18n } = useTranslation();
   const store = useStore();
   const [step, setStep] = useState<Step>("language");
-  const [cfg, setCfg] = useState<Config>(() => ({ ...structuredClone(DEFAULT_CONFIG), general: { theme: "auto", language: i18n.language } }));
+  const [cfg, setCfg] = useState<Config>(() => ({ ...structuredClone(DEFAULT_CONFIG), general: { ...DEFAULT_CONFIG.general, language: i18n.language } }));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const i = STEPS.indexOf(step);

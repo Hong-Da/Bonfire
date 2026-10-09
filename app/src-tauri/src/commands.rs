@@ -134,19 +134,24 @@ pub struct AppInfo {
     default_repo_dir: PathBuf,
     repo_dir: Option<PathBuf>,
     config_error: Option<String>,
+    /// 本机电脑名（快照记录的电脑名与它相同即为本机备份）。
+    host: String,
+    /// 存档安全保护是否开启。
+    protect_local: bool,
 }
 
 #[tauri::command]
 pub async fn app_info(h: AppHandle) -> CmdResult<AppInfo> {
     let shared = h.state::<Shared>();
     let guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
-    let (locale, theme, repo_dir) = match guard.as_ref() {
+    let (locale, theme, repo_dir, protect_local) = match guard.as_ref() {
         Some(a) => (
             a.locale,
             a.config.general.theme,
             Some(a.repo.root().to_path_buf()),
+            a.config.backup.protect_local,
         ),
-        None => (Locale::resolve(None), Default::default(), None),
+        None => (Locale::resolve(None), Default::default(), None, true),
     };
     Ok(AppInfo {
         version: bonfire_app::VERSION,
@@ -158,6 +163,8 @@ pub async fn app_info(h: AppHandle) -> CmdResult<AppInfo> {
         default_repo_dir: shared.paths.default_repo_dir.clone(),
         repo_dir,
         config_error: shared.config_error.lock().unwrap().clone(),
+        host: bonfire_app::util::host_name(),
+        protect_local,
     })
 }
 

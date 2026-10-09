@@ -1,0 +1,3 @@
+# 关闭存档安全保护（测试删除本机备份的快照）
+[backup]
+protect_local = false

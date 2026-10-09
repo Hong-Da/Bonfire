@@ -51,7 +51,7 @@ pub struct Config {
     pub log: Log,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct General {
     /// 界面语言 `zh-CN` / `en`；为空时跟随系统语言。
@@ -61,6 +61,19 @@ pub struct General {
     /// 存档仓库位置；为空时使用默认位置。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repo: Option<PathBuf>,
+    /// 关闭窗口时留在系统托盘（不退出）；从托盘菜单“退出”才结束程序。
+    pub close_to_tray: bool,
+}
+
+impl Default for General {
+    fn default() -> Self {
+        Self {
+            language: None,
+            theme: Theme::Auto,
+            repo: None,
+            close_to_tray: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -72,6 +85,9 @@ pub struct Backup {
     pub size_warning_gb: f64,
     /// 关闭扫描的平台 id，如 `["epic", "gog"]`。
     pub disabled_platforms: Vec<String>,
+    /// 存档安全保护：本机备份的快照（快照记录的电脑名与本机相同）不能删除，
+    /// 包含这些快照的分支也不能删除。
+    pub protect_local: bool,
 }
 
 impl Default for Backup {
@@ -80,6 +96,7 @@ impl Default for Backup {
             include_config_files: true,
             size_warning_gb: 2.0,
             disabled_platforms: Vec::new(),
+            protect_local: true,
         }
     }
 }
@@ -229,6 +246,8 @@ impl Config {
 theme = "{theme}"
 # 存档仓库位置；不写时为 data\repo。可放在网盘同步目录中，但不能是 data 本身。环境变量 BONFIRE_REPO
 # repo = 'D:\Backups\Bonfire'
+# 关闭窗口时留在系统托盘（不退出）；从托盘菜单“退出”才结束程序
+close_to_tray = {tray}
 
 [backup]
 # 是否同时备份游戏的配置文件（画质、按键等设置）
@@ -237,6 +256,8 @@ include_config_files = {include}
 size_warning_gb = {size:.1}
 # 不扫描的平台：steam / epic / gog / ubisoft / ea / xbox / battlenet
 disabled_platforms = []
+# 存档安全保护：本机备份的快照（以电脑名区分）及包含它们的分支不能删除
+protect_local = {protect}
 
 [metadata]
 # 是否联网获取游戏名称、封面等信息；只发送游戏 ID 或名称，不上传存档
@@ -253,6 +274,8 @@ level = "{level}"
 keep_days = {keep}
 "#,
             theme = "auto",
+            tray = d.general.close_to_tray,
+            protect = d.backup.protect_local,
             include = d.backup.include_config_files,
             size = d.backup.size_warning_gb,
             online = d.metadata.online,
