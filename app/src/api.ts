@@ -16,6 +16,7 @@ import type {
   Profile,
   RestorePlan,
   RestoreReport,
+  ScanReport,
   SearchHit,
   TreeEntry,
 } from "./types";
@@ -44,7 +45,10 @@ export const api = {
   getSettings: () => invoke<Config>("get_settings"),
   saveSettings: (config: Config) => invoke<AppInfo>("save_settings", { config }),
 
-  loadLibrary: (discover: boolean, forceVerify = false) => invoke<GameRow[]>("load_library", { discover, forceVerify }),
+  loadLibrary: (fetchInfo: boolean, forceVerify = false) => invoke<GameRow[]>("load_library", { fetchInfo, forceVerify }),
+  discoverGames: () => invoke<ScanReport>("discover_games"),
+  includeGames: (ids: string[]) => invoke<GameRecord[]>("include_games", { ids }),
+  ignoreGames: (ids: string[]) => invoke<GameRecord[]>("ignore_games", { ids }),
   gameRow: (gameId: string) => invoke<GameRow>("game_row", { gameId }),
   gameChanges: (gameId: string) => invoke<FileChange[]>("game_changes", { gameId }),
   cancelTask: () => invoke<void>("cancel_task"),
@@ -89,6 +93,7 @@ export const api = {
 
   onLibraryRow: (cb: (row: GameRow) => void): Promise<UnlistenFn> => listen<GameRow>("library-row", (e) => cb(e.payload)),
   onLibraryPhase: (cb: (p: Phase) => void): Promise<UnlistenFn> => listen<Phase>("library-phase", (e) => cb(e.payload)),
+  onScanPhase: (cb: (phase: "rules" | "discovering" | "idle") => void): Promise<UnlistenFn> => listen<"rules" | "discovering" | "idle">("scan-phase", (e) => cb(e.payload)),
   onBackupProgress: (cb: (p: { index: number; total: number; item: BackupItemResult }) => void): Promise<UnlistenFn> =>
     listen("backup-progress", (e) => cb(e.payload as { index: number; total: number; item: BackupItemResult })),
 };

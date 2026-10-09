@@ -12,6 +12,9 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.state.": ["has-changes", "never-backed-up", "up-to-date", "pending"],
   "ui.theme.": ["auto", "light", "dark"],
   "ui.trigger.": ["manual", "auto-exit", "auto-timer", "pre-restore"],
+  "ui.scan.phase.": ["rules", "discovering", "idle"],
+  "ui.scan.filter.": ["new", "managed", "ignored", "all"],
+  "ui.scan.state.": ["new", "managed", "ignored"],
 };
 
 function sources(dir: string): string[] {

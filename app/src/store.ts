@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { api, errorMessage } from "./api";
-import type { AppInfo, GameRow, GameState, Phase } from "./types";
+import type { AppInfo, GameRow, GameState, Phase, ScanReport } from "./types";
 
-export type View = { name: "library" } | { name: "game"; id: string } | { name: "settings" };
+export type View = { name: "library" } | { name: "scan" } | { name: "game"; id: string } | { name: "settings" };
 export type StateFilter = "all" | GameState;
 
 export interface Toast {
@@ -25,10 +25,15 @@ interface Store {
   toasts: Toast[];
   /** 恢复后常驻的“撤销本次恢复”提示（按游戏）。 */
   undoable: Record<string, string>;
+  /** 最近一次扫描（发现游戏）的结果，离开扫描页后保留。 */
+  scan: ScanReport | null;
+  scanning: boolean;
+  scanPhase: "rules" | "discovering" | "idle";
 
   setInfo: (info: AppInfo) => void;
   go: (view: View) => void;
-  loadLibrary: (discover: boolean) => Promise<void>;
+  loadLibrary: (fetchInfo: boolean) => Promise<void>;
+  startScan: () => Promise<void>;
   upsertRow: (row: GameRow) => void;
   refreshRow: (id: string) => Promise<void>;
   toggle: (id: string) => void;
@@ -81,17 +86,34 @@ export const useStore = create<Store>((set, get) => ({
   query: "",
   toasts: [],
   undoable: {},
+  scan: null,
+  scanning: false,
+  scanPhase: "idle",
 
   setInfo: (info) => set({ info }),
   go: (view) => set({ view }),
 
-  loadLibrary: async (discover) => {
+  startScan: async () => {
+    if (get().scanning) return;
+    set({ scanning: true, scanPhase: "rules" });
+    const unlisten = await api.onScanPhase((scanPhase) => set({ scanPhase }));
+    try {
+      set({ scan: await api.discoverGames() });
+    } catch (e) {
+      get().toast("error", errorMessage(e));
+    } finally {
+      unlisten();
+      set({ scanning: false, scanPhase: "idle" });
+    }
+  },
+
+  loadLibrary: async (fetchInfo) => {
     if (get().loading) return;
     set({ loading: true });
     const unlistenRow = await api.onLibraryRow((row) => get().upsertRow(row));
     const unlistenPhase = await api.onLibraryPhase((phase) => set({ phase }));
     try {
-      const rows = await api.loadLibrary(discover);
+      const rows = await api.loadLibrary(fetchInfo);
       const map = Object.fromEntries(rows.map((r) => [r.id, r]));
       // 用户在加载过程中已经勾选过时保留其选择；否则默认勾选有更新与未备份的游戏。
       const keep = get().selected.size > 0 && [...get().selected].every((id) => map[id]);

@@ -12,6 +12,7 @@ import i18n, { detectLanguage } from "./i18n";
 import App from "./App";
 import { useStore, defaultSelection } from "./store";
 import Library from "./pages/Library";
+import ScanPage from "./pages/ScanPage";
 import RestoreDialog from "./pages/RestoreDialog";
 import Wizard from "./pages/Wizard";
 import GameDetail from "./pages/GameDetail";
@@ -118,12 +119,12 @@ describe("游戏库", () => {
     expect(api.runBackup.mock.calls[0][2]).toEqual({ mode: "move" });
   });
 
-  it("空游戏库提示扫描或手动添加", async () => {
+  it("空游戏库引导去发现游戏", () => {
     seed([]);
     render(<Library />);
     expect(screen.getByText("还没有游戏")).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: /扫描/ })[1]);
-    await waitFor(() => expect(api.loadLibrary).toHaveBeenCalledWith(true));
+    fireEvent.click(screen.getByRole("button", { name: "发现游戏" }));
+    expect(useStore.getState().view).toEqual({ name: "scan" });
   });
 });
 
@@ -225,3 +226,58 @@ describe("向导", () => {
     expect(cfg.backup.include_config_files).toBe(false);
   });
 });
+
+describe("发现游戏", () => {
+  const found = (over: Partial<import("./types").DiscoveredGame>) => ({
+    id: "steam-1",
+    name: "Hollow Knight",
+    nameZh: "空洞骑士",
+    platform: "steam",
+    rule: "Hollow Knight",
+    state: "new" as const,
+    locations: ["C:/Users/p/AppData/LocalLow/Team Cherry/Hollow Knight/*.dat"],
+    unconfirmed: 0,
+    files: 3,
+    bytes: 2048,
+    coverThumb: null,
+    cloudSave: false,
+    playtimeMin: 2520,
+    lastPlayed: null,
+    ...over,
+  });
+
+  it("扫描后由用户挑选加入或忽略，默认不勾选", async () => {
+    useStore.setState({ scan: null, scanning: false, toasts: [] });
+    api.discoverGames.mockResolvedValue({
+      platforms: ["steam"],
+      rules: { path: "x", games: 1, userGames: 0 },
+      games: [found({}), found({ id: "steam-2", name: "Indie Quest", nameZh: null, rule: null, unconfirmed: 1 }), found({ id: "steam-3", name: "Cuphead", nameZh: null, state: "managed" })],
+      withoutSaves: [{ id: "steam-9", name: "Stray", platform: "steam", rule: "Stray" }],
+    });
+    render(<ScanPage />);
+    expect(screen.getByText("找出本机游戏的存档")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /开始扫描/ }));
+    expect(await screen.findByText("空洞骑士")).toBeInTheDocument();
+    expect(screen.getByText("推测，需确认")).toBeInTheDocument();
+    expect(screen.queryByText("Cuphead")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^已在库中\s*1$/ })).toBeInTheDocument();
+    expect(screen.getByText("已选 0 个")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /加入游戏库/ })).toBeDisabled();
+    expect(screen.getByText("已安装但没找到存档的游戏（1）")).toBeInTheDocument();
+    expect(screen.getByText("本机还没有存档")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "选择 空洞骑士" }));
+    fireEvent.click(screen.getByRole("button", { name: /加入游戏库/ }));
+    await waitFor(() => expect(api.includeGames).toHaveBeenCalledWith(["steam-1"]));
+    expect(api.loadLibrary).toHaveBeenCalledWith(true);
+    await waitFor(() => expect(screen.queryByText("空洞骑士")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "全选新发现" }));
+    fireEvent.click(screen.getByRole("button", { name: "忽略" }));
+    await waitFor(() => expect(api.ignoreGames).toHaveBeenCalledWith(["steam-2"]));
+    expect(await screen.findByText("没有新发现的游戏")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^全部/ }));
+    expect(screen.getAllByText("已在库中").length).toBeGreaterThan(1);
+  });
+});
+

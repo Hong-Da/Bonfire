@@ -168,6 +168,16 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .empty h2 { font: 500 20px var(--font-sign); color: var(--ink); margin: 0; }
 .empty .actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 
+/* 发现游戏页：存档位置与来源列 */
+.game.found { grid-template-columns: 28px 40px minmax(180px, 1fr) minmax(160px, 220px) 110px 100px 72px; }
+.path-short { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.tag.found-new { color: var(--ember); background: var(--ember-soft); }
+.tag.found-managed { color: var(--moss); }
+.tag.found-ignored { color: var(--faint); }
+.no-saves { margin: 8px 20px 96px; color: var(--muted); }
+.no-saves summary { cursor: pointer; padding: 6px 0; }
+.no-saves .file-list { margin-top: 6px; }
+
 /* 底部的备份操作条：有勾选时出现 */
 .actionbar {
   position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px;
@@ -295,6 +305,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 @media (max-width: 980px) {
   .game { grid-template-columns: 28px 40px 1fr 130px 32px; }
   .game .col-backup, .game .col-size { display: none; }
+  .game.found { grid-template-columns: 28px 40px 1fr 110px 72px; }
   .detail { grid-template-columns: 1fr; }
   .refs, .files { border: 0; }
 }

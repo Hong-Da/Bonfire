@@ -1,8 +1,10 @@
-//! 扫描服务（文档 §3）：调用平台适配器与规则库，把识别到的游戏及其存档位置写入索引。
+//! 扫描服务（文档 §3）：调用平台适配器与规则库识别本机游戏及其存档位置；
+//! 由用户选择哪些游戏加入游戏库（加入、忽略），已在库中的游戏随扫描更新存档位置。
 
 use std::path::PathBuf;
 
 use bonfire_core::index::{GameRecord, LocationKind, LocationRecord};
+use bonfire_core::scan::{RootKind, ScanRoot, collect_files};
 use bonfire_core::{FileTag, RepoLock};
 use bonfire_discovery::manifest::{self, LoadedFrom, ManifestPaths, RuleIndex, UpdateOutcome};
 use bonfire_discovery::platforms::{self, PlatformAdapter};
@@ -43,19 +45,36 @@ pub(crate) fn fake_adapters(root: &std::path::Path, disabled: &[String]) -> Vec<
     v
 }
 
+/// 扫描结果中游戏的状态。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FoundState {
+    /// 新发现，尚未加入游戏库。
+    New,
+    /// 已在游戏库中（扫描会更新其存档位置）。
+    Managed,
+    /// 用户选择忽略，之后扫描不再作为新发现提示。
+    Ignored,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscoveredGame {
     pub id: String,
     pub name: String,
+    pub name_zh: Option<String>,
     pub platform: String,
+    /// 命中的规则名称；为空表示启发式推测。
     pub rule: Option<String>,
-    pub locations: usize,
+    pub state: FoundState,
+    /// 存档位置（实际路径或通配模式）。
+    pub locations: Vec<String>,
     /// 需要确认的启发式位置数。
     pub unconfirmed: usize,
-    /// 本次新加入游戏库。
-    pub added: bool,
-    pub ignored: bool,
+    /// 当前存档的文件数与总大小（帮助判断是否值得管理）。
+    pub files: u64,
+    pub bytes: u64,
+    pub cover_thumb: Option<String>,
     pub cloud_save: bool,
     pub playtime_min: Option<u64>,
     pub last_played: Option<i64>,
@@ -66,9 +85,9 @@ pub struct DiscoveredGame {
 pub struct ScanReport {
     pub platforms: Vec<String>,
     pub rules: Option<LoadedFrom>,
-    /// 找到存档的游戏。
+    /// 找到存档的游戏（新发现、已在库中、已忽略）。
     pub games: Vec<DiscoveredGame>,
-    /// 已安装但没有找到存档的游戏（不入库）。
+    /// 已安装但没有找到存档的游戏。
     pub without_saves: Vec<NoSaveGame>,
 }
 
@@ -77,6 +96,7 @@ pub struct ScanReport {
 pub struct NoSaveGame {
     pub id: String,
     pub name: String,
+    pub platform: String,
     /// 规则库中有该游戏（只是本机还没有存档，例如没玩过）。
     pub rule: Option<String>,
 }
@@ -142,64 +162,194 @@ impl App {
         }
     }
 
-    /// 扫描本机已安装的平台（`only` 指定时只扫描该平台）。
-    pub fn scan_platforms(&mut self, lock: &RepoLock, only: Option<&str>) -> Result<ScanReport> {
+    /// 本机已安装的平台（`only` 指定时只取该平台；测试时取伪造目录）。
+    pub fn platform_adapters(&self, only: Option<&str>) -> Vec<Box<dyn PlatformAdapter>> {
         let mut disabled = self.config.backup.disabled_platforms.clone();
         if let Some(p) = only {
             disabled.extend(["steam", "epic", "gog"].iter().filter(|x| !x.eq_ignore_ascii_case(p)).map(|s| s.to_string()));
         }
-        let adapters = match &self.fake_root {
+        match &self.fake_root {
             Some(root) => fake_adapters(root, &disabled),
             None => platforms::detect_all(&disabled),
-        };
+        }
+    }
+
+    /// 扫描本机已安装的平台（`only` 指定时只扫描该平台）。
+    pub fn scan_platforms(&mut self, lock: &RepoLock, only: Option<&str>) -> Result<ScanReport> {
+        let adapters = self.platform_adapters(only);
         self.scan_with(lock, &adapters)
     }
 
-    /// 用给定的适配器扫描（测试中传入伪造的平台目录）。
-    pub fn scan_with(&mut self, _lock: &RepoLock, adapters: &[Box<dyn PlatformAdapter>]) -> Result<ScanReport> {
+    /// 识别已安装的游戏及其存档位置，不改动游戏库。
+    fn discover_all(&self, adapters: &[Box<dyn PlatformAdapter>]) -> Result<(Vec<Discovered>, Vec<NoSaveGame>, LoadedFrom)> {
         let (rules, loaded) = self.load_rules()?;
-        let mut report = ScanReport { platforms: adapters.iter().map(|a| a.id().to_string()).collect(), rules: Some(loaded), ..Default::default() };
+        let mut found = Vec::new();
+        let mut none = Vec::new();
         for a in adapters {
             for installed in a.list_games() {
                 let d = resolve::discover(&rules, &self.known_dirs, a.store(), &installed);
                 if d.locations.is_empty() {
-                    report.without_saves.push(NoSaveGame { id: installed.game_id(), name: installed.name.clone(), rule: d.rule.clone() });
-                    continue;
+                    none.push(NoSaveGame { id: installed.game_id(), name: installed.name.clone(), platform: installed.platform.clone(), rule: d.rule.clone() });
+                } else {
+                    found.push(d);
                 }
-                report.games.push(self.upsert_discovered(&d)?);
             }
         }
-        // 游戏信息：新游戏与过期的联网获取，本地字段（游玩时长等）每次重读；失败不影响扫描。
+        Ok((found, none, loaded))
+    }
+
+    /// 扫描（发现游戏）：不会把游戏加入游戏库，由用户选择加入或忽略。
+    /// 已在游戏库中的游戏会更新其存档位置（新出现的位置追加）。
+    pub fn scan_with(&mut self, _lock: &RepoLock, adapters: &[Box<dyn PlatformAdapter>]) -> Result<ScanReport> {
+        let (found, without_saves, loaded) = self.discover_all(adapters)?;
+        let mut report = ScanReport { platforms: adapters.iter().map(|a| a.id().to_string()).collect(), rules: Some(loaded), games: Vec::new(), without_saves };
+        let mut managed_changed = false;
+        for d in &found {
+            let id = d.game.game_id();
+            let state = match self.index.game(&id)? {
+                Some(g) if g.enabled => FoundState::Managed,
+                Some(_) => FoundState::Ignored,
+                None => FoundState::New,
+            };
+            let record = if state == FoundState::Managed {
+                managed_changed = true;
+                self.upsert_discovered(d, true)?
+            } else {
+                // 未加入的游戏只用本地数据补全封面与游玩时长（不联网），便于用户挑选。
+                let temp = discovered_record(d, false);
+                if let Err(e) = self.refresh_metadata_offline(&temp) {
+                    tracing::debug!(game = %id, "读取本地游戏信息失败：{e}");
+                }
+                temp
+            };
+            report.games.push(self.found_view(d, &record, state)?);
+        }
         if self.fetch_metadata_on_scan {
-            for dg in &report.games {
-                if let Ok(Some(g)) = self.index.game(&dg.id)
-                    && let Err(e) = self.refresh_metadata(&g, false)
+            for g in report.games.iter().filter(|g| g.state == FoundState::Managed) {
+                if let Ok(Some(rec)) = self.index.game(&g.id)
+                    && let Err(e) = self.refresh_metadata(&rec, false)
                 {
                     tracing::info!(game = %g.id, "刷新游戏信息失败：{e}");
                 }
             }
         }
-        if !report.games.is_empty() {
+        if managed_changed {
             self.save_games_file()?;
         }
+        report.games.sort_by_key(|g| g.name.to_lowercase());
         Ok(report)
     }
 
-    /// 写入或更新识别到的游戏。已有游戏保留用户设置（启用状态、是否备份配置文件）以及已确认的启发式位置。
-    fn upsert_discovered(&mut self, d: &Discovered) -> Result<DiscoveredGame> {
-        let g = &d.game;
-        let id = g.game_id();
+    fn found_view(&self, d: &Discovered, record: &GameRecord, state: FoundState) -> Result<DiscoveredGame> {
+        let roots: Vec<ScanRoot> = d
+            .locations
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.kind != FoundKind::Registry)
+            .map(|(ord, l)| ScanRoot {
+                ord,
+                path: PathBuf::from(&l.path),
+                kind: match l.kind {
+                    FoundKind::File => RootKind::File,
+                    FoundKind::Dir => RootKind::Dir,
+                    _ => RootKind::Glob,
+                },
+                tag: if l.config { FileTag::Config } else { FileTag::Save },
+            })
+            .collect();
+        let files = collect_files(&roots).unwrap_or_default();
+        let meta = self.metadata(&record.id)?;
+        Ok(DiscoveredGame {
+            id: record.id.clone(),
+            name: record.name.clone(),
+            name_zh: meta.as_ref().and_then(|m| m.data.name_zh.clone()),
+            platform: record.platform.clone(),
+            rule: d.rule.clone(),
+            state,
+            locations: d.locations.iter().map(|l| l.path.clone()).collect(),
+            unconfirmed: d.locations.iter().filter(|l| !l.confirmed).count(),
+            files: files.len() as u64,
+            bytes: files.iter().map(|f| f.size).sum(),
+            cover_thumb: meta.as_ref().and_then(|m| m.cover_thumb_path.clone().or_else(|| m.data.cover_path.clone())),
+            cloud_save: d.cloud_save,
+            playtime_min: d.game.playtime_min,
+            last_played: d.game.last_played,
+        })
+    }
+
+    /// 把扫描发现的游戏加入游戏库（按 ID 或名称；`all_new` 时加入全部新发现的游戏）。返回加入的游戏。
+    pub fn include_games(&mut self, lock: &RepoLock, keys: &[String], all_new: bool) -> Result<Vec<GameRecord>> {
+        let adapters = self.platform_adapters(None);
+        self.include_with(lock, &adapters, keys, all_new)
+    }
+
+    pub fn include_with(&mut self, _lock: &RepoLock, adapters: &[Box<dyn PlatformAdapter>], keys: &[String], all_new: bool) -> Result<Vec<GameRecord>> {
+        let (found, _, _) = self.discover_all(adapters)?;
+        let mut picked: Vec<&Discovered> = Vec::new();
+        for k in keys {
+            let lower = k.to_lowercase();
+            let d = found
+                .iter()
+                .find(|d| d.game.game_id() == *k)
+                .or_else(|| found.iter().find(|d| d.game.name.to_lowercase() == lower))
+                .ok_or_else(|| AppError::GameNotFound(k.clone()))?;
+            picked.push(d);
+        }
+        if all_new {
+            for d in &found {
+                if self.index.game(&d.game.game_id())?.is_none() && !picked.iter().any(|p| p.game.game_id() == d.game.game_id()) {
+                    picked.push(d);
+                }
+            }
+        }
+        let mut out = Vec::new();
+        for d in picked {
+            out.push(self.upsert_discovered(d, true)?);
+        }
+        if !out.is_empty() {
+            self.save_games_file()?;
+        }
+        Ok(out)
+    }
+
+    /// 忽略扫描发现的游戏：不加入游戏库，之后扫描不再作为新发现提示；已在库中的游戏移出游戏库（历史快照保留）。
+    pub fn ignore_games(&mut self, lock: &RepoLock, keys: &[String]) -> Result<Vec<GameRecord>> {
+        let adapters = self.platform_adapters(None);
+        self.ignore_with(lock, &adapters, keys)
+    }
+
+    pub fn ignore_with(&mut self, _lock: &RepoLock, adapters: &[Box<dyn PlatformAdapter>], keys: &[String]) -> Result<Vec<GameRecord>> {
+        let (found, _, _) = self.discover_all(adapters)?;
+        let mut out = Vec::new();
+        for k in keys {
+            let lower = k.to_lowercase();
+            let record = match found.iter().find(|d| d.game.game_id() == *k || d.game.name.to_lowercase() == lower) {
+                Some(d) => self.upsert_discovered(d, false)?,
+                None => {
+                    let mut g = self.find_game(k)?;
+                    g.enabled = false;
+                    self.index.upsert_game(&g)?;
+                    g
+                }
+            };
+            out.push(record);
+        }
+        if !out.is_empty() {
+            self.save_games_file()?;
+        }
+        Ok(out)
+    }
+
+    /// 写入或更新识别到的游戏。保留用户设置（是否备份配置文件）以及已确认的启发式位置。
+    fn upsert_discovered(&mut self, d: &Discovered, enabled: bool) -> Result<GameRecord> {
+        let id = d.game.game_id();
         let existing = self.index.game(&id)?;
-        let record = GameRecord {
-            id: id.clone(),
-            name: existing.as_ref().map(|e| e.name.clone()).unwrap_or_else(|| g.name.clone()),
-            platform: g.platform.clone(),
-            app_id: Some(g.app_id.clone()),
-            install_dir: g.install_dir.as_ref().map(|p| p.to_string_lossy().into_owned()),
-            enabled: existing.as_ref().is_none_or(|e| e.enabled),
-            include_config: existing.as_ref().and_then(|e| e.include_config),
-            custom_rule_json: existing.as_ref().and_then(|e| e.custom_rule_json.clone()),
-        };
+        let mut record = discovered_record(d, enabled);
+        if let Some(e) = &existing {
+            record.name = e.name.clone();
+            record.include_config = e.include_config;
+            record.custom_rule_json = e.custom_rule_json.clone();
+        }
         let previous = self.index.locations(&id)?;
         let locations: Vec<LocationRecord> = d
             .locations
@@ -225,19 +375,7 @@ impl App {
         let merged = merge_locations(previous, locations);
         self.index.upsert_game(&record)?;
         self.index.set_locations(&id, &merged)?;
-        Ok(DiscoveredGame {
-            id,
-            name: record.name,
-            platform: g.platform.clone(),
-            rule: d.rule.clone(),
-            locations: merged.iter().filter(|l| l.confirmed).count(),
-            unconfirmed: merged.iter().filter(|l| !l.confirmed).count(),
-            added: existing.is_none(),
-            ignored: !record.enabled,
-            cloud_save: d.cloud_save,
-            playtime_min: g.playtime_min,
-            last_played: g.last_played,
-        })
+        Ok(record)
     }
 
     /// 确认启发式找到的存档位置，并写入用户自定义规则（文档 4.2：确认后转为自定义规则）。
@@ -262,6 +400,21 @@ impl App {
             self.save_games_file()?;
         }
         Ok((g, n))
+    }
+}
+
+/// 由扫描结果构造游戏记录。
+fn discovered_record(d: &Discovered, enabled: bool) -> GameRecord {
+    let g = &d.game;
+    GameRecord {
+        id: g.game_id(),
+        name: g.name.clone(),
+        platform: g.platform.clone(),
+        app_id: Some(g.app_id.clone()),
+        install_dir: g.install_dir.as_ref().map(|p| p.to_string_lossy().into_owned()),
+        enabled,
+        include_config: None,
+        custom_rule_json: None,
     }
 }
 
@@ -326,19 +479,44 @@ mod tests {
         env.app.scan_with(&lock, adapters).unwrap()
     }
 
+    fn state_of(r: &ScanReport, id: &str) -> FoundState {
+        r.games.iter().find(|g| g.id == id).unwrap().state
+    }
+
     #[test]
-    fn scan_adds_games_and_backs_up_confirmed_locations_only() {
+    fn scan_only_discovers_and_user_picks_games() {
         let mut env = Env::new();
         let adapters = setup(&mut env);
         let r = scan(&mut env, &adapters);
         assert_eq!(r.games.len(), 2);
         assert_eq!(r.without_saves.len(), 1);
+        assert!(env.app.games().unwrap().is_empty(), "扫描不会自动加入游戏库");
         let hk = r.games.iter().find(|g| g.id == "steam-367520").unwrap();
-        assert!(hk.added && hk.locations == 1 && hk.unconfirmed == 0);
+        assert_eq!((hk.state, hk.files, hk.bytes, hk.unconfirmed), (FoundState::New, 1, 6, 0));
+        assert_eq!(hk.rule.as_deref(), Some("Hollow Knight"));
         let iq = r.games.iter().find(|g| g.id == "steam-9").unwrap();
-        assert_eq!((iq.locations, iq.unconfirmed), (0, 1), "启发式结果待确认");
+        assert_eq!((iq.unconfirmed, iq.rule.as_deref()), (1, None), "启发式结果待确认");
 
+        let lock = env.app.repo.lock().unwrap();
+        let added = env.app.include_with(&lock, &adapters, &["Hollow Knight".into()], false).unwrap();
+        assert_eq!(added.len(), 1);
+        env.app.ignore_with(&lock, &adapters, &["steam-9".into()]).unwrap();
+        assert!(matches!(env.app.include_with(&lock, &adapters, &["nope".into()], false), Err(AppError::GameNotFound(_))));
+        drop(lock);
+        assert_eq!(env.app.games().unwrap().iter().map(|g| g.id.as_str()).collect::<Vec<_>>(), ["steam-367520"]);
+
+        let r = scan(&mut env, &adapters);
+        assert_eq!(state_of(&r, "steam-367520"), FoundState::Managed);
+        assert_eq!(state_of(&r, "steam-9"), FoundState::Ignored);
+
+        let lock = env.app.repo.lock().unwrap();
+        let res = env.app.backup(&lock, &env.app.find_game("steam-367520").unwrap(), &BackupOptions::default()).unwrap();
+        assert!(matches!(res, BackupResult::Created { files: 1, .. }));
+        // 忽略后仍可加入；加入后启发式位置需确认才备份。
+        env.app.include_with(&lock, &adapters, &["steam-9".into()], false).unwrap();
+        drop(lock);
         let iq_game = env.app.find_game("steam-9").unwrap();
+        assert!(iq_game.enabled);
         assert_eq!(env.app.status(&iq_game).unwrap().files, 0, "未确认的位置不参与备份");
         let lock = env.app.repo.lock().unwrap();
         let (_, n) = env.app.confirm_locations(&lock, "Indie Quest").unwrap();
@@ -347,32 +525,26 @@ mod tests {
         assert_eq!(env.app.status(&iq_game).unwrap().files, 1);
         let custom = std::fs::read_to_string(env.app.manifest_paths().custom_rules).unwrap();
         assert!(custom.contains("Indie Quest"), "{custom}");
-
-        // 再次扫描：不重复添加，确认状态保留（现在由用户规则命中）。
         let r = scan(&mut env, &adapters);
-        assert!(r.games.iter().all(|g| !g.added));
-        assert_eq!(r.games.iter().find(|g| g.id == "steam-9").unwrap().unconfirmed, 0);
+        assert_eq!(r.games.iter().find(|g| g.id == "steam-9").unwrap().unconfirmed, 0, "确认后由用户规则命中");
         assert_eq!(env.app.locations("steam-9").unwrap().len(), 1);
-
-        let lock = env.app.repo.lock().unwrap();
-        let res = env.app.backup(&lock, &env.app.find_game("steam-367520").unwrap(), &BackupOptions::default()).unwrap();
-        assert!(matches!(res, BackupResult::Created { files: 1, .. }));
     }
 
     #[test]
-    fn removed_discovered_game_stays_ignored() {
+    fn include_all_new_and_remove_returns_to_ignored() {
         let mut env = Env::new();
         let adapters = setup(&mut env);
-        scan(&mut env, &adapters);
         let lock = env.app.repo.lock().unwrap();
+        let added = env.app.include_with(&lock, &adapters, &[], true).unwrap();
+        assert_eq!(added.len(), 2);
+        assert!(env.app.include_with(&lock, &adapters, &[], true).unwrap().is_empty(), "没有新发现时不再加入");
         env.app.remove_game(&lock, "Hollow Knight").unwrap();
         drop(lock);
         let r = scan(&mut env, &adapters);
-        assert!(r.games.iter().find(|g| g.id == "steam-367520").unwrap().ignored);
-        assert!(env.app.games().unwrap().iter().all(|g| g.id != "steam-367520"));
-        assert_eq!(env.app.all_games().unwrap().len(), 2);
+        assert_eq!(state_of(&r, "steam-367520"), FoundState::Ignored);
+        assert_eq!(env.app.games().unwrap().len(), 1);
         let lock = env.app.repo.lock().unwrap();
-        env.app.enable_game(&lock, "steam-367520").unwrap();
+        env.app.include_with(&lock, &adapters, &["steam-367520".into()], false).unwrap();
         drop(lock);
         assert_eq!(env.app.status(&env.app.find_game("Hollow Knight").unwrap()).unwrap().state, GameState::NeverBackedUp);
     }

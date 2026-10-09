@@ -11,10 +11,11 @@
 |---|---|
 | `bonfire game add <名称> --path <目录或文件>... [--config-path <路径>]... [--install-dir <目录>]` | 手动添加游戏；`--install-dir` 用于恢复前检测游戏是否在运行 |
 | `bonfire game list [--all]` | 列出游戏；`--all` 包括已忽略的 |
-| `bonfire game rm <game>` | 移除游戏（需确认）：手动添加的删除配置，自动识别的改为忽略；历史快照都保留 |
-| `bonfire game enable <game>` | 恢复被忽略的游戏 |
+| `bonfire game rm <game>` | 移出游戏库（需确认）：手动添加的删除配置，扫描发现的改为忽略；历史快照都保留 |
+| `bonfire game include <game>...` / `--all-new` | 把扫描发现的游戏加入游戏库；`--all-new` 加入全部新发现的游戏 |
+| `bonfire game ignore <game>...` | 忽略扫描发现的游戏，之后扫描不再作为新发现提示（已在库中的会移出） |
 | `bonfire game confirm <game>` | 确认启发式找到的存档位置（写入自定义规则 `custom-rules.yaml`） |
-| `bonfire scan [--platform steam\|epic\|gog] [--no-discover] [--no-metadata] [--force-verify]` | 扫描本机平台识别游戏与存档，获取游戏信息，再检测所有游戏的状态：未备份 / 有更新 / 已是最新 |
+| `bonfire scan [--platform steam\|epic\|gog] [--no-discover] [--no-metadata] [--force-verify]` | 发现游戏：扫描本机平台，列出有存档的游戏（新发现 / 已在库中 / 已忽略），**不会自动加入游戏库**；已在库中的游戏更新存档位置并获取游戏信息；最后检测游戏库中所有游戏的状态 |
 | `bonfire rules update` / `rules info` | 下载最新的 Ludusavi 规则库（按 ETag 增量） / 查看当前使用的规则库 |
 | `bonfire info <game> [--refresh] [--set 字段=值]... [--unlock 字段]... [--search] [--pick 来源:ID]` | 游戏信息：名称、中文名、开发商、发行商、发行日期、类型、封面、游玩时长、云存档；手动修改的字段加锁 |
 | `bonfire status [<game>] [--force-verify]` | 不带游戏时同 `scan`；带游戏时列出变化的文件 |
@@ -248,6 +249,22 @@ bonfire scan
 
 ```bat
 bonfire game confirm "Indie Quest"
+```
+
+退出码：0
+
+### 把发现的游戏加入游戏库
+
+```bat
+bonfire game include "Hollow Knight"
+```
+
+退出码：0
+
+### 忽略发现的游戏
+
+```bat
+bonfire game ignore "Indie Quest"
 ```
 
 退出码：0

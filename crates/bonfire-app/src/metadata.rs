@@ -65,13 +65,13 @@ impl App {
         }
     }
 
-    /// 按优先级排列的提供者；关闭联网时只有本地提供者。
-    fn providers(&self) -> Vec<Box<dyn MetadataProvider>> {
+    /// 按优先级排列的提供者；关闭联网（或 `online` 为假）时只有本地提供者。
+    fn providers(&self, online: bool) -> Vec<Box<dyn MetadataProvider>> {
         let mut v: Vec<Box<dyn MetadataProvider>> = Vec::new();
         if let Some(steam) = self.steam_adapter() {
             v.push(Box::new(SteamLocal { steam }));
         }
-        if self.config.metadata.online {
+        if online && self.config.metadata.online {
             let http: Arc<dyn Http> = self.http.clone();
             v.push(Box::new(SteamStore::new(http.clone())));
             let m = &self.config.metadata;
@@ -104,11 +104,20 @@ impl App {
 
     /// 刷新游戏信息。`force` 时忽略有效期；否则联网信息在有效期内只刷新本地字段（游玩时长等）。
     pub fn refresh_metadata(&mut self, game: &GameRecord, force: bool) -> Result<GameMetadata> {
+        self.refresh_metadata_with(game, force, true)
+    }
+
+    /// 只用本地数据（Steam 本地缓存的封面、游玩时长等）补全，不联网：扫描页展示未加入的游戏时使用。
+    pub fn refresh_metadata_offline(&mut self, game: &GameRecord) -> Result<GameMetadata> {
+        self.refresh_metadata_with(game, false, false)
+    }
+
+    fn refresh_metadata_with(&mut self, game: &GameRecord, force: bool, online: bool) -> Result<GameMetadata> {
         let mut m = self.index.metadata(&game.id)?.unwrap_or_else(|| GameMetadata { game_id: game.id.clone(), ..Default::default() });
         let expired = force || m.fetched_at.as_deref().is_none_or(|t| age_days(t).is_none_or(|d| d >= TTL_DAYS));
 
         // 没有平台 ID 的游戏：先搜索，候选唯一且名称一致时自动关联（文档 4.3 匹配策略）。
-        let providers = self.providers();
+        let providers = self.providers(online);
         let mut query = self.query(game, &m);
         if expired && query.steam_id().is_none() && !query.external_ids.contains_key("igdb") && !query.external_ids.contains_key("sgdb") {
             let candidates = search_all(&providers, &game.name);
@@ -128,7 +137,8 @@ impl App {
                 Err(e) => tracing::info!(game = %game.id, provider = p.id(), "获取游戏信息失败（不影响备份）：{e}"),
             }
         }
-        if fetched_online || (expired && providers.iter().all(|p| !p.online())) {
+        // 只用本地数据时不记获取时间，之后加入游戏库会再联网补全。
+        if fetched_online || (online && expired && providers.iter().all(|p| !p.online())) {
             m.fetched_at = Some(jiff::Timestamp::now().to_string());
         }
         self.index.save_metadata(&m)?;
@@ -249,7 +259,7 @@ impl App {
 
     /// 无平台 ID 的游戏：列出候选供用户选择。
     pub fn search_metadata(&self, game: &GameRecord) -> Vec<Candidate> {
-        search_all(&self.providers(), &game.name)
+        search_all(&self.providers(true), &game.name)
     }
 
     /// 选定候选：写入外部 ID 映射后刷新（之后不再重复询问）。

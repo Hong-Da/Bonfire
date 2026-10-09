@@ -146,11 +146,31 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
             out.emit(v);
             out.line(out.tf("cli.out.game_added", &[("name", &g.name), ("id", &g.id), ("n", &n)]));
         }
-        GameCmd::Enable { game } => {
+        GameCmd::Include { games, all_new } => {
+            if games.is_empty() && !all_new {
+                return Err(AppError::Invalid(out.t("cli.error.include_what").to_string()));
+            }
             let lock = app.repo.lock()?;
-            let g = app.enable_game(&lock, &game)?;
-            out.emit(json!({ "enabled": g.id }));
-            out.line(out.tf("cli.out.game_enabled", &[("name", &g.name)]));
+            let added = app.include_games(&lock, &games, all_new)?;
+            // 加入后补全游戏信息（失败不影响）。
+            for g in &added {
+                let _ = app.refresh_metadata(g, false);
+            }
+            out.emit(json!({ "included": added.iter().map(|g| &g.id).collect::<Vec<_>>() }));
+            if added.is_empty() {
+                out.line(out.t("cli.out.nothing_new"));
+            }
+            for g in &added {
+                out.line(out.tf("cli.out.game_included", &[("name", &g.name), ("id", &g.id)]));
+            }
+        }
+        GameCmd::Ignore { games } => {
+            let lock = app.repo.lock()?;
+            let ignored = app.ignore_games(&lock, &games)?;
+            out.emit(json!({ "ignored": ignored.iter().map(|g| &g.id).collect::<Vec<_>>() }));
+            for g in &ignored {
+                out.line(out.tf("cli.out.game_ignored", &[("name", &g.name)]));
+            }
         }
         GameCmd::Confirm { game } => {
             let lock = app.repo.lock()?;
@@ -243,11 +263,31 @@ fn status_table(app: &App, force_verify: bool, out: &Out) -> Result<Vec<Value>> 
 }
 
 fn print_discovery(r: &bonfire_app::discover::ScanReport, out: &Out) {
-    let added = r.games.iter().filter(|g| g.added).count();
+    use bonfire_app::discover::FoundState;
+    let count = |s: FoundState| r.games.iter().filter(|g| g.state == s).count();
     let platforms = if r.platforms.is_empty() { out.t("cli.out.no_platforms").to_string() } else { r.platforms.join(", ") };
-    out.line(out.tf("cli.out.discovered", &[("platforms", &platforms), ("found", &r.games.len()), ("added", &added), ("nosave", &r.without_saves.len())]));
-    for g in r.games.iter().filter(|g| g.unconfirmed > 0) {
-        out.line(out.tf("cli.out.unconfirmed", &[("name", &g.name), ("n", &g.unconfirmed)]));
+    out.line(out.tf(
+        "cli.out.discovered",
+        &[
+            ("platforms", &platforms),
+            ("found", &r.games.len()),
+            ("new", &count(FoundState::New)),
+            ("managed", &count(FoundState::Managed)),
+            ("ignored", &count(FoundState::Ignored)),
+            ("nosave", &r.without_saves.len()),
+        ],
+    ));
+    for g in &r.games {
+        let state = match g.state {
+            FoundState::New => out.t("cli.found.new"),
+            FoundState::Managed => out.t("cli.found.managed"),
+            FoundState::Ignored => out.t("cli.found.ignored"),
+        };
+        let source = if g.rule.is_some() { out.t("cli.found.rules") } else { out.t("cli.found.guessed") };
+        out.line(format!("  [{state}] {:<20} {}  {source}  {}", g.id, g.name, out.tf("cli.out.files_total", &[("files", &g.files), ("bytes", &human_bytes(g.bytes))])));
+    }
+    if count(FoundState::New) > 0 {
+        out.line(out.t("cli.out.include_hint"));
     }
     if r.rules.as_ref().is_some_and(|l| l.path.is_none()) {
         out.line(out.t("cli.out.no_rules"));

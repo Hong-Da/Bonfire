@@ -53,8 +53,8 @@ export default function Library() {
     <>
       <div className="toolbar">
         <h1>{t("ui.nav.library")}</h1>
-        <button className="btn" onClick={() => s.loadLibrary(true)} disabled={s.loading}>
-          <Icon name="scan" /> {s.loading ? t(`ui.library.phase.${phase.phase}`, { done: phase.done, total: phase.total }) : t("ui.library.scan")}
+        <button className="btn" onClick={() => s.loadLibrary(false)} disabled={s.loading}>
+          <Icon name="scan" /> {s.loading ? t(`ui.library.phase.${phase.phase}`, { done: phase.done, total: phase.total }) : t("ui.library.check")}
         </button>
         {s.loading && (
           <button className="btn ghost" onClick={() => api.cancelTask()}>
@@ -95,8 +95,8 @@ export default function Library() {
             <h2>{t("ui.library.emptyTitle")}</h2>
             <p>{t("ui.library.emptyBody")}</p>
             <div className="actions">
-              <button className="btn primary" onClick={() => s.loadLibrary(true)}>
-                <Icon name="scan" /> {t("ui.library.scan")}
+              <button className="btn primary" onClick={() => s.go({ name: "scan" })}>
+                <Icon name="search" /> {t("ui.library.toScan")}
               </button>
               <button className="btn" onClick={() => setAddOpen(true)}>
                 <Icon name="plus" /> {t("ui.library.add")}

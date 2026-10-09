@@ -216,3 +216,37 @@ export interface Phase {
   done: number;
   total: number;
 }
+
+export type FoundState = "new" | "managed" | "ignored";
+
+export interface DiscoveredGame {
+  id: string;
+  name: string;
+  nameZh: string | null;
+  platform: string;
+  /** 命中的规则名称；为空表示推测的位置。 */
+  rule: string | null;
+  state: FoundState;
+  locations: string[];
+  unconfirmed: number;
+  files: number;
+  bytes: number;
+  coverThumb: string | null;
+  cloudSave: boolean;
+  playtimeMin: number | null;
+  lastPlayed: number | null;
+}
+
+export interface NoSaveGame {
+  id: string;
+  name: string;
+  platform: string;
+  rule: string | null;
+}
+
+export interface ScanReport {
+  platforms: string[];
+  rules: { path: string | null; games: number; userGames: number } | null;
+  games: DiscoveredGame[];
+  withoutSaves: NoSaveGame[];
+}

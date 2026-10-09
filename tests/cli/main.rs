@@ -89,7 +89,7 @@ fn case_ids_are_unique() {
 fn every_command_has_ok_and_error_cases() {
     let cases = load_cli_cases();
     let cmds = [
-        "game add", "game list", "game rm", "game enable", "game confirm", "scan", "status", "info", "rules info", "backup", "log", "diff", "restore", "undo-restore", "comment", "branch", "tag",
+        "game add", "game list", "game rm", "game include", "game ignore", "game confirm", "scan", "status", "info", "rules info", "backup", "log", "diff", "restore", "undo-restore", "comment", "branch", "tag",
         "profile save", "profile list", "profile rm", "fsck", "reindex",
     ];
     let mut missing = Vec::new();

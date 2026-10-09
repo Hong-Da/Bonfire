@@ -175,8 +175,14 @@ pub enum GameCmd {
     Rm {
         game: String,
     },
-    Enable {
-        game: String,
+    Include {
+        games: Vec<String>,
+        #[arg(long, conflicts_with = "games")]
+        all_new: bool,
+    },
+    Ignore {
+        #[arg(required = true)]
+        games: Vec<String>,
     },
     Confirm {
         game: String,

@@ -6,6 +6,7 @@ import { Icon, Toasts } from "./components/ui";
 import { setLanguage } from "./i18n";
 import GameDetail from "./pages/GameDetail";
 import Library from "./pages/Library";
+import ScanPage from "./pages/ScanPage";
 import Settings from "./pages/Settings";
 import Wizard from "./pages/Wizard";
 import { useStore } from "./store";
@@ -13,7 +14,7 @@ import { applyTheme } from "./theme";
 
 export default function App() {
   const { t } = useTranslation();
-  const { info, setInfo, view, go, loadLibrary, toast } = useStore();
+  const { info, setInfo, view, go, loadLibrary, startScan, toast } = useStore();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -42,7 +43,9 @@ export default function App() {
           onDone={(cfg) => {
             applyTheme(cfg.general.theme);
             if (cfg.general.language) setLanguage(cfg.general.language);
-            void loadLibrary(true);
+            // 首次运行：进入发现游戏页并开始扫描，由用户选择要管理的游戏。
+            go({ name: "scan" });
+            void startScan();
           }}
         />
         <Toasts />
@@ -54,9 +57,13 @@ export default function App() {
     <div className="shell">
       <nav className="rail" aria-label={t("ui.nav.label")}>
         <img className="mark" src={logo} alt={t("app.name")} />
-        <button aria-current={view.name !== "settings" ? "page" : undefined} onClick={() => go({ name: "library" })}>
+        <button aria-current={view.name === "library" || view.name === "game" ? "page" : undefined} onClick={() => go({ name: "library" })}>
           <Icon name="library" size={22} />
           {t("ui.nav.library")}
+        </button>
+        <button aria-current={view.name === "scan" ? "page" : undefined} onClick={() => go({ name: "scan" })}>
+          <Icon name="search" size={22} />
+          {t("ui.nav.scan")}
         </button>
         <div className="spacer" />
         <button aria-current={view.name === "settings" ? "page" : undefined} onClick={() => go({ name: "settings" })}>
@@ -66,6 +73,7 @@ export default function App() {
       </nav>
       <main className="main">
         {view.name === "library" && <Library />}
+        {view.name === "scan" && <ScanPage />}
         {view.name === "game" && <GameDetail id={view.id} />}
         {view.name === "settings" && <Settings />}
       </main>

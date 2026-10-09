@@ -180,25 +180,13 @@ struct Phase {
     total: usize,
 }
 
-/// 加载游戏库：可选先扫描平台，再逐个游戏检测状态并推送 `library-row` 事件。
+/// 加载游戏库（只含已加入管理的游戏）：逐个检测状态并推送 `library-row` 事件；
+/// `fetch_info` 时再逐个补全游戏信息（新游戏与过期的联网获取），获取一个就更新一行。
 #[tauri::command]
-pub async fn load_library(h: AppHandle, discover: bool, force_verify: bool) -> CmdResult<Vec<GameRow>> {
+pub async fn load_library(h: AppHandle, fetch_info: bool, force_verify: bool) -> CmdResult<Vec<GameRow>> {
     with_app(h, move |app, h| {
         let shared = h.state::<Shared>();
         shared.cancel.store(false, Ordering::SeqCst);
-        if discover {
-            let _ = h.emit("library-phase", Phase { phase: "discovering", done: 0, total: 0 });
-            // 规则库缺失或过期时先更新（离线或失败时继续用已有规则）。
-            app.ensure_rules();
-            // 先识别游戏并显示列表，游戏信息（封面、中文名）随后逐个补上，避免首次扫描时长时间空白。
-            app.fetch_metadata_on_scan = false;
-            let lock = app.repo.lock()?;
-            if let Err(e) = app.scan_platforms(&lock, None) {
-                tracing::warn!("扫描平台失败：{e}");
-            }
-            drop(lock);
-            app.fetch_metadata_on_scan = true;
-        }
         let games = app.games()?;
         let total = games.len();
         let mut rows = Vec::new();
@@ -215,8 +203,7 @@ pub async fn load_library(h: AppHandle, discover: bool, force_verify: bool) -> C
                 Err(e) => tracing::warn!(game = %g.id, "检测失败：{e}"),
             }
         }
-        if discover {
-            // 游戏信息：新游戏与过期的联网获取，本地字段每次重读；获取一个就更新一行。
+        if fetch_info {
             for (i, row) in rows.iter_mut().enumerate() {
                 if shared.cancel.load(Ordering::SeqCst) {
                     break;
@@ -235,6 +222,44 @@ pub async fn load_library(h: AppHandle, discover: bool, force_verify: bool) -> C
         }
         let _ = h.emit("library-phase", Phase { phase: "idle", done: total, total });
         Ok(rows)
+    })
+    .await
+}
+
+/// 发现游戏：识别本机平台上的游戏与存档，不加入游戏库，由用户选择。
+#[tauri::command]
+pub async fn discover_games(h: AppHandle) -> CmdResult<bonfire_app::discover::ScanReport> {
+    with_app(h, move |app, h| {
+        let _ = h.emit("scan-phase", "rules");
+        // 规则库缺失或过期时先更新（离线或失败时继续用已有规则）。
+        app.ensure_rules();
+        let _ = h.emit("scan-phase", "discovering");
+        app.fetch_metadata_on_scan = false;
+        let lock = app.repo.lock()?;
+        let r = app.scan_platforms(&lock, None);
+        app.fetch_metadata_on_scan = true;
+        let _ = h.emit("scan-phase", "idle");
+        Ok(r?)
+    })
+    .await
+}
+
+/// 把发现的游戏加入游戏库。
+#[tauri::command]
+pub async fn include_games(h: AppHandle, ids: Vec<String>) -> CmdResult<Vec<GameRecord>> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(app.include_games(&lock, &ids, false)?)
+    })
+    .await
+}
+
+/// 忽略发现的游戏（已在库中的会移出游戏库，历史快照保留）。
+#[tauri::command]
+pub async fn ignore_games(h: AppHandle, ids: Vec<String>) -> CmdResult<Vec<GameRecord>> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(app.ignore_games(&lock, &ids)?)
     })
     .await
 }
