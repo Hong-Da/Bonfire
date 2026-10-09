@@ -1,6 +1,7 @@
 //! 应用目录解析：标准模式与便携模式。
 //!
-//! - 标准模式：配置在 `%APPDATA%\Bonfire\`，数据（仓库、日志、缓存）在 `%LOCALAPPDATA%\Bonfire\`。
+//! - 标准模式：配置在 `%APPDATA%\Bonfire\`，日志与缓存在 `%LOCALAPPDATA%\Bonfire\`；
+//!   默认仓库在程序目录下的 `data`（开发时为项目根目录下的 `data`），可在配置中修改。
 //! - 便携模式：程序目录下存在 `portable` 标记文件时，全部放在程序目录旁的 `data\` 下。
 //! - 环境变量 `BONFIRE_HOME` 指定一个根目录，效果同便携模式（测试与自动化使用）。
 //! - 环境变量 `BONFIRE_CONFIG` 单独指定配置文件路径。
@@ -53,13 +54,27 @@ impl AppPaths {
         // 两个系统目录都取不到时（极少见）退回当前目录，保证程序仍能启动。
         let config_root = dirs::config_dir().unwrap_or_else(|| PathBuf::from(".")).join(APP_DIR_NAME);
         let data_root = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from(".")).join(APP_DIR_NAME);
+        let base = std::env::current_exe().ok().and_then(|exe| exe.parent().map(program_root)).unwrap_or_else(|| PathBuf::from("."));
         Self {
             config_file: config_root.join("config.toml"),
-            default_repo_dir: data_root.join("repo"),
+            default_repo_dir: base.join(DATA_DIR),
             logs_dir: data_root.join("logs"),
             cache_dir: data_root.join("cache"),
             portable: false,
         }
+    }
+}
+
+/// 默认仓库所在的目录名：项目（程序）目录下的 `data`。
+pub const DATA_DIR: &str = "data";
+
+/// 程序的根目录：开发时从 `<项目>\target\<debug|release>[\deps]` 运行，返回项目根目录；
+/// 安装后返回程序所在目录。默认仓库为其下的 `data`。
+pub fn program_root(exe_dir: &Path) -> PathBuf {
+    let target = exe_dir.ancestors().take(3).find(|p| p.file_name().is_some_and(|n| n.eq_ignore_ascii_case("target")));
+    match target.and_then(Path::parent) {
+        Some(project) if project.join("Cargo.toml").is_file() => project.to_path_buf(),
+        _ => exe_dir.to_path_buf(),
     }
 }
 
@@ -85,10 +100,27 @@ mod tests {
     }
 
     #[test]
-    fn standard_uses_app_dir_name() {
+    fn standard_uses_app_dir_name_and_project_data() {
         let p = AppPaths::standard();
         assert!(p.config_file.ends_with("Bonfire/config.toml"));
-        assert!(p.default_repo_dir.ends_with("Bonfire/repo"));
+        // 测试程序位于 <项目>/target/debug/deps，默认仓库是项目根目录下的 data。
+        let project = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap();
+        assert_eq!(p.default_repo_dir, project.join("data"));
         assert!(!p.portable);
+    }
+
+    #[test]
+    fn program_root_detection() {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::write(d.path().join("Cargo.toml"), "").unwrap();
+        for sub in ["target/debug", "target/release", "target/debug/deps"] {
+            assert_eq!(program_root(&d.path().join(sub)), d.path(), "{sub}");
+        }
+        // 安装目录：没有 target 上级，就是程序所在目录。
+        let install = d.path().join("Programs/Bonfire");
+        assert_eq!(program_root(&install), install);
+        // target 的上级不是 Cargo 项目：仍按程序目录处理。
+        let other = tempfile::tempdir().unwrap();
+        assert_eq!(program_root(&other.path().join("target/release")), other.path().join("target/release"));
     }
 }

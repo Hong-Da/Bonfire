@@ -188,7 +188,7 @@ impl Config {
 # language = "zh-CN"
 # 界面主题：auto（跟随系统）/ light / dark
 theme = "{theme}"
-# 存档仓库位置；不写时为 %LOCALAPPDATA%\Bonfire\repo。可放在网盘同步目录中。环境变量 BONFIRE_REPO
+# 存档仓库位置；不写时为程序目录下的 data（开发时为项目根目录下的 data）。可放在网盘同步目录中。环境变量 BONFIRE_REPO
 # repo = 'D:\Backups\Bonfire'
 
 [backup]

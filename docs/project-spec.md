@@ -87,7 +87,7 @@
 ## D 数据与运行
 
 - D1 数据存储：SQLite（`rusqlite`，含 FTS5）。数据库 `bonfire.db` 位于仓库目录内，只作索引，可由 `bonfire reindex` 从对象库重建（文档 §7）【默认，与文档一致】
-- D2 配置文件：TOML。应用配置 `%APPDATA%\Bonfire\config.toml`；仓库参数 `<repo>/config.toml`；游戏配置备份 `<repo>/games.toml`；仓库默认 `%LOCALAPPDATA%\Bonfire\repo`（可配置）。仓库提交 `config/config.example.toml`。所有参数都有默认值，缺失配置时程序仍能启动【默认；位置为 R2-Q4 确认】
+- D2 配置文件：TOML。应用配置 `%APPDATA%\Bonfire\config.toml`；仓库参数 `<repo>/config.toml`；游戏配置备份 `<repo>/games.toml`；仓库默认为程序目录下的 `data`，开发时（从 `target\debug|release` 运行）为项目根目录下的 `data`（可配置）【用户修改：2026-10-09，原为 `%LOCALAPPDATA%\Bonfire\repo`】。仓库提交 `config/config.example.toml`。所有参数都有默认值，缺失配置时程序仍能启动【默认；位置为 R2-Q4 确认】
   - 便携模式：程序目录下存在 `portable` 标记文件时，配置、日志、缓存、仓库都放在程序目录旁的 `data/` 下【R2-Q2 确认】
   - 配置优先级：环境变量（`BONFIRE_*`）> 配置文件 > 代码默认值；所有配置项在 `bonfire-app` 的一处定义。
 - D3 默认监听：127.0.0.1（用户已确认）。桌面应用本身不监听网络端口；仅开发时的 Vite 开发服务器监听本机，端口按 Tauri 惯例为 1420【默认】

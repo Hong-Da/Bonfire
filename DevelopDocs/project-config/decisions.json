@@ -328,5 +328,18 @@
     "reason": "为避免改动用户系统，未在本机执行静默安装；界面在临时仓库中用真实扫描数据逐页截图检查（游戏库、详情时间线、设置、暗色主题、备份与恢复弹窗）。安装包：target/release/bundle/nsis/Bonfire_0.1.0_x64-setup.exe。",
     "date": "2026-10-09",
     "status": "按默认推荐自动决定，待复核"
+  },
+  {
+    "id": "U-1",
+    "stage": "用户修改",
+    "question": "默认仓库目录",
+    "options": [
+      "%LOCALAPPDATA%/Bonfire/repo（原默认）",
+      "项目（程序）目录下的 data：开发时为项目根目录下的 data，安装后为程序所在目录下的 data"
+    ],
+    "chosen": "项目（程序）目录下的 data：开发时为项目根目录下的 data，安装后为程序所在目录下的 data",
+    "reason": "用户 2026-10-09 要求：默认仓库目录改为项目目录下的 data。配置、日志与缓存位置不变；便携模式与 BONFIRE_HOME 不受影响。项目的 .gitignore 已排除 /data/。",
+    "status": "用户指定",
+    "date": "2026-10-09"
   }
 ]
