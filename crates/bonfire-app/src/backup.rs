@@ -146,9 +146,23 @@ impl App {
         force_verify: bool,
     ) -> Result<(Vec<DiskFile>, Vec<FileChange>)> {
         let disk = scan::collect_files(&self.scan_roots(game)?)?;
-        let index = self.index.scan_entries(&game.id)?;
+        let mut index = self.index.scan_entries(&game.id)?;
+        // 本机还不能确定路径的位置（导入的未安装游戏）：看不到不等于删除，不参与比较。
+        let held = self.held_prefixes(&game.id)?;
+        index.retain(|path, _| !held.iter().any(|p| path.starts_with(p.as_str())));
         let changes = scan::detect(&disk, &index, force_verify)?;
         Ok((disk, changes))
+    }
+
+    /// 本机还不能确定路径的存档位置的清单路径前缀（如 `0/`）。
+    pub(crate) fn held_prefixes(&self, game_id: &str) -> Result<Vec<String>> {
+        Ok(self
+            .locations(game_id)?
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.resolved_path.is_empty())
+            .map(|(ord, _)| format!("{ord}/"))
+            .collect())
     }
 
     /// 备份一个游戏。调用方持有仓库锁。
@@ -226,6 +240,18 @@ impl App {
                 mtime_ns,
                 tag: f.tag,
             });
+        }
+        // 本机还不能确定路径的位置：沿用上一个快照中的文件，不当作删除。
+        let held = self.held_prefixes(&game.id)?;
+        if let Some(p) = parent
+            && !held.is_empty()
+        {
+            let prev = self.repo.get_tree(&self.repo.get_snapshot(&p)?.tree)?;
+            entries.extend(
+                prev.entries
+                    .into_iter()
+                    .filter(|e| held.iter().any(|h| e.path.starts_with(h.as_str()))),
+            );
         }
         let tree = Tree::new(entries);
         let tree_id = self.repo.put_tree(&tree)?;

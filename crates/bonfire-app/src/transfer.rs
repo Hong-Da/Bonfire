@@ -2681,6 +2681,62 @@ mod tests {
         assert!(b.app.inspect_files_source(&plain).is_err());
     }
 
+    /// 导入的游戏在这台电脑上找不到存档位置：不显示“已删除”，也不会备份出空快照。
+    #[test]
+    fn imported_game_without_local_saves_stays_up_to_date() {
+        let mut a = Env::new();
+        a.write("a.sav", b"v1");
+        let g = a.add_game("Gone");
+        backup(&mut a, &g, "x");
+        let out = tempfile::tempdir().unwrap();
+        let file = out.path().join("g.bonfire");
+        a.app.export_bundle(&g, &BundleScope::All, &file).unwrap();
+        drop(a); // 原电脑上的存档目录不复存在
+
+        let mut b = Env::new();
+        let lock = b.app.repo.lock().unwrap();
+        let r = b.app.import_bundle(&lock, &file, None, false).unwrap();
+        assert!(r.created_game);
+        let gb = b.app.find_game(&g.id).unwrap();
+        let row = b.app.game_row(&gb, false).unwrap();
+        assert_eq!(row.state, crate::GameState::UpToDate, "{row:?}");
+        assert!(row.unresolved >= 1, "{row:?}");
+        let res = b
+            .app
+            .backup(&lock, &gb, &crate::BackupOptions::default())
+            .unwrap();
+        assert!(matches!(res, crate::BackupResult::NoChanges), "{res:?}");
+        assert_eq!(b.app.history_view(&gb).unwrap().nodes.len(), 1);
+    }
+
+    /// 备份时，本机不能确定路径的位置沿用上一个快照中的文件。
+    #[test]
+    fn backup_keeps_files_of_unresolved_locations() {
+        let mut env = Env::new();
+        env.write("a.sav", b"v1");
+        let g = env.add_game("Game");
+        backup(&mut env, &g, "x");
+        // 第二个位置（cfg.ini）在“这台电脑”上不能确定。
+        let mut locs = env.app.locations(&g.id).unwrap();
+        locs[1].resolved_path = String::new();
+        locs[1].confirmed = false;
+        env.app.index.set_locations(&g.id, &locs).unwrap();
+        env.write("a.sav", b"v2");
+        let id = backup(&mut env, &g, "y");
+        let paths: Vec<String> = env
+            .app
+            .snapshot_files(&g, &id.to_string())
+            .unwrap()
+            .into_iter()
+            .map(|e| e.path)
+            .collect();
+        assert_eq!(paths, ["0/a.sav", "1/cfg.ini"]);
+        assert_eq!(
+            env.app.game_row(&g, false).unwrap().state,
+            crate::GameState::UpToDate
+        );
+    }
+
     #[test]
     fn adopted_game_leaves_install_dependent_locations_unresolved() {
         let mut env = Env::new();

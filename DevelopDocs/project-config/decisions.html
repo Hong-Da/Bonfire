@@ -24,7 +24,7 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 43 项，更新于 2026-10-09 15:49。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 44 项，更新于 2026-10-09 15:57。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">全局</a><a href="#s-1">M1 核心库</a><a href="#s-2">M2 存档发现</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">用户修改</a><a href="#s-5">缺陷修复</a></nav>
 <section id="s-0"><h2>全局<small>1 项</small></h2>
       <article id="G-1">
@@ -266,7 +266,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">要求先在游戏库中加入游戏</li><li class="chosen">游戏库中没有时自动加入并标为“未安装”：本机能确定的存档位置照常使用，需要安装目录的位置等装好并扫描后确定，之前恢复会提示 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>用户要求“可以导入未安装游戏的存档”。</p><p class="impact"><span>影响</span>历史包、合集包、带说明的存档 zip / 文件夹都支持；扫描到游戏后按模板对上原位置序号。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-5"><h2>缺陷修复<small>3 项</small></h2>
+      </article></section><section id="s-5"><h2>缺陷修复<small>4 项</small></h2>
       <article id="U-6c">
         <header><code>U-6c</code><h3>“打开存档位置”打开的是用户目录而不是存档目录</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
@@ -283,6 +283,12 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <header><code>U-7f</code><h3>导出后“在资源管理器中显示”打开的是“文档”目录</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>选中文件时参数为 /select,&lt;路径&gt;；路径含空格（导出文件名带游戏名，如 Hollow Knight-…zip）时标准库给整个参数加引号，资源管理器不认识这种写法，打开默认的“文档”目录。已在本机用同样的命令行复现并验证修复。</p><p class="impact"><span>影响</span>open_path 改为原样传入 /select,&quot;&lt;路径&gt;&quot;（目录为 &quot;&lt;路径&gt;&quot;），并统一处理正斜杠、长路径前缀与不存在的路径（打开最近的上级目录）。所有打开文件夹的入口都经过它：导出与合集导出后的显示文件、打开存档位置、打开安装目录、设置中打开配置文件。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7g">
+        <header><code>U-7g</code><h3>导入的未安装游戏在本机找不到存档位置时显示“有更新（已删除）”，备份会生成缺少这些文件的快照</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>导入后变更检测缓存设为导入的当前快照，而本机不能确定路径的位置扫描不到文件，被当成删除。</p><p class="impact"><span>影响</span>本机不能确定路径的位置不参与变更检测；备份时沿用上一个快照中这些位置的文件。</p>
         <footer>2026-10-09</footer>
       </article></section>
 </div></body></html>
