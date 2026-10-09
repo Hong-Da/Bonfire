@@ -37,6 +37,8 @@ pub enum CoreError {
     NoSnapshots(String),
     #[error("{path} 格式错误：{reason}")]
     BadFile { path: PathBuf, reason: String },
+    #[error("索引数据库错误：{0}")]
+    Db(#[from] rusqlite::Error),
 }
 
 impl CoreError {

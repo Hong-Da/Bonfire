@@ -38,6 +38,25 @@ impl Repo {
         self.object_path(kind, id).is_file()
     }
 
+    /// 某类对象的全部 ID（遍历目录；不在对象目录规则内的文件被忽略）。
+    pub fn list_objects(&self, kind: Kind) -> Result<Vec<ObjectId>> {
+        let root = self.objects_dir().join(kind.dir());
+        let mut out = Vec::new();
+        for sub in std::fs::read_dir(&root).at(&root)?.flatten() {
+            let prefix = sub.file_name().to_string_lossy().into_owned();
+            if prefix.len() != 2 || !sub.path().is_dir() {
+                continue;
+            }
+            for f in std::fs::read_dir(sub.path()).at(sub.path())?.flatten() {
+                if let Ok(id) = format!("{prefix}{}", f.file_name().to_string_lossy()).parse() {
+                    out.push(id);
+                }
+            }
+        }
+        out.sort();
+        Ok(out)
+    }
+
     /// 写入原始字节（压缩后存放）。已存在时不写，返回 false。
     fn put_raw(&self, kind: Kind, id: &ObjectId, raw: &[u8]) -> Result<bool> {
         let path = self.object_path(kind, id);

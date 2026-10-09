@@ -16,6 +16,9 @@ toml.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 jiff.workspace = true
+rusqlite.workspace = true
+rayon.workspace = true
+walkdir.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
