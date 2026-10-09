@@ -1,0 +1,835 @@
+{
+  "meta": {
+    "project": {
+      "zh-CN": "篝火 Bonfire",
+      "en": "Bonfire"
+    },
+    "round": 2,
+    "lang": "zh-CN",
+    "taskDoc": "DevelopDocs/游戏存档备份软件 · 开发设计文档.md",
+    "devMachineLinux": false
+  },
+  "nameProposals": [
+    {
+      "zh": "篝火",
+      "en": "Bonfire",
+      "slug": "bonfire",
+      "reason": {
+        "zh-CN": "任务文档中的名称；篝火即存档点的意象。注意：已有同名社交应用与 Python 包，CLI 命令 bonfire 在本机未被占用",
+        "en": "Name from the task document; a bonfire is a classic save-point image. Note: a social app and a Python package share the name"
+      }
+    },
+    {
+      "zh": "存档库",
+      "en": "SaveVault",
+      "slug": "savevault",
+      "reason": {
+        "zh-CN": "直接描述功能：存档的保险库",
+        "en": "Descriptive: a vault for save files"
+      }
+    },
+    {
+      "zh": "回档",
+      "en": "Rewind",
+      "slug": "rewind",
+      "reason": {
+        "zh-CN": "简短易记，突出随时恢复到任意版本",
+        "en": "Short; highlights rolling back to any version"
+      }
+    }
+  ],
+  "questions": [
+    {
+      "id": "R2-Q1",
+      "question": {
+        "zh-CN": "托盘与自动备份采用哪种形态？"
+      },
+      "choices": [
+        {
+          "value": "same-exe",
+          "label": {
+            "zh-CN": "同一个程序：关闭窗口时销毁 WebView，只留托盘（推荐，内存低、只有一个进程持有仓库锁）"
+          }
+        },
+        {
+          "value": "daemon",
+          "label": {
+            "zh-CN": "独立的轻量守护进程 bonfire-daemon，GUI 与它通信"
+          }
+        }
+      ],
+      "default": "same-exe",
+      "source": {
+        "zh-CN": "文档 §3/§9 要求托盘常驻内存 < 80 MB，但没有规定是否为独立进程"
+      }
+    },
+    {
+      "id": "R2-Q2",
+      "question": {
+        "zh-CN": "是否支持便携模式（程序目录下有 portable 标记时，配置、日志、仓库都放在程序目录旁）？"
+      },
+      "choices": [
+        {
+          "value": "yes",
+          "label": {
+            "zh-CN": "支持（与第一轮选择的打包迁移脚本配合，解压即用）"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "zh-CN": "不支持，只用 %APPDATA% / %LOCALAPPDATA%"
+          }
+        }
+      ],
+      "default": "yes",
+      "source": {
+        "zh-CN": "第一轮选择了打包迁移脚本与在线部署；文档默认仓库在 %LOCALAPPDATA%\\Bonfire\\repo"
+      }
+    },
+    {
+      "id": "R2-Q3",
+      "question": {
+        "zh-CN": "恢复前的游戏进程检测是否提前到 M1 做简化版？"
+      },
+      "choices": [
+        {
+          "value": "m1-basic",
+          "label": {
+            "zh-CN": "M1 做简化版（按安装目录/存档目录匹配进程名并警告），M4 完善"
+          }
+        },
+        {
+          "value": "m4",
+          "label": {
+            "zh-CN": "按文档全部放在 M4"
+          }
+        }
+      ],
+      "default": "m1-basic",
+      "source": {
+        "zh-CN": "文档 8.2 恢复流程第 3 步包含进程检测，但 F7 优先级为 P1、排在 M4"
+      }
+    },
+    {
+      "id": "R2-Q4",
+      "question": {
+        "zh-CN": "应用配置放在哪里？"
+      },
+      "choices": [
+        {
+          "value": "appdata",
+          "label": {
+            "zh-CN": "%APPDATA%\\Bonfire\\config.toml（推荐；与仓库自带的 repo/config.toml 分开）"
+          }
+        },
+        {
+          "value": "repo",
+          "label": {
+            "zh-CN": "全部放在仓库目录 repo/config.toml"
+          }
+        }
+      ],
+      "default": "appdata",
+      "source": {
+        "zh-CN": "文档 6.1 的 repo/config.toml 只记录仓库参数，没有说明应用设置（语言、主题、API Key 等）存放位置"
+      }
+    }
+  ],
+  "logoOptions": [
+    {
+      "name": {
+        "zh-CN": "方案一：篝火",
+        "en": "Option 1: Bonfire"
+      },
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"112\" fill=\"#2a1a12\"/><path d=\"M256 76 C300 150 372 196 372 300 C372 372 320 428 256 428 C192 428 140 372 140 300 C140 236 180 200 204 160 C212 210 236 232 256 240 C250 190 236 130 256 76 Z\" fill=\"#ff7a1a\"/><path d=\"M256 262 C286 300 320 322 320 362 C320 398 292 420 256 420 C220 420 192 398 192 362 C192 330 220 306 256 262 Z\" fill=\"#ffd166\"/></svg>",
+      "note": {
+        "zh-CN": "深炭底上的橙色火焰，最直接的存档点意象；主色 #ff7a1a",
+        "en": "Orange flame on charcoal, the save-point image; accent #ff7a1a"
+      }
+    },
+    {
+      "name": {
+        "zh-CN": "方案二：回溯之火",
+        "en": "Option 2: Rewind flame"
+      },
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"112\" fill=\"#e8590c\"/><path d=\"M426 266 A170 170 0 1 1 341 119\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"34\" stroke-linecap=\"round\"/><polygon points=\"376,139 315,143 349,85\" fill=\"#ffffff\"/><g transform=\"translate(256 272) scale(0.55) translate(-256 -252)\"><path d=\"M256 76 C300 150 372 196 372 300 C372 372 320 428 256 428 C192 428 140 372 140 300 C140 236 180 200 204 160 C212 210 236 232 256 240 C250 190 236 130 256 76 Z\" fill=\"#ffffff\"/><path d=\"M256 262 C286 300 320 322 320 362 C320 398 292 420 256 420 C220 420 192 398 192 362 C192 330 220 306 256 262 Z\" fill=\"#ffd166\"/></g></svg>",
+      "note": {
+        "zh-CN": "火焰外环一圈循环箭头，表达版本历史与随时恢复；主色 #e8590c",
+        "en": "Flame circled by a cycle arrow: history and restore; accent #e8590c"
+      }
+    },
+    {
+      "name": {
+        "zh-CN": "方案三：火与快照层",
+        "en": "Option 3: Flame on layers"
+      },
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"112\" fill=\"#12343b\"/><g transform=\"translate(256 222) scale(0.62) translate(-256 -252)\"><path d=\"M256 76 C300 150 372 196 372 300 C372 372 320 428 256 428 C192 428 140 372 140 300 C140 236 180 200 204 160 C212 210 236 232 256 240 C250 190 236 130 256 76 Z\" fill=\"#ffb703\"/></g><rect x=\"136\" y=\"356\" width=\"240\" height=\"30\" rx=\"15\" fill=\"#fb8500\"/><rect x=\"166\" y=\"406\" width=\"180\" height=\"30\" rx=\"15\" fill=\"#fb8500\"/></svg>",
+      "note": {
+        "zh-CN": "火焰下两层“柴”即叠起的快照，深青底与暖色对比；主色 #fb8500",
+        "en": "Logs below the flame read as stacked snapshots; accent #fb8500"
+      }
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "game",
+      "name": {
+        "zh-CN": "游戏管理（手动添加/列出/移除自定义游戏与路径）"
+      },
+      "cli": "bonfire game add|list|rm",
+      "api": "—",
+      "scene": {
+        "zh-CN": "M1 只支持手动路径；模拟器/独立游戏"
+      },
+      "priority": "required"
+    },
+    {
+      "id": "scan",
+      "name": {
+        "zh-CN": "扫描与更新检测"
+      },
+      "cli": "bonfire scan [--platform] [--force-verify]",
+      "api": "—",
+      "scene": {
+        "zh-CN": "计划任务定时检查有无更新"
+      },
+      "priority": "required"
+    },
+    {
+      "id": "status",
+      "name": {
+        "zh-CN": "查看状态"
+      },
+      "cli": "bonfire status [<game>]",
+      "api": "—",
+      "scene": {
+        "zh-CN": "脚本判断是否需要备份"
+      },
+      "priority": "required"
+    },
+    {
+      "id": "backup",
+      "name": {
+        "zh-CN": "备份（可多游戏、备注、方案、标签）"
+      },
+      "cli": "bonfire backup <game>... [-m] [--profile] [--tag] [--force]",
+      "api": "—",
+      "scene": {
+        "zh-CN": "计划任务、脚本批量备份"
+      },
+      "priority": "required"
+    },
+    {
+      "id": "log",
+      "name": {
+        "zh-CN": "查看历史 / 搜索备注"
+      },
+      "cli": "bonfire log <game> [--branch] [--grep]",
+      "api": "—",
+      "scene": {
+        "zh-CN": "查找某个存档点"
+      },
+      "priority": "required"
+    },
+    {
+      "id": "diff",
+      "name": {
+        "zh-CN": "快照差异"
+      },
+      "cli": "bonfire diff <game> <snapA> [<snapB>]",
+      "api": "—",
+      "scene": {
+        "zh-CN": "恢复前确认变化"
+      },
+      "priority": "required"
+    },
+    {
+      "id": "restore",
+      "name": {
+        "zh-CN": "恢复（全部/部分、预览）"
+      },
+      "cli": "bonfire restore <game> <ref> [--path] [--full] [--dry-run]",
+      "api": "—",
+      "scene": {
+        "zh-CN": "回到某个存档点"
+      },
+      "priority": "required"
+    },
+    {
+      "id": "undo",
+      "name": {
+        "zh-CN": "撤销上次恢复"
+      },
+      "cli": "bonfire undo-restore <game>",
+      "api": "—",
+      "scene": {
+        "zh-CN": "恢复错了时找回"
+      },
+      "priority": "required"
+    },
+    {
+      "id": "comment",
+      "name": {
+        "zh-CN": "修改备注"
+      },
+      "cli": "bonfire comment <game> <snap> -m",
+      "api": "—",
+      "scene": {
+        "zh-CN": "补写备注"
+      },
+      "priority": "required"
+    },
+    {
+      "id": "ref",
+      "name": {
+        "zh-CN": "分支与标签"
+      },
+      "cli": "bonfire branch|tag <game> <name> [<snap>]",
+      "api": "—",
+      "scene": {
+        "zh-CN": "多周目、重要节点"
+      },
+      "priority": "required"
+    },
+    {
+      "id": "info",
+      "name": {
+        "zh-CN": "游戏信息"
+      },
+      "cli": "bonfire info <game> [--refresh]",
+      "api": "—",
+      "scene": {
+        "zh-CN": "查看封面、时长等元数据"
+      },
+      "priority": "suggested"
+    },
+    {
+      "id": "fsck",
+      "name": {
+        "zh-CN": "仓库校验"
+      },
+      "cli": "bonfire fsck",
+      "api": "—",
+      "scene": {
+        "zh-CN": "定期校验仓库完整性"
+      },
+      "priority": "suggested"
+    },
+    {
+      "id": "reindex",
+      "name": {
+        "zh-CN": "重建索引"
+      },
+      "cli": "bonfire reindex",
+      "api": "—",
+      "scene": {
+        "zh-CN": "SQLite 损坏后从对象库恢复（文档 §7）"
+      },
+      "priority": "suggested"
+    },
+    {
+      "id": "rules",
+      "name": {
+        "zh-CN": "规则库更新"
+      },
+      "cli": "bonfire rules update",
+      "api": "—",
+      "scene": {
+        "zh-CN": "离线环境或手动刷新 Ludusavi 规则"
+      },
+      "priority": "suggested"
+    },
+    {
+      "id": "gc",
+      "name": {
+        "zh-CN": "历史清理与垃圾回收"
+      },
+      "cli": "bonfire gc [--dry-run]",
+      "api": "—",
+      "scene": {
+        "zh-CN": "释放空间（P1）"
+      },
+      "priority": "suggested"
+    },
+    {
+      "id": "profile",
+      "name": {
+        "zh-CN": "备份方案管理"
+      },
+      "cli": "bonfire profile list|save|rm",
+      "api": "—",
+      "scene": {
+        "zh-CN": "复用常用游戏组合"
+      },
+      "priority": "optional"
+    },
+    {
+      "id": "export",
+      "name": {
+        "zh-CN": "导入/导出单游戏历史"
+      },
+      "cli": "bonfire export <game> -o <file> / bonfire import <file>",
+      "api": "—",
+      "scene": {
+        "zh-CN": "迁移或分享（P2）"
+      },
+      "priority": "optional"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "goal": {
+        "zh-CN": "核心库：对象库、快照、refs、变更检测、备份与恢复；手动添加路径；CLI 可用"
+      },
+      "reqs": [
+        "REQ-001(手动部分)",
+        "REQ-002",
+        "REQ-003",
+        "REQ-004",
+        "REQ-005",
+        "REQ-006"
+      ],
+      "deliverable": {
+        "zh-CN": "Rust 核心库 + bonfire CLI，可对手动添加的目录完成备份、历史、差异、恢复、撤销"
+      },
+      "acceptance": {
+        "zh-CN": "文档 10.4：随机断电（强杀进程 + 故障注入）测试无快照损坏；fsck 全部通过；CLI 端到端测试通过；用户验收"
+      },
+      "stages": [
+        {
+          "id": "M1-1",
+          "content": {
+            "zh-CN": "骨架：Cargo workspace（core/discovery/app/cli）、Tauri 空壳、pnpm 前端、配置、日志、start.bat/test.bat、测试框架"
+          },
+          "done": {
+            "zh-CN": "start.bat 能启动空窗口，test.bat 跑通 cargo test 与 Vitest"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M1-2",
+          "content": {
+            "zh-CN": "对象库：Chunk/Blob/Tree/Snapshot、BLAKE3、zstd、FastCDC、临时文件+原子重命名、仓库文件锁、仓库版本号"
+          },
+          "done": {
+            "zh-CN": "对象读写往返一致；相同内容去重；锁防止双写"
+          },
+          "size": "L"
+        },
+        {
+          "id": "M1-3",
+          "content": {
+            "zh-CN": "Refs：分支/标签/HEAD、reflog、notes、快照引用解析（哈希前缀≥6、HEAD~n、标签名）"
+          },
+          "done": {
+            "zh-CN": "引用解析与 reflog 单测通过"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M1-4",
+          "content": {
+            "zh-CN": "SQLite 索引（含 FTS5）与 ScanIndex 变更检测（racy-git、强制校验、并行哈希）、reindex"
+          },
+          "done": {
+            "zh-CN": "五种状态判定正确；删库后 reindex 可恢复"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M1-5",
+          "content": {
+            "zh-CN": "备份服务：手动添加游戏、逐游戏备注（自动生成默认备注）、无变化不建快照、--force"
+          },
+          "done": {
+            "zh-CN": "备份后 status 为已是最新；备注可搜索"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M1-6",
+          "content": {
+            "zh-CN": "恢复服务：差异预览、部分/完全恢复、保护快照、临时文件写入后原子替换、失败回滚、撤销恢复、恢复后分支选择"
+          },
+          "done": {
+            "zh-CN": "恢复与撤销往返后数据一致；中途失败自动回滚"
+          },
+          "size": "L"
+        },
+        {
+          "id": "M1-7",
+          "content": {
+            "zh-CN": "CLI 全部 M1 命令、--json/--output json、退出码、docs/cli.md；崩溃一致性测试与 fsck"
+          },
+          "done": {
+            "zh-CN": "CLI 用例全部通过；故障注入 N 次后 fsck 无错误"
+          },
+          "size": "M"
+        }
+      ]
+    },
+    {
+      "id": "M2",
+      "goal": {
+        "zh-CN": "存档发现：Steam、Epic、GOG 适配器 + Ludusavi 规则库 + 游戏信息获取"
+      },
+      "reqs": [
+        "REQ-001"
+      ],
+      "deliverable": {
+        "zh-CN": "bonfire scan 可自动识别本机游戏及存档路径，并补全名称、封面等信息"
+      },
+      "acceptance": {
+        "zh-CN": "文档 10.4：识别率 ≥ 90%（在本机 Steam 已安装游戏上只读验收，数量以本机实际为准）；伪造平台目录的自动化测试通过"
+      },
+      "stages": [
+        {
+          "id": "M2-1",
+          "content": {
+            "zh-CN": "PlatformAdapter 接口、路径变量展开、glob 匹配、注册表存档导出 .reg、2 GB 大小告警"
+          },
+          "done": {
+            "zh-CN": "路径变量与 glob 单测通过"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M2-2",
+          "content": {
+            "zh-CN": "Steam 适配器：注册表 → libraryfolders.vdf → appmanifest、userdata/steamId3、云存档标记、游玩时长"
+          },
+          "done": {
+            "zh-CN": "伪造 Steam 目录测试通过；本机只读扫描可列出已装游戏"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M2-3",
+          "content": {
+            "zh-CN": "Epic、GOG 适配器"
+          },
+          "done": {
+            "zh-CN": "伪造目录测试通过"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M2-4",
+          "content": {
+            "zh-CN": "Ludusavi 规则库：内置快照 + 启动时增量更新、用户规则覆盖、启发式探测（待确认）"
+          },
+          "done": {
+            "zh-CN": "规则优先级测试通过；离线时使用内置快照"
+          },
+          "size": "L"
+        },
+        {
+          "id": "M2-5",
+          "content": {
+            "zh-CN": "游戏信息：MetadataService、steam-local / steam-store 提供者、IGDB 与 SteamGridDB（模拟数据测试）、图片缓存转 WebP、字段锁定"
+          },
+          "done": {
+            "zh-CN": "离线不阻塞扫描；缓存 30 天有效"
+          },
+          "size": "L"
+        },
+        {
+          "id": "M2-6",
+          "content": {
+            "zh-CN": "识别率验收：本机只读扫描报告（识别/未识别/误匹配）"
+          },
+          "done": {
+            "zh-CN": "达到验收指标或列出差距由用户决定"
+          },
+          "size": "S"
+        }
+      ]
+    },
+    {
+      "id": "M3",
+      "goal": {
+        "zh-CN": "GUI MVP：游戏库、备份确认（逐个备注）、历史时间线、恢复；P0 全部交付"
+      },
+      "reqs": [
+        "REQ-001",
+        "REQ-002",
+        "REQ-003",
+        "REQ-004",
+        "REQ-005",
+        "REQ-006"
+      ],
+      "deliverable": {
+        "zh-CN": "Tauri 桌面应用 + NSIS 安装包"
+      },
+      "acceptance": {
+        "zh-CN": "P0 功能在 GUI 中全部可用；前端测试通过；用户在本机安装验收"
+      },
+      "stages": [
+        {
+          "id": "M3-1",
+          "content": {
+            "zh-CN": "Tauri 命令层、前端骨架（路由、中英文切换、三态主题、Logo）、首次运行向导"
+          },
+          "done": {
+            "zh-CN": "向导完成后写入配置并进入游戏库"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M3-2",
+          "content": {
+            "zh-CN": "游戏库页：扫描逐游戏推送、状态徽标、筛选、勾选、备份方案、长任务进度与取消"
+          },
+          "done": {
+            "zh-CN": "200 个模拟游戏下列表流畅"
+          },
+          "size": "L"
+        },
+        {
+          "id": "M3-3",
+          "content": {
+            "zh-CN": "备份确认弹窗：逐游戏备注、统一备注、变化文件展开、同时打标签"
+          },
+          "done": {
+            "zh-CN": "备份后列表状态刷新"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M3-4",
+          "content": {
+            "zh-CN": "游戏详情/历史页：分支图时间线、快照文件与差异、编辑备注、标签/分支、备注搜索"
+          },
+          "done": {
+            "zh-CN": "历史图与 CLI log 一致"
+          },
+          "size": "L"
+        },
+        {
+          "id": "M3-5",
+          "content": {
+            "zh-CN": "恢复 UI（预览、确认、保护快照、撤销提示、云存档提示）与设置页"
+          },
+          "done": {
+            "zh-CN": "恢复/撤销流程可用"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M3-6",
+          "content": {
+            "zh-CN": "NSIS 安装包（按用户安装）、图标、P0 验收"
+          },
+          "done": {
+            "zh-CN": "安装、卸载、升级正常"
+          },
+          "size": "S"
+        }
+      ]
+    },
+    {
+      "id": "M4",
+      "goal": {
+        "zh-CN": "完善：其余平台适配器、运行保护、自动备份、保留策略与 GC（P1）"
+      },
+      "reqs": [
+        "REQ-001",
+        "REQ-007",
+        "REQ-008",
+        "REQ-009"
+      ],
+      "deliverable": {
+        "zh-CN": "全平台识别、托盘自动备份、历史清理"
+      },
+      "acceptance": {
+        "zh-CN": "非功能指标（文档 10.1）：200 游戏无变化增量扫描 < 3 秒、吞吐 ≥ 200 MB/s、托盘内存 < 80 MB；用户验收"
+      },
+      "stages": [
+        {
+          "id": "M4-1",
+          "content": {
+            "zh-CN": "Ubisoft、EA、Xbox/MS Store（wgs 整体备份）、Battle.net 适配器"
+          },
+          "done": {
+            "zh-CN": "伪造目录测试通过"
+          },
+          "size": "L"
+        },
+        {
+          "id": "M4-2",
+          "content": {
+            "zh-CN": "游戏运行保护：按安装目录匹配进程，运行中警告或阻止恢复"
+          },
+          "done": {
+            "zh-CN": "模拟进程测试通过"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M4-3",
+          "content": {
+            "zh-CN": "系统托盘与自动备份：游戏退出、定时触发，运行中不做重 IO"
+          },
+          "done": {
+            "zh-CN": "退出游戏后自动生成快照"
+          },
+          "size": "L"
+        },
+        {
+          "id": "M4-4",
+          "content": {
+            "zh-CN": "保留策略、快照压缩（父指针改写）、标记-清除 GC、packs"
+          },
+          "done": {
+            "zh-CN": "标签快照不被清理；GC 后 fsck 通过"
+          },
+          "size": "L"
+        },
+        {
+          "id": "M4-5",
+          "content": {
+            "zh-CN": "性能与资源基准测试"
+          },
+          "done": {
+            "zh-CN": "达到 10.1 指标"
+          },
+          "size": "M"
+        }
+      ]
+    },
+    {
+      "id": "M5",
+      "goal": {
+        "zh-CN": "扩展（P2）：导入导出、加密、VSS、Linux/Steam Deck"
+      },
+      "reqs": [
+        "REQ-010",
+        "REQ-011",
+        "REQ-012",
+        "REQ-013"
+      ],
+      "deliverable": {
+        "zh-CN": "P2 功能"
+      },
+      "acceptance": {
+        "zh-CN": "各功能测试通过；用户验收"
+      },
+      "stages": [
+        {
+          "id": "M5-1",
+          "content": {
+            "zh-CN": "单游戏历史导入/导出为单文件"
+          },
+          "done": {
+            "zh-CN": "导出后在新仓库导入，历史一致"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M5-2",
+          "content": {
+            "zh-CN": "仓库 AES-256-GCM 可选加密"
+          },
+          "done": {
+            "zh-CN": "加密仓库读写、fsck 正常"
+          },
+          "size": "L"
+        },
+        {
+          "id": "M5-3",
+          "content": {
+            "zh-CN": "VSS 卷影复制读取被独占锁定的文件"
+          },
+          "done": {
+            "zh-CN": "锁定文件可备份"
+          },
+          "size": "M"
+        },
+        {
+          "id": "M5-4",
+          "content": {
+            "zh-CN": "Linux / Steam Deck（Proton）支持"
+          },
+          "done": {
+            "zh-CN": "Linux 上测试通过"
+          },
+          "size": "L"
+        }
+      ]
+    }
+  ],
+  "suggestions": {
+    "A2": {
+      "value": "none",
+      "reason": {
+        "zh-CN": "已确认技术栈为 Rust + Tauri 2 + React/TS（文档 10.2），不使用 Python；Rust 用 Cargo、前端用 pnpm，写入规范",
+        "en": "Stack confirmed as Rust + Tauri 2 + React/TS (doc 10.2); no Python. Cargo for Rust, pnpm for the frontend"
+      }
+    },
+    "A3": {
+      "value": "win",
+      "reason": {
+        "zh-CN": "文档 §1：首版仅 Windows 10/11 64 位，架构预留 Linux/macOS（M5）",
+        "en": "Doc §1: first version is Windows 10/11 x64 only; Linux/macOS reserved for M5"
+      }
+    },
+    "B2": {
+      "value": "other",
+      "reason": {
+        "zh-CN": "桌面端为 Tauri 2 + React/TypeScript（文档 10.2），请在“其他”中填写 Tauri 2 + React",
+        "en": "Desktop UI is Tauri 2 + React/TypeScript (doc 10.2); enter 'Tauri 2 + React' under Other"
+      }
+    },
+    "T1": {
+      "value": "__custom__",
+      "reason": {
+        "zh-CN": "Rust 核心与 CLI 用 cargo test，前端用 Vitest；请在自定义中填写 cargo test + Vitest",
+        "en": "cargo test for the Rust core and CLI, Vitest for the frontend; enter 'cargo test + Vitest' as custom"
+      }
+    },
+    "T2": {
+      "value": [
+        "unit",
+        "cli",
+        "docs"
+      ],
+      "reason": {
+        "zh-CN": "文档没有对外 HTTP 接口（建议在“远程 API”中选择“不开发”），因此去掉 API 测试",
+        "en": "The doc has no HTTP API (turn Remote API off), so no API tests"
+      }
+    },
+    "L1": {
+      "value": "none",
+      "reason": {
+        "zh-CN": "首版仅 Windows（文档 §1），Linux/Steam Deck 支持在 M5，届时再接入 Linux 环境",
+        "en": "First version is Windows only (doc §1); Linux/Steam Deck comes in M5"
+      }
+    },
+    "F1": {
+      "value": "no",
+      "reason": {
+        "zh-CN": "桌面应用以 Tauri 打出的安装包发布；用户数据迁移由仓库目录可配置 + F10 导入导出覆盖",
+        "en": "Shipped as a Tauri installer; data migration is covered by the configurable repo location and F10 import/export"
+      }
+    },
+    "F2": {
+      "value": "none",
+      "reason": {
+        "zh-CN": "通过安装包部署，不需要解压即用的迁移流程",
+        "en": "Deployed via installer, no unzip-and-run migration needed"
+      }
+    },
+    "F3": {
+      "value": "none",
+      "reason": {
+        "zh-CN": "Windows 桌面 GUI 程序，不适合 Docker 部署",
+        "en": "A Windows desktop GUI app isn't suited to Docker"
+      }
+    }
+  },
+  "groupDefaults": {
+    "report": false
+  }
+}

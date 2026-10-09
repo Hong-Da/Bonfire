@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project setup options</title>
+<style>
+:root {
+  --bg: #e9eeec;
+  --surface: #ffffff;
+  --surface-2: #f4f7f6;
+  --ink: #1d2b33;
+  --ink-2: #51616b;
+  --ink-3: #87959d;
+  --line: #d3dcd9;
+  --primary: #2a5aa8;
+  --primary-soft: #e3ebf7;
+  --modified: #a8650f;
+  --modified-soft: #fbf0df;
+  --confirm: #b3261e;
+  --confirm-soft: #fbe7e5;
+  --on-confirm: #ffffff;
+  --ok: #2d7a4c;
+  --ok-soft: #e2f2e8;
+  --off: #9aa6ad;
+  --focus: #2a5aa8;
+  --font: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141b1f;
+    --surface: #1c252a;
+    --surface-2: #222d33;
+    --ink: #e4ebee;
+    --ink-2: #a9b6bd;
+    --ink-3: #74838b;
+    --line: #2f3c43;
+    --primary: #7ea6e6;
+    --primary-soft: #1f3150;
+    --modified: #e0a24c;
+    --modified-soft: #3a2c17;
+    --confirm: #f08a82;
+    --confirm-soft: #422220;
+    --on-confirm: #2a1110;
+    --ok: #6cc391;
+    --ok-soft: #1c3527;
+    --off: #5e6c74;
+    --focus: #9fbef0;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+}
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* 左侧状态清单：页面上唯一的视觉重点 */
+.rail {
+  position: sticky; top: 0; align-self: start;
+  height: 100vh; overflow-y: auto;
+  padding: 24px 16px 120px 20px;
+  border-right: 1px solid var(--line);
+}
+.rail h1 { font-size: 17px; line-height: 1.4; margin: 0 0 4px; }
+.rail .meta { font-size: 13px; color: var(--ink-2); margin: 0 0 20px; }
+.rail ol { list-style: none; margin: 0; padding: 0; }
+.rail li + li { margin-top: 2px; }
+.rail li { display: flex; align-items: center; gap: 4px; }
+.rail li > a { flex: 1; min-width: 0; }
+.quick { position: relative; flex: none; width: 30px; height: 18px; border: 0; padding: 0; border-radius: 9px; background: var(--off); cursor: pointer; }
+.quick::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.quick[aria-checked="true"] { background: var(--primary); }
+.quick[aria-checked="true"]::after { transform: translateX(12px); }
+.quick:disabled { opacity: .5; cursor: not-allowed; }
+.quick-spacer { flex: none; width: 30px; }
+.rail a {
+  display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 10px;
+  padding: 7px 10px; border-radius: 6px;
+  color: var(--ink); text-decoration: none; font-size: 14px;
+}
+.rail a:hover { background: var(--surface-2); }
+.rail a.is-off { color: var(--ink-3); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+.dot.s-off { background: transparent; border: 2px solid var(--off); }
+.dot.s-modified { background: var(--modified); }
+.dot.s-confirm { background: transparent; border: 2px solid var(--confirm); }
+.dot.s-error { background: var(--confirm); }
+.dot.s-later { background: transparent; border: 2px dashed var(--ink-3); }
+.rail .count { font-size: 12px; color: var(--ink-2); }
+.legend { margin-top: 24px; font-size: 12px; color: var(--ink-2); display: grid; gap: 6px; }
+.legend span { display: flex; align-items: center; gap: 8px; }
+.legend b { font-weight: 400; }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
+.lang button { background: none; border: 0; padding: 4px 10px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.lang button + button { border-left: 1px solid var(--line); }
+.lang button.is-on { background: var(--primary); color: #fff; }
+
+main { padding: 24px clamp(16px, 4vw, 40px) 140px; max-width: 920px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 16px; }
+.toolbar .intro { flex: 1 1 320px; color: var(--ink-2); font-size: 14px; margin: 0; }
+.toolbar label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.btn-link { background: none; border: 0; padding: 4px 2px; color: var(--primary); cursor: pointer; font-size: 14px; }
+.btn-link:hover { text-decoration: underline; }
+
+/* 分类 */
+.group {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  scroll-margin-top: 16px;
+}
+.group.is-off { background: var(--surface-2); }
+.group-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+}
+.group-toggle-btn {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  background: none; border: 0; padding: 0; text-align: left; cursor: pointer;
+}
+.chev { width: 16px; height: 16px; flex: none; transition: transform .15s ease; color: var(--ink-3); }
+.group.is-open .chev { transform: rotate(90deg); }
+.group-title { font-size: 16px; font-weight: 600; }
+.group.is-off .group-title { color: var(--ink-2); }
+.badges { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.badge {
+  font-size: 12px; line-height: 1; padding: 4px 6px; border-radius: 4px; white-space: nowrap;
+  background: var(--surface-2); color: var(--ink-2);
+}
+.badge.b-modified { background: var(--modified-soft); color: var(--modified); }
+.badge.b-confirm { background: var(--confirm-soft); color: var(--confirm); }
+.badge.b-error { background: var(--confirm); color: var(--on-confirm); }
+.badge.b-later { border: 1px dashed var(--ink-3); background: transparent; }
+.badge.b-suggest { background: var(--primary-soft); color: var(--primary); cursor: help; }
+.badge.b-ok { background: var(--ok-soft); color: var(--ok); }
+.group-body { display: none; border-top: 1px solid var(--line); padding: 4px 16px 12px; }
+.group.is-open .group-body { display: block; }
+.group-desc { color: var(--ink-2); font-size: 14px; margin: 10px 0 4px; }
+.group-off-note { color: var(--ink-2); font-size: 14px; margin: 10px 0; }
+.group-tools { display: flex; justify-content: flex-end; }
+
+/* 开关 */
+.switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; color: var(--ink-2); flex: none; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch .track { width: 36px; height: 20px; border-radius: 10px; background: var(--off); position: relative; transition: background .15s; flex: none; }
+.switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.switch input:checked + .track { background: var(--primary); }
+.switch input:checked + .track::after { transform: translateX(16px); }
+.switch input:focus-visible + .track { outline: 2px solid var(--focus); outline-offset: 2px; }
+.switch input:disabled + .track { opacity: .55; cursor: not-allowed; }
+.switch.is-locked { cursor: not-allowed; }
+
+/* 选项 */
+.opt { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.opt:last-child { border-bottom: 0; }
+.opt.indent { margin-left: 22px; padding-left: 14px; border-left: 2px solid var(--line); }
+.opt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+.opt-id { font-size: 12px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.opt-label { font-weight: 600; }
+.opt-help { color: var(--ink-2); font-size: 13px; margin: 0 0 8px; max-width: 64ch; }
+.opt-reset { margin-left: auto; }
+.opt.is-disabled .opt-label, .opt.is-disabled .choices, .opt.is-disabled input { opacity: .5; }
+.opt-reason { font-size: 13px; color: var(--ink-2); margin: 2px 0 0; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice {
+  position: relative; display: inline-flex; flex-direction: column; justify-content: center;
+  min-height: 38px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface); cursor: pointer; font-size: 14px;
+}
+.choice input { position: absolute; opacity: 0; pointer-events: none; }
+.choice small { color: var(--ink-2); font-size: 12px; line-height: 1.4; }
+.choice:hover { border-color: var(--primary); }
+.choice.is-checked { border-color: var(--primary); background: var(--primary-soft); box-shadow: inset 0 0 0 1px var(--primary); }
+.choice:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.choice.is-unavailable { opacity: .45; cursor: not-allowed; }
+.choice.is-unavailable:hover { border-color: var(--line); }
+.opt.is-disabled .choice, .opt.is-locked .choice { cursor: not-allowed; }
+.field { width: 100%; max-width: 420px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.field.num { max-width: 140px; }
+textarea.field { max-width: 560px; min-height: 72px; resize: vertical; }
+.field:disabled { opacity: .5; }
+.field.is-invalid { border-color: var(--confirm); }
+.extra { margin-top: 8px; }
+.unit { margin-left: 6px; color: var(--ink-2); font-size: 14px; }
+.msg { font-size: 13px; margin: 6px 0 0; }
+.msg.err { color: var(--confirm); }
+.msg.warn { color: var(--modified); }
+.confirm-box { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 14px; padding: 4px 8px; border-radius: 4px; background: var(--confirm-soft); color: var(--confirm); cursor: pointer; }
+.confirm-box.is-done { background: var(--ok-soft); color: var(--ok); }
+.name-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; max-width: 760px; }
+.name-grid .choice { align-items: flex-start; }
+.name-grid .slug { font-size: 13px; color: var(--ink-2); }
+.custom-name { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-top: 10px; max-width: 760px; }
+.custom-name label { font-size: 13px; color: var(--ink-2); display: grid; gap: 4px; }
+.q-source { font-size: 12px; color: var(--ink-3); }
+.is-hidden { display: none !important; }
+.logo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.logo-card { align-items: stretch; gap: 8px; padding: 12px; }
+.logo-name { font-weight: 600; }
+.logo-sizes { display: grid; grid-template-columns: 1fr; gap: 6px; min-width: 0; }
+.logo-bg { display: flex; align-items: flex-end; justify-content: center; gap: 12px; padding: 10px 6px; border-radius: 6px; min-width: 0; overflow: hidden; }
+.logo-bg.light { background: #ffffff; border: 1px solid #d3dcd9; }
+.logo-bg.dark { background: #1c252a; border: 1px solid #1c252a; }
+.logo-tab { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px 6px 0 0; background: var(--surface-2); font-size: 12px; max-width: 220px; }
+.logo-tab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logo-broken { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--confirm); }
+.table-wrap { overflow-x: auto; margin-top: 8px; }
+.cap-table, .ms-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.cap-table th, .cap-table td, .ms-table th, .ms-table td { text-align: left; vertical-align: top; padding: 8px; border-bottom: 1px solid var(--line); }
+.cap-table th, .ms-table th { font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.cap-table code { font-size: 13px; white-space: nowrap; }
+.cap-table .field { min-width: 120px; }
+.cap-table td:nth-child(2) { min-width: 120px; }
+.cap-table td:nth-child(5) { min-width: 140px; }
+.extra > .opt-help { display: block; margin-bottom: 4px; }
+tr.is-excluded td { color: var(--ink-3); }
+tr.is-excluded b, tr.is-excluded code { text-decoration: line-through; }
+.ms-card { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.ms-card:last-child { border-bottom: 0; }
+.ms-card.is-deferred .opt-label { text-decoration: line-through; color: var(--ink-3); }
+.ms-meta { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 4px 0 8px; font-size: 14px; }
+.ms-meta dt { color: var(--ink-2); }
+.ms-meta dd { margin: 0; }
+.defer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.defer-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.defer .field { max-width: 320px; }
+
+/* 底部操作栏 */
+.bar {
+  position: fixed; left: 248px; right: 0; bottom: 0;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding: 12px clamp(16px, 4vw, 40px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.bar .stats { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 260px; }
+.bar .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.btn:hover { border-color: var(--primary); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn:disabled { color: var(--ink-3); border-color: var(--line); cursor: not-allowed; }
+.btn:disabled:hover { border-color: var(--line); }
+.btn.primary:disabled { background: var(--off); border-color: var(--off); color: #fff; }
+.issues-toggle { font-size: 13px; }
+.issues { flex-basis: 100%; margin: 0; padding: 0; list-style: none; font-size: 13px; max-height: 30vh; overflow-y: auto; }
+.issues li { padding: 2px 0; }
+.issues button { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; text-align: left; }
+.issues .err { color: var(--confirm); }
+.issues .warn { color: var(--modified); }
+.toast { flex-basis: 100%; margin: 0; font-size: 14px; }
+.toast.ok { color: var(--ok); }
+.toast.err { color: var(--confirm); }
+.empty { padding: 40px; text-align: center; color: var(--ink-2); }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .rail { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 16px; }
+  .rail ol { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+  .rail li + li { margin-top: 0; }
+  .rail a { white-space: nowrap; }
+  .quick-spacer { display: none; }
+  .legend { display: none; }
+  .bar { left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="rail" aria-label="Categories">
+    <div class="lang" id="lang-switch" role="group" aria-label="Page language">
+      <button type="button" data-lang="zh-CN" lang="zh-CN">中文</button>
+      <button type="button" data-lang="en" lang="en">English</button>
+    </div>
+    <h1 id="proj-title"></h1>
+    <p class="meta" id="proj-meta"></p>
+    <ol id="rail-list"></ol>
+    <div class="legend" aria-hidden="true">
+      <span><i class="dot"></i><b data-i18n="lgDefault"></b></span>
+      <span><i class="dot s-modified"></i><b data-i18n="lgModified"></b></span>
+      <span><i class="dot s-confirm"></i><b data-i18n="lgConfirm"></b></span>
+      <span><i class="dot s-error"></i><b data-i18n="lgError"></b></span>
+      <span><i class="dot s-later"></i><b data-i18n="lgLater"></b></span>
+      <span><i class="dot s-off"></i><b data-i18n="lgOff"></b></span>
+    </div>
+  </nav>
+  <main>
+    <div class="toolbar">
+      <p class="intro" data-i18n="intro"></p>
+      <label><input type="checkbox" id="only-modified"><span data-i18n="onlyModified"></span></label>
+      <button class="btn-link" type="button" id="expand-all" data-i18n="expandAll"></button>
+      <button class="btn-link" type="button" id="collapse-all" data-i18n="collapseAll"></button>
+    </div>
+    <div id="groups"></div>
+  </main>
+</div>
+<div class="bar" role="region" aria-label="Save">
+  <div class="stats" id="stats"></div>
+  <div class="actions" id="actions"></div>
+  <ul class="issues" id="issues"></ul>
+  <p class="toast" id="toast" role="status" aria-live="polite"></p>
+</div>
+
+<script type="application/json" id="config-data">{"schema": {"schemaVersion": "1.3", "groups": [{"id": "brand", "round": 2, "kind": "logo", "title": "Logo", "desc": "选一个方案；需要修改时在备注中写明，Claude 会调整后重新生成。", "toggle": {"type": "none"}, "options": [], "docNote": "Claude 按 references/branding.md 设计 3 个 SVG 方案，在页面中按 72、32、16 像素及明暗背景预览；默认方案一，可选“暂不需要”；用户填写修改意见时调整后重新确认。"}, {"id": "capabilities", "round": 2, "kind": "capabilities", "title": "能力清单", "desc": "勾选要开发的能力。增加、删除或改名请在对话中告诉 Claude。", "toggle": {"type": "derived", "when": {"any": [{"opt": "E1", "eq": true}, {"opt": "E2", "eq": true}]}, "offReason": "CLI 和远程 API 都不开发"}, "options": [], "docNote": "Claude 按 references/interfaces.md 整理能力清单，每项写明 CLI 命令、API 接口、调用场景、优先级；默认只勾选“必要”项，用户逐项勾选；增删改名在对话中进行。"}, {"id": "milestones", "round": 2, "kind": "milestones", "title": "里程碑与开发阶段", "desc": "只读显示规划结果。可以把某项标记为推迟并写明原因；增删和调整顺序请在对话中进行。", "toggle": {"type": "none"}, "options": [], "docNote": "Claude 按 1.5 节规划里程碑与开发阶段，页面只读显示；每个里程碑和开发阶段可标记推迟并写明原因；增删和调整顺序在对话中进行。"}, {"id": "base", "round": 1, "title": "基础规范", "desc": "所有项目通用的约定，一般保持默认即可。", "toggle": {"type": "none"}, "options": ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"]}, {"id": "project", "round": 1, "title": "项目信息", "desc": "项目名称决定包名、CLI 命令名和 Docker 镜像名。", "toggle": {"type": "none"}, "options": ["N1", "B1"]}, {"id": "ui", "round": 1, "title": "界面与语言", "desc": "Web 界面和 CLI 输出都会使用这里的语言设置。", "toggle": {"type": "none"}, "options": ["C1"]}, {"id": "web", "round": 1, "title": "Web 界面", "desc": "项目类型为 Web 应用时自动开启。", "toggle": {"type": "derived", "when": {"opt": "B1", "eq": "web"}, "offReason": "项目类型不是 Web 应用"}, "options": ["B2", "C3", "C4"]}, {"id": "network", "round": 1, "title": "网络服务", "desc": "有 Web 界面、后台服务或远程 API 时自动开启。", "toggle": {"type": "derived", "when": {"any": [{"opt": "B1", "in": ["web", "service"]}, {"opt": "E2", "eq": true}]}, "offReason": "项目不对外提供网络服务"}, "options": ["D3"]}, {"id": "report", "round": 1, "title": "报告输出", "desc": "项目需要生成报告时开启。", "toggle": {"type": "switch", "default": true, "onLabel": "生成报告", "offLabel": "不生成报告"}, "options": ["C2"]}, {"id": "data", "round": 1, "title": "数据与运行", "desc": "数据存储、配置文件、首次运行向导和日志。", "toggle": {"type": "none"}, "options": ["D1", "D2", "D4", "D5-level", "D5-rotate", "D5-keep"]}, {"id": "cli", "round": 1, "title": "CLI 调用", "desc": "让脚本、定时任务或其他 AI 工具通过命令行调用本项目。", "toggle": {"type": "option", "opt": "E1"}, "options": ["E1-output"]}, {"id": "api", "round": 1, "title": "远程 API", "desc": "让其他系统通过 HTTP 调用本项目。", "toggle": {"type": "option", "opt": "E2"}, "options": ["E2-auth", "E2-prefix"]}, {"id": "test", "round": 1, "title": "测试", "desc": "测试框架与测试范围。", "toggle": {"type": "none"}, "options": ["T1", "T2", "T3", "T4"]}, {"id": "linux", "round": 1, "title": "Linux 开发与测试环境", "desc": "用一台 Linux 机器开发、调试和测试代码。必须是可以随意改动的机器，不要使用生产服务器。", "toggle": {"type": "none"}, "options": ["L1", "L2", "L3", "L1-host", "L1-port", "L1-user", "L1-auth", "L1-key", "L1-workdir", "L1-sudo", "L4"], "quickToggle": {"opt": "L1", "on": "provide", "off": "none"}}, {"id": "deploy", "round": 1, "phase": 3, "title": "部署与收尾", "desc": "开发完成后再正式确认，这里先做初选。", "toggle": {"type": "none"}, "options": ["F1", "F1-include", "F2", "F3"]}, {"id": "skills", "round": 1, "phase": 3, "title": "项目专属 skill", "desc": "开发完成后再正式确认，这里先做初选。", "toggle": {"type": "none"}, "options": ["K1", "K2", "K3", "K4"]}], "options": {"A1": {"label": "版本管理", "type": "radio", "default": "git", "choices": [{"value": "git", "label": "git"}, {"value": "none", "label": "不使用"}], "help": "生成 .gitignore、.gitattributes。"}, "A2": {"label": "Python 环境", "type": "radio", "default": "uv", "help": "提交 pyproject.toml 与 uv.lock，.venv 不入库。", "choices": [{"value": "uv", "label": "uv"}, {"value": "none", "label": "不使用"}]}, "A3": {"label": "运行平台", "type": "radio", "default": "both", "choices": [{"value": "both", "label": "Windows + Linux"}, {"value": "win", "label": "仅 Windows"}, {"value": "linux", "label": "仅 Linux"}]}, "A4": {"label": "文本编码", "type": "radio", "default": "utf8", "help": "统一 UTF-8，并处理 bat 脚本的中文乱码。", "choices": [{"value": "utf8", "label": "UTF-8"}, {"value": "none", "label": "不处理"}]}, "A5": {"label": "编码行为准则", "type": "radio", "default": "use", "help": "Karpathy guidelines，启用后会检查是否已安装。", "choices": [{"value": "use", "label": "使用"}, {"value": "none", "label": "不使用"}]}, "A6": {"label": "一键运行脚本", "type": "radio", "default": "yes", "help": "根目录 start.bat / start.sh：检查 uv、同步依赖、首次运行进入向导、启动程序。", "choices": [{"value": "yes", "label": "需要"}, {"value": "no", "label": "不需要"}]}, "A7": {"label": "版本号", "type": "radio", "default": "semver", "mustConfirm": true, "help": "语义化版本：主版本.次版本.修订号。每个版本打 git 标签 v<版本号>。", "choices": [{"value": "semver", "label": "语义化版本，初始 0.1.0"}, {"value": "semver-custom", "label": "语义化版本，自定义初始版本", "input": {"placeholder": "例如 1.0.0", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$", "message": "格式为 主.次.修订，例如 1.0.0"}}, {"value": "other", "label": "其他版本方案", "input": {"multiline": true, "placeholder": "说明版本号格式和递增规则", "message": "请说明版本号格式和递增规则"}}], "custom": false}, "N1": {"label": "项目名称", "type": "name", "default": 0, "help": "选择一个方案，或自己命名。项目标识用于包名、CLI 命令和 Docker 镜像。"}, "B1": {"label": "项目类型", "type": "radio", "default": "web", "choices": [{"value": "web", "label": "Web 应用"}, {"value": "cli", "label": "CLI 工具"}, {"value": "service", "label": "后台服务"}, {"value": "lib", "label": "Python 库"}]}, "C1": {"label": "界面语言", "type": "checkbox", "default": ["zh-CN", "en", "pt-BR"], "min": 1, "help": "界面上可随时切换；首次打开跟随浏览器或系统语言，无法匹配时用中文。", "choices": [{"value": "zh-CN", "label": "中文"}, {"value": "en", "label": "English"}, {"value": "pt-BR", "label": "Português (Brasil)"}]}, "B2": {"label": "Web 框架", "type": "radio", "default": "fastapi", "choices": [{"value": "fastapi", "label": "FastAPI", "desc": "自带 OpenAPI 文档"}, {"value": "flask", "label": "Flask"}, {"value": "other", "label": "其他", "input": {"placeholder": "框架名称", "message": "请填写框架名称"}}], "custom": false}, "C3": {"label": "界面主题", "type": "radio", "default": "three", "choices": [{"value": "three", "label": "自动 / 明 / 暗三态切换", "desc": "初始为自动，跟随系统"}, {"value": "light", "label": "仅明亮"}]}, "C4": {"label": "页面设计 skill", "type": "radio", "default": "use", "help": "frontend-design，启用后会检查是否已安装。", "choices": [{"value": "use", "label": "使用"}, {"value": "none", "label": "不使用"}]}, "D3": {"label": "默认监听", "type": "radio", "default": "127.0.0.1:8000", "mustConfirm": true, "help": "127.0.0.1 只有本机能访问；0.0.0.0 局域网内其他设备也能访问。", "choices": [{"value": "127.0.0.1:8000", "label": "127.0.0.1:8000", "desc": "仅本机访问"}, {"value": "0.0.0.0:8000", "label": "0.0.0.0:8000", "desc": "局域网可访问"}, {"value": "custom", "label": "自定义", "input": {"placeholder": "地址:端口，例如 192.168.1.10:9000", "pattern": "^((25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1?\\d?\\d):([1-9]\\d{0,3}|[1-5]\\d{4}|6[0-4]\\d{3}|65[0-4]\\d{2}|655[0-2]\\d|6553[0-5])$", "message": "格式为 IPv4地址:端口，端口 1–65535"}}], "custom": false}, "C2": {"label": "报告语言", "type": "radio", "default": "bilingual", "choices": [{"value": "bilingual", "label": "中英双语", "desc": "分别提供两种语言的下载链接"}, {"value": "zh", "label": "仅中文"}, {"value": "en", "label": "仅英文"}]}, "D1": {"label": "本地数据存储", "type": "radio", "default": "sqlite", "choices": [{"value": "sqlite", "label": "SQLite"}, {"value": "duckdb", "label": "DuckDB", "desc": "偏数据分析"}, {"value": "json", "label": "JSON 文件"}, {"value": "none", "label": "不需要"}], "help": "数据文件放在 data/。"}, "D2": {"label": "配置文件格式", "type": "radio", "default": "toml", "choices": [{"value": "toml", "label": "TOML"}, {"value": "yaml", "label": "YAML"}, {"value": "env", "label": ".env"}], "help": "config/config.toml，仓库只提交 config.example.toml；所有参数都有默认值，缺失配置时程序仍能启动。"}, "D4": {"label": "首次运行向导", "type": "radio", "default": [{"when": {"group": "web"}, "value": "web"}, {"value": "cli"}], "help": "先选语言，再分组逐项引导配置参数，输入即校验，汇总确认后写入。", "choices": [{"value": "web", "label": "Web 向导", "requires": {"group": "web"}, "unavailable": "需要 Web 界面"}, {"value": "cli", "label": "命令行向导"}, {"value": "none", "label": "不需要"}]}, "D5-level": {"label": "日志级别", "type": "radio", "default": "INFO", "choices": [{"value": "DEBUG", "label": "DEBUG"}, {"value": "INFO", "label": "INFO"}, {"value": "WARNING", "label": "WARNING"}]}, "D5-rotate": {"label": "日志轮转", "type": "radio", "default": "daily", "choices": [{"value": "daily", "label": "按日期"}, {"value": "size", "label": "按文件大小"}]}, "D5-keep": {"label": "日志保留天数", "type": "number", "default": 14, "min": 1, "max": 365, "unit": "天", "help": "日志写入 logs/，同时输出到控制台。"}, "E1": {"label": "CLI 调用接口", "type": "switch", "default": true, "onLabel": "开发", "offLabel": "不开发", "force": {"when": {"opt": "B1", "eq": "cli"}, "value": true, "reason": "项目类型为 CLI 工具，必须开发"}, "help": "子命令结构，支持 --output json 供程序解析，退出码有明确含义，生成 docs/cli.md。开发前先设计调用清单并经用户确认。"}, "E1-output": {"label": "默认输出格式", "type": "radio", "default": "text", "help": "无论默认值是什么，都支持 --output json 供程序解析。", "choices": [{"value": "text", "label": "文本", "desc": "面向人"}, {"value": "json", "label": "JSON", "desc": "面向程序"}]}, "E2": {"label": "远程 API", "type": "switch", "default": true, "onLabel": "开发", "offLabel": "不开发", "help": "/api/v1/ 前缀，令牌认证，生成 docs/api.md 与 docs/openapi.json。开发前先设计调用清单并经用户确认。"}, "E2-auth": {"label": "认证方式", "type": "radio", "default": "token", "choices": [{"value": "token", "label": "API 令牌", "desc": "Authorization: Bearer <令牌>"}, {"value": "none", "label": "不认证"}]}, "E2-prefix": {"label": "接口前缀", "type": "text", "default": "/api/v1", "required": true, "pattern": "^/[a-z0-9/_-]*$", "message": "以 / 开头，只能包含小写字母、数字、/、-、_"}, "T1": {"label": "测试框架", "type": "radio", "default": "pytest", "choices": [{"value": "pytest", "label": "pytest"}, {"value": "unittest", "label": "unittest"}], "help": "作为 uv 的 dev 依赖。"}, "T2": {"label": "测试范围", "type": "checkbox", "default": ["unit", "cli", "api", "docs"], "min": 1, "choices": [{"value": "unit", "label": "单元测试"}, {"value": "cli", "label": "CLI 测试", "requires": {"opt": "E1", "eq": true}, "unavailable": "未开发 CLI"}, {"value": "api", "label": "API 测试", "requires": {"opt": "E2", "eq": true}, "unavailable": "未开发 API"}, {"value": "docs", "label": "文档测试"}]}, "T3": {"label": "一键测试脚本", "type": "radio", "default": "yes", "choices": [{"value": "yes", "label": "需要"}, {"value": "no", "label": "不需要"}], "help": "根目录 test.bat / test.sh。"}, "T4": {"label": "在线测试", "type": "radio", "default": "yes", "help": "对运行中的实例执行 API 测试，用于部署后验证。", "requires": {"opt": "E2", "eq": true}, "requiresReason": "未开发远程 API", "choices": [{"value": "yes", "label": "需要"}, {"value": "no", "label": "不需要"}]}, "F1": {"label": "Windows 一键打包迁移脚本", "type": "radio", "default": "yes", "choices": [{"value": "yes", "label": "需要"}, {"value": "no", "label": "不需要"}], "help": "执行前逐项询问是否包含数据、配置、日志，列出目录及大小后再打包，输出可直接解压使用的 zip。"}, "F1-include": {"label": "打包时默认包含", "type": "checkbox", "default": ["data", "config"], "indent": true, "help": "执行打包时仍会逐项询问，这里只设定默认勾选。", "requires": {"opt": "F1", "eq": "yes"}, "choices": [{"value": "data", "label": "数据"}, {"value": "config", "label": "配置"}, {"value": "logs", "label": "日志"}]}, "F2": {"label": "迁移与部署", "type": "radio", "default": "online", "choices": [{"value": "online", "label": "在线部署", "desc": "解压后运行 start 脚本"}, {"value": "offline", "label": "离线部署"}, {"value": "none", "label": "不需要"}], "help": "新环境解压后运行 start 脚本即完成部署，附 docs/migration.md。"}, "F3": {"label": "Docker 部署", "type": "radio", "default": "full", "choices": [{"value": "full", "label": "完整", "desc": "Dockerfile、compose、一键构建脚本、构建指导"}, {"value": "dockerfile", "label": "仅 Dockerfile"}, {"value": "none", "label": "不需要"}], "help": "docker-build.bat / .sh 默认构建并启动，可选只构建或导出镜像包。"}, "K1": {"label": "CLI 调用 skill", "type": "radio", "default": "yes", "requires": {"opt": "E1", "eq": true}, "requiresReason": "未开发 CLI", "choices": [{"value": "yes", "label": "生成"}, {"value": "no", "label": "不生成"}], "help": "让 Claude 或其他 agent 通过 CLI 操作本项目。"}, "K2": {"label": "远程 API 调用 skill", "type": "radio", "default": "yes", "requires": {"opt": "E2", "eq": true}, "requiresReason": "未开发远程 API", "choices": [{"value": "yes", "label": "生成"}, {"value": "no", "label": "不生成"}], "help": "让 Claude 或其他 agent 通过 API 调用本项目。"}, "K3": {"label": "测试 skill", "type": "radio", "default": "yes", "choices": [{"value": "yes", "label": "生成"}, {"value": "no", "label": "不生成"}], "help": "执行测试（全量或按分类选择功能）、解读结果、按规则新增测试用例；功能清单放在 skill 的 references/features/ 下。"}, "K4": {"label": "项目更新 skill", "type": "radio", "default": "yes", "choices": [{"value": "yes", "label": "生成"}, {"value": "no", "label": "不生成"}], "help": "出现新需求或代码变更时判断哪些部分需要同步更新并执行；询问版本号，检测各项目专属 skill 是否需要更新，按版本树生成更新记录与汇总；主版本更新或用户要求时进行需求盘点。"}, "L1": {"label": "Linux 环境", "type": "radio", "default": "provide", "mustConfirm": true, "custom": false, "help": "密码不在这里填写，需要时在对话中询问，不会写入任何文件。", "requires": {"not": {"meta": "devMachineLinux", "eq": true}}, "requiresReason": "开发机本身是 Linux", "choices": [{"value": "provide", "label": "提供 Linux 机器（SSH 连接）"}, {"value": "wsl", "label": "用本机 WSL 或 Docker 代替"}, {"value": "none", "label": "不使用 Linux 环境", "desc": "只在代码层面保证跨平台"}]}, "L2": {"label": "用途", "type": "checkbox", "default": ["dev", "test"], "min": 1, "indent": true, "requires": {"opt": "L1", "in": ["provide", "wsl"]}, "choices": [{"value": "dev", "label": "开发", "desc": "在 Linux 上运行和调试代码"}, {"value": "test", "label": "测试", "desc": "每个里程碑结束时运行测试"}]}, "L3": {"label": "开发方式", "type": "radio", "default": "sync", "indent": true, "requires": {"all": [{"opt": "L1", "eq": "provide"}, {"opt": "L2", "includes": "dev"}]}, "choices": [{"value": "sync", "label": "本机编写，同步到 Linux 运行", "desc": "代码以本机为准，推荐"}, {"value": "remote", "label": "直接在 Linux 上编写和运行", "desc": "代码以 Linux 上的为准"}]}, "L1-host": {"label": "地址", "type": "text", "default": "", "required": true, "indent": true, "requires": {"opt": "L1", "eq": "provide"}, "placeholder": "IP 或主机名", "pattern": "^[A-Za-z0-9.-]+$", "message": "请填写 IP 地址或主机名"}, "L1-port": {"label": "SSH 端口", "type": "number", "default": 22, "min": 1, "max": 65535, "indent": true, "requires": {"opt": "L1", "eq": "provide"}}, "L1-user": {"label": "用户名", "type": "text", "default": "", "required": true, "indent": true, "requires": {"opt": "L1", "eq": "provide"}, "help": "建议为本项目单独建一个用户，不用 root。", "placeholder": "例如 dev", "pattern": "^[a-z_][a-z0-9_-]*\\$?$", "message": "用户名只能包含小写字母、数字、- 和 _"}, "L1-auth": {"label": "认证方式", "type": "radio", "default": "key", "indent": true, "requires": {"opt": "L1", "eq": "provide"}, "custom": false, "choices": [{"value": "key", "label": "SSH 密钥", "desc": "推荐"}, {"value": "password", "label": "密码", "desc": "在对话中提供，不写入任何文件"}]}, "L1-key": {"label": "私钥路径", "type": "text", "default": "~/.ssh/id_ed25519", "required": true, "indent": true, "requires": {"all": [{"opt": "L1", "eq": "provide"}, {"opt": "L1-auth", "eq": "key"}]}, "help": "只记录路径，不读取、不保存私钥内容。"}, "L1-workdir": {"label": "工作目录", "type": "text", "default": "~/{slug}/", "required": true, "indent": true, "requires": {"opt": "L1", "eq": "provide"}, "help": "项目在 Linux 机器上的存放位置，开发和测试共用。"}, "L1-sudo": {"label": "允许使用 sudo", "type": "radio", "default": "no", "indent": true, "requires": {"opt": "L1", "eq": "provide"}, "choices": [{"value": "no", "label": "不允许", "desc": "需要时逐次询问"}, {"value": "yes", "label": "允许"}]}, "L4": {"label": "在本机查看 Web 界面", "type": "radio", "default": "tunnel", "indent": true, "requires": {"all": [{"opt": "L1", "eq": "provide"}, {"opt": "L2", "includes": "dev"}, {"group": "web"}]}, "help": "在 Linux 上运行服务时，从本机浏览器访问的方式。", "choices": [{"value": "tunnel", "label": "SSH 端口转发", "desc": "服务仍只监听 127.0.0.1，推荐"}, {"value": "direct", "label": "直接访问 Linux 机器的 IP", "desc": "服务需要监听 0.0.0.0"}]}, "A8": {"label": "文档语言", "type": "radio", "default": "follow", "help": "README、项目规范、更新记录等生成文档使用的语言。与 Claude 对话的语言始终跟随你的提问语言。", "choices": [{"value": "follow", "label": "跟随对话语言"}, {"value": "zh-CN", "label": "中文"}, {"value": "en", "label": "English"}]}}, "rules": [{"level": "warn", "when": {"all": [{"group": "network"}, {"opt": "D3", "ne": "127.0.0.1:8000"}, {"opt": "E2", "eq": true}, {"opt": "E2-auth", "eq": "none"}]}, "message": "远程 API 对本机以外开放，但没有启用认证，任何能访问该地址的人都能调用。", "targets": ["D3", "E2-auth"], "id": "r1"}, {"level": "warn", "when": {"all": [{"group": "network"}, {"opt": "D3", "eq": "0.0.0.0:8000"}]}, "message": "监听 0.0.0.0 后，局域网内的其他设备都能访问本项目。", "targets": ["D3"], "id": "r2"}, {"level": "warn", "when": {"opt": "L1-user", "eq": "root"}, "message": "Linux 机器使用 root 登录，误操作的影响范围较大，建议改用专门的用户。", "targets": ["L1-user"], "id": "r3"}, {"level": "warn", "when": {"all": [{"opt": "D1", "eq": "none"}, {"opt": "F1-include", "includes": "data"}]}, "message": "不使用本地数据存储，打包时“包含数据”没有作用。", "targets": ["F1-include"], "id": "r4"}, {"level": "warn", "when": {"all": [{"opt": "L4", "eq": "direct"}, {"opt": "D3", "eq": "127.0.0.1:8000"}]}, "message": "直接访问 Linux 机器的 IP 时，服务需要监听 0.0.0.0 或该机器的地址；当前默认监听只允许本机访问，在 Linux 上运行时会改用 0.0.0.0。也可以改用 SSH 端口转发。", "targets": ["L4"], "id": "r5"}], "customDefault": true}, "project": {"meta": {"project": {"zh-CN": "篝火 Bonfire", "en": "Bonfire"}, "round": 2, "lang": "zh-CN", "taskDoc": "DevelopDocs/游戏存档备份软件 · 开发设计文档.md", "devMachineLinux": false, "configDir": "DevelopDocs/project-config"}, "nameProposals": [{"zh": "篝火", "en": "Bonfire", "slug": "bonfire", "reason": {"zh-CN": "任务文档中的名称；篝火即存档点的意象。注意：已有同名社交应用与 Python 包，CLI 命令 bonfire 在本机未被占用", "en": "Name from the task document; a bonfire is a classic save-point image. Note: a social app and a Python package share the name"}}, {"zh": "存档库", "en": "SaveVault", "slug": "savevault", "reason": {"zh-CN": "直接描述功能：存档的保险库", "en": "Descriptive: a vault for save files"}}, {"zh": "回档", "en": "Rewind", "slug": "rewind", "reason": {"zh-CN": "简短易记，突出随时恢复到任意版本", "en": "Short; highlights rolling back to any version"}}], "questions": [{"id": "R2-Q1", "question": {"zh-CN": "托盘与自动备份采用哪种形态？"}, "choices": [{"value": "same-exe", "label": {"zh-CN": "同一个程序：关闭窗口时销毁 WebView，只留托盘（推荐，内存低、只有一个进程持有仓库锁）"}}, {"value": "daemon", "label": {"zh-CN": "独立的轻量守护进程 bonfire-daemon，GUI 与它通信"}}], "default": "same-exe", "source": {"zh-CN": "文档 §3/§9 要求托盘常驻内存 < 80 MB，但没有规定是否为独立进程"}}, {"id": "R2-Q2", "question": {"zh-CN": "是否支持便携模式（程序目录下有 portable 标记时，配置、日志、仓库都放在程序目录旁）？"}, "choices": [{"value": "yes", "label": {"zh-CN": "支持（与第一轮选择的打包迁移脚本配合，解压即用）"}}, {"value": "no", "label": {"zh-CN": "不支持，只用 %APPDATA% / %LOCALAPPDATA%"}}], "default": "yes", "source": {"zh-CN": "第一轮选择了打包迁移脚本与在线部署；文档默认仓库在 %LOCALAPPDATA%\\Bonfire\\repo"}}, {"id": "R2-Q3", "question": {"zh-CN": "恢复前的游戏进程检测是否提前到 M1 做简化版？"}, "choices": [{"value": "m1-basic", "label": {"zh-CN": "M1 做简化版（按安装目录/存档目录匹配进程名并警告），M4 完善"}}, {"value": "m4", "label": {"zh-CN": "按文档全部放在 M4"}}], "default": "m1-basic", "source": {"zh-CN": "文档 8.2 恢复流程第 3 步包含进程检测，但 F7 优先级为 P1、排在 M4"}}, {"id": "R2-Q4", "question": {"zh-CN": "应用配置放在哪里？"}, "choices": [{"value": "appdata", "label": {"zh-CN": "%APPDATA%\\Bonfire\\config.toml（推荐；与仓库自带的 repo/config.toml 分开）"}}, {"value": "repo", "label": {"zh-CN": "全部放在仓库目录 repo/config.toml"}}], "default": "appdata", "source": {"zh-CN": "文档 6.1 的 repo/config.toml 只记录仓库参数，没有说明应用设置（语言、主题、API Key 等）存放位置"}}], "logoOptions": [{"name": {"zh-CN": "方案一：篝火", "en": "Option 1: Bonfire"}, "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"112\" fill=\"#2a1a12\"/><path d=\"M256 76 C300 150 372 196 372 300 C372 372 320 428 256 428 C192 428 140 372 140 300 C140 236 180 200 204 160 C212 210 236 232 256 240 C250 190 236 130 256 76 Z\" fill=\"#ff7a1a\"/><path d=\"M256 262 C286 300 320 322 320 362 C320 398 292 420 256 420 C220 420 192 398 192 362 C192 330 220 306 256 262 Z\" fill=\"#ffd166\"/><\/svg>", "note": {"zh-CN": "深炭底上的橙色火焰，最直接的存档点意象；主色 #ff7a1a", "en": "Orange flame on charcoal, the save-point image; accent #ff7a1a"}}, {"name": {"zh-CN": "方案二：回溯之火", "en": "Option 2: Rewind flame"}, "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"112\" fill=\"#e8590c\"/><path d=\"M426 266 A170 170 0 1 1 341 119\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"34\" stroke-linecap=\"round\"/><polygon points=\"376,139 315,143 349,85\" fill=\"#ffffff\"/><g transform=\"translate(256 272) scale(0.55) translate(-256 -252)\"><path d=\"M256 76 C300 150 372 196 372 300 C372 372 320 428 256 428 C192 428 140 372 140 300 C140 236 180 200 204 160 C212 210 236 232 256 240 C250 190 236 130 256 76 Z\" fill=\"#ffffff\"/><path d=\"M256 262 C286 300 320 322 320 362 C320 398 292 420 256 420 C220 420 192 398 192 362 C192 330 220 306 256 262 Z\" fill=\"#ffd166\"/><\/g><\/svg>", "note": {"zh-CN": "火焰外环一圈循环箭头，表达版本历史与随时恢复；主色 #e8590c", "en": "Flame circled by a cycle arrow: history and restore; accent #e8590c"}}, {"name": {"zh-CN": "方案三：火与快照层", "en": "Option 3: Flame on layers"}, "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"112\" fill=\"#12343b\"/><g transform=\"translate(256 222) scale(0.62) translate(-256 -252)\"><path d=\"M256 76 C300 150 372 196 372 300 C372 372 320 428 256 428 C192 428 140 372 140 300 C140 236 180 200 204 160 C212 210 236 232 256 240 C250 190 236 130 256 76 Z\" fill=\"#ffb703\"/><\/g><rect x=\"136\" y=\"356\" width=\"240\" height=\"30\" rx=\"15\" fill=\"#fb8500\"/><rect x=\"166\" y=\"406\" width=\"180\" height=\"30\" rx=\"15\" fill=\"#fb8500\"/><\/svg>", "note": {"zh-CN": "火焰下两层“柴”即叠起的快照，深青底与暖色对比；主色 #fb8500", "en": "Logs below the flame read as stacked snapshots; accent #fb8500"}}], "capabilities": [{"id": "game", "name": {"zh-CN": "游戏管理（手动添加/列出/移除自定义游戏与路径）"}, "cli": "bonfire game add|list|rm", "api": "—", "scene": {"zh-CN": "M1 只支持手动路径；模拟器/独立游戏"}, "priority": "required"}, {"id": "scan", "name": {"zh-CN": "扫描与更新检测"}, "cli": "bonfire scan [--platform] [--force-verify]", "api": "—", "scene": {"zh-CN": "计划任务定时检查有无更新"}, "priority": "required"}, {"id": "status", "name": {"zh-CN": "查看状态"}, "cli": "bonfire status [<game>]", "api": "—", "scene": {"zh-CN": "脚本判断是否需要备份"}, "priority": "required"}, {"id": "backup", "name": {"zh-CN": "备份（可多游戏、备注、方案、标签）"}, "cli": "bonfire backup <game>... [-m] [--profile] [--tag] [--force]", "api": "—", "scene": {"zh-CN": "计划任务、脚本批量备份"}, "priority": "required"}, {"id": "log", "name": {"zh-CN": "查看历史 / 搜索备注"}, "cli": "bonfire log <game> [--branch] [--grep]", "api": "—", "scene": {"zh-CN": "查找某个存档点"}, "priority": "required"}, {"id": "diff", "name": {"zh-CN": "快照差异"}, "cli": "bonfire diff <game> <snapA> [<snapB>]", "api": "—", "scene": {"zh-CN": "恢复前确认变化"}, "priority": "required"}, {"id": "restore", "name": {"zh-CN": "恢复（全部/部分、预览）"}, "cli": "bonfire restore <game> <ref> [--path] [--full] [--dry-run]", "api": "—", "scene": {"zh-CN": "回到某个存档点"}, "priority": "required"}, {"id": "undo", "name": {"zh-CN": "撤销上次恢复"}, "cli": "bonfire undo-restore <game>", "api": "—", "scene": {"zh-CN": "恢复错了时找回"}, "priority": "required"}, {"id": "comment", "name": {"zh-CN": "修改备注"}, "cli": "bonfire comment <game> <snap> -m", "api": "—", "scene": {"zh-CN": "补写备注"}, "priority": "required"}, {"id": "ref", "name": {"zh-CN": "分支与标签"}, "cli": "bonfire branch|tag <game> <name> [<snap>]", "api": "—", "scene": {"zh-CN": "多周目、重要节点"}, "priority": "required"}, {"id": "info", "name": {"zh-CN": "游戏信息"}, "cli": "bonfire info <game> [--refresh]", "api": "—", "scene": {"zh-CN": "查看封面、时长等元数据"}, "priority": "suggested"}, {"id": "fsck", "name": {"zh-CN": "仓库校验"}, "cli": "bonfire fsck", "api": "—", "scene": {"zh-CN": "定期校验仓库完整性"}, "priority": "suggested"}, {"id": "reindex", "name": {"zh-CN": "重建索引"}, "cli": "bonfire reindex", "api": "—", "scene": {"zh-CN": "SQLite 损坏后从对象库恢复（文档 §7）"}, "priority": "suggested"}, {"id": "rules", "name": {"zh-CN": "规则库更新"}, "cli": "bonfire rules update", "api": "—", "scene": {"zh-CN": "离线环境或手动刷新 Ludusavi 规则"}, "priority": "suggested"}, {"id": "gc", "name": {"zh-CN": "历史清理与垃圾回收"}, "cli": "bonfire gc [--dry-run]", "api": "—", "scene": {"zh-CN": "释放空间（P1）"}, "priority": "suggested"}, {"id": "profile", "name": {"zh-CN": "备份方案管理"}, "cli": "bonfire profile list|save|rm", "api": "—", "scene": {"zh-CN": "复用常用游戏组合"}, "priority": "optional"}, {"id": "export", "name": {"zh-CN": "导入/导出单游戏历史"}, "cli": "bonfire export <game> -o <file> / bonfire import <file>", "api": "—", "scene": {"zh-CN": "迁移或分享（P2）"}, "priority": "optional"}], "milestones": [{"id": "M1", "goal": {"zh-CN": "核心库：对象库、快照、refs、变更检测、备份与恢复；手动添加路径；CLI 可用"}, "reqs": ["REQ-001(手动部分)", "REQ-002", "REQ-003", "REQ-004", "REQ-005", "REQ-006"], "deliverable": {"zh-CN": "Rust 核心库 + bonfire CLI，可对手动添加的目录完成备份、历史、差异、恢复、撤销"}, "acceptance": {"zh-CN": "文档 10.4：随机断电（强杀进程 + 故障注入）测试无快照损坏；fsck 全部通过；CLI 端到端测试通过；用户验收"}, "stages": [{"id": "M1-1", "content": {"zh-CN": "骨架：Cargo workspace（core/discovery/app/cli）、Tauri 空壳、pnpm 前端、配置、日志、start.bat/test.bat、测试框架"}, "done": {"zh-CN": "start.bat 能启动空窗口，test.bat 跑通 cargo test 与 Vitest"}, "size": "M"}, {"id": "M1-2", "content": {"zh-CN": "对象库：Chunk/Blob/Tree/Snapshot、BLAKE3、zstd、FastCDC、临时文件+原子重命名、仓库文件锁、仓库版本号"}, "done": {"zh-CN": "对象读写往返一致；相同内容去重；锁防止双写"}, "size": "L"}, {"id": "M1-3", "content": {"zh-CN": "Refs：分支/标签/HEAD、reflog、notes、快照引用解析（哈希前缀≥6、HEAD~n、标签名）"}, "done": {"zh-CN": "引用解析与 reflog 单测通过"}, "size": "M"}, {"id": "M1-4", "content": {"zh-CN": "SQLite 索引（含 FTS5）与 ScanIndex 变更检测（racy-git、强制校验、并行哈希）、reindex"}, "done": {"zh-CN": "五种状态判定正确；删库后 reindex 可恢复"}, "size": "M"}, {"id": "M1-5", "content": {"zh-CN": "备份服务：手动添加游戏、逐游戏备注（自动生成默认备注）、无变化不建快照、--force"}, "done": {"zh-CN": "备份后 status 为已是最新；备注可搜索"}, "size": "M"}, {"id": "M1-6", "content": {"zh-CN": "恢复服务：差异预览、部分/完全恢复、保护快照、临时文件写入后原子替换、失败回滚、撤销恢复、恢复后分支选择"}, "done": {"zh-CN": "恢复与撤销往返后数据一致；中途失败自动回滚"}, "size": "L"}, {"id": "M1-7", "content": {"zh-CN": "CLI 全部 M1 命令、--json/--output json、退出码、docs/cli.md；崩溃一致性测试与 fsck"}, "done": {"zh-CN": "CLI 用例全部通过；故障注入 N 次后 fsck 无错误"}, "size": "M"}]}, {"id": "M2", "goal": {"zh-CN": "存档发现：Steam、Epic、GOG 适配器 + Ludusavi 规则库 + 游戏信息获取"}, "reqs": ["REQ-001"], "deliverable": {"zh-CN": "bonfire scan 可自动识别本机游戏及存档路径，并补全名称、封面等信息"}, "acceptance": {"zh-CN": "文档 10.4：识别率 ≥ 90%（在本机 Steam 已安装游戏上只读验收，数量以本机实际为准）；伪造平台目录的自动化测试通过"}, "stages": [{"id": "M2-1", "content": {"zh-CN": "PlatformAdapter 接口、路径变量展开、glob 匹配、注册表存档导出 .reg、2 GB 大小告警"}, "done": {"zh-CN": "路径变量与 glob 单测通过"}, "size": "M"}, {"id": "M2-2", "content": {"zh-CN": "Steam 适配器：注册表 → libraryfolders.vdf → appmanifest、userdata/steamId3、云存档标记、游玩时长"}, "done": {"zh-CN": "伪造 Steam 目录测试通过；本机只读扫描可列出已装游戏"}, "size": "M"}, {"id": "M2-3", "content": {"zh-CN": "Epic、GOG 适配器"}, "done": {"zh-CN": "伪造目录测试通过"}, "size": "M"}, {"id": "M2-4", "content": {"zh-CN": "Ludusavi 规则库：内置快照 + 启动时增量更新、用户规则覆盖、启发式探测（待确认）"}, "done": {"zh-CN": "规则优先级测试通过；离线时使用内置快照"}, "size": "L"}, {"id": "M2-5", "content": {"zh-CN": "游戏信息：MetadataService、steam-local / steam-store 提供者、IGDB 与 SteamGridDB（模拟数据测试）、图片缓存转 WebP、字段锁定"}, "done": {"zh-CN": "离线不阻塞扫描；缓存 30 天有效"}, "size": "L"}, {"id": "M2-6", "content": {"zh-CN": "识别率验收：本机只读扫描报告（识别/未识别/误匹配）"}, "done": {"zh-CN": "达到验收指标或列出差距由用户决定"}, "size": "S"}]}, {"id": "M3", "goal": {"zh-CN": "GUI MVP：游戏库、备份确认（逐个备注）、历史时间线、恢复；P0 全部交付"}, "reqs": ["REQ-001", "REQ-002", "REQ-003", "REQ-004", "REQ-005", "REQ-006"], "deliverable": {"zh-CN": "Tauri 桌面应用 + NSIS 安装包"}, "acceptance": {"zh-CN": "P0 功能在 GUI 中全部可用；前端测试通过；用户在本机安装验收"}, "stages": [{"id": "M3-1", "content": {"zh-CN": "Tauri 命令层、前端骨架（路由、中英文切换、三态主题、Logo）、首次运行向导"}, "done": {"zh-CN": "向导完成后写入配置并进入游戏库"}, "size": "M"}, {"id": "M3-2", "content": {"zh-CN": "游戏库页：扫描逐游戏推送、状态徽标、筛选、勾选、备份方案、长任务进度与取消"}, "done": {"zh-CN": "200 个模拟游戏下列表流畅"}, "size": "L"}, {"id": "M3-3", "content": {"zh-CN": "备份确认弹窗：逐游戏备注、统一备注、变化文件展开、同时打标签"}, "done": {"zh-CN": "备份后列表状态刷新"}, "size": "M"}, {"id": "M3-4", "content": {"zh-CN": "游戏详情/历史页：分支图时间线、快照文件与差异、编辑备注、标签/分支、备注搜索"}, "done": {"zh-CN": "历史图与 CLI log 一致"}, "size": "L"}, {"id": "M3-5", "content": {"zh-CN": "恢复 UI（预览、确认、保护快照、撤销提示、云存档提示）与设置页"}, "done": {"zh-CN": "恢复/撤销流程可用"}, "size": "M"}, {"id": "M3-6", "content": {"zh-CN": "NSIS 安装包（按用户安装）、图标、P0 验收"}, "done": {"zh-CN": "安装、卸载、升级正常"}, "size": "S"}]}, {"id": "M4", "goal": {"zh-CN": "完善：其余平台适配器、运行保护、自动备份、保留策略与 GC（P1）"}, "reqs": ["REQ-001", "REQ-007", "REQ-008", "REQ-009"], "deliverable": {"zh-CN": "全平台识别、托盘自动备份、历史清理"}, "acceptance": {"zh-CN": "非功能指标（文档 10.1）：200 游戏无变化增量扫描 < 3 秒、吞吐 ≥ 200 MB/s、托盘内存 < 80 MB；用户验收"}, "stages": [{"id": "M4-1", "content": {"zh-CN": "Ubisoft、EA、Xbox/MS Store（wgs 整体备份）、Battle.net 适配器"}, "done": {"zh-CN": "伪造目录测试通过"}, "size": "L"}, {"id": "M4-2", "content": {"zh-CN": "游戏运行保护：按安装目录匹配进程，运行中警告或阻止恢复"}, "done": {"zh-CN": "模拟进程测试通过"}, "size": "M"}, {"id": "M4-3", "content": {"zh-CN": "系统托盘与自动备份：游戏退出、定时触发，运行中不做重 IO"}, "done": {"zh-CN": "退出游戏后自动生成快照"}, "size": "L"}, {"id": "M4-4", "content": {"zh-CN": "保留策略、快照压缩（父指针改写）、标记-清除 GC、packs"}, "done": {"zh-CN": "标签快照不被清理；GC 后 fsck 通过"}, "size": "L"}, {"id": "M4-5", "content": {"zh-CN": "性能与资源基准测试"}, "done": {"zh-CN": "达到 10.1 指标"}, "size": "M"}]}, {"id": "M5", "goal": {"zh-CN": "扩展（P2）：导入导出、加密、VSS、Linux/Steam Deck"}, "reqs": ["REQ-010", "REQ-011", "REQ-012", "REQ-013"], "deliverable": {"zh-CN": "P2 功能"}, "acceptance": {"zh-CN": "各功能测试通过；用户验收"}, "stages": [{"id": "M5-1", "content": {"zh-CN": "单游戏历史导入/导出为单文件"}, "done": {"zh-CN": "导出后在新仓库导入，历史一致"}, "size": "M"}, {"id": "M5-2", "content": {"zh-CN": "仓库 AES-256-GCM 可选加密"}, "done": {"zh-CN": "加密仓库读写、fsck 正常"}, "size": "L"}, {"id": "M5-3", "content": {"zh-CN": "VSS 卷影复制读取被独占锁定的文件"}, "done": {"zh-CN": "锁定文件可备份"}, "size": "M"}, {"id": "M5-4", "content": {"zh-CN": "Linux / Steam Deck（Proton）支持"}, "done": {"zh-CN": "Linux 上测试通过"}, "size": "L"}]}], "values": {"meta": {"schemaVersion": "1.3", "round": 1, "project": "篝火 Bonfire", "lang": "zh-CN", "taskDoc": "DevelopDocs/游戏存档备份软件 · 开发设计文档.md", "savedAt": "2026-10-09T03:01:31.388Z", "savedVia": "server", "complete": true, "pending": [], "finished": true}, "groups": {"base": {"enabled": true}, "project": {"enabled": true}, "ui": {"enabled": true}, "web": {"enabled": true}, "network": {"enabled": true}, "report": {"enabled": false}, "data": {"enabled": true}, "cli": {"enabled": true}, "api": {"enabled": false}, "test": {"enabled": true}, "linux": {"enabled": true}, "deploy": {"enabled": true}, "skills": {"enabled": true}}, "values": {"A1": {"value": "git", "source": "default", "effective": true}, "A2": {"value": "none", "source": "suggested", "effective": true, "suggestionReason": "已确认技术栈为 Rust + Tauri 2 + React/TS（文档 10.2），不使用 Python；Rust 用 Cargo、前端用 pnpm，写入规范"}, "A3": {"value": "win", "source": "suggested", "effective": true, "suggestionReason": "文档 §1：首版仅 Windows 10/11 64 位，架构预留 Linux/macOS（M5）"}, "A4": {"value": "utf8", "source": "default", "effective": true}, "A5": {"value": "use", "source": "default", "effective": true}, "A6": {"value": "yes", "source": "default", "effective": true}, "A7": {"value": "semver", "source": "default", "effective": true, "confirmed": true}, "A8": {"value": "follow", "source": "default", "effective": true}, "N1": {"value": 0, "source": "default", "effective": true}, "B1": {"value": "web", "source": "default", "effective": true}, "C1": {"value": ["zh-CN", "en"], "source": "user", "effective": true}, "B2": {"value": "other", "source": "suggested", "effective": true, "input": "Tauri 2 + React + TypeScript + Vite", "suggestionReason": "桌面端为 Tauri 2 + React/TypeScript（文档 10.2），请在“其他”中填写 Tauri 2 + React", "note": "用户选择“帮我选择”，对话中确认"}, "C3": {"value": "three", "source": "default", "effective": true}, "C4": {"value": "use", "source": "default", "effective": true}, "D3": {"value": "127.0.0.1:8000", "source": "default", "effective": true, "confirmed": true}, "C2": {"value": "bilingual", "source": "default", "effective": false, "reason": "所在分类未启用"}, "D1": {"value": "sqlite", "source": "default", "effective": true}, "D2": {"value": "toml", "source": "default", "effective": true}, "D4": {"value": "web", "source": "default", "effective": true}, "D5-level": {"value": "INFO", "source": "default", "effective": true}, "D5-rotate": {"value": "daily", "source": "default", "effective": true}, "D5-keep": {"value": 14, "source": "default", "effective": true}, "E1": {"value": true, "source": "default", "effective": true}, "E1-output": {"value": "text", "source": "default", "effective": true}, "E2": {"value": false, "source": "user", "effective": true, "note": "2026-10-09 对话中确认不开发"}, "E2-auth": {"value": "token", "source": "default", "effective": false}, "E2-prefix": {"value": "/api/v1", "source": "default", "effective": false}, "T1": {"value": "__custom__", "source": "suggested", "effective": true, "input": "cargo test + Vitest", "suggestionReason": "Rust 核心与 CLI 用 cargo test，前端用 Vitest；请在自定义中填写 cargo test + Vitest", "note": "用户选择“帮我选择”，对话中确认"}, "T2": {"value": ["unit", "cli", "docs"], "source": "suggested", "effective": true, "suggestionReason": "文档没有对外 HTTP 接口（建议在“远程 API”中选择“不开发”），因此去掉 API 测试"}, "T3": {"value": "yes", "source": "default", "effective": true}, "T4": {"value": "yes", "source": "default", "effective": false}, "L1": {"value": "none", "source": "suggested", "effective": true, "confirmed": true, "suggestionReason": "首版仅 Windows（文档 §1），Linux/Steam Deck 支持在 M5，届时再接入 Linux 环境"}, "L2": {"value": ["dev", "test"], "source": "default", "effective": false, "reason": "需要“Linux 环境”为“,”"}, "L3": {"value": "sync", "source": "default", "effective": false, "reason": "需要“Linux 环境”为“提供 Linux 机器（SSH 连接）”，需要“用途”为“,”"}, "L1-host": {"value": "", "source": "default", "effective": false, "reason": "需要“Linux 环境”为“提供 Linux 机器（SSH 连接）”"}, "L1-port": {"value": 22, "source": "default", "effective": false, "reason": "需要“Linux 环境”为“提供 Linux 机器（SSH 连接）”"}, "L1-user": {"value": "", "source": "default", "effective": false, "reason": "需要“Linux 环境”为“提供 Linux 机器（SSH 连接）”"}, "L1-auth": {"value": "key", "source": "default", "effective": false, "reason": "需要“Linux 环境”为“提供 Linux 机器（SSH 连接）”"}, "L1-key": {"value": "~/.ssh/id_ed25519", "source": "default", "effective": false, "reason": "需要“Linux 环境”为“提供 Linux 机器（SSH 连接）”，需要“认证方式”为“SSH 密钥”"}, "L1-workdir": {"value": "~/bonfire/", "source": "default", "effective": false, "reason": "需要“Linux 环境”为“提供 Linux 机器（SSH 连接）”"}, "L1-sudo": {"value": "no", "source": "default", "effective": false, "reason": "需要“Linux 环境”为“提供 Linux 机器（SSH 连接）”"}, "L4": {"value": "tunnel", "source": "default", "effective": false, "reason": "需要“Linux 环境”为“提供 Linux 机器（SSH 连接）”，需要“用途”为“,”，依赖条件未满足"}, "F1": {"value": "yes", "source": "user", "effective": true}, "F1-include": {"value": [], "source": "user", "effective": true}, "F2": {"value": "online", "source": "user", "effective": true}, "F3": {"value": "none", "source": "suggested", "effective": true, "suggestionReason": "Windows 桌面 GUI 程序，不适合 Docker 部署"}, "K1": {"value": "yes", "source": "default", "effective": true}, "K2": {"value": "yes", "source": "default", "effective": false}, "K3": {"value": "yes", "source": "default", "effective": true}, "K4": {"value": "yes", "source": "default", "effective": true}}, "questions": {"Q1": {"question": "CLI 输出 JSON 的参数用哪种写法？", "value": "both", "note": ""}, "Q2": {"question": "Windows 安装包用哪种格式？", "value": "nsis", "note": ""}, "Q3": {"question": "Ludusavi 规则库如何获取？", "value": "bundled+update", "note": ""}, "Q4": {"question": "本机没有 Rust 和 pnpm，是否由我安装（rustup 稳定版 + MSVC 目标、pnpm）？", "value": "claude", "note": ""}, "Q5": {"question": "M2 存档发现的真机验收在哪台机器上做？", "value": "local", "note": ""}, "Q6": {"question": "开发期间能否提供 IGDB（Twitch）和 SteamGridDB 的 API Key 用于联调？", "value": "none", "note": ""}}, "warnings": []}}, "i18n": {"en": {"groups.base.title": "Baseline", "groups.base.desc": "Conventions shared by all projects. The defaults usually work.", "groups.project.title": "Project", "groups.project.desc": "The project name sets the package name, CLI command and Docker image name.", "groups.ui.title": "Interface language", "groups.ui.desc": "Used by both the web interface and CLI output.", "groups.web.title": "Web interface", "groups.web.desc": "Turned on automatically when the project type is Web app.", "groups.web.toggle.offReason": "The project type is not Web app", "groups.network.title": "Network service", "groups.network.desc": "Turned on automatically when there is a web interface, a background service or a remote API.", "groups.network.toggle.offReason": "The project does not provide a network service", "groups.report.title": "Reports", "groups.report.desc": "Turn on if the project generates reports.", "groups.report.toggle.onLabel": "Generate reports", "groups.report.toggle.offLabel": "No reports", "groups.data.title": "Data and runtime", "groups.data.desc": "Data storage, config file, first-run wizard and logging.", "groups.cli.title": "CLI", "groups.cli.desc": "Lets scripts, scheduled jobs or other AI tools call the project from the command line.", "groups.api.title": "Remote API", "groups.api.desc": "Lets other systems call the project over HTTP.", "groups.test.title": "Testing", "groups.test.desc": "Test framework and scope.", "groups.linux.title": "Linux development and test environment", "groups.linux.desc": "A Linux machine for developing, debugging and testing. Use a machine you can freely change, never a production server.", "groups.deploy.title": "Deployment and wrap-up", "groups.deploy.desc": "Confirmed after development. Make a first pick here.", "groups.skills.title": "Project skills", "groups.skills.desc": "Confirmed after development. Make a first pick here.", "options.A1.label": "Version control", "options.A1.choices.none.label": "None", "options.A2.label": "Python environment", "options.A2.help": "Commit pyproject.toml and uv.lock; keep .venv out of the repo.", "options.A2.choices.none.label": "None", "options.A3.label": "Platforms", "options.A3.choices.win.label": "Windows only", "options.A3.choices.linux.label": "Linux only", "options.A4.label": "Text encoding", "options.A4.help": "Use UTF-8 everywhere and fix garbled Chinese in .bat scripts.", "options.A4.choices.none.label": "Leave as is", "options.A5.label": "Coding guidelines", "options.A5.help": "Karpathy guidelines. Checked for installation when enabled.", "options.A5.choices.use.label": "Use", "options.A5.choices.none.label": "Don't use", "options.A6.label": "One-click start script", "options.A6.help": "start.bat / start.sh in the project root: checks uv, syncs dependencies, runs the setup wizard on first launch, then starts the app.", "options.A6.choices.yes.label": "Yes", "options.A6.choices.no.label": "No", "options.A7.label": "Version number", "options.A7.help": "Semantic versioning: MAJOR.MINOR.PATCH. Each version gets a git tag v<version>.", "options.A7.choices.semver.label": "Semantic versioning, start at 0.1.0", "options.A7.choices.semver-custom.label": "Semantic versioning, custom start", "options.A7.choices.semver-custom.input.placeholder": "e.g. 1.0.0", "options.A7.choices.semver-custom.input.message": "Use MAJOR.MINOR.PATCH, e.g. 1.0.0", "options.A7.choices.other.label": "Another scheme", "options.A7.choices.other.input.placeholder": "Describe the format and how versions increase", "options.A7.choices.other.input.message": "Describe the format and how versions increase", "options.N1.label": "Project name", "options.N1.help": "Pick a proposal or name it yourself. The project ID is used for the package, CLI command and Docker image.", "options.B1.label": "Project type", "options.B1.choices.web.label": "Web app", "options.B1.choices.cli.label": "CLI tool", "options.B1.choices.service.label": "Background service", "options.B1.choices.lib.label": "Python library", "options.C1.label": "Interface languages", "options.C1.help": "Switchable at any time. Follows the browser or system language on first launch, Chinese if none matches.", "options.C1.choices.zh-CN.label": "中文", "options.B2.label": "Web framework", "options.B2.choices.fastapi.desc": "Built-in OpenAPI docs", "options.B2.choices.other.label": "Other", "options.B2.choices.other.input.placeholder": "Framework name", "options.B2.choices.other.input.message": "Enter the framework name", "options.C3.label": "Theme", "options.C3.choices.three.label": "Auto / light / dark", "options.C3.choices.three.desc": "Starts on auto, following the system", "options.C3.choices.light.label": "Light only", "options.C4.label": "Page design skill", "options.C4.help": "frontend-design. Checked for installation when enabled.", "options.C4.choices.use.label": "Use", "options.C4.choices.none.label": "Don't use", "options.D3.label": "Default listen address", "options.D3.help": "127.0.0.1 is reachable only from this machine; 0.0.0.0 is reachable from other devices on the LAN.", "options.D3.choices.127.0.0.1:8000.desc": "This machine only", "options.D3.choices.0.0.0.0:8000.desc": "Reachable on the LAN", "options.D3.choices.custom.label": "Custom", "options.D3.choices.custom.input.placeholder": "address:port, e.g. 192.168.1.10:9000", "options.D3.choices.custom.input.message": "Use IPv4address:port, port 1–65535", "options.C2.label": "Report language", "options.C2.choices.bilingual.label": "Chinese and English", "options.C2.choices.bilingual.desc": "Separate download links for each language", "options.C2.choices.zh.label": "Chinese only", "options.C2.choices.en.label": "English only", "options.D1.label": "Local data storage", "options.D1.choices.duckdb.desc": "Suited to analysis", "options.D1.choices.json.label": "JSON files", "options.D1.choices.none.label": "Not needed", "options.D2.label": "Config file format", "options.D4.label": "First-run wizard", "options.D4.help": "Pick a language first, then walk through settings group by group, validated as you type, and confirm before saving.", "options.D4.choices.web.label": "Web wizard", "options.D4.choices.web.unavailable": "Requires a web interface", "options.D4.choices.cli.label": "Command-line wizard", "options.D4.choices.none.label": "Not needed", "options.D5-level.label": "Log level", "options.D5-rotate.label": "Log rotation", "options.D5-rotate.choices.daily.label": "Daily", "options.D5-rotate.choices.size.label": "By file size", "options.D5-keep.label": "Keep logs for", "options.D5-keep.unit": "days", "options.E1.label": "CLI", "options.E1.onLabel": "Build", "options.E1.offLabel": "Don't build", "options.E1.force.reason": "Required because the project type is CLI tool", "options.E1-output.label": "Default output format", "options.E1-output.help": "--output json is always available for programs, whatever the default.", "options.E1-output.choices.text.label": "Text", "options.E1-output.choices.text.desc": "For people", "options.E1-output.choices.json.desc": "For programs", "options.E2.label": "Remote API", "options.E2.onLabel": "Build", "options.E2.offLabel": "Don't build", "options.E2-auth.label": "Authentication", "options.E2-auth.choices.token.label": "API token", "options.E2-auth.choices.none.label": "None", "options.E2-prefix.label": "Path prefix", "options.E2-prefix.message": "Starts with /; only lowercase letters, digits, /, - and _", "options.T1.label": "Test framework", "options.T2.label": "Test scope", "options.T2.choices.unit.label": "Unit tests", "options.T2.choices.cli.label": "CLI tests", "options.T2.choices.cli.unavailable": "CLI not built", "options.T2.choices.api.label": "API tests", "options.T2.choices.api.unavailable": "API not built", "options.T2.choices.docs.label": "Doc tests", "options.T3.label": "One-click test script", "options.T3.choices.yes.label": "Yes", "options.T3.choices.no.label": "No", "options.T4.label": "Live tests", "options.T4.help": "Run API tests against a running instance to verify a deployment.", "options.T4.requiresReason": "Remote API not built", "options.T4.choices.yes.label": "Yes", "options.T4.choices.no.label": "No", "options.L1.label": "Linux environment", "options.L1.help": "Passwords are not entered here. If needed, Claude asks in the conversation and never writes them to a file.", "options.L1.requiresReason": "The development machine already runs Linux", "options.L1.choices.provide.label": "Provide a Linux machine (SSH)", "options.L1.choices.wsl.label": "Use local WSL or Docker instead", "options.L1.choices.none.label": "No Linux environment", "options.L1.choices.none.desc": "Cross-platform at the code level only", "options.L2.label": "Use for", "options.L2.choices.dev.label": "Development", "options.L2.choices.dev.desc": "Run and debug code on Linux", "options.L2.choices.test.label": "Testing", "options.L2.choices.test.desc": "Run tests at the end of each milestone", "options.L3.label": "How you develop", "options.L3.choices.sync.label": "Write locally, sync to Linux to run", "options.L3.choices.sync.desc": "Local code is the source of truth (recommended)", "options.L3.choices.remote.label": "Write and run on Linux", "options.L3.choices.remote.desc": "Code on Linux is the source of truth", "options.L1-host.label": "Address", "options.L1-host.placeholder": "IP or hostname", "options.L1-host.message": "Enter an IP address or hostname", "options.L1-port.label": "SSH port", "options.L1-user.label": "Username", "options.L1-user.help": "Create a dedicated user for this project rather than using root.", "options.L1-user.placeholder": "e.g. dev", "options.L1-user.message": "Only lowercase letters, digits, - and _", "options.L1-auth.label": "Authentication", "options.L1-auth.choices.key.label": "SSH key", "options.L1-auth.choices.key.desc": "Recommended", "options.L1-auth.choices.password.label": "Password", "options.L1-auth.choices.password.desc": "Given in the conversation, never written to a file", "options.L1-key.label": "Private key path", "options.L1-key.help": "Only the path is recorded. The key itself is never read or stored.", "options.L1-workdir.label": "Working directory", "options.L1-workdir.help": "Where the project lives on the Linux machine, shared by development and testing.", "options.L1-sudo.label": "Allow sudo", "options.L1-sudo.choices.no.label": "No", "options.L1-sudo.choices.no.desc": "Ask each time it's needed", "options.L1-sudo.choices.yes.label": "Yes", "options.L4.label": "Viewing the web interface locally", "options.L4.help": "How your browser reaches the service when it runs on Linux.", "options.L4.choices.tunnel.label": "SSH port forwarding", "options.L4.choices.tunnel.desc": "Service keeps listening on 127.0.0.1 (recommended)", "options.L4.choices.direct.label": "Open the Linux machine's IP", "options.L4.choices.direct.desc": "Service must listen on 0.0.0.0", "options.F1.label": "Windows one-click packaging script", "options.F1.choices.yes.label": "Yes", "options.F1.choices.no.label": "No", "options.F1-include.label": "Include by default", "options.F1-include.help": "Packaging still asks item by item; this only sets what is pre-selected.", "options.F1-include.choices.data.label": "Data", "options.F1-include.choices.config.label": "Config", "options.F1-include.choices.logs.label": "Logs", "options.F2.label": "Migration and deployment", "options.F2.choices.online.label": "Online", "options.F2.choices.online.desc": "Unzip and run the start script", "options.F2.choices.offline.label": "Offline", "options.F2.choices.none.label": "Not needed", "options.F3.label": "Docker", "options.F3.choices.full.label": "Full", "options.F3.choices.full.desc": "Dockerfile, compose, one-click build script, build guide", "options.F3.choices.dockerfile.label": "Dockerfile only", "options.F3.choices.none.label": "Not needed", "options.K1.label": "CLI skill", "options.K1.requiresReason": "CLI not built", "options.K1.choices.yes.label": "Generate", "options.K1.choices.no.label": "Don't generate", "options.K2.label": "Remote API skill", "options.K2.requiresReason": "Remote API not built", "options.K2.choices.yes.label": "Generate", "options.K2.choices.no.label": "Don't generate", "options.K3.label": "Test skill", "options.K3.choices.yes.label": "Generate", "options.K3.choices.no.label": "Don't generate", "options.K4.label": "Update skill", "options.K4.choices.yes.label": "Generate", "options.K4.choices.no.label": "Don't generate", "rules.r1.message": "The remote API is reachable beyond this machine without authentication. Anyone who can reach the address can call it.", "rules.r2.message": "Listening on 0.0.0.0 makes the project reachable from other devices on the LAN.", "rules.r3.message": "Logging in to the Linux machine as root widens the impact of mistakes. Use a dedicated user instead.", "rules.r4.message": "Without local data storage, \"Include data\" in packaging has no effect.", "rules.r5.message": "To open the Linux machine's IP directly, the service must listen on 0.0.0.0 or that machine's address. The current default allows this machine only, so it will switch to 0.0.0.0 when running on Linux. SSH port forwarding avoids this.", "options.E2-auth.choices.token.desc": "Authorization: Bearer <token>", "groups.brand.desc": "Pick one. To change it, describe what you want in the notes and Claude will revise and regenerate.", "groups.capabilities.title": "Capabilities", "groups.capabilities.desc": "Tick the capabilities to build. Ask Claude in the conversation to add, remove or rename items.", "groups.capabilities.toggle.offReason": "Neither the CLI nor the remote API is being built", "groups.milestones.title": "Milestones and stages", "groups.milestones.desc": "The plan, read-only. You can mark items as postponed and say why; add, remove or reorder items in the conversation.", "options.A8.label": "Document language", "options.A8.help": "Language for generated documents such as the README, project spec and changelogs. Claude always replies in the language you write in.", "options.A8.choices.follow.label": "Same as the conversation", "options.A8.choices.zh-CN.label": "中文", "options.D1.help": "Data files live in data/.", "options.D2.help": "config/config.toml; only config.example.toml is committed. Every setting has a default, so the app starts even without a config file.", "options.D5-keep.help": "Logs go to logs/ and to the console.", "options.E1.help": "Subcommands, --output json for programs, meaningful exit codes, and docs/cli.md. The command list is designed and confirmed before development.", "options.E2.help": "/api/v1/ prefix, token authentication, docs/api.md and docs/openapi.json. The endpoint list is designed and confirmed before development.", "options.T1.help": "Installed as a uv dev dependency.", "options.T3.help": "test.bat / test.sh in the project root.", "options.F1.help": "Asks item by item whether to include data, config and logs, lists folders and sizes, then builds a zip that runs after unzipping.", "options.F2.help": "Unzip on the new machine and run the start script to deploy; docs/migration.md included.", "options.F3.help": "docker-build.bat / .sh builds and starts by default, or builds only, or exports an image archive.", "options.K1.help": "Lets Claude or other agents operate the project through the CLI.", "options.K2.help": "Lets Claude or other agents call the project through the API.", "options.K3.help": "Runs tests (all, or features picked by category), explains results and adds test cases by the rules; the feature list lives in the skill's references/features/.", "options.K4.help": "After new requirements or code changes, works out what must be updated and does it; asks for the version number, checks each project skill, writes changelogs and summaries, and reviews requirements on major versions or on request.", "options.A1.help": "Creates .gitignore and .gitattributes."}}}</script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- 数据 ---------- */
+  var raw = document.getElementById("config-data").textContent.trim();
+  if (raw === "__CONFIG" + "_DATA__" || raw === "") {
+    document.getElementById("groups").innerHTML =
+      '<div class="empty">This is the page template with no data yet. Generate the project page with scripts/build_config_page.py. / 这是页面模板，还没有写入数据。</div>';
+    return;
+  }
+  var DATA = JSON.parse(raw);
+  var S = DATA.schema, P = DATA.project || {};
+  var ZH = JSON.parse(JSON.stringify(DATA.schema));
+  var META = P.meta || {};
+  var ROUND = META.round || 1;
+  var OPTS = S.options;
+  var SUG = P.suggestions || {};
+  var QUESTIONS = P.questions || [];
+  var PROPOSALS = P.nameProposals || [];
+  var LOGOS = P.logoOptions || [], CAPS = P.capabilities || [], MILESTONES = P.milestones || [];
+  var TOKEN = new URLSearchParams(location.search).get("token");
+  var CUSTOM = "__custom__";
+  var I18N = DATA.i18n || {};
+  var LANGS = ["zh-CN", "en"];
+
+  var UI = {
+    "zh-CN": {
+      title: "项目开工选项", docTitle: "开工选项", round: "第 {n} 轮", taskDoc: "，任务文档 {p}", navLabel: "分类", langLabel: "页面语言",
+      intro: "默认值已经填好，标有“建议”的是根据任务文档调整过的值。逐类检查，随时可以点“保存配置”；全部处理完后点“确认并完成”。",
+      onlyModified: "只显示已修改的项", expandAll: "全部展开", collapseAll: "全部折叠",
+      lgDefault: "保持默认或建议值", lgModified: "有修改", lgConfirm: "有待确认项", lgError: "有错误", lgLater: "开发完成后再确认", lgOff: "未启用",
+      noData: "这是页面模板，还没有写入数据。请用 scripts/build_config_page.py 生成项目的选项页面。",
+      custom: "自定义", customPh: "填写自定义内容", customMsg: "请填写自定义内容", customMultiPh: "填写自定义内容，多项用逗号分隔",
+      slugPh: "<项目标识>", groupOff: "所在分类未启用", needs: "需要“{a}”为“{b}”", depUnmet: "依赖条件未满足",
+      on: "开启", off: "关闭", pickOne: "请选择一项", unavailableSel: "“{a}”不可用（{b}），请重新选择", fillIn: "请填写内容",
+      minN: "至少选择 {n} 项", required: "必填", badFormat: "格式不正确", needNumber: "请填写数字", range: "范围为 {a}–{b}",
+      nameNeedOne: "中文名和英文名至少填写一个", slugRule: "项目标识只能用小写字母、数字和连字符，以字母开头，2–31 个字符",
+      proposalN: "方案{n}", none: "无", empty: "空", sep: "、",
+      suggest: "建议", modified: "已修改", locked: "已锁定", notEffective: "不生效：{r}", lockedReason: "已锁定：{r}",
+      sugTip: "建议原因：{r}（默认值：{d}）", restoreSug: "恢复建议值", restoreDef: "恢复默认值", restoreTo: "恢复为：{v}",
+      confirmed: "已确认", pleaseConfirm: "请确认这一项（必须确认）",
+      slugLabel: "标识：{s}", nameOwn: "自己命名", nameOwnDesc: "填写中文名、英文名和项目标识",
+      fZh: "中文名", fZhPh: "例如 巡网", fEn: "英文名", fEnPh: "例如 NetPatrol", fSlug: "项目标识", fSlugPh: "例如 netpatrol",
+      switchOf: "{g}开关", resetGroup: "本类全部恢复", later: "开发完成后再确认", groupOffBadge: "未启用",
+      fixN: "需处理 {n}", confirmN: "待确认 {n}", modifiedN: "已修改 {n}", enable: "启用", disable: "不启用", lockedSuffix: "（已锁定）",
+      autoOn: "自动开启", autoOff: "自动关闭", autoTip: "由其他选项决定，不能手动切换",
+      offNote: "本类未启用，下面的选项不生效，已填写的值会保留，重新启用后恢复。", offWhy: "原因：{r}。",
+      questions: "待确认问题", questionsDesc: "读取任务文档时发现的问题，请逐一回答，必要时补充说明。", source: "来源：{s}",
+      notePh: "补充说明（可选）", unansweredN: "待回答 {n}", allAnswered: "已全部回答",
+      railFix: "{n} 需处理", railConfirm: "{n} 待确认", railMod: "已改 {n}", railQ: "{n} 待回答",
+      issueOpt: "{l}：{m}", issueConfirm: "{l}：必须确认", issueQ: "待确认问题 {id}：请选择一项",
+      statMod: "已修改 {n}", statConfirm: "待确认 {n}", statWarn: "警告 {n}", statFix: "需处理 {n}", statOk: "可以保存",
+      issuesHide: "收起列表", issuesShow: "查看 {n} 项",
+      copy: "复制 JSON", copyTip: "复制到剪贴板，粘贴到 Claude Code 的对话中",
+      save: "保存配置", saveTip: "随时可以保存，未完成的项会一并记录（Ctrl+S）",
+      finish: "确认并完成", finishTip: "全部处理完后才能点击：保存配置，并告诉 Claude 可以继续",
+      doneServer: "已保存并完成，可以关闭这个页面，回到 Claude Code。", doneFile: "已保存并完成。回到 Claude Code 告诉它配置已保存即可。",
+      savedComplete: "已保存，全部选项都已处理。确认无误后点击“确认并完成”。", savedDraft: "已保存。还有 {n} 项需处理，处理完后点击“确认并完成”。",
+      finishBlocked: "还有 {n} 项需处理，请先处理完。",
+      serverFail: "保存到项目失败（{e}），本地服务可能已经退出。已切换为保存到文件，请再点一次保存。", fileFail: "保存失败（{e}）。可以改用“复制 JSON”。",
+      downloaded: "已下载 config.json，请把它放到 {d}/ 下。", copied: "已复制。把内容粘贴到 Claude Code 的对话中即可。", copyFail: "浏览器不允许自动复制，请改用“保存配置”。",
+      prevConfirmed: "已确认", specialEmpty: "Claude 还没有提供这部分内容。",
+      logoNone: "暂不需要", logoNote: "修改意见（可选）", logoNotePh: "例如：方案二颜色再深一点，线条再粗一点", logoPick: "选择这个方案", logoOnLight: "明亮背景", logoOnDark: "暗色背景",
+      capInclude: "开发", capName: "能力", capCli: "CLI 命令", capApi: "API 接口", capScene: "调用场景", capPriority: "优先级", capNote: "备注",
+      prRequired: "必要", prSuggested: "建议", prOptional: "可选", capRequiredOff: "这是必要项，不开发可能影响其他功能。", capNotePh: "可选",
+      msReqs: "包含需求", msDeliverable: "交付物", msAcceptance: "验收方式", msStages: "开发阶段", msStage: "阶段", msContent: "内容", msDone: "完成标准", msSize: "规模",
+      defer: "推迟", deferNotePh: "推迟原因或计划在哪个版本完成", deferredN: "推迟 {n}", excludedN: "不开发 {n}",
+      quickTip: "{g}：{s}。点击切换", quickLocked: "{g}：{s}。已锁定：{r}"
+    },
+    "en": {
+      title: "Project setup options", docTitle: "Setup options", round: "Round {n}", taskDoc: ", task document {p}", navLabel: "Categories", langLabel: "Page language",
+      intro: "Defaults are filled in. Values marked Suggested were adjusted from the task document. Review each category and save whenever you like; when everything is handled, click Confirm and finish.",
+      onlyModified: "Show modified only", expandAll: "Expand all", collapseAll: "Collapse all",
+      lgDefault: "Default or suggested", lgModified: "Modified", lgConfirm: "Needs confirmation", lgError: "Has errors", lgLater: "Confirm after development", lgOff: "Off",
+      noData: "This is the page template with no data yet. Generate the project's page with scripts/build_config_page.py.",
+      custom: "Custom", customPh: "Enter a custom value", customMsg: "Enter a custom value", customMultiPh: "Enter custom values, separated by commas",
+      slugPh: "<project-id>", groupOff: "The category is off", needs: "Requires \"{a}\" to be \"{b}\"", depUnmet: "A dependency is not met",
+      on: "On", off: "Off", pickOne: "Select an option", unavailableSel: "\"{a}\" is not available ({b}). Select another option", fillIn: "Enter a value",
+      minN: "Select at least {n}", required: "Required", badFormat: "Invalid format", needNumber: "Enter a number", range: "Must be between {a} and {b}",
+      nameNeedOne: "Enter a Chinese or an English name", slugRule: "Project ID: lowercase letters, digits and hyphens, starting with a letter, 2–31 characters",
+      proposalN: "Option {n}", none: "None", empty: "Empty", sep: ", ",
+      suggest: "Suggested", modified: "Modified", locked: "Locked", notEffective: "Not in effect: {r}", lockedReason: "Locked: {r}",
+      sugTip: "Why: {r} (default: {d})", restoreSug: "Restore suggestion", restoreDef: "Restore default", restoreTo: "Restores to: {v}",
+      confirmed: "Confirmed", pleaseConfirm: "Confirm this item (required)",
+      slugLabel: "ID: {s}", nameOwn: "Name it yourself", nameOwnDesc: "Enter a Chinese name, an English name and a project ID",
+      fZh: "Chinese name", fZhPh: "e.g. 巡网", fEn: "English name", fEnPh: "e.g. NetPatrol", fSlug: "Project ID", fSlugPh: "e.g. netpatrol",
+      switchOf: "{g} switch", resetGroup: "Reset this category", later: "Confirm after development", groupOffBadge: "Off",
+      fixN: "{n} to fix", confirmN: "{n} to confirm", modifiedN: "{n} modified", enable: "On", disable: "Off", lockedSuffix: " (locked)",
+      autoOn: "On automatically", autoOff: "Off automatically", autoTip: "Set by other options; can't be switched manually",
+      offNote: "This category is off, so its options are not in effect. Your entries are kept and come back when it is turned on again.", offWhy: " Reason: {r}.",
+      questions: "Open questions", questionsDesc: "Questions found while reading the task document. Answer each one and add notes if needed.", source: "Source: {s}",
+      notePh: "Notes (optional)", unansweredN: "{n} unanswered", allAnswered: "All answered",
+      railFix: "{n} to fix", railConfirm: "{n} to confirm", railMod: "{n} modified", railQ: "{n} unanswered",
+      issueOpt: "{l}: {m}", issueConfirm: "{l}: confirmation required", issueQ: "Open question {id}: select an answer",
+      statMod: "{n} modified", statConfirm: "{n} to confirm", statWarn: "{n} warnings", statFix: "{n} to fix", statOk: "Ready to save",
+      issuesHide: "Hide list", issuesShow: "Show {n}",
+      copy: "Copy JSON", copyTip: "Copy to the clipboard and paste into the Claude Code conversation",
+      save: "Save config", saveTip: "Save any time; unfinished items are recorded too (Ctrl+S)",
+      finish: "Confirm and finish", finishTip: "Available once everything is handled: saves the config and tells Claude to continue",
+      doneServer: "Saved and finished. You can close this page and return to Claude Code.", doneFile: "Saved and finished. Return to Claude Code and tell it the config is saved.",
+      savedComplete: "Saved. Everything is handled; click Confirm and finish when you're ready.", savedDraft: "Saved. {n} items still need attention; click Confirm and finish once they're done.",
+      finishBlocked: "{n} items still need attention.",
+      serverFail: "Couldn't save to the project ({e}); the local service may have stopped. Switched to saving a file. Click save again.", fileFail: "Couldn't save ({e}). Use Copy JSON instead.",
+      downloaded: "Downloaded config.json. Move it into {d}/.", copied: "Copied. Paste it into the Claude Code conversation.", copyFail: "The browser blocked copying. Use Save config instead.",
+      prevConfirmed: "Confirmed", specialEmpty: "Claude hasn't provided this part yet.",
+      logoNone: "Not now", logoNote: "Changes you want (optional)", logoNotePh: "e.g. make option 2 darker and the lines thicker", logoPick: "Choose this option", logoOnLight: "Light background", logoOnDark: "Dark background",
+      capInclude: "Build", capName: "Capability", capCli: "CLI command", capApi: "API endpoint", capScene: "Used when", capPriority: "Priority", capNote: "Notes",
+      prRequired: "Required", prSuggested: "Suggested", prOptional: "Optional", capRequiredOff: "This is required; leaving it out may affect other features.", capNotePh: "Optional",
+      msReqs: "Requirements", msDeliverable: "Deliverable", msAcceptance: "Acceptance", msStages: "Stages", msStage: "Stage", msContent: "Work", msDone: "Done when", msSize: "Size",
+      defer: "Postpone", deferNotePh: "Why, or which version it moves to", deferredN: "{n} postponed", excludedN: "{n} left out",
+      quickTip: "{g}: {s}. Click to switch", quickLocked: "{g}: {s}. Locked: {r}"
+    }
+  };
+
+  var LANG = (function () {
+    var stored = null;
+    try { stored = localStorage.getItem("project-config-lang"); } catch (e) {}
+    if (LANGS.indexOf(stored) >= 0) return stored;
+    var m = (DATA.project && DATA.project.meta) || {};
+    if (LANGS.indexOf(m.lang) >= 0) return m.lang;
+    return /^zh/i.test(navigator.language || "") ? "zh-CN" : "en";
+  })();
+
+  function T(key, params) {
+    var str = (UI[LANG] && UI[LANG][key]) || UI["zh-CN"][key] || key;
+    if (params) Object.keys(params).forEach(function (k) { str = str.split("{" + k + "}").join(params[k]); });
+    return str;
+  }
+  /* 项目数据中的文字：字符串，或 {"zh-CN": "...", "en": "..."} */
+  function tr(v) {
+    if (v && typeof v === "object" && !Array.isArray(v)) return v[LANG] || v["zh-CN"] || v.en || "";
+    return v;
+  }
+
+  /* 单选、多选默认带“自定义”；已有输入框选项（如“其他”）或标明 custom: false 的不追加 */
+  Object.keys(OPTS).forEach(function (id) {
+    var o = OPTS[id];
+    if (o.type !== "radio" && o.type !== "checkbox") return;
+    var allow = "custom" in o ? o.custom : S.customDefault !== false;
+    if (!allow || o.choices.some(function (c) { return c.input; })) return;
+    o.choices.push({ value: CUSTOM, label: "", custom: true, input: { placeholder: "", message: "" } });
+  });
+
+  /* 按当前语言改写选项定义中的文字字段 */
+  var TEXT_FIELDS = ["label", "help", "desc", "placeholder", "message", "unit", "onLabel", "offLabel", "requiresReason", "unavailable", "title", "offReason"];
+  function localizeObj(target, source, path) {
+    var dict = LANG === "zh-CN" ? null : (I18N[LANG] || {});
+    TEXT_FIELDS.forEach(function (f) {
+      if (source && typeof source[f] === "string") target[f] = dict && dict[path + "." + f] ? dict[path + "." + f] : source[f];
+    });
+  }
+  function applyLang() {
+    document.documentElement.lang = LANG;
+    S.groups.forEach(function (g, i) {
+      var z = ZH.groups[i];
+      localizeObj(g, z, "groups." + g.id);
+      localizeObj(g.toggle, z.toggle, "groups." + g.id + ".toggle");
+    });
+    Object.keys(OPTS).forEach(function (id) {
+      var o = OPTS[id], z = ZH.options[id], base = "options." + id;
+      localizeObj(o, z, base);
+      if (o.force) localizeObj(o.force, z.force, base + ".force");
+      if (o.force && z.force.reason) o.force.reason = LANG !== "zh-CN" && (I18N[LANG] || {})[base + ".force.reason"] || z.force.reason;
+      (o.choices || []).forEach(function (ch) {
+        if (ch.custom) { ch.label = T("custom"); ch.input.placeholder = T("customPh"); ch.input.message = T("customMsg"); return; }
+        var zc = z.choices.filter(function (c) { return c.value === ch.value; })[0];
+        var cp = base + ".choices." + ch.value;
+        localizeObj(ch, zc, cp);
+        if (ch.input) localizeObj(ch.input, zc.input, cp + ".input");
+      });
+    });
+    (S.rules || []).forEach(function (rule, i) { localizeObj(rule, ZH.rules[i], "rules." + rule.id); });
+  }
+
+  /* 状态：未修改的选项不存值，始终跟随默认值或建议值 */
+  var state = { values: {}, groups: {}, questions: {}, logo: { choice: LOGOS.length ? 0 : "none", note: "" }, caps: {}, ms: {} };
+  CAPS.forEach(function (c) { state.caps[c.id] = { include: c.priority === "required", note: "" }; });
+  function msItems() {
+    var list = [];
+    MILESTONES.forEach(function (m) { list.push(m); (m.stages || []).forEach(function (st) { list.push(st); }); });
+    return list;
+  }
+  msItems().forEach(function (it) { state.ms[it.id] = { defer: false, note: "" }; });
+
+  function loadSaved(saved) {
+    if (!saved) return;
+    var v = saved.values || {};
+    Object.keys(v).forEach(function (id) {
+      if (!OPTS[id]) return;
+      var rec = {};
+      if (v[id].source === "user") rec.value = v[id].value;
+      if (v[id].input !== undefined) rec.input = v[id].input;
+      if (v[id].confirmed) rec.confirmed = true;
+      state.values[id] = rec;
+    });
+    var g = saved.groups || {};
+    Object.keys(g).forEach(function (gid) {
+      var grp = groupById(gid);
+      if (grp && grp.toggle.type === "switch") state.groups[gid] = !!g[gid].enabled;
+    });
+    if (saved.logo && (saved.logo.choice === "none" || LOGOS[saved.logo.choice])) state.logo = { choice: saved.logo.choice, note: saved.logo.note || "" };
+    Object.keys(saved.capabilities || {}).forEach(function (cid) {
+      if (state.caps[cid]) state.caps[cid] = { include: !!saved.capabilities[cid].include, note: saved.capabilities[cid].note || "" };
+    });
+    Object.keys(saved.milestones || {}).forEach(function (mid) {
+      if (state.ms[mid]) state.ms[mid] = { defer: !!saved.milestones[mid].defer, note: saved.milestones[mid].note || "" };
+    });
+    var q = saved.questions || {};
+    Object.keys(q).forEach(function (qid) { state.questions[qid] = { value: q[qid].value, note: q[qid].note || "", question: q[qid].question }; });
+  }
+
+  function groupById(gid) { for (var i = 0; i < S.groups.length; i++) if (S.groups[i].id === gid) return S.groups[i]; return null; }
+  var GROUP_OF = {};
+  S.groups.forEach(function (g) {
+    g.options.forEach(function (id) { GROUP_OF[id] = g.id; });
+    if (g.toggle.type === "option") GROUP_OF[g.toggle.opt] = g.id;
+  });
+
+  /* ---------- 条件求值 ---------- */
+  function evalCond(c, depth) {
+    depth = (depth || 0) + 1;
+    if (depth > 30) return false;
+    if (!c) return true;
+    if (c.any) return c.any.some(function (x) { return evalCond(x, depth); });
+    if (c.all) return c.all.every(function (x) { return evalCond(x, depth); });
+    if (c.not) return !evalCond(c.not, depth);
+    if (c.group) return groupEnabled(c.group, depth);
+    var val;
+    if (c.meta) val = META[c.meta];
+    else if (c.opt) val = effective(c.opt, depth).ok ? currentValue(c.opt, depth) : undefined;
+    if ("eq" in c) return val === c.eq;
+    if ("ne" in c) return val !== undefined && val !== c.ne;
+    if ("in" in c) return c.in.indexOf(val) >= 0;
+    if ("includes" in c) return Array.isArray(val) && val.indexOf(c.includes) >= 0;
+    return !!val;
+  }
+
+  function groupEnabled(gid, depth) {
+    var g = groupById(gid);
+    if (!g) return false;
+    var t = g.toggle;
+    if (t.type === "none") return true;
+    if (t.type === "switch") return gid in state.groups ? state.groups[gid] : (P.groupDefaults && gid in P.groupDefaults ? P.groupDefaults[gid] : t.default);
+    if (t.type === "option") return effective(t.opt, depth).ok && currentValue(t.opt, depth) === true;
+    if (t.type === "derived") return evalCond(t.when, depth);
+    return true;
+  }
+
+  function slug() {
+    var v = currentValue("N1");
+    if (v === "custom") return ((state.values.N1 || {}).input || {}).slug || T("slugPh");
+    return (PROPOSALS[v] || {}).slug || T("slugPh");
+  }
+
+  function schemaDefault(id, depth) {
+    var o = OPTS[id], d = o.default;
+    if (o.type === "name" && !PROPOSALS.length) return "custom";
+    if (Array.isArray(d) && d.length && typeof d[0] === "object" && d[0] !== null && "value" in d[0]) {
+      for (var i = 0; i < d.length; i++) if (!d[i].when || evalCond(d[i].when, depth)) return d[i].value;
+    }
+    if (typeof d === "string") return d.replace("{slug}", slug());
+    return d;
+  }
+
+  function baseValue(id, depth) {
+    if (SUG[id]) return { value: SUG[id].value, source: "suggested", reason: tr(SUG[id].reason) };
+    return { value: schemaDefault(id, depth), source: "default" };
+  }
+
+  function forced(id, depth) {
+    var f = OPTS[id].force;
+    return f && evalCond(f.when, depth) ? f : null;
+  }
+
+  function currentValue(id, depth) {
+    var f = forced(id, depth);
+    if (f) return f.value;
+    var rec = state.values[id];
+    if (rec && "value" in rec) return rec.value;
+    return baseValue(id, depth).value;
+  }
+
+  function same(a, b) {
+    if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.slice().sort().join("\u0001") === b.slice().sort().join("\u0001");
+    return a === b;
+  }
+
+  function sourceOf(id) {
+    if (forced(id)) return "forced";
+    var b = baseValue(id), v = currentValue(id);
+    return same(v, b.value) ? b.source : "user";
+  }
+
+  function isModified(id) {
+    if (sourceOf(id) !== "user") return false;
+    var b = baseValue(id).value;
+    return !(b === "" || b === null || b === undefined);
+  }
+
+  function effective(id, depth) {
+    var o = OPTS[id];
+    var gid = GROUP_OF[id], g = groupById(gid);
+    var isToggle = g && g.toggle.type === "option" && g.toggle.opt === id;
+    if (!isToggle && g && !groupEnabled(gid, depth)) {
+      return { ok: false, reason: T("groupOff") + (g.toggle.offReason ? (LANG === "zh-CN" ? "：" : ": ") + g.toggle.offReason : "") };
+    }
+    if (o.requires && !evalCond(o.requires, depth)) return { ok: false, reason: o.requiresReason || dependencyText(o.requires) };
+    return { ok: true };
+  }
+
+  function dependencyText(c) {
+    if (c.opt && OPTS[c.opt]) {
+      var o = OPTS[c.opt], want = c.eq;
+      var label = want;
+      if (o.choices) o.choices.forEach(function (ch) { if (ch.value === want) label = ch.label; });
+      if (want === true) label = o.onLabel || T("on");
+      return T("needs", { a: o.label, b: label });
+    }
+    if (c.all) return c.all.map(dependencyText).join("，");
+    return T("depUnmet");
+  }
+
+  function choiceAvailable(ch) { return !ch.requires || evalCond(ch.requires); }
+
+  /* ---------- 校验 ---------- */
+  function errorsOf(id) {
+    var o = OPTS[id], errs = [];
+    if (!effective(id).ok) return errs;
+    var v = currentValue(id), rec = state.values[id] || {};
+    if (o.type === "radio") {
+      var ch = (o.choices || []).filter(function (c) { return c.value === v; })[0];
+      if (!ch) errs.push(T("pickOne"));
+      else {
+        if (!choiceAvailable(ch)) errs.push(T("unavailableSel", { a: ch.label, b: ch.unavailable || T("depUnmet") }));
+        if (ch.input) {
+          var t = (rec.input || "").trim();
+          if (!t) errs.push(ch.input.message || T("fillIn"));
+          else if (ch.input.pattern && !new RegExp(ch.input.pattern).test(t)) errs.push(ch.input.message);
+        }
+      }
+    } else if (o.type === "checkbox") {
+      var avail = (v || []).filter(function (x) { var c = o.choices.filter(function (k) { return k.value === x; })[0]; return c && choiceAvailable(c); });
+      if (o.min && avail.length < o.min) errs.push(T("minN", { n: o.min }));
+      if ((v || []).indexOf(CUSTOM) >= 0 && !(rec.input || "").trim()) errs.push(T("customMsg"));
+    } else if (o.type === "text") {
+      var s = (v || "").trim();
+      if (o.required && !s) errs.push(T("required"));
+      else if (s && o.pattern && !new RegExp(o.pattern).test(s)) errs.push(o.message || T("badFormat"));
+    } else if (o.type === "number") {
+      if (v === "" || v === null || isNaN(v)) errs.push(T("needNumber"));
+      else if ((o.min !== undefined && v < o.min) || (o.max !== undefined && v > o.max)) errs.push(T("range", { a: o.min, b: o.max }));
+    } else if (o.type === "name" && v === "custom") {
+      var n = rec.input || {};
+      if (!(n.zh || "").trim() && !(n.en || "").trim()) errs.push(T("nameNeedOne"));
+      if (!/^[a-z][a-z0-9-]{1,30}$/.test(n.slug || "")) errs.push(T("slugRule"));
+    }
+    return errs;
+  }
+
+  function needsConfirm(id) {
+    return !!OPTS[id].mustConfirm && effective(id).ok && !(state.values[id] || {}).confirmed;
+  }
+
+  function warnings() {
+    return (S.rules || []).filter(function (r) { return evalCond(r.when); });
+  }
+
+  /* ---------- 渲染 ---------- */
+  var el = function (tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === "class") n.className = attrs[k];
+      else if (k === "text") n.textContent = attrs[k];
+      else if (k.slice(0, 2) === "on") n.addEventListener(k.slice(2), attrs[k]);
+      else n.setAttribute(k, attrs[k]);
+    });
+    (kids || []).forEach(function (c) { if (c) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return n;
+  };
+  var CHEV = '<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  var updaters = [];
+  var openState = {};
+
+  function setValue(id, value) {
+    var rec = state.values[id] || (state.values[id] = {});
+    rec.value = value;
+    if (OPTS[id].mustConfirm) rec.confirmed = true;
+    refresh();
+  }
+  function resetValue(id) {
+    var rec = state.values[id];
+    if (rec) { delete rec.value; delete rec.input; }
+    refresh();
+  }
+
+  function proposalName(p) { return p ? (LANG === "zh-CN" ? p.zh || p.en : p.en || p.zh) : ""; }
+
+  function valueLabel(id, v) {
+    var o = OPTS[id];
+    if (o.type === "switch") return v ? (o.onLabel || T("on")) : (o.offLabel || T("off"));
+    if (o.type === "name") return v === "custom" ? T("custom") : (proposalName(PROPOSALS[v]) || T("proposalN", { n: v + 1 }));
+    if (o.choices) {
+      var arr = Array.isArray(v) ? v : [v];
+      return arr.map(function (x) {
+        if (x === CUSTOM) return T("custom");
+        var c = o.choices.filter(function (k) { return k.value === x; })[0]; return c ? c.label : x;
+      }).join(T("sep")) || T("none");
+    }
+    return String(v === "" ? T("empty") : v);
+  }
+
+  function renderOption(id) {
+    var o = OPTS[id];
+    var root = el("div", { class: "opt" + (o.indent ? " indent" : ""), id: "opt-" + id });
+    var resetBtn = el("button", { class: "btn-link opt-reset", type: "button", onclick: function () { resetValue(id); } });
+    var sugBadge = el("span", { class: "badge b-suggest", text: T("suggest") });
+    var modBadge = el("span", { class: "badge b-modified", text: T("modified") });
+    var lockBadge = el("span", { class: "badge", text: T("locked") });
+    var head = el("div", { class: "opt-head" }, [
+      o.indent ? null : el("span", { class: "opt-id", text: id.split("-")[0] }),
+      el("span", { class: "opt-label", text: o.label }),
+      sugBadge, modBadge, lockBadge, resetBtn
+    ]);
+    root.appendChild(head);
+    if (o.help) root.appendChild(el("p", { class: "opt-help", text: o.help }));
+    var body = el("div");
+    root.appendChild(body);
+    var reason = el("p", { class: "opt-reason" });
+    var errBox = el("p", { class: "msg err" });
+    var warnBox = el("p", { class: "msg warn" });
+    root.appendChild(reason); root.appendChild(errBox); root.appendChild(warnBox);
+
+    var confirmInput, confirmBox;
+    if (o.mustConfirm) {
+      confirmInput = el("input", { type: "checkbox" });
+      confirmInput.addEventListener("change", function () {
+        (state.values[id] || (state.values[id] = {})).confirmed = confirmInput.checked;
+        refresh();
+      });
+      confirmBox = el("label", { class: "confirm-box" }, [confirmInput, el("span")]);
+      root.appendChild(confirmBox);
+    }
+
+    var inner = buildControl(id, o, body);
+
+    updaters.push(function () {
+      var eff = effective(id), f = forced(id), src = sourceOf(id), b = baseValue(id);
+      root.classList.toggle("is-disabled", !eff.ok);
+      root.classList.toggle("is-locked", !!f);
+      reason.textContent = !eff.ok ? T("notEffective", { r: eff.reason }) : (f ? T("lockedReason", { r: f.reason }) : "");
+      reason.classList.toggle("is-hidden", !reason.textContent);
+      sugBadge.classList.toggle("is-hidden", !(src === "suggested" && eff.ok));
+      sugBadge.title = b.reason ? T("sugTip", { r: b.reason, d: valueLabel(id, schemaDefault(id)) }) : "";
+      modBadge.classList.toggle("is-hidden", !isModified(id));
+      lockBadge.classList.toggle("is-hidden", !f);
+      resetBtn.textContent = b.source === "suggested" ? T("restoreSug") : T("restoreDef");
+      resetBtn.title = T("restoreTo", { v: valueLabel(id, b.value) });
+      resetBtn.classList.toggle("is-hidden", !isModified(id) || !eff.ok);
+      var errs = errorsOf(id);
+      errBox.textContent = errs.join("；");
+      errBox.classList.toggle("is-hidden", !errs.length);
+      var ws = warnings().filter(function (r) { return (r.targets || []).indexOf(id) >= 0; });
+      warnBox.textContent = ws.map(function (r) { return r.message; }).join(" ");
+      warnBox.classList.toggle("is-hidden", !ws.length || !eff.ok);
+      if (confirmBox) {
+        var rec = state.values[id] || {};
+        confirmInput.checked = !!rec.confirmed;
+        confirmInput.disabled = !eff.ok;
+        confirmBox.classList.toggle("is-done", !!rec.confirmed);
+        confirmBox.lastChild.textContent = rec.confirmed ? T("confirmed") : T("pleaseConfirm");
+        confirmBox.classList.toggle("is-hidden", !eff.ok);
+      }
+      inner(eff.ok, f);
+      var onlyMod = document.getElementById("only-modified").checked;
+      var ownDep = o.indent && o.requires && !evalCond(o.requires);
+      root.classList.toggle("is-hidden", ownDep || (onlyMod && !isModified(id)));
+    });
+    return root;
+  }
+
+  function buildControl(id, o, body) {
+    if (o.type === "radio") return buildRadio(id, o, body);
+    if (o.type === "checkbox") return buildCheckbox(id, o, body);
+    if (o.type === "switch") return buildSwitch(id, o, body);
+    if (o.type === "text" || o.type === "number") return buildText(id, o, body);
+    if (o.type === "name") return buildName(id, o, body);
+    return function () {};
+  }
+
+  function buildRadio(id, o, body) {
+    var wrap = el("div", { class: "choices", role: "radiogroup", "aria-label": o.label });
+    var items = [];
+    var extraWrap = el("div", { class: "extra" });
+    var extraField = null, extraFor = null;
+    o.choices.forEach(function (ch) {
+      var input = el("input", { type: "radio", name: "r-" + id, value: String(ch.value) });
+      input.addEventListener("change", function () { if (input.checked) setValue(id, ch.value); });
+      var lab = el("label", { class: "choice" }, [input, el("span", { text: ch.label }), ch.desc ? el("small", { text: ch.desc }) : null]);
+      wrap.appendChild(lab);
+      items.push({ ch: ch, input: input, lab: lab });
+    });
+    body.appendChild(wrap);
+    body.appendChild(extraWrap);
+    return function (enabled, f) {
+      var v = currentValue(id);
+      items.forEach(function (it) {
+        var avail = choiceAvailable(it.ch);
+        it.input.checked = it.ch.value === v;
+        it.input.disabled = !enabled || !!f || (!avail && it.ch.value !== v);
+        it.lab.classList.toggle("is-checked", it.input.checked);
+        it.lab.classList.toggle("is-unavailable", !avail);
+        it.lab.title = !avail ? (it.ch.unavailable || T("depUnmet")) : "";
+      });
+      var sel = o.choices.filter(function (c) { return c.value === v; })[0];
+      if (sel && sel.input) {
+        if (extraFor !== sel.value) {
+          extraWrap.innerHTML = "";
+          extraField = sel.input.multiline ? el("textarea", { class: "field" }) : el("input", { class: "field", type: "text" });
+          extraField.placeholder = sel.input.placeholder || "";
+          extraField.value = (state.values[id] || {}).input || "";
+          extraField.addEventListener("input", function () {
+            (state.values[id] || (state.values[id] = {})).input = extraField.value;
+            if (o.mustConfirm) state.values[id].confirmed = true;
+            refreshLight();
+          });
+          extraWrap.appendChild(extraField);
+          extraFor = sel.value;
+        }
+        extraField.disabled = !enabled;
+        extraField.classList.toggle("is-invalid", enabled && errorsOf(id).length > 0);
+        extraWrap.classList.remove("is-hidden");
+      } else {
+        extraWrap.classList.add("is-hidden");
+        extraFor = null;
+      }
+    };
+  }
+
+  function buildCheckbox(id, o, body) {
+    var wrap = el("div", { class: "choices", role: "group", "aria-label": o.label });
+    var items = [];
+    o.choices.forEach(function (ch) {
+      var input = el("input", { type: "checkbox", value: ch.value });
+      input.addEventListener("change", function () {
+        var cur = (currentValue(id) || []).slice();
+        var i = cur.indexOf(ch.value);
+        if (input.checked && i < 0) cur.push(ch.value);
+        if (!input.checked && i >= 0) cur.splice(i, 1);
+        var order = o.choices.map(function (c) { return c.value; });
+        cur.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
+        setValue(id, cur);
+      });
+      var lab = el("label", { class: "choice" }, [input, el("span", { text: ch.label }), ch.desc ? el("small", { text: ch.desc }) : null]);
+      wrap.appendChild(lab);
+      items.push({ ch: ch, input: input, lab: lab });
+    });
+    body.appendChild(wrap);
+    var extra = null;
+    if (o.choices.some(function (c) { return c.value === CUSTOM; })) {
+      extra = el("input", { class: "field", type: "text", placeholder: T("customMultiPh") });
+      extra.value = (state.values[id] || {}).input || "";
+      extra.addEventListener("input", function () {
+        (state.values[id] || (state.values[id] = {})).input = extra.value;
+        refreshLight();
+      });
+      body.appendChild(el("div", { class: "extra" }, [extra]));
+    }
+    return function (enabled) {
+      var v = currentValue(id) || [];
+      items.forEach(function (it) {
+        var avail = choiceAvailable(it.ch);
+        it.input.checked = v.indexOf(it.ch.value) >= 0 && avail;
+        it.input.disabled = !enabled || !avail;
+        it.lab.classList.toggle("is-checked", it.input.checked);
+        it.lab.classList.toggle("is-unavailable", !avail);
+        it.lab.title = !avail ? T("notEffective", { r: it.ch.unavailable || T("depUnmet") }) : "";
+      });
+      if (extra) {
+        var on = v.indexOf(CUSTOM) >= 0;
+        extra.parentNode.classList.toggle("is-hidden", !on);
+        extra.disabled = !enabled;
+        extra.classList.toggle("is-invalid", enabled && on && !(extra.value || "").trim());
+      }
+    };
+  }
+
+  function buildSwitch(id, o, body) {
+    var input = el("input", { type: "checkbox", role: "switch" });
+    var text = el("span");
+    var lab = el("label", { class: "switch" }, [input, el("span", { class: "track" }), text]);
+    input.addEventListener("change", function () { setValue(id, input.checked); });
+    body.appendChild(lab);
+    return function (enabled, f) {
+      var v = currentValue(id);
+      input.checked = !!v;
+      input.disabled = !enabled || !!f;
+      lab.classList.toggle("is-locked", !!f);
+      text.textContent = v ? (o.onLabel || T("on")) : (o.offLabel || T("off"));
+    };
+  }
+
+  function buildText(id, o, body) {
+    var input = el("input", { class: "field" + (o.type === "number" ? " num" : ""), type: o.type === "number" ? "number" : "text" });
+    if (o.placeholder) input.placeholder = o.placeholder;
+    if (o.type === "number") { if (o.min !== undefined) input.min = o.min; if (o.max !== undefined) input.max = o.max; }
+    input.setAttribute("aria-label", o.label);
+    input.addEventListener("input", function () {
+      var v = o.type === "number" ? (input.value === "" ? "" : Number(input.value)) : input.value;
+      (state.values[id] || (state.values[id] = {})).value = v;
+      refreshLight();
+    });
+    body.appendChild(el("div", null, [input, o.unit ? el("span", { class: "unit", text: o.unit }) : null]));
+    return function (enabled) {
+      var v = currentValue(id);
+      if (document.activeElement !== input) input.value = v === undefined || v === null ? "" : v;
+      input.disabled = !enabled;
+      input.classList.toggle("is-invalid", enabled && errorsOf(id).length > 0);
+    };
+  }
+
+  function buildName(id, o, body) {
+    var grid = el("div", { class: "name-grid", role: "radiogroup", "aria-label": o.label });
+    var items = [];
+    var opts = PROPOSALS.map(function (p, i) { return { value: i, p: p }; });
+    opts.push({ value: "custom", p: null });
+    opts.forEach(function (it) {
+      var input = el("input", { type: "radio", name: "r-" + id });
+      input.addEventListener("change", function () { if (input.checked) setValue(id, it.value); });
+      var kids = it.p
+        ? [input, el("span", { text: LANG === "zh-CN" ? it.p.zh + "  " + it.p.en : it.p.en + "  " + it.p.zh }), el("span", { class: "slug", text: T("slugLabel", { s: it.p.slug }) }), it.p.reason ? el("small", { text: tr(it.p.reason) }) : null]
+        : [input, el("span", { text: T("nameOwn") }), el("small", { text: T("nameOwnDesc") })];
+      var lab = el("label", { class: "choice" }, kids);
+      grid.appendChild(lab);
+      items.push({ value: it.value, input: input, lab: lab });
+    });
+    body.appendChild(grid);
+    var custom = el("div", { class: "custom-name" });
+    var fields = {};
+    [["zh", T("fZh"), T("fZhPh")], ["en", T("fEn"), T("fEnPh")], ["slug", T("fSlug"), T("fSlugPh")]].forEach(function (f) {
+      var inp = el("input", { class: "field", type: "text", placeholder: f[2] });
+      inp.addEventListener("input", function () {
+        var rec = state.values[id] || (state.values[id] = {});
+        rec.input = rec.input || {};
+        rec.input[f[0]] = inp.value;
+        refreshLight();
+      });
+      fields[f[0]] = inp;
+      custom.appendChild(el("label", null, [f[1], inp]));
+    });
+    body.appendChild(custom);
+    return function (enabled) {
+      var v = currentValue(id);
+      items.forEach(function (it) {
+        it.input.checked = it.value === v;
+        it.input.disabled = !enabled;
+        it.lab.classList.toggle("is-checked", it.input.checked);
+      });
+      custom.classList.toggle("is-hidden", v !== "custom");
+      var inp = (state.values[id] || {}).input || {};
+      Object.keys(fields).forEach(function (k) { if (document.activeElement !== fields[k]) fields[k].value = inp[k] || ""; });
+    };
+  }
+
+  function isCurrent(g) { return (g.round || 1) === ROUND || (ROUND >= 3 && g.phase === 3); }
+  function isPrevious(g) { return !isCurrent(g) && (g.round || 1) < ROUND; }
+
+  function renderGroup(g) {
+    if (g.kind) return renderSpecialGroup(g);
+    var later = g.phase === 3 && ROUND < 3;
+    var box = el("section", { class: "group", id: "grp-" + g.id, "aria-labelledby": "gt-" + g.id });
+    var toggleBtn = el("button", { class: "group-toggle-btn", type: "button", "aria-expanded": "false" });
+    toggleBtn.innerHTML = CHEV;
+    toggleBtn.appendChild(el("span", { class: "group-title", id: "gt-" + g.id, text: g.title }));
+    var badges = el("span", { class: "badges" });
+    toggleBtn.appendChild(badges);
+    toggleBtn.addEventListener("click", function () { setOpen(g.id, !openState[g.id]); });
+    var head = el("div", { class: "group-head" }, [toggleBtn]);
+
+    var sw = null, swInput = null, swText = null;
+    var t = g.toggle;
+    if (t.type === "switch" || t.type === "option" || t.type === "derived") {
+      swInput = el("input", { type: "checkbox", role: "switch", "aria-label": T("switchOf", { g: g.title }) });
+      swText = el("span");
+      sw = el("label", { class: "switch" }, [swInput, el("span", { class: "track" }), swText]);
+      swInput.addEventListener("change", function () {
+        if (t.type === "switch") { state.groups[g.id] = swInput.checked; refresh(); }
+        else if (t.type === "option") setValue(t.opt, swInput.checked);
+      });
+      head.appendChild(sw);
+    }
+    box.appendChild(head);
+
+    var body = el("div", { class: "group-body" });
+    if (g.desc) body.appendChild(el("p", { class: "group-desc", text: g.desc }));
+    var offNote = el("p", { class: "group-off-note" });
+    body.appendChild(offNote);
+    var resetAll = el("button", { class: "btn-link", type: "button", text: T("resetGroup"), onclick: function () {
+      g.options.forEach(function (id) { var r = state.values[id]; if (r) { delete r.value; delete r.input; } });
+      if (t.type === "option") { var r = state.values[t.opt]; if (r) delete r.value; }
+      if (t.type === "switch") delete state.groups[g.id];
+      refresh();
+    } });
+    body.appendChild(el("div", { class: "group-tools" }, [resetAll]));
+    g.options.forEach(function (id) { body.appendChild(renderOption(id)); });
+    box.appendChild(body);
+
+    updaters.push(function () {
+      var on = groupEnabled(g.id);
+      box.classList.toggle("is-off", !on);
+      var st = groupStatus(g);
+      badges.innerHTML = "";
+      if (later) badges.appendChild(el("span", { class: "badge b-later", text: T("later") }));
+      if (isPrevious(g)) badges.appendChild(el("span", { class: "badge b-ok", text: T("prevConfirmed") }));
+      if (!on) badges.appendChild(el("span", { class: "badge", text: T("groupOffBadge") }));
+      if (st.errors) badges.appendChild(el("span", { class: "badge b-error", text: T("fixN", { n: st.errors }) }));
+      if (st.confirm) badges.appendChild(el("span", { class: "badge b-confirm", text: T("confirmN", { n: st.confirm }) }));
+      if (st.modified) badges.appendChild(el("span", { class: "badge b-modified", text: T("modifiedN", { n: st.modified }) }));
+      if (sw) {
+        swInput.checked = on;
+        var locked = t.type === "derived" || (t.type === "option" && !!forced(t.opt));
+        swInput.disabled = locked;
+        sw.classList.toggle("is-locked", locked);
+        if (t.type === "switch") swText.textContent = on ? (t.onLabel || T("enable")) : (t.offLabel || T("disable"));
+        else if (t.type === "option") {
+          var o = OPTS[t.opt], f = forced(t.opt);
+          swText.textContent = (on ? o.onLabel : o.offLabel) + (f ? T("lockedSuffix") : "");
+          sw.title = f ? f.reason : "";
+        } else {
+          swText.textContent = on ? T("autoOn") : T("autoOff");
+          sw.title = T("autoTip");
+        }
+      }
+      offNote.textContent = on ? "" : T("offNote") + (t.offReason ? T("offWhy", { r: t.offReason }) : "");
+      offNote.classList.toggle("is-hidden", on);
+      var onlyMod = document.getElementById("only-modified").checked;
+      box.classList.toggle("is-hidden", onlyMod && !st.modified);
+    });
+    return box;
+  }
+
+  /* 只保留安全的 SVG：去掉脚本、事件属性和外部引用 */
+  function safeSvg(markup) {
+    var doc = new DOMParser().parseFromString(markup || "", "image/svg+xml");
+    var svg = doc.documentElement;
+    if (!svg || svg.nodeName.toLowerCase() !== "svg" || doc.getElementsByTagName("parsererror").length) return null;
+    Array.prototype.slice.call(svg.querySelectorAll("script, foreignObject")).forEach(function (n) { n.remove(); });
+    Array.prototype.slice.call(svg.querySelectorAll("*")).concat([svg]).forEach(function (n) {
+      Array.prototype.slice.call(n.attributes).forEach(function (a) {
+        var name = a.name.toLowerCase(), val = (a.value || "").trim().toLowerCase();
+        if (name.indexOf("on") === 0 || ((name === "href" || name === "xlink:href") && val.charAt(0) !== "#")) n.removeAttribute(a.name);
+      });
+    });
+    return document.importNode(svg, true);
+  }
+  function svgAt(markup, size) {
+    var n = safeSvg(markup);
+    if (!n) return el("span", { class: "logo-broken", text: "?" });
+    n.setAttribute("width", size); n.setAttribute("height", size);
+    n.setAttribute("aria-hidden", "true");
+    return n;
+  }
+
+  function groupShell(g) {
+    var box = el("section", { class: "group", id: "grp-" + g.id });
+    var toggleBtn = el("button", { class: "group-toggle-btn", type: "button", "aria-expanded": "false" });
+    toggleBtn.innerHTML = CHEV;
+    toggleBtn.appendChild(el("span", { class: "group-title", text: g.title }));
+    var badges = el("span", { class: "badges" });
+    toggleBtn.appendChild(badges);
+    toggleBtn.addEventListener("click", function () { setOpen(g.id, !openState[g.id]); });
+    box.appendChild(el("div", { class: "group-head" }, [toggleBtn]));
+    var body = el("div", { class: "group-body" });
+    if (g.desc) body.appendChild(el("p", { class: "group-desc", text: g.desc }));
+    box.appendChild(body);
+    return { box: box, badges: badges, body: body };
+  }
+
+  function renderSpecialGroup(g) {
+    var sh = groupShell(g);
+    var offNote = el("p", { class: "group-off-note" });
+    sh.body.appendChild(offNote);
+    var content = el("div");
+    sh.body.appendChild(content);
+    var empty = (g.kind === "logo" && !LOGOS.length) || (g.kind === "capabilities" && !CAPS.length) || (g.kind === "milestones" && !MILESTONES.length);
+    if (empty) content.appendChild(el("p", { class: "group-off-note", text: T("specialEmpty") }));
+    else if (g.kind === "logo") buildLogo(content);
+    else if (g.kind === "capabilities") buildCaps(content);
+    else if (g.kind === "milestones") buildMilestones(content);
+    updaters.push(function () {
+      var on = groupEnabled(g.id), st = specialStatus(g);
+      sh.box.classList.toggle("is-off", !on);
+      content.classList.toggle("is-hidden", !on);
+      offNote.textContent = on ? "" : T("offNote") + (g.toggle.offReason ? T("offWhy", { r: g.toggle.offReason }) : "");
+      offNote.classList.toggle("is-hidden", on);
+      sh.badges.innerHTML = "";
+      if (isPrevious(g)) sh.badges.appendChild(el("span", { class: "badge b-ok", text: T("prevConfirmed") }));
+      if (!on) sh.badges.appendChild(el("span", { class: "badge", text: T("groupOffBadge") }));
+      if (st.excluded) sh.badges.appendChild(el("span", { class: "badge", text: T("excludedN", { n: st.excluded }) }));
+      if (st.deferred) sh.badges.appendChild(el("span", { class: "badge b-modified", text: T("deferredN", { n: st.deferred }) }));
+      if (st.modified && !st.excluded && !st.deferred) sh.badges.appendChild(el("span", { class: "badge b-modified", text: T("modifiedN", { n: st.modified }) }));
+      sh.box.classList.toggle("is-hidden", document.getElementById("only-modified").checked && !st.modified);
+    });
+    return sh.box;
+  }
+
+  function buildLogo(host) {
+    var grid = el("div", { class: "logo-grid", role: "radiogroup", "aria-label": "Logo" });
+    var items = [];
+    var name = tr(META.project) || "";
+    LOGOS.forEach(function (lg, i) {
+      var input = el("input", { type: "radio", name: "logo-pick" });
+      input.addEventListener("change", function () { if (input.checked) { state.logo.choice = i; refresh(); } });
+      var big = el("div", { class: "logo-sizes" }, [
+        el("span", { class: "logo-bg light", title: T("logoOnLight") }, [svgAt(lg.svg, 72), svgAt(lg.svg, 32), svgAt(lg.svg, 16)]),
+        el("span", { class: "logo-bg dark", title: T("logoOnDark") }, [svgAt(lg.svg, 72), svgAt(lg.svg, 32), svgAt(lg.svg, 16)])
+      ]);
+      var tab = el("div", { class: "logo-tab" }, [svgAt(lg.svg, 16), el("span", { text: name })]);
+      var card = el("label", { class: "choice logo-card" }, [input,
+        el("span", { class: "logo-name", text: tr(lg.name) || T("proposalN", { n: i + 1 }) }), big, tab,
+        lg.note ? el("small", { text: tr(lg.note) }) : null]);
+      grid.appendChild(card);
+      items.push({ v: i, input: input, lab: card });
+    });
+    var noneInput = el("input", { type: "radio", name: "logo-pick" });
+    noneInput.addEventListener("change", function () { if (noneInput.checked) { state.logo.choice = "none"; refresh(); } });
+    var noneLab = el("label", { class: "choice" }, [noneInput, el("span", { text: T("logoNone") })]);
+    items.push({ v: "none", input: noneInput, lab: noneLab });
+    host.appendChild(grid);
+    host.appendChild(el("div", { class: "choices", style: "margin-top:8px" }, [noneLab]));
+    var note = el("textarea", { class: "field", placeholder: T("logoNotePh") });
+    note.value = state.logo.note;
+    note.addEventListener("input", function () { state.logo.note = note.value; refreshLight(); });
+    host.appendChild(el("div", { class: "extra" }, [el("label", { class: "opt-help", text: T("logoNote") }), note]));
+    updaters.push(function () {
+      items.forEach(function (it) { it.input.checked = state.logo.choice === it.v; it.lab.classList.toggle("is-checked", it.input.checked); });
+    });
+  }
+
+  function buildCaps(host) {
+    var showCli = function () { return effective("E1").ok && currentValue("E1") === true; };
+    var showApi = function () { return effective("E2").ok && currentValue("E2") === true; };
+    var wrap = el("div", { class: "table-wrap" });
+    var table = el("table", { class: "cap-table" });
+    var thCli = el("th", { text: T("capCli") }), thApi = el("th", { text: T("capApi") });
+    table.appendChild(el("thead", null, [el("tr", null, [el("th", { text: T("capInclude") }), el("th", { text: T("capName") }), thCli, thApi,
+      el("th", { text: T("capScene") }), el("th", { text: T("capPriority") }), el("th", { text: T("capNote") })])]));
+    var tbody = el("tbody");
+    var rows = [];
+    CAPS.forEach(function (c) {
+      var st = state.caps[c.id];
+      var cb = el("input", { type: "checkbox", "aria-label": tr(c.name) });
+      cb.addEventListener("change", function () { st.include = cb.checked; refresh(); });
+      var note = el("input", { class: "field", type: "text", placeholder: T("capNotePh") });
+      note.value = st.note;
+      note.addEventListener("input", function () { st.note = note.value; refreshLight(); });
+      var warn = el("p", { class: "msg warn", text: T("capRequiredOff") });
+      var prKey = { required: "prRequired", suggested: "prSuggested", optional: "prOptional" }[c.priority] || "prOptional";
+      var tdCli = el("td", null, [el("code", { text: c.cli || "—" })]), tdApi = el("td", null, [el("code", { text: c.api || "—" })]);
+      var tr_ = el("tr", null, [el("td", null, [cb]), el("td", null, [el("b", { text: tr(c.name) }), warn]), tdCli, tdApi,
+        el("td", { text: tr(c.scene) || "" }), el("td", null, [el("span", { class: "badge" + (c.priority === "required" ? " b-confirm" : ""), text: T(prKey) })]), el("td", null, [note])]);
+      tbody.appendChild(tr_);
+      rows.push({ c: c, cb: cb, warn: warn, tr: tr_, tdCli: tdCli, tdApi: tdApi });
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    host.appendChild(wrap);
+    updaters.push(function () {
+      var cli = showCli(), api = showApi();
+      thCli.classList.toggle("is-hidden", !cli); thApi.classList.toggle("is-hidden", !api);
+      rows.forEach(function (r) {
+        var st = state.caps[r.c.id];
+        r.cb.checked = st.include;
+        r.tr.classList.toggle("is-excluded", !st.include);
+        r.warn.classList.toggle("is-hidden", !(r.c.priority === "required" && !st.include));
+        r.tdCli.classList.toggle("is-hidden", !cli); r.tdApi.classList.toggle("is-hidden", !api);
+      });
+    });
+  }
+
+  function deferControl(item) {
+    var st = state.ms[item.id];
+    var cb = el("input", { type: "checkbox" });
+    cb.addEventListener("change", function () { st.defer = cb.checked; refresh(); });
+    var note = el("input", { class: "field", type: "text", placeholder: T("deferNotePh") });
+    note.value = st.note;
+    note.addEventListener("input", function () { st.note = note.value; refreshLight(); });
+    var box = el("div", { class: "defer" }, [el("label", { class: "defer-toggle" }, [cb, el("span", { text: T("defer") })]), note]);
+    updaters.push(function () {
+      cb.checked = st.defer;
+      note.classList.toggle("is-hidden", !st.defer);
+    });
+    return box;
+  }
+
+  function buildMilestones(host) {
+    MILESTONES.forEach(function (m) {
+      var card = el("div", { class: "ms-card", id: "opt-" + m.id });
+      card.appendChild(el("div", { class: "opt-head" }, [el("span", { class: "opt-id", text: m.id }), el("span", { class: "opt-label", text: tr(m.goal) })]));
+      var dl = el("dl", { class: "ms-meta" });
+      [["msReqs", (m.reqs || []).join(T("sep"))], ["msDeliverable", tr(m.deliverable)], ["msAcceptance", tr(m.acceptance)]].forEach(function (kv) {
+        if (kv[1]) { dl.appendChild(el("dt", { text: T(kv[0]) })); dl.appendChild(el("dd", { text: kv[1] })); }
+      });
+      card.appendChild(dl);
+      card.appendChild(deferControl(m));
+      if ((m.stages || []).length) {
+        var wrap = el("div", { class: "table-wrap" });
+        var table = el("table", { class: "ms-table" });
+        table.appendChild(el("thead", null, [el("tr", null, [el("th", { text: T("msStage") }), el("th", { text: T("msContent") }), el("th", { text: T("msDone") }), el("th", { text: T("msSize") }), el("th", { text: T("defer") })])]));
+        var tbody = el("tbody");
+        m.stages.forEach(function (stg) {
+          var row = el("tr", null, [el("td", null, [el("span", { class: "opt-id", text: stg.id })]), el("td", { text: tr(stg.content) }), el("td", { text: tr(stg.done) || "" }), el("td", { text: stg.size || "" }), el("td", null, [deferControl(stg)])]);
+          tbody.appendChild(row);
+          updaters.push(function () { row.classList.toggle("is-excluded", state.ms[stg.id].defer || state.ms[m.id].defer); });
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        card.appendChild(wrap);
+      }
+      updaters.push(function () { card.classList.toggle("is-deferred", state.ms[m.id].defer); });
+      host.appendChild(card);
+    });
+  }
+
+  function renderQuestions() {
+    if (!QUESTIONS.length) return null;
+    var g = { id: "questions", title: T("questions") };
+    var box = el("section", { class: "group", id: "grp-questions" });
+    var toggleBtn = el("button", { class: "group-toggle-btn", type: "button", "aria-expanded": "false" });
+    toggleBtn.innerHTML = CHEV;
+    toggleBtn.appendChild(el("span", { class: "group-title", text: g.title }));
+    var badges = el("span", { class: "badges" });
+    toggleBtn.appendChild(badges);
+    toggleBtn.addEventListener("click", function () { setOpen(g.id, !openState[g.id]); });
+    box.appendChild(el("div", { class: "group-head" }, [toggleBtn]));
+    var body = el("div", { class: "group-body" }, [el("p", { class: "group-desc", text: T("questionsDesc") })]);
+    QUESTIONS.forEach(function (q) {
+      var st = state.questions[q.id] || (state.questions[q.id] = { value: q.default !== undefined ? q.default : null, note: "" });
+      var root = el("div", { class: "opt", id: "opt-" + q.id });
+      root.appendChild(el("div", { class: "opt-head" }, [el("span", { class: "opt-id", text: q.id }), el("span", { class: "opt-label", text: tr(q.question) })]));
+      if (q.source) root.appendChild(el("p", { class: "q-source", text: T("source", { s: tr(q.source) }) }));
+      var wrap = el("div", { class: "choices" });
+      var items = [];
+      (q.choices || []).forEach(function (raw) {
+        var c = raw && typeof raw === "object" && "value" in raw ? raw.value : raw;
+        var label = raw && typeof raw === "object" && "value" in raw ? tr(raw.label) : tr(raw);
+        var input = el("input", { type: "radio", name: "q-" + q.id });
+        input.addEventListener("change", function () { if (input.checked) { st.value = c; refresh(); } });
+        var lab = el("label", { class: "choice" }, [input, el("span", { text: label })]);
+        wrap.appendChild(lab); items.push({ c: c, input: input, lab: lab });
+      });
+      root.appendChild(wrap);
+      var note = el("textarea", { class: "field", placeholder: T("notePh") });
+      note.value = st.note;
+      note.addEventListener("input", function () { st.note = note.value; dirty = true; });
+      root.appendChild(el("div", { class: "extra" }, [note]));
+      var err = el("p", { class: "msg err" });
+      root.appendChild(err);
+      body.appendChild(root);
+      updaters.push(function () {
+        items.forEach(function (it) { it.input.checked = st.value === it.c; it.lab.classList.toggle("is-checked", it.input.checked); });
+        var missing = st.value === null || st.value === undefined;
+        err.textContent = missing ? T("pickOne") : "";
+        err.classList.toggle("is-hidden", !missing);
+      });
+    });
+    box.appendChild(body);
+    updaters.push(function () {
+      var n = unansweredQuestions().length;
+      badges.innerHTML = "";
+      if (n) badges.appendChild(el("span", { class: "badge b-confirm", text: T("unansweredN", { n: n }) }));
+      else badges.appendChild(el("span", { class: "badge b-ok", text: T("allAnswered") }));
+      box.classList.toggle("is-hidden", document.getElementById("only-modified").checked);
+    });
+    return box;
+  }
+
+  function unansweredQuestions() {
+    return QUESTIONS.filter(function (q) { var s = state.questions[q.id]; return !s || s.value === null || s.value === undefined; });
+  }
+
+  function specialStatus(g) {
+    var r = { errors: 0, confirm: 0, modified: 0, deferred: 0, excluded: 0 };
+    if (g.kind === "logo") { if (LOGOS.length && state.logo.choice !== 0) r.modified++; if ((state.logo.note || "").trim()) r.modified++; }
+    if (g.kind === "capabilities") CAPS.forEach(function (c) {
+      var st = state.caps[c.id];
+      if (st.include !== (c.priority === "required")) r.modified++;
+      if (!st.include) r.excluded++;
+    });
+    if (g.kind === "milestones") msItems().forEach(function (it) { if (state.ms[it.id].defer) { r.modified++; r.deferred++; } });
+    return r;
+  }
+
+  function groupStatus(g) {
+    if (g.kind) return specialStatus(g);
+    var ids = g.options.slice();
+    if (g.toggle.type === "option") ids.unshift(g.toggle.opt);
+    var r = { errors: 0, confirm: 0, modified: 0 };
+    ids.forEach(function (id) {
+      if (errorsOf(id).length) r.errors++;
+      if (needsConfirm(id)) r.confirm++;
+      if (isModified(id)) r.modified++;
+    });
+    if (g.toggle.type === "switch" && g.id in state.groups && state.groups[g.id] !== groupEnabledDefault(g)) r.modified++;
+    return r;
+  }
+  function groupEnabledDefault(g) {
+    return P.groupDefaults && g.id in P.groupDefaults ? P.groupDefaults[g.id] : g.toggle.default;
+  }
+
+  function setOpen(gid, open) {
+    openState[gid] = open;
+    var box = document.getElementById("grp-" + gid);
+    if (!box) return;
+    box.classList.toggle("is-open", open);
+    box.querySelector(".group-toggle-btn").setAttribute("aria-expanded", String(open));
+  }
+
+  /* ---------- 左侧清单与底部栏 ---------- */
+  var visibleGroups = S.groups.filter(function (g) { return (g.round || 1) <= ROUND; });
+
+  /* 左侧列表的快捷开关：开关型分类、由选项控制的分类，以及定义了 quickToggle 的分类 */
+  function quickToggle(g) {
+    var t = g.toggle;
+    if (t.type === "switch") {
+      var on = groupEnabled(g.id);
+      return { on: on, text: on ? (t.onLabel || T("enable")) : (t.offLabel || T("disable")),
+        flip: function () { state.groups[g.id] = !on; } };
+    }
+    if (t.type === "option") {
+      var o = OPTS[t.opt], f = forced(t.opt), v = effective(t.opt).ok && currentValue(t.opt) === true;
+      return { on: v, locked: f ? f.reason : null, text: v ? (o.onLabel || T("on")) : (o.offLabel || T("off")),
+        flip: function () { setValue(t.opt, !v); } };
+    }
+    var q = g.quickToggle;
+    if (q && OPTS[q.opt]) {
+      var eff = effective(q.opt);
+      if (!eff.ok) return null;  // 例如开发机本身是 Linux：不显示开关
+      var cur = currentValue(q.opt), isOn = cur !== q.off;
+      return { on: isOn, text: valueLabel(q.opt, cur),
+        flip: function () { setValue(q.opt, isOn ? q.off : q.on); } };
+    }
+    return null;
+  }
+
+  function renderRail() {
+    var focusedQuick = document.activeElement && document.activeElement.getAttribute("data-quick");
+    var list = document.getElementById("rail-list");
+    list.innerHTML = "";
+    var entries = visibleGroups.map(function (g) { return { id: g.id, title: g.title, g: g }; });
+    if (QUESTIONS.length) entries.push({ id: "questions", title: T("questions"), g: null });
+    entries.forEach(function (e) {
+      var cls = "dot", count = "";
+      if (e.g) {
+        var on = groupEnabled(e.g.id), st = groupStatus(e.g);
+        if (!on) cls += " s-off";
+        else if (st.errors) { cls += " s-error"; count = T("railFix", { n: st.errors }); }
+        else if (st.confirm) { cls += " s-confirm"; count = T("railConfirm", { n: st.confirm }); }
+        else if (st.modified) { cls += " s-modified"; count = T("railMod", { n: st.modified }); }
+        else if (e.g.phase === 3 && ROUND < 3) cls += " s-later";
+        var a = el("a", { href: "#grp-" + e.id, class: on ? "" : "is-off" }, [el("i", { class: cls }), el("span", { text: e.title }), el("span", { class: "count", text: count })]);
+      } else {
+        var n = unansweredQuestions().length;
+        if (n) { cls += " s-confirm"; count = T("railQ", { n: n }); }
+        a = el("a", { href: "#grp-questions" }, [el("i", { class: cls }), el("span", { text: e.title }), el("span", { class: "count", text: count })]);
+      }
+      a.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        setOpen(e.id, true);
+        document.getElementById("grp-" + e.id).scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      });
+      var qt = e.g ? quickToggle(e.g) : null, sw = null;
+      if (qt) {
+        sw = el("button", { class: "quick", type: "button", role: "switch", "data-quick": e.id,
+          "aria-checked": String(qt.on), "aria-label": T("switchOf", { g: e.title }),
+          title: qt.locked ? T("quickLocked", { g: e.title, s: qt.text, r: qt.locked }) : T("quickTip", { g: e.title, s: qt.text }) });
+        if (qt.locked) sw.disabled = true;
+        sw.addEventListener("click", function () {
+          if (sw.disabled) return;
+          qt.flip();
+          refresh();
+        });
+      }
+      list.appendChild(el("li", null, [a, sw || el("span", { class: "quick-spacer", "aria-hidden": "true" })]));
+    });
+    if (focusedQuick) {  // 列表重建后把键盘焦点放回刚才的开关
+      var again = list.querySelector('[data-quick="' + focusedQuick + '"]');
+      if (again) again.focus();
+    }
+  }
+
+  function collectIssues() {
+    var issues = [];
+    visibleGroups.forEach(function (g) {
+      var ids = g.options.slice();
+      if (g.toggle.type === "option") ids.unshift(g.toggle.opt);
+      ids.forEach(function (id) {
+        errorsOf(id).forEach(function (m) { issues.push({ level: "err", id: id, gid: g.id, text: T("issueOpt", { l: OPTS[id].label, m: m }) }); });
+        if (needsConfirm(id)) issues.push({ level: "err", id: id, gid: g.id, text: T("issueConfirm", { l: OPTS[id].label }) });
+      });
+    });
+    unansweredQuestions().forEach(function (q) { issues.push({ level: "err", id: q.id, gid: "questions", text: T("issueQ", { id: q.id }) }); });
+    warnings().forEach(function (r) {
+      var t = (r.targets || [])[0];
+      issues.push({ level: "warn", id: t, gid: GROUP_OF[t], text: r.message });
+    });
+    return issues;
+  }
+
+  var issuesOpen = false;
+  function renderBar() {
+    var issues = collectIssues();
+    var errs = issues.filter(function (i) { return i.level === "err"; });
+    var warns = issues.filter(function (i) { return i.level === "warn"; });
+    var modified = 0, confirm = 0;
+    visibleGroups.forEach(function (g) { var st = groupStatus(g); modified += st.modified; confirm += st.confirm; });
+    var stats = document.getElementById("stats");
+    stats.innerHTML = "";
+    stats.appendChild(el("span", { class: "badge b-modified", text: T("statMod", { n: modified }) }));
+    stats.appendChild(el("span", { class: "badge b-confirm", text: T("statConfirm", { n: confirm + unansweredQuestions().length }) }));
+    stats.appendChild(el("span", { class: "badge", text: T("statWarn", { n: warns.length }) }));
+    stats.appendChild(el("span", { class: errs.length ? "badge b-error" : "badge b-ok", text: errs.length ? T("statFix", { n: errs.length }) : T("statOk") }));
+    if (issues.length) {
+      stats.appendChild(el("button", { class: "btn-link issues-toggle", type: "button", "aria-expanded": String(issuesOpen),
+        text: issuesOpen ? T("issuesHide") : T("issuesShow", { n: issues.length }), onclick: function () { issuesOpen = !issuesOpen; renderBar(); } }));
+    }
+    var list = document.getElementById("issues");
+    list.innerHTML = "";
+    list.classList.toggle("is-hidden", !issuesOpen || !issues.length);
+    issues.slice(0, 50).forEach(function (i) {
+      var b = el("button", { type: "button", text: i.text, onclick: function () {
+        if (i.gid) setOpen(i.gid, true);
+        var t = document.getElementById("opt-" + i.id);
+        if (t) t.scrollIntoView({ block: "center" });
+      } });
+      list.appendChild(el("li", { class: i.level }, [b]));
+    });
+    document.querySelectorAll("[data-save]").forEach(function (btn) { btn.disabled = errs.length > 0; });
+  }
+
+  var ready = false, dirty = false;
+  function clearToast() { var t = document.getElementById("toast"); if (t.textContent) { t.textContent = ""; t.className = "toast"; } }
+  function refresh() {
+    if (ready) { dirty = true; clearToast(); }
+    updaters.forEach(function (u) { u(); }); renderRail(); renderBar();
+  }
+  var lightTimer = null;
+  function refreshLight() { if (ready) { dirty = true; clearToast(); } clearTimeout(lightTimer); lightTimer = setTimeout(refresh, 120); }
+
+  /* ---------- 导出与保存 ---------- */
+  function buildOutput() {
+    var out = {
+      meta: {
+        schemaVersion: S.schemaVersion, round: ROUND, project: tr(META.project) || "", lang: LANG,
+        taskDoc: META.taskDoc || "", savedAt: new Date().toISOString(), savedVia: MODE,
+        complete: false, pending: []
+      },
+      groups: {}, values: {}, questions: {}, warnings: warnings().map(function (r) { return r.message; })
+    };
+    visibleGroups.forEach(function (g) {
+      out.groups[g.id] = { enabled: groupEnabled(g.id) };
+      var ids = g.options.slice();
+      if (g.toggle.type === "option") ids.unshift(g.toggle.opt);
+      ids.forEach(function (id) {
+        var eff = effective(id), rec = state.values[id] || {};
+        var v = currentValue(id);
+        if (OPTS[id].type === "checkbox") v = (v || []).filter(function (x) { var c = OPTS[id].choices.filter(function (k) { return k.value === x; })[0]; return c && choiceAvailable(c); });
+        var item = { value: v, source: sourceOf(id), effective: eff.ok };
+        if (!eff.ok) item.reason = eff.reason;
+        if (rec.input !== undefined) item.input = rec.input;
+        if (OPTS[id].mustConfirm) item.confirmed = !!rec.confirmed;
+        if (item.source === "suggested") item.suggestionReason = tr(SUG[id].reason);
+        if (item.source === "forced") item.reason = forced(id).reason;
+        out.values[id] = item;
+      });
+    });
+    QUESTIONS.forEach(function (q) { out.questions[q.id] = { question: tr(q.question), value: state.questions[q.id].value, note: state.questions[q.id].note }; });
+    /* 前几轮的问题本轮不再显示，答案原样保留 */
+    Object.keys(state.questions).forEach(function (qid) {
+      if (!(qid in out.questions)) { var st = state.questions[qid]; out.questions[qid] = { question: st.question || "", value: st.value, note: st.note || "", round: "earlier" }; }
+    });
+    if (visibleGroups.some(function (g) { return g.kind === "logo"; }) && LOGOS.length)
+      out.logo = { choice: state.logo.choice, note: state.logo.note };
+    if (visibleGroups.some(function (g) { return g.kind === "capabilities"; }) && CAPS.length) {
+      out.capabilities = {};
+      CAPS.forEach(function (c) { out.capabilities[c.id] = { include: state.caps[c.id].include, note: state.caps[c.id].note, priority: c.priority }; });
+      out.groups.capabilities = { enabled: groupEnabled("capabilities") };
+    }
+    if (visibleGroups.some(function (g) { return g.kind === "milestones"; }) && MILESTONES.length) {
+      out.milestones = {};
+      msItems().forEach(function (it) { out.milestones[it.id] = { defer: state.ms[it.id].defer, note: state.ms[it.id].note }; });
+    }
+    out.meta.pending = collectIssues().filter(function (i) { return i.level === "err"; }).map(function (i) { return i.text; });
+    out.meta.complete = out.meta.pending.length === 0;
+    return out;
+  }
+
+  function toast(msg, ok) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className = "toast " + (ok ? "ok" : "err");
+  }
+
+  var MODE = "file";
+  function api(path, body) {
+    return fetch(path, {
+      method: body === undefined ? "GET" : "POST",
+      headers: { "X-Config-Token": TOKEN || "", "Content-Type": "application/json; charset=utf-8" },
+      body: body === undefined ? undefined : JSON.stringify(body)
+    }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+  }
+
+  var fileHandle = null;
+
+  function renderActions() {
+    var box = document.getElementById("actions");
+    box.innerHTML = "";
+    box.appendChild(el("button", { class: "btn", type: "button", text: T("copy"), title: T("copyTip"), onclick: copyJson }));
+    box.appendChild(el("button", { class: "btn", type: "button", text: T("save"), title: T("saveTip"), onclick: function () { saveConfig(false); } }));
+    box.appendChild(el("button", { class: "btn primary", type: "button", "data-save": "1", text: T("finish"),
+      title: T("finishTip"), onclick: function () { saveConfig(true); } }));
+  }
+
+  function savedMessage(out, finish) {
+    if (finish) return MODE === "server"
+      ? T("doneServer") : T("doneFile");
+    if (out.meta.complete) return T("savedComplete");
+    return T("savedDraft", { n: out.meta.pending.length });
+  }
+
+  function saveConfig(finish) {
+    var out = buildOutput();
+    if (finish && !out.meta.complete) { toast(T("finishBlocked", { n: out.meta.pending.length }), false); return; }
+    out.meta.finished = !!finish;
+    var p = MODE === "server" ? saveToServer(out, finish) : saveToFile(out);
+    p.then(function (ok) {
+      if (!ok) return;
+      dirty = false;
+      toast(savedMessage(out, finish), true);
+      if (finish && MODE === "server") document.querySelectorAll(".bar .btn").forEach(function (b) { b.disabled = true; });
+    }).catch(function (e) {
+      if (MODE === "server") {
+        MODE = "file";
+        toast(T("serverFail", { e: e.message }), false);
+      } else {
+        toast(T("fileFail", { e: e.message }), false);
+      }
+    });
+  }
+
+  function saveToServer(out, finish) {
+    return api("/api/save", out).then(function () {
+      return finish ? api("/api/done", {}).then(function () { return true; }) : true;
+    });
+  }
+
+  /* 文件模式：支持的浏览器（Chrome、Edge）弹出保存对话框，之后再保存直接覆盖同一文件；不支持时下载 */
+  function saveToFile(out) {
+    var text = JSON.stringify(out, null, 2) + "\n";
+    if (window.showSaveFilePicker) {
+      var get = fileHandle ? Promise.resolve(fileHandle) : window.showSaveFilePicker({
+        suggestedName: "config.json",
+        types: [{ description: "JSON", accept: { "application/json": [".json"] } }]
+      });
+      return get.then(function (h) {
+        fileHandle = h;
+        return h.createWritable().then(function (w) { return w.write(text).then(function () { return w.close(); }); });
+      }).then(function () { return true; }, function (e) {
+        if (e && e.name === "AbortError") return false;
+        fileHandle = null;
+        return download(text);
+      });
+    }
+    return Promise.resolve(download(text));
+  }
+
+  function download(text) {
+    var blob = new Blob([text], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "config.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    var dir = META.configDir || "DevelopDocs/project-config";
+    setTimeout(function () { toast(T("downloaded", { d: dir }), true); }, 50);
+    return true;
+  }
+
+  function copyJson() {
+    var text = JSON.stringify(buildOutput(), null, 2);
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () {
+      toast(T("copied"), true);
+    }, function () { toast(T("copyFail"), false); });
+  }
+
+  /* ---------- 启动 ---------- */
+  function applyStatic() {
+    document.querySelectorAll("[data-i18n]").forEach(function (n) { n.textContent = T(n.getAttribute("data-i18n")); });
+    document.querySelector(".rail").setAttribute("aria-label", T("navLabel"));
+    document.getElementById("lang-switch").setAttribute("aria-label", T("langLabel"));
+    document.querySelectorAll("#lang-switch button").forEach(function (b) {
+      var on = b.getAttribute("data-lang") === LANG;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    var name = tr(META.project);
+    document.getElementById("proj-title").textContent = name || T("title");
+    document.getElementById("proj-meta").textContent = T("round", { n: ROUND }) + (META.taskDoc ? T("taskDoc", { p: META.taskDoc }) : "");
+    document.title = (name ? name + " - " : "") + T("docTitle");
+  }
+
+  /* 重新生成全部分类：切换语言时使用，已填写的值都在 state 中，不受影响 */
+  function rebuild() {
+    updaters = [];
+    var host = document.getElementById("groups");
+    host.innerHTML = "";
+    visibleGroups.forEach(function (g) { host.appendChild(renderGroup(g)); });
+    var q = renderQuestions();
+    if (q) host.appendChild(q);
+    Object.keys(openState).forEach(function (k) { setOpen(k, openState[k]); });
+    renderActions();
+    var was = ready; ready = false; refresh(); ready = was;
+  }
+
+  function setLang(lang) {
+    if (lang === LANG) return;
+    LANG = lang;
+    try { localStorage.setItem("project-config-lang", lang); } catch (e) {}
+    applyLang(); applyStatic(); clearToast(); rebuild();
+  }
+
+  function start(savedFromServer) {
+    loadSaved(savedFromServer || P.values);
+    applyLang(); applyStatic();
+    document.querySelectorAll("#lang-switch button").forEach(function (b) {
+      b.addEventListener("click", function () { setLang(b.getAttribute("data-lang")); });
+    });
+    var host = document.getElementById("groups");
+    visibleGroups.forEach(function (g) { host.appendChild(renderGroup(g)); });
+    var q = renderQuestions();
+    if (q) host.appendChild(q);
+    visibleGroups.forEach(function (g) {
+      var st = groupStatus(g);
+      setOpen(g.id, isCurrent(g) && (st.confirm > 0 || st.errors > 0 || !!g.kind || (ROUND === 1 && g.id === "base") || (ROUND >= 3 && g.phase === 3)));
+    });
+    if (q) setOpen("questions", true);
+    document.getElementById("only-modified").addEventListener("change", refresh);
+    document.getElementById("expand-all").addEventListener("click", function () { Object.keys(openState).forEach(function (k) { setOpen(k, true); }); });
+    document.getElementById("collapse-all").addEventListener("click", function () { Object.keys(openState).forEach(function (k) { setOpen(k, false); }); });
+    renderActions();
+    refresh();
+    ready = true;
+    document.addEventListener("keydown", function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveConfig(false); }
+    });
+    window.addEventListener("beforeunload", function (e) { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+  }
+
+  if (location.protocol.indexOf("http") === 0 && TOKEN) {
+    api("/api/ping").then(function () {
+      MODE = "server";
+      return api("/api/config").then(function (r) { return r.config; }, function () { return null; });
+    }).then(start, function () { start(null); });
+  } else {
+    start(null);
+  }
+})();
+</script>
+</body>
+</html>

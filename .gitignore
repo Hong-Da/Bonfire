@@ -1,0 +1,12 @@
+/target/
+/dist/
+node_modules/
+/app/dist/
+/tests/output/
+/DevelopDocs/project-config/history/
+/data/
+/logs/
+/portable
+*.log
+.vscode/
+.idea/
