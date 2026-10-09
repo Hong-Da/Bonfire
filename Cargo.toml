@@ -37,5 +37,6 @@ winreg = "0.56"
 zstd = "0.14"
 jiff = { version = "0.2", features = ["serde"] }
 sys-locale = "0.3"
+zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 assert_cmd = "2"
 predicates = "3"

@@ -26,7 +26,11 @@ pub struct KnownDirs {
 impl KnownDirs {
     /// 当前用户的系统目录。
     pub fn system() -> Self {
-        let env = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
+        let env = |k: &str| {
+            std::env::var_os(k)
+                .filter(|v| !v.is_empty())
+                .map(PathBuf::from)
+        };
         let home = dirs::home_dir();
         Self {
             app_data: dirs::config_dir(),
@@ -61,11 +65,17 @@ impl KnownDirs {
 
     /// 启发式探测时查找的常见存档目录（文档 4.2 第 3 条）。
     pub fn common_save_dirs(&self) -> Vec<PathBuf> {
-        let mut v: Vec<PathBuf> = [&self.documents, &self.saved_games, &self.app_data, &self.local_app_data, &self.local_app_data_low]
-            .into_iter()
-            .flatten()
-            .cloned()
-            .collect();
+        let mut v: Vec<PathBuf> = [
+            &self.documents,
+            &self.saved_games,
+            &self.app_data,
+            &self.local_app_data,
+            &self.local_app_data_low,
+        ]
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect();
         if let Some(d) = &self.documents {
             v.push(d.join("My Games"));
         }
@@ -127,7 +137,11 @@ pub fn expand(template: &str, ctx: &PathContext) -> Option<String> {
 
 /// 在磁盘上查找匹配的文件或目录（不区分大小写）。
 pub fn find(pattern: &str) -> Vec<PathBuf> {
-    let opts = glob::MatchOptions { case_sensitive: false, require_literal_separator: true, require_literal_leading_dot: false };
+    let opts = glob::MatchOptions {
+        case_sensitive: false,
+        require_literal_separator: true,
+        require_literal_leading_dot: false,
+    };
     match glob::glob_with(pattern, opts) {
         Ok(paths) => paths.flatten().collect(),
         Err(e) => {
@@ -157,12 +171,25 @@ mod tests {
         let c = ctx(d.path());
         let p = expand("<base>/save/*.dat", &c).unwrap();
         assert!(p.ends_with("Hollow Knight [[]GOTY[]]/save/*.dat"), "{p}");
-        let p = expand("<winLocalAppDataLow>/Team Cherry/<storeUserId>/user*.dat", &c).unwrap();
-        assert!(p.ends_with("AppData/LocalLow/Team Cherry/*/user*.dat"), "{p}");
+        let p = expand(
+            "<winLocalAppDataLow>/Team Cherry/<storeUserId>/user*.dat",
+            &c,
+        )
+        .unwrap();
+        assert!(
+            p.ends_with("AppData/LocalLow/Team Cherry/*/user*.dat"),
+            "{p}"
+        );
         assert!(expand("<xdgData>/foo", &c).is_none());
         assert!(expand("relative/path", &c).is_none());
-        let empty = PathContext { dirs: KnownDirs::under(d.path()), ..Default::default() };
-        assert!(expand("<base>/x", &empty).is_none(), "缺少安装目录时规则不适用");
+        let empty = PathContext {
+            dirs: KnownDirs::under(d.path()),
+            ..Default::default()
+        };
+        assert!(
+            expand("<base>/x", &empty).is_none(),
+            "缺少安装目录时规则不适用"
+        );
     }
 
     #[test]

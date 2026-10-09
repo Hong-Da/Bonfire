@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>截图备份方案</title>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--ink:#1f2328;--muted:#5d6670;--line:#d9dde3;--ember:#E8590C;--ember-soft:#fdeee4;--moss:#2f7d4f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17191c;--card:#202328;--ink:#e6e8eb;--muted:#9aa3ad;--line:#343940;--ember-soft:#3a2416}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 "Bahnschrift","Segoe UI","Microsoft YaHei UI",sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:28px;margin:0 0 4px}h2{font-size:19px;margin:36px 0 10px;padding-left:10px;border-left:4px solid var(--ember)}
+p.lead{color:var(--muted);margin:0 0 20px}
+section.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600}
+.q{font-weight:600;margin:0 0 6px}.rec{display:inline-block;background:var(--ember-soft);color:var(--ember);border-radius:4px;padding:0 6px;font-size:12px;margin-left:6px}
+ol.opts{margin:6px 0 4px;padding-left:22px}ol.opts li{margin:3px 0}ol.opts li.pick{font-weight:600}
+.why{color:var(--muted);font-size:14px;margin:6px 0 0}
+code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:13px}
+pre{background:var(--bg);padding:10px 12px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.5}
+.ok{color:var(--moss)}
+</style>
+</head>
+<body>
+<main>
+<h1>游戏截图备份：实现方案</h1>
+<p class="lead">2026-10-09 · <b>已确认</b>：按推荐项，并补充 S3 可定时备份（每天、每周等）、S1 增加 Windows Xbox 截图。</p>
+
+<h2>本机实际情况（只读查看）</h2>
+<section class="card">
+<table>
+<tr><th>来源</th><th>位置</th><th>本机</th><th>能否对应到游戏</th></tr>
+<tr><td>Steam 截图（F12）</td><td><code>&lt;Steam&gt;\userdata\&lt;账号&gt;\760\remote\&lt;AppID&gt;\screenshots\*.jpg</code>，另有 <code>thumbnails\</code> 和 <code>screenshots.vdf</code>（拍摄时间、分辨率、所属游戏）</td><td>6 个游戏，89 张，26 MB</td><td class="ok">精确（按 AppID）</td></tr>
+<tr><td>Windows 游戏栏（Win+Alt+PrtSc）</td><td><code>%USERPROFILE%\Videos\Captures</code>，文件名如 <code>Minishoot 2026_7_18 0_02_36.png</code></td><td>5 张</td><td>按文件名开头的游戏名匹配（较可靠）</td></tr>
+<tr><td>游戏自带截图 / 其他工具（NVIDIA、Epic 等）</td><td>各不相同</td><td>—</td><td>由用户为游戏添加“截图文件夹”</td></tr>
+</table>
+</section>
+
+<h2>总体设计</h2>
+<section class="card">
+<ul>
+<li><b>截图不进存档快照</b>：单独作为每个游戏的“相册”。否则每拍一张截图都会产生新的存档快照，恢复存档时还会把截图写回去。</li>
+<li><b>存储复用对象库</b>：截图作为普通文件对象入库（BLAKE3 去重、原子写入），已入库的不再重复存储；JPG/PNG 本身已压缩，不再做 zstd/分块压缩（直接存放，省 CPU）。</li>
+<li><b>只增不减</b>：磁盘上删掉的截图，备份里仍保留（这正是备份截图的意义）；可在界面里手动删除备份中的截图。</li>
+<li><b>与存档时间线关联</b>：每张截图按拍摄时间归到“拍摄时所在的快照区间”，时间线上的篝火旁显示该段时间的截图缩略图（“这次存档前后拍的截图”）。</li>
+<li><b>绝不写入截图目录</b>：截图“恢复”只做导出到你选的文件夹，不写回 Steam 目录。</li>
+<li>数据结构：索引数据库新增表 <code>screenshots(game_id, blob, taken_at, source, original_path, width, height, size, added_at)</code>；缩略图（WebP，320px）放在 <code>data/cache/shots/</code>，可随时重建。仓库中另存 <code>albums/&lt;game&gt;.jsonl</code>，数据库丢失时可重建。</li>
+</ul>
+</section>
+
+<h2>需要你确认的决定</h2>
+
+<section class="card">
+<p class="q">S1 截图来源</p>
+<ol class="opts">
+<li class="pick">Steam 截图 + Windows 游戏栏 + 每个游戏可手动添加截图文件夹<span class="rec">推荐</span></li>
+<li class="pick">补充：Windows Xbox 截图（游戏栏与 Xbox 应用都保存在系统“捕获”文件夹，位置可被用户修改，读取系统设置中的实际位置）<span class="rec">已确认</span></li>
+<li>只备份 Steam 截图</li>
+<li>只备份手动指定的文件夹</li>
+</ol>
+<p class="why">Steam 和游戏栏覆盖了大多数情况，且都能可靠对应到游戏；其他工具的位置五花八门，交给手动添加。</p>
+</section>
+
+<section class="card">
+<p class="q">S2 默认是否开启</p>
+<ol class="opts">
+<li class="pick">全局默认开启，每个游戏可单独关闭<span class="rec">推荐</span></li>
+<li>全局默认关闭，每个游戏单独开启</li>
+</ol>
+<p class="why">截图体积不大（本机 89 张 26 MB），开启的价值高；设置里显示每个游戏截图占用的空间。</p>
+</section>
+
+<section class="card">
+<p class="q">S3 何时备份截图</p>
+<ol class="opts">
+<li class="pick">随存档一起：每次备份（手动、退出游戏自动、定时）时顺带收集新截图；游戏库“检查更新”时提示新截图数<span class="rec">推荐</span></li>
+<li class="pick">补充：可设置定时备份截图——每天 / 每周（选星期几）/ 每 N 小时，或关闭；后台运行时执行<span class="rec">已确认</span></li>
+<li>只在详情页手动点“备份截图”</li>
+</ol>
+</section>
+
+<section class="card">
+<p class="q">S4 存储方式</p>
+<ol class="opts">
+<li class="pick">原图入库（不重新压缩），缩略图另存缓存<span class="rec">推荐</span></li>
+<li>转为 WebP 有损压缩后入库（省约 30–50% 空间，但不是原图）</li>
+</ol>
+</section>
+
+<section class="card">
+<p class="q">S5 界面</p>
+<ol class="opts">
+<li class="pick">详情页新增“截图”标签页（按时间分组的网格，点开大图，可多选导出/删除）；时间线快照旁显示该时段截图缩略图；快照详情里列出“这段时间的截图”<span class="rec">推荐</span></li>
+<li>只做“截图”标签页，不与时间线关联</li>
+</ol>
+</section>
+
+<section class="card">
+<p class="q">S6 导出与分享</p>
+<ol class="opts">
+<li class="pick">截图可单独导出（选中的或全部，zip / 文件夹）；导出历史包（.bonfire）时可勾选“包含截图”，默认不包含<span class="rec">推荐</span></li>
+<li>历史包总是包含截图</li>
+</ol>
+</section>
+
+<h2>CLI</h2>
+<section class="card">
+<pre>bonfire shots &lt;游戏&gt;                 列出已备份的截图
+bonfire shots sync [&lt;游戏&gt;...]        收集新截图（backup 时自动执行）
+bonfire shots export &lt;游戏&gt; -o &lt;目录|zip&gt; [--since 日期] [--snapshot 快照]
+bonfire shots rm &lt;游戏&gt; &lt;截图ID&gt;...
+bonfire game shots-dir add|rm &lt;游戏&gt; &lt;文件夹&gt;</pre>
+</section>
+
+<h2>排期</h2>
+<section class="card">
+<p>放在当前进行的“导出 / 导入 / 详情页改版”之后，作为一个独立开发阶段（约等于一个 M 规模）：① 来源发现与对应 ② 入库与相册索引 ③ 备份流程集成 ④ 界面（标签页 + 时间线关联）⑤ CLI、测试、文档。</p>
+</section>
+</main>
+</body>
+</html>

@@ -11,7 +11,11 @@ pub fn to_reg_path(key: &str) -> Option<String> {
         "HKEY_LOCAL_MACHINE" | "HKLM" => "HKLM",
         _ => return None,
     };
-    Some(if rest.is_empty() { short.to_string() } else { format!("{short}\\{rest}") })
+    Some(if rest.is_empty() {
+        short.to_string()
+    } else {
+        format!("{short}\\{rest}")
+    })
 }
 
 #[cfg(windows)]
@@ -31,7 +35,10 @@ mod imp {
 
     pub fn read_string(path: &str, value: &str) -> Option<String> {
         let (root, sub) = split(path)?;
-        root.open_subkey_with_flags(sub, KEY_READ).ok()?.get_value::<String, _>(value).ok()
+        root.open_subkey_with_flags(sub, KEY_READ)
+            .ok()?
+            .get_value::<String, _>(value)
+            .ok()
     }
 
     pub fn key_exists(path: &str) -> bool {
@@ -40,7 +47,9 @@ mod imp {
 
     /// 子键名列表。
     pub fn subkeys(path: &str) -> Vec<String> {
-        let Some((root, sub)) = split(path) else { return Vec::new() };
+        let Some((root, sub)) = split(path) else {
+            return Vec::new();
+        };
         match root.open_subkey_with_flags(sub, KEY_READ) {
             Ok(k) => k.enum_keys().flatten().collect(),
             Err(_) => Vec::new(),
@@ -65,7 +74,8 @@ pub use imp::{key_exists, read_string, subkeys};
 
 /// 用 reg.exe 导出注册表键到 .reg 文件（UTF-16）。
 pub fn export(key: &str, dest: &Path) -> std::io::Result<()> {
-    let reg = to_reg_path(key).ok_or_else(|| std::io::Error::other(format!("不支持的注册表路径 {key}")))?;
+    let reg = to_reg_path(key)
+        .ok_or_else(|| std::io::Error::other(format!("不支持的注册表路径 {key}")))?;
     if let Some(dir) = dest.parent() {
         std::fs::create_dir_all(dir)?;
     }
@@ -82,7 +92,11 @@ fn run_reg(args: &[&str]) -> std::io::Result<()> {
     if out.status.success() {
         Ok(())
     } else {
-        Err(std::io::Error::other(format!("reg {} 失败：{}", args[0], String::from_utf8_lossy(&out.stderr).trim())))
+        Err(std::io::Error::other(format!(
+            "reg {} 失败：{}",
+            args[0],
+            String::from_utf8_lossy(&out.stderr).trim()
+        )))
     }
 }
 
@@ -92,8 +106,14 @@ mod tests {
 
     #[test]
     fn converts_paths() {
-        assert_eq!(to_reg_path("HKEY_CURRENT_USER/Software/A B/C").as_deref(), Some(r"HKCU\Software\A B\C"));
-        assert_eq!(to_reg_path(r"HKLM\SOFTWARE\x").as_deref(), Some(r"HKLM\SOFTWARE\x"));
+        assert_eq!(
+            to_reg_path("HKEY_CURRENT_USER/Software/A B/C").as_deref(),
+            Some(r"HKCU\Software\A B\C")
+        );
+        assert_eq!(
+            to_reg_path(r"HKLM\SOFTWARE\x").as_deref(),
+            Some(r"HKLM\SOFTWARE\x")
+        );
         assert_eq!(to_reg_path("HKEY_USERS/x"), None);
     }
 
@@ -101,14 +121,28 @@ mod tests {
     #[cfg(windows)]
     fn export_import_roundtrip() {
         let key = format!("HKCU\\Software\\BonfireTest\\Reg{}", std::process::id());
-        let ok = |args: &[&str]| assert!(std::process::Command::new("reg").args(args).output().unwrap().status.success(), "{args:?}");
-        ok(&["add", &key, "/v", "Level", "/t", "REG_SZ", "/d", "boss", "/f"]);
+        let ok = |args: &[&str]| {
+            assert!(
+                std::process::Command::new("reg")
+                    .args(args)
+                    .output()
+                    .unwrap()
+                    .status
+                    .success(),
+                "{args:?}"
+            )
+        };
+        ok(&[
+            "add", &key, "/v", "Level", "/t", "REG_SZ", "/d", "boss", "/f",
+        ]);
         assert!(key_exists(&key));
         assert_eq!(read_string(&key, "Level").as_deref(), Some("boss"));
         let d = tempfile::tempdir().unwrap();
         let file = d.path().join("k.reg");
         export(&key, &file).unwrap();
-        ok(&["add", &key, "/v", "Level", "/t", "REG_SZ", "/d", "changed", "/f"]);
+        ok(&[
+            "add", &key, "/v", "Level", "/t", "REG_SZ", "/d", "changed", "/f",
+        ]);
         import(&file).unwrap();
         assert_eq!(read_string(&key, "Level").as_deref(), Some("boss"));
         ok(&["delete", &key, "/f"]);

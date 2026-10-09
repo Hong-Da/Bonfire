@@ -36,7 +36,11 @@ impl Fixture {
     fn new() -> Self {
         let sb = Sandbox::new();
         let big = pseudo_random(6 << 20, 7);
-        let v1 = vec![("big.sav".to_string(), big.clone()), ("slot1.sav".to_string(), b"level 1".to_vec()), ("子目录/存档 ã.sav".to_string(), b"chapter".to_vec())];
+        let v1 = vec![
+            ("big.sav".to_string(), big.clone()),
+            ("slot1.sav".to_string(), b"level 1".to_vec()),
+            ("子目录/存档 ã.sav".to_string(), b"chapter".to_vec()),
+        ];
         for (p, d) in &v1 {
             sb.write(p, d);
         }
@@ -60,7 +64,10 @@ impl Fixture {
     }
 
     fn head(&self) -> String {
-        self.sb.json(&["log", "G", "--limit", "1"])[0]["id"].as_str().unwrap().to_string()
+        self.sb.json(&["log", "G", "--limit", "1"])[0]["id"]
+            .as_str()
+            .unwrap()
+            .to_string()
     }
 
     fn snapshot_count(&self) -> usize {
@@ -70,19 +77,40 @@ impl Fixture {
     /// 以注入的故障执行一条命令，要求进程异常结束。
     fn crash(&self, point: &str, args: &[&str]) {
         let args: Vec<String> = args.iter().map(|a| self.sb.expand(a)).collect();
-        let out = self.sb.command().env("BONFIRE_FAULT_INJECT", point).args(&args).output().unwrap();
-        assert!(!out.status.success(), "注入 {point} 后进程应异常结束：{}", String::from_utf8_lossy(&out.stdout));
-        assert!(String::from_utf8_lossy(&out.stderr).contains("fault-inject"), "未命中注入点 {point}：{}", String::from_utf8_lossy(&out.stderr));
+        let out = self
+            .sb
+            .command()
+            .env("BONFIRE_FAULT_INJECT", point)
+            .args(&args)
+            .output()
+            .unwrap();
+        assert!(
+            !out.status.success(),
+            "注入 {point} 后进程应异常结束：{}",
+            String::from_utf8_lossy(&out.stdout)
+        );
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("fault-inject"),
+            "未命中注入点 {point}：{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
     }
 
     fn assert_fsck_ok(&self, ctx: &str) {
         let r = self.sb.json(&["fsck", "--deep"]);
-        assert_eq!(r["ok"], true, "{ctx}：fsck 报告问题 {:#}", r["report"]["errors"]);
+        assert_eq!(
+            r["ok"], true,
+            "{ctx}：fsck 报告问题 {:#}",
+            r["report"]["errors"]
+        );
     }
 
     fn assert_files(&self, expected: &[(String, Vec<u8>)], ctx: &str) {
         for (p, d) in expected {
-            assert!(self.sb.read(p).as_deref() == Some(d.as_slice()), "{ctx}：{p} 内容不符");
+            assert!(
+                self.sb.read(p).as_deref() == Some(d.as_slice()),
+                "{ctx}：{p} 内容不符"
+            );
         }
     }
 }
@@ -117,10 +145,16 @@ fn crash_during_backup_never_corrupts_history() {
         // 再次备份成功；旧快照可逐字节恢复。
         f.sb.ok(&["backup", "G", "-m", "v2 retry"]);
         f.assert_fsck_ok(point);
-        let first = f.sb.json(&["log", "G"]).as_array().unwrap().last().unwrap()["id"].as_str().unwrap().to_string();
+        let first = f.sb.json(&["log", "G"]).as_array().unwrap().last().unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
         f.sb.ok(&["restore", "G", &first, "--full", "-y"]);
         f.assert_files(&f.v1, point);
-        assert!(f.sb.read("new.sav").is_none(), "{point}：完全恢复应删除 v1 中没有的文件");
+        assert!(
+            f.sb.read("new.sav").is_none(),
+            "{point}：完全恢复应删除 v1 中没有的文件"
+        );
     }
 }
 
@@ -130,7 +164,10 @@ fn crash_during_restore_can_be_undone() {
     for nth in [1, 2] {
         let f = Fixture::new();
         // v2 尚未备份：恢复会先建保护快照。
-        f.crash(&format!("restore-mid-commit:{nth}"), &["restore", "G", "HEAD", "--full", "-y"]);
+        f.crash(
+            &format!("restore-mid-commit:{nth}"),
+            &["restore", "G", "HEAD", "--full", "-y"],
+        );
         f.assert_fsck_ok("restore crash");
         f.sb.ok(&["undo-restore", "G", "-y"]);
         f.assert_files(&f.v2, &format!("undo after restore-mid-commit:{nth}"));
@@ -149,7 +186,12 @@ fn crash_stress() {
             let f = Fixture::new();
             let p = format!("{point}:{n}");
             let args = ["backup", "G"];
-            let out = f.sb.command().env("BONFIRE_FAULT_INJECT", &p).args(args).output().unwrap();
+            let out =
+                f.sb.command()
+                    .env("BONFIRE_FAULT_INJECT", &p)
+                    .args(args)
+                    .output()
+                    .unwrap();
             if out.status.success() {
                 continue; // 写入次数少于 n，未命中。
             }

@@ -54,10 +54,16 @@ impl Default for RepoConfig {
 impl RepoConfig {
     fn validate(&self) -> Result<()> {
         if self.format_version > FORMAT_VERSION {
-            return Err(CoreError::UnsupportedVersion { found: self.format_version, supported: FORMAT_VERSION });
+            return Err(CoreError::UnsupportedVersion {
+                found: self.format_version,
+                supported: FORMAT_VERSION,
+            });
         }
         if self.compression != "zstd" {
-            return Err(CoreError::BadRepoConfig(format!("不支持的压缩算法 {}", self.compression)));
+            return Err(CoreError::BadRepoConfig(format!(
+                "不支持的压缩算法 {}",
+                self.compression
+            )));
         }
         // FastCDC 2020 的参数范围。
         let ok = (64..=1_048_576).contains(&self.chunk_min)
@@ -85,10 +91,18 @@ impl Repo {
             return Self::open(root);
         }
         let config = RepoConfig::default();
-        let repo = Self { root: root.to_path_buf(), config };
+        let repo = Self {
+            root: root.to_path_buf(),
+            config,
+        };
         repo.create_dirs()?;
         let text = toml::to_string_pretty(&repo.config).expect("仓库配置序列化不会失败");
-        crate::store::write_atomic(&repo.tmp_dir(), &root.join("config.toml"), text.as_bytes(), false)?;
+        crate::store::write_atomic(
+            &repo.tmp_dir(),
+            &root.join("config.toml"),
+            text.as_bytes(),
+            false,
+        )?;
         Ok(repo)
     }
 
@@ -96,19 +110,30 @@ impl Repo {
         let cfg_path = root.join("config.toml");
         let text = match std::fs::read_to_string(&cfg_path) {
             Ok(t) => t,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(CoreError::NotInitialized(root.into())),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Err(CoreError::NotInitialized(root.into()));
+            }
             Err(e) => return Err(CoreError::io(cfg_path, e)),
         };
-        let config: RepoConfig = toml::from_str(&text).map_err(|e| CoreError::BadRepoConfig(e.to_string()))?;
+        let config: RepoConfig =
+            toml::from_str(&text).map_err(|e| CoreError::BadRepoConfig(e.to_string()))?;
         config.validate()?;
-        let repo = Self { root: root.to_path_buf(), config };
+        let repo = Self {
+            root: root.to_path_buf(),
+            config,
+        };
         // 补齐可能缺失的目录（例如从网盘同步过来的仓库）。
         repo.create_dirs()?;
         Ok(repo)
     }
 
     fn create_dirs(&self) -> Result<()> {
-        let mut dirs = vec![self.tmp_dir(), self.root.join("refs"), self.root.join("notes"), self.root.join("logs")];
+        let mut dirs = vec![
+            self.tmp_dir(),
+            self.root.join("refs"),
+            self.root.join("notes"),
+            self.root.join("logs"),
+        ];
         dirs.extend(Kind::ALL.iter().map(|k| self.objects_dir().join(k.dir())));
         for d in dirs {
             std::fs::create_dir_all(&d).at(&d)?;
@@ -135,7 +160,12 @@ impl Repo {
     /// 获取写入锁；已被其他进程持有时立即返回 [`CoreError::Locked`]。
     pub fn lock(&self) -> Result<RepoLock> {
         let path = self.root.join("lock");
-        let file = OpenOptions::new().create(true).truncate(false).write(true).open(&path).at(&path)?;
+        let file = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(&path)
+            .at(&path)?;
         match file.try_lock() {
             Ok(()) => Ok(RepoLock { _file: file }),
             Err(TryLockError::WouldBlock) => Err(CoreError::Locked(self.root.clone())),
@@ -171,7 +201,10 @@ mod tests {
     #[test]
     fn open_uninitialized() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(matches!(Repo::open(dir.path()), Err(CoreError::NotInitialized(_))));
+        assert!(matches!(
+            Repo::open(dir.path()),
+            Err(CoreError::NotInitialized(_))
+        ));
     }
 
     #[test]
@@ -179,9 +212,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         Repo::init(dir.path()).unwrap();
         let p = dir.path().join("config.toml");
-        let text = std::fs::read_to_string(&p).unwrap().replace("format_version = 1", "format_version = 99");
+        let text = std::fs::read_to_string(&p)
+            .unwrap()
+            .replace("format_version = 1", "format_version = 99");
         std::fs::write(&p, text).unwrap();
-        assert!(matches!(Repo::open(dir.path()), Err(CoreError::UnsupportedVersion { found: 99, .. })));
+        assert!(matches!(
+            Repo::open(dir.path()),
+            Err(CoreError::UnsupportedVersion { found: 99, .. })
+        ));
     }
 
     #[test]
@@ -189,9 +227,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         Repo::init(dir.path()).unwrap();
         let p = dir.path().join("config.toml");
-        let text = std::fs::read_to_string(&p).unwrap().replace("chunk_min = 262144", "chunk_min = 8");
+        let text = std::fs::read_to_string(&p)
+            .unwrap()
+            .replace("chunk_min = 262144", "chunk_min = 8");
         std::fs::write(&p, text).unwrap();
-        assert!(matches!(Repo::open(dir.path()), Err(CoreError::BadRepoConfig(_))));
+        assert!(matches!(
+            Repo::open(dir.path()),
+            Err(CoreError::BadRepoConfig(_))
+        ));
     }
 
     #[test]

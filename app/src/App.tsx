@@ -45,7 +45,8 @@ export default function App() {
             if (cfg.general.language) setLanguage(cfg.general.language);
             // 首次运行：进入发现游戏页并开始扫描，由用户选择要管理的游戏。
             go({ name: "scan" });
-            void startScan();
+            // 扫描之后检测游戏库（仓库中可能已有加入管理的游戏，例如换电脑后指定了原来的仓库）。
+            void startScan().then(() => loadLibrary(false));
           }}
         />
         <Toasts />

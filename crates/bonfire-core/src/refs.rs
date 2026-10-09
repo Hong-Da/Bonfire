@@ -49,11 +49,17 @@ pub struct RefName {
 
 impl RefName {
     pub fn branch(name: &str) -> Self {
-        Self { kind: RefKind::Branch, name: name.to_string() }
+        Self {
+            kind: RefKind::Branch,
+            name: name.to_string(),
+        }
     }
 
     pub fn tag(name: &str) -> Self {
-        Self { kind: RefKind::Tag, name: name.to_string() }
+        Self {
+            kind: RefKind::Tag,
+            name: name.to_string(),
+        }
     }
 }
 
@@ -65,11 +71,20 @@ impl std::fmt::Display for RefName {
 
 /// 游戏 ID：`<平台>-<ID>`，只允许 ASCII 字母、数字、`.`、`_`、`-`。
 pub fn validate_game_id(id: &str) -> Result<()> {
-    let bad = |reason| Err(CoreError::InvalidName { name: id.to_string(), reason });
+    let bad = |reason| {
+        Err(CoreError::InvalidName {
+            name: id.to_string(),
+            reason,
+        })
+    };
     if id.is_empty() || id.len() > 128 {
         return bad("长度应为 1–128");
     }
-    if !id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-')) || id.starts_with('.') {
+    if !id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+        || id.starts_with('.')
+    {
         return bad("只能包含字母、数字、. _ -");
     }
     Ok(())
@@ -77,7 +92,12 @@ pub fn validate_game_id(id: &str) -> Result<()> {
 
 /// 分支名与标签名：允许中文等 Unicode，但必须能作为 Windows 文件名，且不与引用语法冲突。
 pub fn validate_ref_name(name: &str) -> Result<()> {
-    let bad = |reason| Err(CoreError::InvalidName { name: name.to_string(), reason });
+    let bad = |reason| {
+        Err(CoreError::InvalidName {
+            name: name.to_string(),
+            reason,
+        })
+    };
     let count = name.chars().count();
     if count == 0 || count > MAX_NAME_CHARS {
         return bad("长度应为 1–100 个字符");
@@ -85,7 +105,10 @@ pub fn validate_ref_name(name: &str) -> Result<()> {
     if name.trim() != name || name.ends_with('.') || name.starts_with('.') {
         return bad("不能以空格或 . 开头或结尾");
     }
-    if name.chars().any(|c| c.is_control() || "<>:\"/\\|?*~^".contains(c)) {
+    if name
+        .chars()
+        .any(|c| c.is_control() || "<>:\"/\\|?*~^".contains(c))
+    {
         return bad("不能包含 < > : \" / \\ | ? * ~ ^ 或控制字符");
     }
     if name.eq_ignore_ascii_case("HEAD") {
@@ -93,7 +116,9 @@ pub fn validate_ref_name(name: &str) -> Result<()> {
     }
     let stem = name.split('.').next().unwrap_or("").to_ascii_uppercase();
     let reserved = ["CON", "PRN", "AUX", "NUL"].contains(&stem.as_str())
-        || ((stem.starts_with("COM") || stem.starts_with("LPT")) && stem.len() == 4 && stem.as_bytes()[3].is_ascii_digit());
+        || ((stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.len() == 4
+            && stem.as_bytes()[3].is_ascii_digit());
     if reserved {
         return bad("是 Windows 保留的设备名");
     }
@@ -112,7 +137,10 @@ pub struct Head {
 
 impl Default for Head {
     fn default() -> Self {
-        Self { branch: DEFAULT_BRANCH.to_string(), detached: None }
+        Self {
+            branch: DEFAULT_BRANCH.to_string(),
+            detached: None,
+        }
     }
 }
 
@@ -157,7 +185,50 @@ impl Repo {
     }
 
     fn note_path(&self, snapshot: &ObjectId) -> PathBuf {
-        self.root().join("notes").join(format!("{}.json", snapshot.to_hex()))
+        self.root()
+            .join("notes")
+            .join(format!("{}.json", snapshot.to_hex()))
+    }
+
+    /// 游戏的别名：从其他电脑导入的历史中，快照记录的游戏 ID（如自定义游戏在另一台电脑上的 ID）。
+    pub fn aliases(&self, game: &str) -> Result<Vec<String>> {
+        let path = self.game_dir(game).join("aliases");
+        match std::fs::read_to_string(&path) {
+            Ok(t) => Ok(t
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty())
+                .map(String::from)
+                .collect()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+            Err(e) => Err(CoreError::io(path, e)),
+        }
+    }
+
+    pub fn add_alias(&self, _lock: &RepoLock, game: &str, alias: &str) -> Result<()> {
+        validate_game_id(game)?;
+        validate_game_id(alias)?;
+        let mut all = self.aliases(game)?;
+        if all.iter().any(|a| a == alias) {
+            return Ok(());
+        }
+        all.push(alias.to_string());
+        let dir = self.game_dir(game);
+        std::fs::create_dir_all(&dir).at(&dir)?;
+        write_atomic(
+            &self.tmp_dir(),
+            &dir.join("aliases"),
+            format!(
+                "{}
+",
+                all.join(
+                    "
+"
+                )
+            )
+            .as_bytes(),
+            false,
+        )
     }
 
     /// 有引用记录的游戏。
@@ -176,7 +247,14 @@ impl Repo {
     pub fn read_ref(&self, game: &str, r: &RefName) -> Result<Option<ObjectId>> {
         let path = self.ref_path(game, r);
         match std::fs::read_to_string(&path) {
-            Ok(t) => t.trim().parse().map(Some).map_err(|e: crate::id::ParseIdError| CoreError::BadFile { path, reason: e.to_string() }),
+            Ok(t) => t
+                .trim()
+                .parse()
+                .map(Some)
+                .map_err(|e: crate::id::ParseIdError| CoreError::BadFile {
+                    path,
+                    reason: e.to_string(),
+                }),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(CoreError::io(path, e)),
         }
@@ -186,7 +264,11 @@ impl Repo {
     fn ref_names(&self, game: &str, kind: RefKind) -> Result<Vec<String>> {
         let dir = self.game_dir(game).join(kind.dir());
         let mut names: Vec<String> = match std::fs::read_dir(&dir) {
-            Ok(rd) => rd.flatten().filter(|e| e.path().is_file()).map(|e| e.file_name().to_string_lossy().into_owned()).collect(),
+            Ok(rd) => rd
+                .flatten()
+                .filter(|e| e.path().is_file())
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect(),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
             Err(e) => return Err(CoreError::io(dir, e)),
         };
@@ -211,7 +293,10 @@ impl Repo {
     /// 同类引用中是否已有同名（不区分大小写，与 Windows 文件系统一致）的引用。
     fn find_existing(&self, game: &str, r: &RefName) -> Result<Option<String>> {
         let lower = r.name.to_lowercase();
-        Ok(self.ref_names(game, r.kind)?.into_iter().find(|n| n.to_lowercase() == lower))
+        Ok(self
+            .ref_names(game, r.kind)?
+            .into_iter()
+            .find(|n| n.to_lowercase() == lower))
     }
 
     /// 比较并更新引用：当前值必须等于 `expected_old`（`None` 表示引用尚不存在），否则返回冲突。
@@ -250,36 +335,76 @@ impl Repo {
     }
 
     /// 创建分支（已存在时报错）。
-    pub fn create_branch(&self, lock: &RepoLock, game: &str, name: &str, target: ObjectId) -> Result<()> {
+    pub fn create_branch(
+        &self,
+        lock: &RepoLock,
+        game: &str,
+        name: &str,
+        target: ObjectId,
+    ) -> Result<()> {
         let r = RefName::branch(name);
         validate_ref_name(name)?;
         if let Some(existing) = self.find_existing(game, &r)? {
             return Err(CoreError::RefExists(format!("heads/{existing}")));
         }
-        self.update_ref(lock, game, &r, None, target, "branch", &format!("创建分支 {name}"))
+        self.update_ref(
+            lock,
+            game,
+            &r,
+            None,
+            target,
+            "branch",
+            &format!("创建分支 {name}"),
+        )
     }
 
-    pub fn create_tag(&self, lock: &RepoLock, game: &str, name: &str, target: ObjectId) -> Result<()> {
+    pub fn create_tag(
+        &self,
+        lock: &RepoLock,
+        game: &str,
+        name: &str,
+        target: ObjectId,
+    ) -> Result<()> {
         let r = RefName::tag(name);
         validate_ref_name(name)?;
         if let Some(existing) = self.find_existing(game, &r)? {
             return Err(CoreError::RefExists(format!("tags/{existing}")));
         }
-        self.update_ref(lock, game, &r, None, target, "tag", &format!("创建标签 {name}"))
+        self.update_ref(
+            lock,
+            game,
+            &r,
+            None,
+            target,
+            "tag",
+            &format!("创建标签 {name}"),
+        )
     }
 
     /// 删除引用。快照对象本身保留，由 reflog 记录，GC 时按保留期限清理。
     pub fn delete_ref(&self, _lock: &RepoLock, game: &str, r: &RefName) -> Result<()> {
-        let old = self.read_ref(game, r)?.ok_or_else(|| CoreError::RefNotFound(r.to_string()))?;
+        let old = self
+            .read_ref(game, r)?
+            .ok_or_else(|| CoreError::RefNotFound(r.to_string()))?;
         let path = self.ref_path(game, r);
         std::fs::remove_file(&path).at(&path)?;
-        self.append_reflog(game, &r.to_string(), Some(old), None, "delete", &format!("删除 {r}"))
+        self.append_reflog(
+            game,
+            &r.to_string(),
+            Some(old),
+            None,
+            "delete",
+            &format!("删除 {r}"),
+        )
     }
 
     pub fn head(&self, game: &str) -> Result<Head> {
         let path = self.game_dir(game).join("HEAD");
         match std::fs::read_to_string(&path) {
-            Ok(t) => serde_json::from_str(&t).map_err(|e| CoreError::BadFile { path, reason: e.to_string() }),
+            Ok(t) => serde_json::from_str(&t).map_err(|e| CoreError::BadFile {
+                path,
+                reason: e.to_string(),
+            }),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Head::default()),
             Err(e) => Err(CoreError::io(path, e)),
         }
@@ -303,7 +428,15 @@ impl Repo {
         Ok(())
     }
 
-    fn append_reflog(&self, game: &str, reference: &str, old: Option<ObjectId>, new: Option<ObjectId>, action: &str, message: &str) -> Result<()> {
+    fn append_reflog(
+        &self,
+        game: &str,
+        reference: &str,
+        old: Option<ObjectId>,
+        new: Option<ObjectId>,
+        action: &str,
+        message: &str,
+    ) -> Result<()> {
         let entry = ReflogEntry {
             time: jiff::Timestamp::now(),
             reference: reference.to_string(),
@@ -315,7 +448,11 @@ impl Repo {
         let mut line = serde_json::to_vec(&entry).expect("reflog 序列化不会失败");
         line.push(b'\n');
         let path = self.reflog_path(game);
-        let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&path).at(&path)?;
+        let mut f = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .at(&path)?;
         f.write_all(&line).at(&path)?;
         f.sync_all().at(&path)
     }
@@ -344,7 +481,12 @@ impl Repo {
     pub fn note(&self, snapshot: &ObjectId) -> Result<Option<Note>> {
         let path = self.note_path(snapshot);
         match std::fs::read_to_string(&path) {
-            Ok(t) => serde_json::from_str(&t).map(Some).map_err(|e| CoreError::BadFile { path, reason: e.to_string() }),
+            Ok(t) => serde_json::from_str(&t)
+                .map(Some)
+                .map_err(|e| CoreError::BadFile {
+                    path,
+                    reason: e.to_string(),
+                }),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(CoreError::io(path, e)),
         }
@@ -353,11 +495,17 @@ impl Repo {
     /// 修改快照备注：不重写快照对象，写入注记并保留修改历史（文档 6.3）。
     pub fn set_note(&self, _lock: &RepoLock, snapshot: &ObjectId, comment: &str) -> Result<Note> {
         let snap = self.get_snapshot(snapshot)?;
-        let mut note = self.note(snapshot)?.unwrap_or(Note { comment: snap.comment.clone(), history: Vec::new() });
+        let mut note = self.note(snapshot)?.unwrap_or(Note {
+            comment: snap.comment.clone(),
+            history: Vec::new(),
+        });
         if note.comment == comment {
             return Ok(note);
         }
-        note.history.push(NoteEdit { time: jiff::Timestamp::now(), previous: std::mem::take(&mut note.comment) });
+        note.history.push(NoteEdit {
+            time: jiff::Timestamp::now(),
+            previous: std::mem::take(&mut note.comment),
+        });
         note.comment = comment.to_string();
         let json = serde_json::to_vec_pretty(&note).expect("注记序列化不会失败");
         write_atomic(&self.tmp_dir(), &self.note_path(snapshot), &json, false)?;
@@ -366,7 +514,10 @@ impl Repo {
 
     /// 显示用的备注：有注记时取注记，否则取快照中的原始备注。
     pub fn effective_comment(&self, id: &ObjectId, snap: &Snapshot) -> Result<String> {
-        Ok(self.note(id)?.map(|n| n.comment).unwrap_or_else(|| snap.comment.clone()))
+        Ok(self
+            .note(id)?
+            .map(|n| n.comment)
+            .unwrap_or_else(|| snap.comment.clone()))
     }
 
     /// 当前状态对应的快照：已从旧快照恢复时为该快照，否则为当前分支的最新快照。
@@ -389,7 +540,10 @@ impl Repo {
                 let steps = if n.is_empty() {
                     1
                 } else {
-                    n.parse::<usize>().map_err(|_| CoreError::InvalidName { name: spec.to_string(), reason: "~ 后应为数字" })?
+                    n.parse::<usize>().map_err(|_| CoreError::InvalidName {
+                        name: spec.to_string(),
+                        reason: "~ 后应为数字",
+                    })?
                 };
                 (&spec[..i], steps)
             }
@@ -398,37 +552,59 @@ impl Repo {
         let mut id = self.resolve_base(game, base)?;
         for _ in 0..steps {
             let snap = self.get_snapshot(&id)?;
-            id = *snap.parents.first().ok_or_else(|| CoreError::NoParent(spec.to_string()))?;
+            id = *snap
+                .parents
+                .first()
+                .ok_or_else(|| CoreError::NoParent(spec.to_string()))?;
         }
         Ok(id)
     }
 
     fn resolve_base(&self, game: &str, base: &str) -> Result<ObjectId> {
         if base.is_empty() {
-            return Err(CoreError::InvalidName { name: base.to_string(), reason: "引用不能为空" });
+            return Err(CoreError::InvalidName {
+                name: base.to_string(),
+                reason: "引用不能为空",
+            });
         }
         if base == "HEAD" {
-            return self.head_snapshot(game)?.ok_or_else(|| CoreError::NoSnapshots(game.to_string()));
+            return self
+                .head_snapshot(game)?
+                .ok_or_else(|| CoreError::NoSnapshots(game.to_string()));
         }
         for (prefix, kind) in [("heads/", RefKind::Branch), ("tags/", RefKind::Tag)] {
             if let Some(name) = base.strip_prefix(prefix) {
-                let r = RefName { kind, name: name.to_string() };
-                return self.read_ref(game, &r)?.ok_or_else(|| CoreError::RefNotFound(base.to_string()));
+                let r = RefName {
+                    kind,
+                    name: name.to_string(),
+                };
+                return self
+                    .read_ref(game, &r)?
+                    .ok_or_else(|| CoreError::RefNotFound(base.to_string()));
             }
         }
         let branch = self.read_ref(game, &RefName::branch(base))?;
         let tag = self.read_ref(game, &RefName::tag(base))?;
         match (branch, tag) {
             (Some(_), Some(_)) => {
-                return Err(CoreError::AmbiguousRef { name: base.to_string(), candidates: format!("heads/{base}、tags/{base}") });
+                return Err(CoreError::AmbiguousRef {
+                    name: base.to_string(),
+                    candidates: format!("heads/{base}、tags/{base}"),
+                });
             }
             (Some(id), None) | (None, Some(id)) => return Ok(id),
             (None, None) => {}
         }
-        let hex = base.strip_prefix(crate::id::PREFIX).unwrap_or(base).to_ascii_lowercase();
+        let hex = base
+            .strip_prefix(crate::id::PREFIX)
+            .unwrap_or(base)
+            .to_ascii_lowercase();
         if !hex.is_empty() && hex.len() <= 64 && hex.chars().all(|c| c.is_ascii_hexdigit()) {
             if hex.len() < MIN_PREFIX {
-                return Err(CoreError::InvalidName { name: base.to_string(), reason: "哈希前缀至少 6 位" });
+                return Err(CoreError::InvalidName {
+                    name: base.to_string(),
+                    reason: "哈希前缀至少 6 位",
+                });
             }
             return self.find_snapshot_by_prefix(game, &hex, base);
         }
@@ -437,14 +613,23 @@ impl Repo {
 
     /// 按哈希前缀查找属于该游戏的快照。
     fn find_snapshot_by_prefix(&self, game: &str, hex: &str, spec: &str) -> Result<ObjectId> {
-        let dir = self.objects_dir().join(Kind::Snapshot.dir()).join(&hex[..2]);
+        let dir = self
+            .objects_dir()
+            .join(Kind::Snapshot.dir())
+            .join(&hex[..2]);
         let rest = &hex[2..];
         let mut found = Vec::new();
         if let Ok(rd) = std::fs::read_dir(&dir) {
             for e in rd.flatten() {
                 let name = e.file_name().to_string_lossy().into_owned();
                 if name.starts_with(rest) {
-                    let id: ObjectId = format!("{}{name}", &hex[..2]).parse().map_err(|_| CoreError::BadFile { path: e.path(), reason: "文件名不是对象 ID".into() })?;
+                    let id: ObjectId =
+                        format!("{}{name}", &hex[..2])
+                            .parse()
+                            .map_err(|_| CoreError::BadFile {
+                                path: e.path(),
+                                reason: "文件名不是对象 ID".into(),
+                            })?;
                     if self.get_snapshot(&id)?.game == game {
                         found.push(id);
                     }
@@ -456,14 +641,25 @@ impl Repo {
             1 => Ok(found[0]),
             _ => {
                 found.sort();
-                let candidates = found.iter().map(|id| id.short(12)).collect::<Vec<_>>().join("、");
-                Err(CoreError::AmbiguousRef { name: spec.to_string(), candidates })
+                let candidates = found
+                    .iter()
+                    .map(|id| id.short(12))
+                    .collect::<Vec<_>>()
+                    .join("、");
+                Err(CoreError::AmbiguousRef {
+                    name: spec.to_string(),
+                    candidates,
+                })
             }
         }
     }
 
     /// 沿第一父快照向前遍历，最多 `limit` 个（含起点）。
-    pub fn first_parent_chain(&self, start: ObjectId, limit: usize) -> Result<Vec<(ObjectId, Snapshot)>> {
+    pub fn first_parent_chain(
+        &self,
+        start: ObjectId,
+        limit: usize,
+    ) -> Result<Vec<(ObjectId, Snapshot)>> {
         let mut out = Vec::new();
         let mut cur = Some(start);
         while let Some(id) = cur {
@@ -513,18 +709,31 @@ mod tests {
         let b = snap(r, GAME, vec![a], "b");
         let c = snap(r, GAME, vec![b], "c");
         let main = RefName::branch("main");
-        r.update_ref(lock, GAME, &main, None, a, "backup", "").unwrap();
-        r.update_ref(lock, GAME, &main, Some(a), b, "backup", "").unwrap();
-        r.update_ref(lock, GAME, &main, Some(b), c, "backup", "").unwrap();
+        r.update_ref(lock, GAME, &main, None, a, "backup", "")
+            .unwrap();
+        r.update_ref(lock, GAME, &main, Some(a), b, "backup", "")
+            .unwrap();
+        r.update_ref(lock, GAME, &main, Some(b), c, "backup", "")
+            .unwrap();
         [a, b, c]
     }
 
     #[test]
     fn name_validation() {
-        for ok in ["main", "ng-plus", "二周目", "Boss 前", "before.boss", "v1_2"] {
+        for ok in [
+            "main",
+            "ng-plus",
+            "二周目",
+            "Boss 前",
+            "before.boss",
+            "v1_2",
+        ] {
             validate_ref_name(ok).unwrap_or_else(|e| panic!("{ok}: {e}"));
         }
-        for bad in ["", " main", "main ", ".x", "x.", "a/b", "a\\b", "a:b", "a~1", "a^", "HEAD", "head", "CON", "nul.txt", "COM1", "a*b", "a\tb"] {
+        for bad in [
+            "", " main", "main ", ".x", "x.", "a/b", "a\\b", "a:b", "a~1", "a^", "HEAD", "head",
+            "CON", "nul.txt", "COM1", "a*b", "a\tb",
+        ] {
             assert!(validate_ref_name(bad).is_err(), "{bad:?} 应被拒绝");
         }
         assert!(validate_ref_name(&"长".repeat(101)).is_err());
@@ -542,8 +751,14 @@ mod tests {
         let main = RefName::branch("main");
         assert_eq!(r.read_ref(GAME, &main).unwrap(), Some(c));
         // 旧值不符：拒绝。
-        assert!(matches!(r.update_ref(&lock, GAME, &main, Some(a), b, "backup", ""), Err(CoreError::RefConflict(_))));
-        assert!(matches!(r.update_ref(&lock, GAME, &main, None, b, "backup", ""), Err(CoreError::RefConflict(_))));
+        assert!(matches!(
+            r.update_ref(&lock, GAME, &main, Some(a), b, "backup", ""),
+            Err(CoreError::RefConflict(_))
+        ));
+        assert!(matches!(
+            r.update_ref(&lock, GAME, &main, None, b, "backup", ""),
+            Err(CoreError::RefConflict(_))
+        ));
         assert_eq!(r.read_ref(GAME, &main).unwrap(), Some(c));
         assert_eq!(r.games().unwrap(), vec![GAME.to_string()]);
     }
@@ -554,19 +769,39 @@ mod tests {
         let lock = r.lock().unwrap();
         let [a, b, _] = linear(&r, &lock);
         r.create_tag(&lock, GAME, "Boss 前", a).unwrap();
-        assert!(matches!(r.create_tag(&lock, GAME, "Boss 前", b), Err(CoreError::RefExists(_))));
-        assert!(matches!(r.create_tag(&lock, GAME, "boss 前", b), Err(CoreError::RefExists(_))));
+        assert!(matches!(
+            r.create_tag(&lock, GAME, "Boss 前", b),
+            Err(CoreError::RefExists(_))
+        ));
+        assert!(matches!(
+            r.create_tag(&lock, GAME, "boss 前", b),
+            Err(CoreError::RefExists(_))
+        ));
         let tag = RefName::tag("Boss 前");
-        assert!(matches!(r.update_ref(&lock, GAME, &tag, Some(a), b, "tag", ""), Err(CoreError::RefExists(_))));
-        assert!(matches!(r.create_branch(&lock, GAME, "MAIN", b), Err(CoreError::RefExists(_))));
+        assert!(matches!(
+            r.update_ref(&lock, GAME, &tag, Some(a), b, "tag", ""),
+            Err(CoreError::RefExists(_))
+        ));
+        assert!(matches!(
+            r.create_branch(&lock, GAME, "MAIN", b),
+            Err(CoreError::RefExists(_))
+        ));
 
         r.create_branch(&lock, GAME, "二周目", b).unwrap();
-        let refs: Vec<String> = r.list_refs(GAME).unwrap().iter().map(|(n, _)| n.to_string()).collect();
+        let refs: Vec<String> = r
+            .list_refs(GAME)
+            .unwrap()
+            .iter()
+            .map(|(n, _)| n.to_string())
+            .collect();
         assert_eq!(refs, ["heads/main", "heads/二周目", "tags/Boss 前"]);
 
         r.delete_ref(&lock, GAME, &tag).unwrap();
         assert_eq!(r.read_ref(GAME, &tag).unwrap(), None);
-        assert!(matches!(r.delete_ref(&lock, GAME, &tag), Err(CoreError::RefNotFound(_))));
+        assert!(matches!(
+            r.delete_ref(&lock, GAME, &tag),
+            Err(CoreError::RefNotFound(_))
+        ));
     }
 
     #[test]
@@ -610,10 +845,22 @@ mod tests {
         assert_eq!(r.resolve(GAME, &a.short(8)).unwrap(), a);
         assert_eq!(r.resolve(GAME, &format!("b3:{}", b.short(10))).unwrap(), b);
         assert_eq!(r.resolve(GAME, &c.to_hex().to_uppercase()).unwrap(), c);
-        assert!(matches!(r.resolve(GAME, "HEAD~3"), Err(CoreError::NoParent(_))));
-        assert!(matches!(r.resolve(GAME, &a.short(5)), Err(CoreError::InvalidName { .. })));
-        assert!(matches!(r.resolve(GAME, "nope"), Err(CoreError::RefNotFound(_))));
-        assert!(matches!(r.resolve(GAME, "HEAD~x"), Err(CoreError::InvalidName { .. })));
+        assert!(matches!(
+            r.resolve(GAME, "HEAD~3"),
+            Err(CoreError::NoParent(_))
+        ));
+        assert!(matches!(
+            r.resolve(GAME, &a.short(5)),
+            Err(CoreError::InvalidName { .. })
+        ));
+        assert!(matches!(
+            r.resolve(GAME, "nope"),
+            Err(CoreError::RefNotFound(_))
+        ));
+        assert!(matches!(
+            r.resolve(GAME, "HEAD~x"),
+            Err(CoreError::InvalidName { .. })
+        ));
     }
 
     #[test]
@@ -623,7 +870,10 @@ mod tests {
         let [a, b, _] = linear(&r, &lock);
         r.create_branch(&lock, GAME, "x", a).unwrap();
         r.create_tag(&lock, GAME, "x", b).unwrap();
-        assert!(matches!(r.resolve(GAME, "x"), Err(CoreError::AmbiguousRef { .. })));
+        assert!(matches!(
+            r.resolve(GAME, "x"),
+            Err(CoreError::AmbiguousRef { .. })
+        ));
         assert_eq!(r.resolve(GAME, "tags/x").unwrap(), b);
     }
 
@@ -631,7 +881,10 @@ mod tests {
     fn prefix_only_matches_same_game() {
         let (_d, r) = repo();
         let other = snap(&r, "custom-other", vec![], "o");
-        assert!(matches!(r.resolve(GAME, &other.short(10)), Err(CoreError::RefNotFound(_))));
+        assert!(matches!(
+            r.resolve(GAME, &other.short(10)),
+            Err(CoreError::RefNotFound(_))
+        ));
         assert_eq!(r.resolve("custom-other", &other.short(10)).unwrap(), other);
     }
 
@@ -640,10 +893,25 @@ mod tests {
         let (_d, r) = repo();
         let lock = r.lock().unwrap();
         assert_eq!(r.head(GAME).unwrap(), Head::default());
-        assert!(matches!(r.resolve(GAME, "HEAD"), Err(CoreError::NoSnapshots(_))));
+        assert!(matches!(
+            r.resolve(GAME, "HEAD"),
+            Err(CoreError::NoSnapshots(_))
+        ));
         let [a, _, c] = linear(&r, &lock);
-        r.set_head(&lock, GAME, &Head { branch: "main".into(), detached: Some(a) }).unwrap();
-        assert_eq!(r.resolve(GAME, "HEAD").unwrap(), a, "恢复后 HEAD 指向被恢复的快照");
+        r.set_head(
+            &lock,
+            GAME,
+            &Head {
+                branch: "main".into(),
+                detached: Some(a),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            r.resolve(GAME, "HEAD").unwrap(),
+            a,
+            "恢复后 HEAD 指向被恢复的快照"
+        );
         assert_eq!(r.resolve(GAME, "main").unwrap(), c, "分支本身不移动");
         assert_eq!(r.reflog(GAME).unwrap().last().unwrap().action, "head");
         r.set_head(&lock, GAME, &Head::default()).unwrap();
@@ -674,7 +942,12 @@ mod tests {
         let (_d, r) = repo();
         let lock = r.lock().unwrap();
         let [a, b, c] = linear(&r, &lock);
-        let ids: Vec<_> = r.first_parent_chain(c, 10).unwrap().into_iter().map(|(id, _)| id).collect();
+        let ids: Vec<_> = r
+            .first_parent_chain(c, 10)
+            .unwrap()
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
         assert_eq!(ids, [c, b, a]);
         assert_eq!(r.first_parent_chain(c, 2).unwrap().len(), 2);
     }

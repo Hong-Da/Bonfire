@@ -173,10 +173,11 @@ describe("历史", () => {
     api.snapshotFiles.mockResolvedValue([{ path: "0/user1.dat", blob: "b3:x", size: 2048, mtimeNs: 0, tag: "save" }]);
     render(<GameDetail id="steam-367520" />);
     expect((await screen.findAllByText("白宫之前")).length).toBe(2);
-    expect(screen.getByText("当前")).toBeInTheDocument();
+    expect(screen.getAllByText("当前").length).toBe(2);
     expect(screen.getAllByText("Boss 前").length).toBeGreaterThan(0);
     expect(screen.getByText("恢复前保护")).toBeInTheDocument();
     expect(screen.getByText("打完螳螂领主")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /文件/ }));
     expect(await screen.findByText("user1.dat")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("option", { name: /打完螳螂领主/ }));
@@ -258,7 +259,7 @@ describe("发现游戏", () => {
     expect(screen.getByText("找出本机游戏的存档")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /开始扫描/ }));
     expect(await screen.findByText("空洞骑士")).toBeInTheDocument();
-    expect(screen.getByText("推测，需确认")).toBeInTheDocument();
+    expect(screen.getAllByText("推测，需确认").some((e) => e.tagName === "SPAN")).toBe(true);
     expect(screen.queryByText("Cuphead")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^已在库中\s*1$/ })).toBeInTheDocument();
     expect(screen.getByText("已选 0 个")).toBeInTheDocument();
@@ -272,12 +273,45 @@ describe("发现游戏", () => {
     expect(api.loadLibrary).toHaveBeenCalledWith(true);
     await waitFor(() => expect(screen.queryByText("空洞骑士")).not.toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "全选新发现" }));
+    fireEvent.click(screen.getByRole("button", { name: "全选" }));
     fireEvent.click(screen.getByRole("button", { name: "忽略" }));
     await waitFor(() => expect(api.ignoreGames).toHaveBeenCalledWith(["steam-2"]));
     expect(await screen.findByText("没有新发现的游戏")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^全部/ }));
     expect(screen.getAllByText("已在库中").length).toBeGreaterThan(1);
+  });
+
+  it("筛选后全选、全不选、反选只作用于列出的游戏", async () => {
+    useStore.setState({ scan: null, scanning: false, toasts: [] });
+    api.discoverGames.mockResolvedValue({
+      platforms: ["steam", "epic"],
+      rules: { path: "x", games: 1, userGames: 0 },
+      games: [found({}), found({ id: "steam-2", name: "Indie Quest", nameZh: null, rule: null }), found({ id: "epic-3", name: "Hades", nameZh: null, platform: "epic" })],
+      withoutSaves: [],
+    });
+    render(<ScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: /开始扫描/ }));
+    expect(await screen.findByText("空洞骑士")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "按平台筛选" }), { target: { value: "steam" } });
+    expect(screen.queryByText("Hades")).not.toBeInTheDocument();
+    expect(screen.getByText("筛选出 2 个（共 3 个）")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "全选" }));
+    expect(screen.getByText("已选 2 个")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "选择 Indie Quest" }));
+    fireEvent.click(screen.getByRole("button", { name: "反选" }));
+    expect(screen.getByRole("checkbox", { name: "选择 Indie Quest" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "选择 空洞骑士" })).not.toBeChecked();
+
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "indie" } });
+    expect(screen.queryByText("空洞骑士")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "全不选" }));
+    expect(screen.getByText("已选 0 个")).toBeInTheDocument();
+    // 表头复选框：勾选列出的全部游戏
+    fireEvent.click(screen.getByRole("checkbox", { name: "勾选或取消当前列出的全部游戏" }));
+    expect(screen.getByText("已选 1 个")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByText("Hades")).toBeInTheDocument();
   });
 });
 

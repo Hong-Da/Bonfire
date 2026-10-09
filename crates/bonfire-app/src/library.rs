@@ -89,10 +89,18 @@ pub struct SearchHit {
 
 impl App {
     pub fn game_row(&self, game: &GameRecord, force_verify: bool) -> Result<GameRow> {
-        let st = if force_verify { self.status_verified(game)? } else { self.status(game)? };
+        let st = if force_verify {
+            self.status_verified(game)?
+        } else {
+            self.status(game)?
+        };
         let snaps = self.index.snapshots_of(&game.id)?;
         let meta = self.metadata(&game.id)?;
-        let unconfirmed = self.locations(&game.id)?.iter().filter(|l| !l.confirmed).count() as u64;
+        let unconfirmed = self
+            .locations(&game.id)?
+            .iter()
+            .filter(|l| !l.confirmed)
+            .count() as u64;
         let name_zh = meta.as_ref().and_then(|m| m.data.name_zh.clone());
         Ok(GameRow {
             id: game.id.clone(),
@@ -100,7 +108,11 @@ impl App {
             name_zh,
             platform: game.platform.clone(),
             enabled: game.enabled,
-            cover_thumb: meta.as_ref().and_then(|m| m.cover_thumb_path.clone().or_else(|| m.data.cover_path.clone())),
+            cover_thumb: meta.as_ref().and_then(|m| {
+                m.cover_thumb_path
+                    .clone()
+                    .or_else(|| m.data.cover_path.clone())
+            }),
             state: st.state,
             summary: st.summary,
             files: st.files,
@@ -111,7 +123,10 @@ impl App {
             detached: st.detached,
             snapshots: snaps.len() as u64,
             last_backup_at: snaps.iter().map(|s| s.created_at.clone()).max(),
-            cloud_save: meta.as_ref().and_then(|m| m.data.cloud_save).unwrap_or(false),
+            cloud_save: meta
+                .as_ref()
+                .and_then(|m| m.data.cloud_save)
+                .unwrap_or(false),
             playtime_min: meta.as_ref().and_then(|m| m.data.playtime_min),
             unconfirmed,
         })
@@ -119,7 +134,12 @@ impl App {
 
     /// 变化的文件（不含未变化的）。
     pub fn changed_files(&self, game: &GameRecord) -> Result<Vec<bonfire_core::scan::FileChange>> {
-        Ok(self.status(game)?.changes.into_iter().filter(|c| c.status != FileStatus::Unchanged).collect())
+        Ok(self
+            .status(game)?
+            .changes
+            .into_iter()
+            .filter(|c| c.status != FileStatus::Unchanged)
+            .collect())
     }
 
     /// 完整历史：所有快照及其父子关系、分支与标签。
@@ -130,8 +150,14 @@ impl App {
         let mut refs = Vec::new();
         for (r, id) in self.repo.list_refs(&game.id)? {
             labels.entry(id).or_default().push(r.to_string());
-            let current = r.kind == RefKind::Branch && r.name == head.branch && head.detached.is_none();
-            refs.push(RefView { name: r.name.clone(), kind: r.kind, target: id, current });
+            let current =
+                r.kind == RefKind::Branch && r.name == head.branch && head.detached.is_none();
+            refs.push(RefView {
+                name: r.name.clone(),
+                kind: r.kind,
+                target: id,
+                current,
+            });
         }
         let mut nodes = Vec::new();
         for row in self.index.snapshots_of(&game.id)? {
@@ -151,9 +177,14 @@ impl App {
             });
         }
         // 时间精确到秒：同一秒内的快照按代数（父在前、子在后）排序，保证顺序确定。
-        let by_id: HashMap<ObjectId, Vec<ObjectId>> = nodes.iter().map(|n| (n.id, n.parents.clone())).collect();
+        let by_id: HashMap<ObjectId, Vec<ObjectId>> =
+            nodes.iter().map(|n| (n.id, n.parents.clone())).collect();
         let generation = generations(&by_id);
-        nodes.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(generation[&b.id].cmp(&generation[&a.id])));
+        nodes.sort_by(|a, b| {
+            b.created_at
+                .cmp(&a.created_at)
+                .then(generation[&b.id].cmp(&generation[&a.id]))
+        });
         Ok(HistoryView {
             game: game.clone(),
             head: head_snap,
@@ -167,23 +198,44 @@ impl App {
 
     pub fn snapshot_files(&self, game: &GameRecord, spec: &str) -> Result<Vec<TreeEntry>> {
         let id = self.repo.resolve(&game.id, spec)?;
-        Ok(self.repo.get_tree(&self.repo.get_snapshot(&id)?.tree)?.entries)
+        Ok(self
+            .repo
+            .get_tree(&self.repo.get_snapshot(&id)?.tree)?
+            .entries)
     }
 
     /// 跨游戏搜索备注。
     pub fn search_all_comments(&self, query: &str) -> Result<Vec<SearchHit>> {
-        let names: HashMap<String, String> = self.index.games()?.into_iter().map(|g| (g.id, g.name)).collect();
+        let names: HashMap<String, String> = self
+            .index
+            .games()?
+            .into_iter()
+            .map(|g| (g.id, g.name))
+            .collect();
         Ok(self
             .index
             .search_comments(query, None)?
             .into_iter()
-            .map(|r| SearchHit { game_name: names.get(&r.game_id).cloned().unwrap_or_else(|| r.game_id.clone()), game_id: r.game_id, id: r.id, comment: r.comment, created_at: r.created_at })
+            .map(|r| SearchHit {
+                game_name: names
+                    .get(&r.game_id)
+                    .cloned()
+                    .unwrap_or_else(|| r.game_id.clone()),
+                game_id: r.game_id,
+                id: r.id,
+                comment: r.comment,
+                created_at: r.created_at,
+            })
             .collect())
     }
 
     /// 最近一次可撤销的恢复（恢复后、下次备份前，界面常驻“撤销本次恢复”提示）。
     pub fn pending_undo(&self, game_id: &str) -> Result<Option<serde_json::Value>> {
-        Ok(self.index.last_op(game_id)?.filter(|op| op.kind == "restore" && matches!(op.status.as_str(), "done" | "running")).map(|op| op.detail))
+        Ok(self
+            .index
+            .last_op(game_id)?
+            .filter(|op| op.kind == "restore" && matches!(op.status.as_str(), "done" | "running"))
+            .map(|op| op.detail))
     }
 }
 
@@ -197,8 +249,20 @@ fn generations(parents: &HashMap<ObjectId, Vec<ObjectId>>) -> HashMap<ObjectId, 
                 stack.pop();
                 continue;
             }
-            let ps: Vec<ObjectId> = parents.get(&id).map(|v| v.iter().filter(|p| parents.contains_key(p)).copied().collect()).unwrap_or_default();
-            let pending: Vec<ObjectId> = ps.iter().filter(|p| !gen_of.contains_key(p)).copied().collect();
+            let ps: Vec<ObjectId> = parents
+                .get(&id)
+                .map(|v| {
+                    v.iter()
+                        .filter(|p| parents.contains_key(p))
+                        .copied()
+                        .collect()
+                })
+                .unwrap_or_default();
+            let pending: Vec<ObjectId> = ps
+                .iter()
+                .filter(|p| !gen_of.contains_key(p))
+                .copied()
+                .collect();
             if pending.is_empty() {
                 let g = ps.iter().map(|p| gen_of[p] + 1).max().unwrap_or(0);
                 gen_of.insert(id, g);
@@ -218,7 +282,9 @@ mod tests {
 
     #[test]
     fn generations_of_long_chain() {
-        let ids: Vec<ObjectId> = (0..20_000u32).map(|i| ObjectId::of(&i.to_le_bytes())).collect();
+        let ids: Vec<ObjectId> = (0..20_000u32)
+            .map(|i| ObjectId::of(&i.to_le_bytes()))
+            .collect();
         let mut parents = HashMap::new();
         parents.insert(ids[0], vec![]);
         for w in ids.windows(2) {
@@ -235,13 +301,28 @@ mod tests {
         env.write("a.sav", b"1");
         let g = env.add_game("空洞骑士");
         let lock = env.app.repo.lock().unwrap();
-        env.app.backup(&lock, &g, &BackupOptions { comment: Some("打完螳螂领主".into()), tag: Some("螳螂".into()), ..Default::default() }).unwrap();
+        env.app
+            .backup(
+                &lock,
+                &g,
+                &BackupOptions {
+                    comment: Some("打完螳螂领主".into()),
+                    tag: Some("螳螂".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         env.write("a.sav", b"2");
-        env.app.backup(&lock, &g, &BackupOptions::default()).unwrap();
+        env.app
+            .backup(&lock, &g, &BackupOptions::default())
+            .unwrap();
         drop(lock);
 
         let row = env.app.game_row(&g, false).unwrap();
-        assert_eq!((row.state, row.snapshots, row.files), (GameState::UpToDate, 2, 2));
+        assert_eq!(
+            (row.state, row.snapshots, row.files),
+            (GameState::UpToDate, 2, 2)
+        );
         assert!(row.last_backup_at.is_some());
 
         let h = env.app.history_view(&g).unwrap();
@@ -256,7 +337,9 @@ mod tests {
 
         assert!(env.app.pending_undo(&g.id).unwrap().is_none());
         let lock = env.app.repo.lock().unwrap();
-        env.app.restore(&lock, &g, "HEAD~1", &RestoreOptions::default()).unwrap();
+        env.app
+            .restore(&lock, &g, "HEAD~1", &RestoreOptions::default())
+            .unwrap();
         drop(lock);
         assert!(env.app.pending_undo(&g.id).unwrap().is_some());
         env.write("a.sav", b"3");

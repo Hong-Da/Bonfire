@@ -61,11 +61,13 @@ export interface FileChange {
   hash: string | null;
 }
 
+export type Trigger = "manual" | "auto-exit" | "auto-timer" | "pre-restore" | "import";
+
 export interface SnapshotNode {
   id: string;
   parents: string[];
   createdAt: string;
-  trigger: "manual" | "auto-exit" | "auto-timer" | "pre-restore";
+  trigger: Trigger;
   comment: string;
   files: number;
   bytes: number;
@@ -249,4 +251,100 @@ export interface ScanReport {
   rules: { path: string | null; games: number; userGames: number } | null;
   games: DiscoveredGame[];
   withoutSaves: NoSaveGame[];
+}
+
+// ---------- 导出与导入 ----------
+
+export type ExportFormat = "zip" | "folder";
+
+export interface ExportReport {
+  dest: string;
+  files: number;
+  bytes: number;
+  snapshot: string | null;
+}
+
+export type BundleScope = { kind: "all" } | { kind: "branches"; names: string[] } | { kind: "range"; from: string | null; to: string };
+
+export interface BundleRef {
+  kind: "branch" | "tag";
+  name: string;
+  target: string;
+}
+
+export interface BundleReport {
+  dest: string;
+  snapshots: number;
+  objects: number;
+  bytes: number;
+  refs: BundleRef[];
+  prerequisites: number;
+}
+
+export type RefAction = "create" | "same" | "fast-forward" | "contained" | "diverged" | "tag-conflict";
+
+export interface RefPlan extends BundleRef {
+  action: RefAction;
+  localTarget: string | null;
+  newName: string | null;
+  forkPoint: string | null;
+}
+
+export interface BundleNode {
+  id: string;
+  parents: string[];
+  createdAt: string;
+  trigger: Trigger;
+  comment: string;
+  files: number;
+  bytes: number;
+  host: string;
+  known: boolean;
+}
+
+export interface BundlePreview {
+  gameId: string;
+  gameName: string;
+  localGame: boolean;
+  createdAt: string;
+  host: string;
+  nodes: BundleNode[];
+  newSnapshots: number;
+  missing: string[];
+  refs: RefPlan[];
+  locationMismatch: boolean;
+}
+
+export interface BundleImportReport {
+  preview: BundlePreview;
+  importedSnapshots: number;
+  objects: number;
+}
+
+export interface ExportManifest {
+  gameId: string;
+  gameName: string;
+  snapshot: string | null;
+  snapshotCreatedAt: string | null;
+  comment: string | null;
+  exportedAt: string;
+  host: string;
+}
+
+export interface FilesPreview {
+  files: number;
+  bytes: number;
+  folders: { folder: string; ord: number | null; files: number }[];
+  unmapped: string[];
+  manifest: ExportManifest | null;
+  identical: string | null;
+}
+
+export type ImportPlace = { kind: "newBranch"; name: string | null; parent: string | null } | { kind: "continue"; branch: string };
+
+export interface ImportFilesReport {
+  preview: FilesPreview;
+  snapshot: string | null;
+  branch: string | null;
+  dryRun: boolean;
 }

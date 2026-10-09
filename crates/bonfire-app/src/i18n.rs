@@ -114,13 +114,23 @@ mod tests {
 
     #[test]
     fn placeholders() {
-        assert_eq!(tf(Locale::ZhCn, "backup.auto.added", &[("n", &3)]), "新增 3 个文件");
-        assert_eq!(tf(Locale::En, "backup.auto.added", &[("n", &3)]), "added 3 files");
+        assert_eq!(
+            tf(Locale::ZhCn, "backup.auto.added", &[("n", &3)]),
+            "新增 3 个文件"
+        );
+        assert_eq!(
+            tf(Locale::En, "backup.auto.added", &[("n", &3)]),
+            "added 3 files"
+        );
     }
 
     #[test]
     fn all_locales_have_same_keys() {
-        let zh: Vec<_> = { let mut k: Vec<_> = Locale::ZhCn.table().keys().collect(); k.sort(); k };
+        let zh: Vec<_> = {
+            let mut k: Vec<_> = Locale::ZhCn.table().keys().collect();
+            k.sort();
+            k
+        };
         for l in Locale::ALL {
             let mut k: Vec<_> = l.table().keys().collect();
             k.sort();

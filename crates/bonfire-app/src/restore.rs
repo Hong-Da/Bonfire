@@ -98,15 +98,29 @@ struct RestoreDetail {
 
 impl App {
     /// 生成恢复计划（预览差异）。
-    pub fn plan_restore(&self, game: &GameRecord, target_spec: &str, opts: &RestoreOptions) -> Result<RestorePlan> {
+    pub fn plan_restore(
+        &self,
+        game: &GameRecord,
+        target_spec: &str,
+        opts: &RestoreOptions,
+    ) -> Result<RestorePlan> {
         let target = self.repo.resolve(&game.id, target_spec)?;
         self.plan_for(game, target, opts)
     }
 
-    fn plan_for(&self, game: &GameRecord, target: ObjectId, opts: &RestoreOptions) -> Result<RestorePlan> {
+    fn plan_for(
+        &self,
+        game: &GameRecord,
+        target: ObjectId,
+        opts: &RestoreOptions,
+    ) -> Result<RestorePlan> {
         let tree = self.repo.get_tree(&self.repo.get_snapshot(&target)?.tree)?;
         let filter = build_filter(&opts.paths)?;
-        let selected = |p: &str| filter.as_ref().is_none_or(|f| f.is_match(p) || p.split_once('/').is_some_and(|(_, rel)| f.is_match(rel)));
+        let selected = |p: &str| {
+            filter.as_ref().is_none_or(|f| {
+                f.is_match(p) || p.split_once('/').is_some_and(|(_, rel)| f.is_match(rel))
+            })
+        };
 
         let mut files = Vec::new();
         let mut unchanged = 0;
@@ -119,47 +133,97 @@ impl App {
                 Err(err) => return Err(AppError::io(&disk, err)),
             };
             match action {
-                Some(action) => files.push(PlannedFile { path: e.path.clone(), disk, action, size: e.size, blob: Some(e.blob) }),
+                Some(action) => files.push(PlannedFile {
+                    path: e.path.clone(),
+                    disk,
+                    action,
+                    size: e.size,
+                    blob: Some(e.blob),
+                }),
                 None => unchanged += 1,
             }
         }
         if opts.full {
-            let in_target: std::collections::HashSet<&str> = tree.entries.iter().map(|e| e.path.as_str()).collect();
+            let in_target: std::collections::HashSet<&str> =
+                tree.entries.iter().map(|e| e.path.as_str()).collect();
             for f in scan::collect_files(&self.scan_roots(game)?)? {
                 if !in_target.contains(f.path.as_str()) && selected(&f.path) {
-                    files.push(PlannedFile { path: f.path, disk: f.abs, action: Action::Delete, size: f.size, blob: None });
+                    files.push(PlannedFile {
+                        path: f.path,
+                        disk: f.abs,
+                        action: Action::Delete,
+                        size: f.size,
+                        blob: None,
+                    });
                 }
             }
         }
         files.sort_by(|a, b| a.path.cmp(&b.path));
         let running = match &game.install_dir {
-            Some(dir) => crate::process::running_under(&[PathBuf::from(dir)]).into_iter().map(|(n, _)| n).collect(),
+            Some(dir) => crate::process::running_under(&[PathBuf::from(dir)])
+                .into_iter()
+                .map(|(n, _)| n)
+                .collect(),
             None => Vec::new(),
         };
-        Ok(RestorePlan { target, files, unchanged, partial: filter.is_some(), running })
+        Ok(RestorePlan {
+            target,
+            files,
+            unchanged,
+            partial: filter.is_some(),
+            running,
+        })
     }
 
     /// 恢复到指定快照。
-    pub fn restore(&mut self, lock: &RepoLock, game: &GameRecord, target_spec: &str, opts: &RestoreOptions) -> Result<RestoreReport> {
+    pub fn restore(
+        &mut self,
+        lock: &RepoLock,
+        game: &GameRecord,
+        target_spec: &str,
+        opts: &RestoreOptions,
+    ) -> Result<RestoreReport> {
         let target = self.repo.resolve(&game.id, target_spec)?;
         self.restore_to(lock, game, target, opts, "restore")
     }
 
-    fn restore_to(&mut self, lock: &RepoLock, game: &GameRecord, target: ObjectId, opts: &RestoreOptions, kind: &str) -> Result<RestoreReport> {
+    fn restore_to(
+        &mut self,
+        lock: &RepoLock,
+        game: &GameRecord,
+        target: ObjectId,
+        opts: &RestoreOptions,
+        kind: &str,
+    ) -> Result<RestoreReport> {
         let plan = self.plan_for(game, target, opts)?;
         if !plan.running.is_empty() && !opts.force && !opts.dry_run {
-            return Err(AppError::GameRunning { processes: plan.running.join("、") });
+            return Err(AppError::GameRunning {
+                processes: plan.running.join("、"),
+            });
         }
         if opts.dry_run {
-            return Ok(RestoreReport { plan, protection: None, dry_run: true });
+            return Ok(RestoreReport {
+                plan,
+                protection: None,
+                dry_run: true,
+            });
         }
 
         // 保护快照：当前状态与最新快照不同（或从未备份）时先入库，保证恢复不丢数据。
         let status = self.status(game)?;
         let mut protection = None;
         if status.head.is_none() || status.summary.has_changes() {
-            let comment = tf(self.locale, "restore.auto.protect", &[("target", &target.short(12))]);
-            let opts = BackupOptions { comment: Some(comment), trigger: Trigger::PreRestore, force: true, ..Default::default() };
+            let comment = tf(
+                self.locale,
+                "restore.auto.protect",
+                &[("target", &target.short(12))],
+            );
+            let opts = BackupOptions {
+                comment: Some(comment),
+                trigger: Trigger::PreRestore,
+                force: true,
+                ..Default::default()
+            };
             if let BackupResult::Created { snapshot, .. } = self.backup(lock, game, &opts)? {
                 protection = Some(snapshot);
             }
@@ -169,35 +233,74 @@ impl App {
             None => return Err(AppError::Invalid("无法确定恢复前的状态".into())),
         };
         let previous_head = self.repo.head(&game.id)?;
-        let detail = RestoreDetail { target, previous, protection, previous_head: previous_head.clone(), partial: plan.partial, files: plan.files.len() };
-        let op = self.index.begin_op(kind, Some(&game.id), &serde_json::to_value(&detail).unwrap())?;
+        let detail = RestoreDetail {
+            target,
+            previous,
+            protection,
+            previous_head: previous_head.clone(),
+            partial: plan.partial,
+            files: plan.files.len(),
+        };
+        let op = self.index.begin_op(
+            kind,
+            Some(&game.id),
+            &serde_json::to_value(&detail).unwrap(),
+        )?;
 
         if let Err(e) = self.apply_plan(game, &plan, previous) {
-            self.index.finish_op(op, "failed", &serde_json::json!({ "error": e.to_string(), "detail": detail }))?;
+            self.index.finish_op(
+                op,
+                "failed",
+                &serde_json::json!({ "error": e.to_string(), "detail": detail }),
+            )?;
             return Err(e);
         }
 
         if !plan.partial {
             // 完全按目标快照恢复：HEAD 与变更检测缓存都对应目标快照。
-            let tip = self.repo.read_ref(&game.id, &RefName::branch(&previous_head.branch))?;
+            let tip = self
+                .repo
+                .read_ref(&game.id, &RefName::branch(&previous_head.branch))?;
             let detached = (tip != Some(target)).then_some(target);
-            self.repo.set_head(lock, &game.id, &Head { branch: previous_head.branch.clone(), detached })?;
-            self.reindex_from_disk(game, &self.repo.get_tree(&self.repo.get_snapshot(&target)?.tree)?)?;
+            self.repo.set_head(
+                lock,
+                &game.id,
+                &Head {
+                    branch: previous_head.branch.clone(),
+                    detached,
+                },
+            )?;
+            self.reindex_from_disk(
+                game,
+                &self.repo.get_tree(&self.repo.get_snapshot(&target)?.tree)?,
+            )?;
         }
-        self.index.finish_op(op, "done", &serde_json::to_value(&detail).unwrap())?;
-        Ok(RestoreReport { plan, protection, dry_run: false })
+        self.index
+            .finish_op(op, "done", &serde_json::to_value(&detail).unwrap())?;
+        Ok(RestoreReport {
+            plan,
+            protection,
+            dry_run: false,
+        })
     }
 
     /// 撤销最近一次恢复：恢复到恢复前的状态，并还原 HEAD。仅当之后没有再备份时可用。
     pub fn undo_restore(&mut self, lock: &RepoLock, game: &GameRecord) -> Result<RestoreReport> {
-        let op = self.index.last_op(&game.id)?.ok_or_else(|| AppError::NothingToUndo(game.name.clone()))?;
+        let op = self
+            .index
+            .last_op(&game.id)?
+            .ok_or_else(|| AppError::NothingToUndo(game.name.clone()))?;
         let undoable = op.kind == "restore" && matches!(op.status.as_str(), "done" | "running");
         if !undoable {
             return Err(AppError::NothingToUndo(game.name.clone()));
         }
-        let detail: RestoreDetail =
-            serde_json::from_value(op.detail.clone()).map_err(|e| AppError::Invalid(format!("操作记录格式错误：{e}")))?;
-        let opts = RestoreOptions { full: true, force: true, ..Default::default() };
+        let detail: RestoreDetail = serde_json::from_value(op.detail.clone())
+            .map_err(|e| AppError::Invalid(format!("操作记录格式错误：{e}")))?;
+        let opts = RestoreOptions {
+            full: true,
+            force: true,
+            ..Default::default()
+        };
         let report = self.restore_to(lock, game, detail.previous, &opts, "undo-restore")?;
         self.repo.set_head(lock, &game.id, &detail.previous_head)?;
         self.index.set_op_status(op.id, "undone")?;
@@ -244,7 +347,9 @@ impl App {
             }
             return match self.rollback(game, &touched, previous) {
                 Ok(()) => Err(AppError::RolledBack(e.to_string())),
-                Err(re) => Err(AppError::Invalid(format!("恢复失败（{e}），回滚也失败（{re}）；恢复前的状态保存在快照 {previous} 中"))),
+                Err(re) => Err(AppError::Invalid(format!(
+                    "恢复失败（{e}），回滚也失败（{re}）；恢复前的状态保存在快照 {previous} 中"
+                ))),
             };
         }
 
@@ -271,9 +376,17 @@ impl App {
     }
 
     /// 把已改动的文件还原为 `previous` 快照中的内容；该快照中没有的文件删除。
-    fn rollback(&self, game: &GameRecord, touched: &[&PlannedFile], previous: ObjectId) -> Result<()> {
-        let tree = self.repo.get_tree(&self.repo.get_snapshot(&previous)?.tree)?;
-        let by_path: HashMap<&str, &TreeEntry> = tree.entries.iter().map(|e| (e.path.as_str(), e)).collect();
+    fn rollback(
+        &self,
+        game: &GameRecord,
+        touched: &[&PlannedFile],
+        previous: ObjectId,
+    ) -> Result<()> {
+        let tree = self
+            .repo
+            .get_tree(&self.repo.get_snapshot(&previous)?.tree)?;
+        let by_path: HashMap<&str, &TreeEntry> =
+            tree.entries.iter().map(|e| (e.path.as_str(), e)).collect();
         for f in touched {
             match by_path.get(f.path.as_str()) {
                 Some(e) => {
@@ -298,7 +411,13 @@ impl App {
         for e in &tree.entries {
             let disk = self.disk_path(&game.id, &e.path)?;
             let m = std::fs::metadata(&disk).map_err(|err| AppError::io(&disk, err))?;
-            entries.push(IndexEntry { path: e.path.clone(), size: m.len(), mtime_ns: scan::mtime_ns(&m), hash: e.blob, indexed_at_ns: now });
+            entries.push(IndexEntry {
+                path: e.path.clone(),
+                size: m.len(),
+                mtime_ns: scan::mtime_ns(&m),
+                hash: e.blob,
+                indexed_at_ns: now,
+            });
         }
         self.index.replace_scan_entries(&game.id, &entries)?;
         Ok(())
@@ -314,11 +433,16 @@ fn build_filter(patterns: &[String]) -> Result<Option<GlobSet>> {
         let p = p.replace('\\', "/");
         b.add(Glob::new(&p).map_err(|e| AppError::Invalid(format!("无效的路径模式 {p}：{e}")))?);
     }
-    Ok(Some(b.build().map_err(|e| AppError::Invalid(e.to_string()))?))
+    Ok(Some(
+        b.build().map_err(|e| AppError::Invalid(e.to_string()))?,
+    ))
 }
 
 fn tmp_path(disk: &Path) -> PathBuf {
-    let mut name = disk.file_name().map(|n| n.to_os_string()).unwrap_or_default();
+    let mut name = disk
+        .file_name()
+        .map(|n| n.to_os_string())
+        .unwrap_or_default();
     name.push(TMP_SUFFIX);
     disk.with_file_name(name)
 }
@@ -373,7 +497,12 @@ mod tests {
         }
     }
 
-    fn restore(env: &mut Env, g: &GameRecord, spec: &str, opts: &RestoreOptions) -> Result<RestoreReport> {
+    fn restore(
+        env: &mut Env,
+        g: &GameRecord,
+        spec: &str,
+        opts: &RestoreOptions,
+    ) -> Result<RestoreReport> {
         let lock = env.app.repo.lock().unwrap();
         env.app.restore(&lock, g, spec, opts)
     }
@@ -401,22 +530,39 @@ mod tests {
         let (g, s1, s2) = two_versions(&mut env);
         let r = restore(&mut env, &g, "HEAD~1", &RestoreOptions::default()).unwrap();
         assert_eq!(r.protection, None, "磁盘与最新快照一致时不需要保护快照");
-        assert_eq!((r.plan.count(Action::Overwrite), r.plan.count(Action::Delete), r.plan.unchanged), (1, 0, 2));
+        assert_eq!(
+            (
+                r.plan.count(Action::Overwrite),
+                r.plan.count(Action::Delete),
+                r.plan.unchanged
+            ),
+            (1, 0, 2)
+        );
         assert_eq!(env.read("a.sav").unwrap(), b"a1");
         assert_eq!(env.read("c.sav").unwrap(), b"c2", "默认只覆盖不删除");
         let head = env.app.repo.head(&g.id).unwrap();
         assert_eq!(head.detached, Some(s1));
-        assert_eq!(env.app.repo.resolve(&g.id, "main").unwrap(), s2, "分支不移动");
+        assert_eq!(
+            env.app.repo.resolve(&g.id, "main").unwrap(),
+            s2,
+            "分支不移动"
+        );
         // 只有 c.sav 是快照外的文件，显示为新增。
         let st = env.app.status(&g).unwrap();
-        assert_eq!((st.state, st.summary.added, st.summary.modified), (GameState::HasChanges, 1, 0));
+        assert_eq!(
+            (st.state, st.summary.added, st.summary.modified),
+            (GameState::HasChanges, 1, 0)
+        );
     }
 
     #[test]
     fn full_restore_deletes_extra_files_and_is_up_to_date() {
         let mut env = Env::new();
         let (g, s1, _) = two_versions(&mut env);
-        let opts = RestoreOptions { full: true, ..Default::default() };
+        let opts = RestoreOptions {
+            full: true,
+            ..Default::default()
+        };
         let r = restore(&mut env, &g, &s1.short(8), &opts).unwrap();
         assert_eq!(r.plan.count(Action::Delete), 1);
         assert!(env.read("c.sav").is_none());
@@ -428,7 +574,16 @@ mod tests {
         let mut env = Env::new();
         let (g, s1, s2) = two_versions(&mut env);
         env.write("a.sav", b"unsaved progress");
-        let r = restore(&mut env, &g, &s1.to_string(), &RestoreOptions { full: true, ..Default::default() }).unwrap();
+        let r = restore(
+            &mut env,
+            &g,
+            &s1.to_string(),
+            &RestoreOptions {
+                full: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let p = r.protection.expect("有未备份的改动，应生成保护快照");
         let snap = env.app.repo.get_snapshot(&p).unwrap();
         assert_eq!(snap.trigger, Trigger::PreRestore);
@@ -442,7 +597,10 @@ mod tests {
         assert_eq!(env.app.repo.head(&g.id).unwrap().detached, None);
         assert_eq!(env.app.repo.resolve(&g.id, "HEAD").unwrap(), p);
         assert_eq!(env.app.status(&g).unwrap().state, GameState::UpToDate);
-        assert!(matches!(undo(&mut env, &g), Err(AppError::NothingToUndo(_))), "不能连续撤销");
+        assert!(
+            matches!(undo(&mut env, &g), Err(AppError::NothingToUndo(_))),
+            "不能连续撤销"
+        );
     }
 
     #[test]
@@ -452,7 +610,10 @@ mod tests {
         restore(&mut env, &g, &s1.to_string(), &RestoreOptions::default()).unwrap();
         env.write("a.sav", b"played after restore");
         backup(&mut env, &g);
-        assert!(matches!(undo(&mut env, &g), Err(AppError::NothingToUndo(_))));
+        assert!(matches!(
+            undo(&mut env, &g),
+            Err(AppError::NothingToUndo(_))
+        ));
     }
 
     #[test]
@@ -460,7 +621,10 @@ mod tests {
         let mut env = Env::new();
         let (g, s1, _) = two_versions(&mut env);
         env.write("sub/b.sav", b"b-new");
-        let opts = RestoreOptions { paths: vec!["a.sav".into()], ..Default::default() };
+        let opts = RestoreOptions {
+            paths: vec!["a.sav".into()],
+            ..Default::default()
+        };
         let r = restore(&mut env, &g, &s1.to_string(), &opts).unwrap();
         assert!(r.plan.partial);
         assert_eq!(r.plan.files.len(), 1);
@@ -468,15 +632,36 @@ mod tests {
         assert_eq!(env.read("sub/b.sav").unwrap(), b"b-new", "未选中的文件不动");
         assert_eq!(env.app.repo.head(&g.id).unwrap().detached, None);
         // 通配也能匹配带位置序号的清单路径。
-        let opts = RestoreOptions { paths: vec!["0/sub/*.sav".into()], dry_run: true, ..Default::default() };
-        assert_eq!(restore(&mut env, &g, &s1.to_string(), &opts).unwrap().plan.files.len(), 1);
+        let opts = RestoreOptions {
+            paths: vec!["0/sub/*.sav".into()],
+            dry_run: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            restore(&mut env, &g, &s1.to_string(), &opts)
+                .unwrap()
+                .plan
+                .files
+                .len(),
+            1
+        );
     }
 
     #[test]
     fn dry_run_changes_nothing() {
         let mut env = Env::new();
         let (g, s1, _) = two_versions(&mut env);
-        let r = restore(&mut env, &g, &s1.to_string(), &RestoreOptions { dry_run: true, full: true, ..Default::default() }).unwrap();
+        let r = restore(
+            &mut env,
+            &g,
+            &s1.to_string(),
+            &RestoreOptions {
+                dry_run: true,
+                full: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert!(r.dry_run);
         assert_eq!(plan_summary(&r.plan)["overwrite"], 1);
         assert_eq!(plan_summary(&r.plan)["delete"], 1);
@@ -497,12 +682,31 @@ mod tests {
         // z.sav 被替换成同名目录：替换 a.sav 成功后在 z.sav 处失败。
         std::fs::remove_file(env.saves().join("z.sav")).unwrap();
         std::fs::create_dir_all(env.saves().join("z.sav/inner")).unwrap();
-        let err = restore(&mut env, &g, &s1.to_string(), &RestoreOptions { force: true, ..Default::default() }).unwrap_err();
+        let err = restore(
+            &mut env,
+            &g,
+            &s1.to_string(),
+            &RestoreOptions {
+                force: true,
+                ..Default::default()
+            },
+        )
+        .unwrap_err();
         assert!(matches!(err, AppError::RolledBack(_)), "{err}");
-        assert_eq!(env.read("a.sav").unwrap(), b"a2", "已替换的文件回滚为恢复前的内容");
-        let leftovers: Vec<_> = walk(&env.saves()).into_iter().filter(|p| p.to_string_lossy().ends_with(TMP_SUFFIX)).collect();
+        assert_eq!(
+            env.read("a.sav").unwrap(),
+            b"a2",
+            "已替换的文件回滚为恢复前的内容"
+        );
+        let leftovers: Vec<_> = walk(&env.saves())
+            .into_iter()
+            .filter(|p| p.to_string_lossy().ends_with(TMP_SUFFIX))
+            .collect();
         assert!(leftovers.is_empty(), "{leftovers:?}");
-        assert_eq!(env.app.index.last_op(&g.id).unwrap().unwrap().status, "failed");
+        assert_eq!(
+            env.app.index.last_op(&g.id).unwrap().unwrap().status,
+            "failed"
+        );
     }
 
     #[test]
@@ -525,7 +729,12 @@ mod tests {
         std::fs::create_dir_all(&install).unwrap();
         env.write("a.sav", b"a1");
         let lock = env.app.repo.lock().unwrap();
-        let new = crate::NewGame { name: "G".into(), save_paths: vec![env.saves()], config_paths: vec![], install_dir: Some(install.clone()) };
+        let new = crate::NewGame {
+            name: "G".into(),
+            save_paths: vec![env.saves()],
+            config_paths: vec![],
+            install_dir: Some(install.clone()),
+        };
         let g = env.app.add_game(&lock, &new).unwrap();
         drop(lock);
         let s1 = backup(&mut env, &g);
@@ -534,12 +743,27 @@ mod tests {
 
         let exe = install.join("Game.exe");
         std::fs::copy(r"C:\Windows\System32\ping.exe", &exe).unwrap();
-        let mut child = std::process::Command::new(&exe).args(["-n", "30", "127.0.0.1"]).stdout(std::process::Stdio::null()).spawn().unwrap();
+        let mut child = std::process::Command::new(&exe)
+            .args(["-n", "30", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
         let blocked = restore(&mut env, &g, &s1.to_string(), &RestoreOptions::default());
-        let forced = restore(&mut env, &g, &s1.to_string(), &RestoreOptions { force: true, ..Default::default() });
+        let forced = restore(
+            &mut env,
+            &g,
+            &s1.to_string(),
+            &RestoreOptions {
+                force: true,
+                ..Default::default()
+            },
+        );
         child.kill().unwrap();
         let _ = child.wait();
-        assert!(matches!(blocked, Err(AppError::GameRunning { .. })), "{blocked:?}");
+        assert!(
+            matches!(blocked, Err(AppError::GameRunning { .. })),
+            "{blocked:?}"
+        );
         forced.unwrap();
         assert_eq!(env.read("a.sav").unwrap(), b"a1");
     }

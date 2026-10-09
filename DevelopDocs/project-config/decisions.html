@@ -24,7 +24,7 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 27 项，更新于 2026-10-09 03:31。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 33 项，更新于 2026-10-09 03:59。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">全局</a><a href="#s-1">M1 核心库</a><a href="#s-2">M2 存档发现</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">用户修改</a></nav>
 <section id="s-0"><h2>全局<small>1 项</small></h2>
       <article id="G-1">
@@ -176,7 +176,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">等待用户本机安装验收</li><li class="chosen">自动化测试 + 真实窗口截图检查后视为通过；安装、卸载、升级由用户事后复核 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>为避免改动用户系统，未在本机执行静默安装；界面在临时仓库中用真实扫描数据逐页截图检查（游戏库、详情时间线、设置、暗色主题、备份与恢复弹窗）。安装包：target/release/bundle/nsis/Bonfire_0.1.0_x64-setup.exe。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-4"><h2>用户修改<small>2 项</small></h2>
+      </article></section><section id="s-4"><h2>用户修改<small>8 项</small></h2>
       <article id="U-1">
         <header><code>U-1</code><h3>数据存放位置（配置、仓库、日志、缓存）</h3><span class="status">用户指定</span></header>
         <ul><li class="">配置在 %APPDATA%/Bonfire，仓库、日志、缓存在 %LOCALAPPDATA%/Bonfire（原默认）</li><li class="chosen">全部放在项目（程序）目录下的 data：data/config.toml、data/repo、data/logs、data/cache、data/webview <b>✓ 采用</b></li></ul>
@@ -187,6 +187,42 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <header><code>U-2</code><h3>扫描与游戏库的关系</h3><span class="status">用户指定</span></header>
         <ul><li class="">扫描到有存档的游戏自动加入游戏库</li><li class="chosen">“发现游戏”页单独扫描，默认不勾选，由用户选择加入游戏库或忽略；游戏库只显示加入管理的游戏 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>用户 2026-10-09 要求：需要选择哪些游戏加入管理；扫描单独一个页面；首次运行在扫描页选择加入管理，后续打开都在存档管理页面（游戏库）。</p><p class="impact"><span>影响</span>首次运行向导完成后进入“发现游戏”页并自动扫描；之后启动进入游戏库，游戏库的“扫描”改为“检查更新”。扫描页显示每个游戏的存档位置、文件数与大小、来源（规则库/推测），未加入的游戏只用本地数据显示封面（不联网）；被忽略的游戏之后扫描显示为“已忽略”，可随时加入。CLI：scan 只列出发现结果，新增 game include / game ignore，game enable 由 include 取代。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-3">
+        <header><code>U-3</code><h3>导出与导入存档（F10 提前到当前阶段）</h3><span class="status">用户指定</span></header>
+        <ul><li class="">按原计划 M5 再做</li><li class="chosen">现在做：导出存档文件（当前或指定快照，zip/文件夹）、导出历史包（全部分支 / 指定分支 / 一段历史）、导入存档文件、导入历史包，并在界面上用分支图选择 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09 要求：手动导出存档、导出指定版本、全部分支与指定段；手工导入存档用于分享；判断导入的是不是当前分支的后续更新；画出分支图便于选择。</p><p class="impact"><span>影响</span>CLI 新增 export / import / bundle export / bundle import；界面在详情页提供导出、导入对话框（带分支图）。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-3a">
+        <header><code>U-3a</code><h3>导入的历史与本地分支是什么关系？如何判断“后续更新”？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">按时间先后判断</li><li class="chosen">按快照 ID（内容 + 父快照的哈希）判断：相同 / 后续更新（快进）/ 本地已包含 / 分叉（另建分支，不覆盖本地） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>快照 ID 由内容与父快照决定，两台电脑上同一段历史的 ID 完全一致，比时间可靠；分叉时保留双方，避免误覆盖。</p><p class="impact"><span>影响</span>导入只写入仓库，不移动当前所在快照，不写入存档目录；要使用导入的存档，在历史中正常恢复（恢复前自动建保护快照）。只导出一段历史时，导入方需要已有更早的快照，否则提示先导入更早的部分。自定义游戏在不同电脑上 ID 不同，导入时指定本地游戏，并记录为别名（重建索引后仍归到本地游戏）。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-3b">
+        <header><code>U-3b</code><h3>导入“存档文件”（没有历史）放在哪里？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="chosen">默认新建分支、独立起点（可选从某个快照分出，或接在某个分支之后） <b>✓ 采用</b></li><li class="">总是接在当前分支之后</li></ul>
+        <p class="reason"><span>理由</span>别人分享的存档不是本地历史的延续，默认不应改动你的分支；需要时可在分支图上选择接在哪里。内容与已有快照完全相同时不重复生成。</p><p class="impact"><span>影响</span>新快照的触发方式为“导入”；按 bonfire-export.json 或文件夹名把文件对应到存档位置，对应不上时列出并拒绝导入。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-3c">
+        <header><code>U-3c</code><h3>导出存档文件的格式与安全</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="chosen">zip 或文件夹，每个存档位置一个子文件夹，附 bonfire-export.json；拒绝导出到任何游戏的存档位置或仓库中 <b>✓ 采用</b></li><li class="">只支持 zip</li></ul>
+        <p class="reason"><span>理由</span>对外分享时文件结构清楚、可直接使用；导出绝不写入存档目录。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-4">
+        <header><code>U-4</code><h3>检查更新时页面闪烁</h3><span class="status">用户指定</span></header>
+        <ul><li class="">保持现状</li><li class="chosen">检查在 0.4 秒内完成时不切换按钮文字、不显示取消按钮与进度条 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09 反馈点击“检查更新”页面会闪一下。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-5">
+        <header><code>U-5</code><h3>游戏截图备份方案（见 screenshot-design.html）</h3><span class="status">用户确认</span></header>
+        <ul><li class="">按方案 S1–S6 推荐项</li><li class="chosen">按推荐项，并补充：S3 可设置定时备份（每天、每周等）；S1 增加 Windows Xbox 截图 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09 确认方案并补充两点。</p><p class="impact"><span>影响</span>来源：Steam、Xbox（游戏栏 / Xbox 应用，读取系统“捕获”文件夹的实际位置）、手动文件夹；随每次备份收集，另可按天 / 周等定时收集；截图不进存档快照，单独成相册，与时间线按拍摄时间关联；原图入库；详情页“截图”标签页；可单独导出，历史包可选包含。</p>
         <footer>2026-10-09</footer>
       </article></section>
 </div></body></html>

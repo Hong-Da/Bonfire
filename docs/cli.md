@@ -30,6 +30,10 @@
 | `bonfire branch <game> [<名称> [<ref>]]` | 创建分支；省略名称时列出分支与标签 |
 | `bonfire tag <game> [<名称> [<ref>]]` | 创建标签（不会被自动清理）；省略名称时列出 |
 | `bonfire profile list` / `save <名称> <game>... [-m <默认备注>]` / `rm <名称>` | 备份方案 |
+| `bonfire export <game> [<ref>] (--zip <文件> \| --folder <目录>)` | 导出存档文件：省略 `<ref>` 时导出当前磁盘上的存档；每个存档位置一个子文件夹，附 `bonfire-export.json`；`--folder` 在目录中新建文件夹；拒绝导出到存档位置或仓库中 |
+| `bonfire import <game> <zip或文件夹> [--branch <名称>] [--parent <ref>] [--onto <分支>] [-m <备注>] [--dry-run]` | 导入存档文件为新快照（触发方式“导入”），**不写入存档目录**；默认新分支、独立起点，`--parent` 从某个快照分出，`--onto` 接在分支之后；内容与已有快照相同时不重复生成 |
+| `bonfire bundle export <game> -o <文件.bonfire> [--branch <分支>]... [--from <ref>] [--to <ref>]` | 导出历史包：默认全部分支与标签；`--branch` 指定分支；`--from`/`--to` 导出一段历史（含两端，导入方需已有更早的快照） |
+| `bonfire bundle import <文件> [--game <game>] [--dry-run]` | 导入历史包：按快照 ID 判断每个分支与本地的关系——新建、相同、后续更新（快进）、本地已包含、分叉（另建 `<分支>-<来源电脑>`，不覆盖本地）；不移动当前快照，不写入存档目录；自定义游戏在不同电脑上 ID 不同时用 `--game` 指定 |
 | `bonfire fsck [--deep]` | 校验仓库；`--deep` 还原每个文件并校验哈希 |
 | `bonfire reindex` | 从仓库重建索引数据库 |
 
@@ -169,6 +173,38 @@ bonfire log 空洞骑士
 
 ```bat
 bonfire diff 空洞骑士 HEAD
+```
+
+退出码：0
+
+### 把某个快照导出为 zip
+
+```bat
+bonfire export 空洞骑士 HEAD --zip D:/Temp/share.zip
+```
+
+退出码：0
+
+### 导入别人的存档为新分支
+
+```bat
+bonfire import 空洞骑士 D:/Saves/HollowKnight --branch friend
+```
+
+退出码：0
+
+### 导出全部分支的历史包
+
+```bat
+bonfire bundle export 空洞骑士 -o D:/Temp/hk.bonfire
+```
+
+退出码：0
+
+### 导入历史包（预览）
+
+```bat
+bonfire bundle import D:/Temp/hk.bonfire --dry-run
 ```
 
 退出码：0

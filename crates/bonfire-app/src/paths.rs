@@ -52,13 +52,19 @@ impl AppPaths {
 
     /// 标准模式：配置、仓库、日志、缓存都在程序（开发时为项目）目录下的 `data` 中。
     fn standard() -> Self {
-        let base = std::env::current_exe().ok().and_then(|exe| exe.parent().map(program_root)).unwrap_or_else(|| PathBuf::from("."));
+        let base = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(program_root))
+            .unwrap_or_else(|| PathBuf::from("."));
         Self::under_root(&base.join(DATA_DIR), false)
     }
 
     /// 窗口（WebView）数据目录，与其他数据放在一起。
     pub fn webview_dir(&self) -> PathBuf {
-        self.logs_dir.parent().map(|p| p.join("webview")).unwrap_or_else(|| PathBuf::from("webview"))
+        self.logs_dir
+            .parent()
+            .map(|p| p.join("webview"))
+            .unwrap_or_else(|| PathBuf::from("webview"))
     }
 }
 
@@ -68,7 +74,10 @@ pub const DATA_DIR: &str = "data";
 /// 程序的根目录：开发时从 `<项目>\target\<debug|release>[\deps]` 运行，返回项目根目录；
 /// 安装后返回程序所在目录。默认仓库为其下的 `data`。
 pub fn program_root(exe_dir: &Path) -> PathBuf {
-    let target = exe_dir.ancestors().take(3).find(|p| p.file_name().is_some_and(|n| n.eq_ignore_ascii_case("target")));
+    let target = exe_dir.ancestors().take(3).find(|p| {
+        p.file_name()
+            .is_some_and(|n| n.eq_ignore_ascii_case("target"))
+    });
     match target.and_then(Path::parent) {
         Some(project) if project.join("Cargo.toml").is_file() => project.to_path_buf(),
         _ => exe_dir.to_path_buf(),
@@ -79,7 +88,9 @@ pub fn program_root(exe_dir: &Path) -> PathBuf {
 fn portable_root() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let dir = exe.parent()?;
-    dir.join(PORTABLE_MARKER).is_file().then(|| dir.join("data"))
+    dir.join(PORTABLE_MARKER)
+        .is_file()
+        .then(|| dir.join("data"))
 }
 
 #[cfg(test)]
@@ -100,7 +111,12 @@ mod tests {
     fn standard_puts_everything_in_project_data() {
         let p = AppPaths::standard();
         // 测试程序位于 <项目>/target/debug/deps：全部数据在项目根目录下的 data。
-        let data = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap().join("data");
+        let data = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("data");
         assert_eq!(p.config_file, data.join("config.toml"));
         assert_eq!(p.default_repo_dir, data.join("repo"));
         assert_eq!(p.logs_dir, data.join("logs"));
@@ -121,6 +137,9 @@ mod tests {
         assert_eq!(program_root(&install), install);
         // target 的上级不是 Cargo 项目：仍按程序目录处理。
         let other = tempfile::tempdir().unwrap();
-        assert_eq!(program_root(&other.path().join("target/release")), other.path().join("target/release"));
+        assert_eq!(
+            program_root(&other.path().join("target/release")),
+            other.path().join("target/release")
+        );
     }
 }

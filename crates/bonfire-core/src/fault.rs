@@ -33,7 +33,11 @@ fn plan() -> Option<&'static Plan> {
             Some((p, n)) => (p.to_string(), n.parse().unwrap_or(1)),
             None => (v, 1),
         };
-        Some(Plan { point, nth: nth.max(1), hits: AtomicU64::new(0) })
+        Some(Plan {
+            point,
+            nth: nth.max(1),
+            hits: AtomicU64::new(0),
+        })
     })
     .as_ref()
 }

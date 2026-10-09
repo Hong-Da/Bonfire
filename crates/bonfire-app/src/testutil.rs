@@ -43,7 +43,15 @@ impl Env {
         }
         let lock = self.app.repo.lock().unwrap();
         self.app
-            .add_game(&lock, &NewGame { name: name.into(), save_paths: vec![self.saves()], config_paths: vec![cfg], install_dir: None })
+            .add_game(
+                &lock,
+                &NewGame {
+                    name: name.into(),
+                    save_paths: vec![self.saves()],
+                    config_paths: vec![cfg],
+                    install_dir: None,
+                },
+            )
             .unwrap()
     }
 }

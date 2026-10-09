@@ -70,12 +70,22 @@ pub struct BackupOptions {
 
 impl Default for BackupOptions {
     fn default() -> Self {
-        Self { comment: None, tag: None, force: false, trigger: Trigger::Manual, on_detached: DetachedChoice::NewBranch }
+        Self {
+            comment: None,
+            tag: None,
+            force: false,
+            trigger: Trigger::Manual,
+            on_detached: DetachedChoice::NewBranch,
+        }
     }
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "result", rename_all = "kebab-case", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "result",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
 pub enum BackupResult {
     Created {
         snapshot: ObjectId,
@@ -130,7 +140,11 @@ impl App {
         self.status_with(game, true)
     }
 
-    pub(crate) fn detect(&self, game: &GameRecord, force_verify: bool) -> Result<(Vec<DiskFile>, Vec<FileChange>)> {
+    pub(crate) fn detect(
+        &self,
+        game: &GameRecord,
+        force_verify: bool,
+    ) -> Result<(Vec<DiskFile>, Vec<FileChange>)> {
         let disk = scan::collect_files(&self.scan_roots(game)?)?;
         let index = self.index.scan_entries(&game.id)?;
         let changes = scan::detect(&disk, &index, force_verify)?;
@@ -138,7 +152,12 @@ impl App {
     }
 
     /// 备份一个游戏。调用方持有仓库锁。
-    pub fn backup(&mut self, lock: &RepoLock, game: &GameRecord, opts: &BackupOptions) -> Result<BackupResult> {
+    pub fn backup(
+        &mut self,
+        lock: &RepoLock,
+        game: &GameRecord,
+        opts: &BackupOptions,
+    ) -> Result<BackupResult> {
         if let Some(c) = &opts.comment {
             check_comment(c)?;
         }
@@ -154,14 +173,19 @@ impl App {
             return Ok(BackupResult::NoChanges);
         }
 
-        let op = self.index.begin_op("backup", Some(&game.id), &serde_json::json!({}))?;
+        let op = self
+            .index
+            .begin_op("backup", Some(&game.id), &serde_json::json!({}))?;
         let result = self.backup_inner(lock, game, opts, &disk, &changes, summary, head, parent);
         let detail = match &result {
-            Ok(BackupResult::Created { snapshot, .. }) => serde_json::json!({ "snapshot": snapshot }),
+            Ok(BackupResult::Created { snapshot, .. }) => {
+                serde_json::json!({ "snapshot": snapshot })
+            }
             Ok(BackupResult::NoChanges) => serde_json::json!({ "noChanges": true }),
             Err(e) => serde_json::json!({ "error": e.to_string() }),
         };
-        self.index.finish_op(op, if result.is_ok() { "done" } else { "failed" }, &detail)?;
+        self.index
+            .finish_op(op, if result.is_ok() { "done" } else { "failed" }, &detail)?;
         result
     }
 
@@ -177,7 +201,8 @@ impl App {
         head: Head,
         parent: Option<ObjectId>,
     ) -> Result<BackupResult> {
-        let known: HashMap<&str, &FileChange> = changes.iter().map(|c| (c.path.as_str(), c)).collect();
+        let known: HashMap<&str, &FileChange> =
+            changes.iter().map(|c| (c.path.as_str(), c)).collect();
         let mut entries = Vec::with_capacity(disk.len());
         let mut new_bytes = 0u64;
         for f in disk {
@@ -194,7 +219,13 @@ impl App {
                     (blob, size, mtime)
                 }
             };
-            entries.push(TreeEntry { path: f.path.clone(), blob, size, mtime_ns, tag: f.tag });
+            entries.push(TreeEntry {
+                path: f.path.clone(),
+                blob,
+                size,
+                mtime_ns,
+                tag: f.tag,
+            });
         }
         let tree = Tree::new(entries);
         let tree_id = self.repo.put_tree(&tree)?;
@@ -210,7 +241,11 @@ impl App {
         let total = tree.total_size();
         let limit = (self.config.backup.size_warning_gb * 1024.0 * 1024.0 * 1024.0) as u64;
         if total > limit {
-            warnings.push(format!("存档共 {}，超过 {} GB 的提示阈值，请确认存档位置没有误包含整个安装目录", human_bytes(total), self.config.backup.size_warning_gb));
+            warnings.push(format!(
+                "存档共 {}，超过 {} GB 的提示阈值，请确认存档位置没有误包含整个安装目录",
+                human_bytes(total),
+                self.config.backup.size_warning_gb
+            ));
         }
 
         let comment = match opts.comment.as_deref().map(str::trim) {
@@ -226,7 +261,11 @@ impl App {
             trigger: opts.trigger,
             host: host_name(),
             comment: comment.clone(),
-            stats: SnapshotStats { files: tree.entries.len() as u64, bytes: total, changed: summary.changed_files() },
+            stats: SnapshotStats {
+                files: tree.entries.len() as u64,
+                bytes: total,
+                changed: summary.changed_files(),
+            },
             // 文档 4.3：快照记录当时的游戏时长，便于显示“已玩 42 小时时的存档”。
             playtime_min: self.playtime_of(&game.id),
         };
@@ -244,7 +283,15 @@ impl App {
             match &opts.on_detached {
                 DetachedChoice::MoveCurrent => {
                     let tip = self.repo.read_ref(&game.id, &RefName::branch(&branch))?;
-                    self.repo.update_ref(lock, &game.id, &RefName::branch(&branch), tip, snap_id, action, &comment)?;
+                    self.repo.update_ref(
+                        lock,
+                        &game.id,
+                        &RefName::branch(&branch),
+                        tip,
+                        snap_id,
+                        action,
+                        &comment,
+                    )?;
                 }
                 choice => {
                     let name = match choice {
@@ -256,17 +303,33 @@ impl App {
                     new_branch = Some(name);
                 }
             }
-            self.repo.set_head(lock, &game.id, &Head { branch: branch.clone(), detached: None })?;
+            self.repo.set_head(
+                lock,
+                &game.id,
+                &Head {
+                    branch: branch.clone(),
+                    detached: None,
+                },
+            )?;
         } else {
             let tip = self.repo.read_ref(&game.id, &RefName::branch(&branch))?;
-            self.repo.update_ref(lock, &game.id, &RefName::branch(&branch), tip, snap_id, action, &comment)?;
+            self.repo.update_ref(
+                lock,
+                &game.id,
+                &RefName::branch(&branch),
+                tip,
+                snap_id,
+                action,
+                &comment,
+            )?;
         }
         if let Some(tag) = &opts.tag {
             self.repo.create_tag(lock, &game.id, tag, snap_id)?;
         }
 
         self.index.add_snapshot(&snap_id, &snap, &comment)?;
-        self.index.set_refs(&game.id, &self.repo.list_refs(&game.id)?)?;
+        self.index
+            .set_refs(&game.id, &self.repo.list_refs(&game.id)?)?;
         self.write_index_from_tree(&game.id, &tree)?;
 
         Ok(BackupResult::Created {
@@ -306,14 +369,25 @@ impl App {
         let entries: Vec<IndexEntry> = tree
             .entries
             .iter()
-            .map(|e| IndexEntry { path: e.path.clone(), size: e.size, mtime_ns: e.mtime_ns, hash: e.blob, indexed_at_ns: now })
+            .map(|e| IndexEntry {
+                path: e.path.clone(),
+                size: e.size,
+                mtime_ns: e.mtime_ns,
+                hash: e.blob,
+                indexed_at_ns: now,
+            })
             .collect();
         self.index.replace_scan_entries(game_id, &entries)?;
         Ok(())
     }
 
     /// 内容未变、只有 mtime 变化的文件，刷新索引以免下次重算哈希。
-    fn refresh_index(&mut self, game_id: &str, disk: &[DiskFile], changes: &[FileChange]) -> Result<()> {
+    fn refresh_index(
+        &mut self,
+        game_id: &str,
+        disk: &[DiskFile],
+        changes: &[FileChange],
+    ) -> Result<()> {
         let by_path: HashMap<&str, &DiskFile> = disk.iter().map(|f| (f.path.as_str(), f)).collect();
         let now = scan::now_ns();
         let entries: Vec<IndexEntry> = changes
@@ -321,7 +395,13 @@ impl App {
             .filter(|c| c.refresh_index)
             .filter_map(|c| {
                 let f = by_path.get(c.path.as_str())?;
-                Some(IndexEntry { path: c.path.clone(), size: f.size, mtime_ns: f.mtime_ns, hash: c.hash?, indexed_at_ns: now })
+                Some(IndexEntry {
+                    path: c.path.clone(),
+                    size: f.size,
+                    mtime_ns: f.mtime_ns,
+                    hash: c.hash?,
+                    indexed_at_ns: now,
+                })
             })
             .collect();
         if !entries.is_empty() {
@@ -333,16 +413,28 @@ impl App {
     fn auto_comment(&self, s: &ChangeSummary, first: bool, files: u64, bytes: u64) -> String {
         let l = self.locale;
         if first {
-            return tf(l, "backup.auto.first", &[("files", &files), ("size", &human_bytes(bytes))]);
+            return tf(
+                l,
+                "backup.auto.first",
+                &[("files", &files), ("size", &human_bytes(bytes))],
+            );
         }
         let mut parts = Vec::new();
-        for (n, key) in [(s.added, "backup.auto.added"), (s.modified, "backup.auto.modified"), (s.deleted, "backup.auto.deleted")] {
+        for (n, key) in [
+            (s.added, "backup.auto.added"),
+            (s.modified, "backup.auto.modified"),
+            (s.deleted, "backup.auto.deleted"),
+        ] {
             if n > 0 {
                 parts.push(tf(l, key, &[("n", &n)]));
             }
         }
         if s.changed_bytes > 0 {
-            parts.push(tf(l, "backup.auto.bytes", &[("size", &human_bytes(s.changed_bytes))]));
+            parts.push(tf(
+                l,
+                "backup.auto.bytes",
+                &[("size", &human_bytes(s.changed_bytes))],
+            ));
         }
         let mut text = parts.join(t(l, "backup.auto.sep"));
         // 英文首字母大写。
@@ -356,7 +448,12 @@ impl App {
 
     fn unique_branch_name(&self, game_id: &str, base: &str) -> Result<String> {
         let stem = format!("{base}-{}", now_compact());
-        let existing: Vec<String> = self.repo.list_refs(game_id)?.into_iter().map(|(r, _)| r.name.to_lowercase()).collect();
+        let existing: Vec<String> = self
+            .repo
+            .list_refs(game_id)?
+            .into_iter()
+            .map(|(r, _)| r.name.to_lowercase())
+            .collect();
         let mut name = stem.clone();
         let mut i = 2;
         while existing.contains(&name.to_lowercase()) {
@@ -370,7 +467,10 @@ impl App {
 pub fn check_comment(c: &str) -> Result<()> {
     let len = c.chars().count();
     if len > MAX_COMMENT_CHARS {
-        return Err(AppError::CommentTooLong { len, max: MAX_COMMENT_CHARS });
+        return Err(AppError::CommentTooLong {
+            len,
+            max: MAX_COMMENT_CHARS,
+        });
     }
     Ok(())
 }
@@ -382,7 +482,14 @@ mod tests {
 
     fn created(r: BackupResult) -> (ObjectId, String, ChangeSummary, u64, Option<String>) {
         match r {
-            BackupResult::Created { snapshot, comment, summary, new_bytes, new_branch, .. } => (snapshot, comment, summary, new_bytes, new_branch),
+            BackupResult::Created {
+                snapshot,
+                comment,
+                summary,
+                new_bytes,
+                new_branch,
+                ..
+            } => (snapshot, comment, summary, new_bytes, new_branch),
             BackupResult::NoChanges => panic!("应生成快照"),
         }
     }
@@ -395,7 +502,17 @@ mod tests {
     fn set_detached(env: &mut Env, g: &GameRecord, at: ObjectId) {
         let lock = env.app.repo.lock().unwrap();
         let branch = env.app.repo.head(&g.id).unwrap().branch;
-        env.app.repo.set_head(&lock, &g.id, &Head { branch, detached: Some(at) }).unwrap();
+        env.app
+            .repo
+            .set_head(
+                &lock,
+                &g.id,
+                &Head {
+                    branch,
+                    detached: Some(at),
+                },
+            )
+            .unwrap();
     }
 
     #[test]
@@ -406,7 +523,8 @@ mod tests {
         let g = env.add_game("空洞骑士");
         assert_eq!(env.app.status(&g).unwrap().state, GameState::NeverBackedUp);
 
-        let (s1, comment, summary, _, _) = created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
+        let (s1, comment, summary, _, _) =
+            created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
         assert!(comment.starts_with("首次备份：3 个文件"), "{comment}");
         assert_eq!(summary.added, 3, "两个存档 + 一个配置文件");
         let st = env.app.status(&g).unwrap();
@@ -414,11 +532,15 @@ mod tests {
         assert_eq!(st.head, Some(s1));
         assert!(env.app.repo.root().join("games.toml").is_file());
 
-        assert!(matches!(backup(&mut env, &g, &BackupOptions::default()).unwrap(), BackupResult::NoChanges));
+        assert!(matches!(
+            backup(&mut env, &g, &BackupOptions::default()).unwrap(),
+            BackupResult::NoChanges
+        ));
 
         env.write("slot1.sav", b"level 2!");
         assert_eq!(env.app.status(&g).unwrap().state, GameState::HasChanges);
-        let (s2, comment, summary, _, _) = created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
+        let (s2, comment, summary, _, _) =
+            created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
         assert_eq!(comment, "修改 1 个文件，+8 B");
         assert_eq!((summary.modified, summary.unchanged), (1, 2));
         let snap = env.app.repo.get_snapshot(&s2).unwrap();
@@ -437,7 +559,8 @@ mod tests {
         backup(&mut env, &g, &BackupOptions::default()).unwrap();
         std::fs::remove_file(env.saves().join("a")).unwrap();
         env.write("c", b"cc");
-        let (_, comment, s, _, _) = created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
+        let (_, comment, s, _, _) =
+            created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
         assert_eq!((s.added, s.deleted), (1, 1));
         assert_eq!(comment, "新增 1 个文件，删除 1 个文件，+2 B");
     }
@@ -459,32 +582,59 @@ mod tests {
         let mut env = Env::new();
         env.write("a", b"a");
         let g = env.add_game("G");
-        let long = BackupOptions { comment: Some("长".repeat(501)), ..Default::default() };
-        assert!(matches!(backup(&mut env, &g, &long), Err(AppError::CommentTooLong { len: 501, .. })));
+        let long = BackupOptions {
+            comment: Some("长".repeat(501)),
+            ..Default::default()
+        };
+        assert!(matches!(
+            backup(&mut env, &g, &long),
+            Err(AppError::CommentTooLong { len: 501, .. })
+        ));
 
-        let opts = BackupOptions { comment: Some("Boss 前".into()), tag: Some("before-boss".into()), ..Default::default() };
+        let opts = BackupOptions {
+            comment: Some("Boss 前".into()),
+            tag: Some("before-boss".into()),
+            ..Default::default()
+        };
         let (s1, comment, ..) = created(backup(&mut env, &g, &opts).unwrap());
         assert_eq!(comment, "Boss 前");
         assert_eq!(env.app.repo.resolve(&g.id, "before-boss").unwrap(), s1);
-        assert_eq!(env.app.index.search_comments("Boss", Some(&g.id)).unwrap().len(), 1);
+        assert_eq!(
+            env.app
+                .index
+                .search_comments("Boss", Some(&g.id))
+                .unwrap()
+                .len(),
+            1
+        );
 
-        let forced = BackupOptions { force: true, ..Default::default() };
+        let forced = BackupOptions {
+            force: true,
+            ..Default::default()
+        };
         let (s2, comment, ..) = created(backup(&mut env, &g, &forced).unwrap());
         assert_eq!(comment, "手动快照（文件无变化）");
-        assert_eq!(env.app.repo.get_snapshot(&s2).unwrap().tree, env.app.repo.get_snapshot(&s1).unwrap().tree);
+        assert_eq!(
+            env.app.repo.get_snapshot(&s2).unwrap().tree,
+            env.app.repo.get_snapshot(&s1).unwrap().tree
+        );
     }
 
     #[test]
     fn unchanged_large_files_are_not_rewritten() {
         let mut env = Env::new();
-        let big: Vec<u8> = (0..3_000_000u32).map(|i| (i.wrapping_mul(2654435761) >> 13) as u8).collect();
+        let big: Vec<u8> = (0..3_000_000u32)
+            .map(|i| (i.wrapping_mul(2654435761) >> 13) as u8)
+            .collect();
         env.write("big.sav", &big);
         env.write("small.sav", b"1");
         let g = env.add_game("G");
-        let (_, _, _, first_new, _) = created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
+        let (_, _, _, first_new, _) =
+            created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
         assert!(first_new >= big.len() as u64);
         env.write("small.sav", b"2");
-        let (_, _, _, new_bytes, _) = created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
+        let (_, _, _, new_bytes, _) =
+            created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
         assert_eq!(new_bytes, 1, "只有改动的小文件写入仓库");
     }
 
@@ -499,13 +649,24 @@ mod tests {
 
         set_detached(&mut env, &g, s1);
         env.write("a", b"3");
-        let (s3, _, _, _, new_branch) = created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
+        let (s3, _, _, _, new_branch) =
+            created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
         let nb = new_branch.expect("应创建新分支");
         assert!(nb.starts_with("main-"), "{nb}");
-        assert_eq!(env.app.repo.resolve(&g.id, "main").unwrap(), s2, "原主线不变");
+        assert_eq!(
+            env.app.repo.resolve(&g.id, "main").unwrap(),
+            s2,
+            "原主线不变"
+        );
         assert_eq!(env.app.repo.resolve(&g.id, &nb).unwrap(), s3);
         assert_eq!(env.app.repo.get_snapshot(&s3).unwrap().parents, vec![s1]);
-        assert_eq!(env.app.repo.head(&g.id).unwrap(), Head { branch: nb, detached: None });
+        assert_eq!(
+            env.app.repo.head(&g.id).unwrap(),
+            Head {
+                branch: nb,
+                detached: None
+            }
+        );
     }
 
     #[test]
@@ -519,14 +680,20 @@ mod tests {
 
         set_detached(&mut env, &g, s1);
         env.write("a", b"3");
-        let named = BackupOptions { on_detached: DetachedChoice::NamedBranch("二周目".into()), ..Default::default() };
+        let named = BackupOptions {
+            on_detached: DetachedChoice::NamedBranch("二周目".into()),
+            ..Default::default()
+        };
         let (s3, _, _, _, nb) = created(backup(&mut env, &g, &named).unwrap());
         assert_eq!(nb.as_deref(), Some("二周目"));
         assert_eq!(env.app.repo.resolve(&g.id, "二周目").unwrap(), s3);
 
         set_detached(&mut env, &g, s1);
         env.write("a", b"4");
-        let opts = BackupOptions { on_detached: DetachedChoice::MoveCurrent, ..Default::default() };
+        let opts = BackupOptions {
+            on_detached: DetachedChoice::MoveCurrent,
+            ..Default::default()
+        };
         let (s4, _, _, _, nb) = created(backup(&mut env, &g, &opts).unwrap());
         assert!(nb.is_none());
         assert_eq!(env.app.repo.head(&g.id).unwrap().branch, "二周目");
@@ -541,8 +708,18 @@ mod tests {
         let g = env.add_game("G");
         env.app.config.backup.include_config_files = false;
         let (s1, ..) = created(backup(&mut env, &g, &BackupOptions::default()).unwrap());
-        let tree = env.app.repo.get_tree(&env.app.repo.get_snapshot(&s1).unwrap().tree).unwrap();
-        assert_eq!(tree.entries.iter().map(|e| e.path.as_str()).collect::<Vec<_>>(), ["0/a"]);
+        let tree = env
+            .app
+            .repo
+            .get_tree(&env.app.repo.get_snapshot(&s1).unwrap().tree)
+            .unwrap();
+        assert_eq!(
+            tree.entries
+                .iter()
+                .map(|e| e.path.as_str())
+                .collect::<Vec<_>>(),
+            ["0/a"]
+        );
     }
 
     #[test]
@@ -569,7 +746,12 @@ mod tests {
     fn repo_cannot_share_dir_with_app_config() {
         let dir = tempfile::tempdir().unwrap();
         let paths = crate::AppPaths::under_root(dir.path(), false);
-        let r = crate::App::open(paths, crate::Config::default(), crate::Locale::ZhCn, dir.path());
+        let r = crate::App::open(
+            paths,
+            crate::Config::default(),
+            crate::Locale::ZhCn,
+            dir.path(),
+        );
         assert!(matches!(r, Err(AppError::Invalid(_))));
     }
 
@@ -578,7 +760,10 @@ mod tests {
         let mut env = Env::new();
         let g = env.add_game("Hollow Knight");
         assert_eq!(env.app.find_game("hollow knight").unwrap().id, g.id);
-        assert!(matches!(env.app.find_game("nope"), Err(AppError::GameNotFound(_))));
+        assert!(matches!(
+            env.app.find_game("nope"),
+            Err(AppError::GameNotFound(_))
+        ));
         let lock = env.app.repo.lock().unwrap();
         env.app.remove_game(&lock, &g.id).unwrap();
         assert!(env.app.games().unwrap().is_empty());

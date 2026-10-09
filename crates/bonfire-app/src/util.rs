@@ -2,7 +2,9 @@
 
 /// 本地时间，RFC 3339 带时区偏移，如 `2026-10-09T21:14:03+08:00`（文档 7.1）。
 pub fn now_local_rfc3339() -> String {
-    jiff::Zoned::now().strftime("%Y-%m-%dT%H:%M:%S%:z").to_string()
+    jiff::Zoned::now()
+        .strftime("%Y-%m-%dT%H:%M:%S%:z")
+        .to_string()
 }
 
 /// 用于自动生成分支名的紧凑时间，如 `20261009-211403`。
@@ -11,7 +13,9 @@ pub fn now_compact() -> String {
 }
 
 pub fn host_name() -> String {
-    std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).unwrap_or_else(|_| "unknown".into())
+    std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| "unknown".into())
 }
 
 /// 1024 进制的人类可读大小，如 `3.1 MB`。

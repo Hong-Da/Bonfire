@@ -8,10 +8,15 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use bonfire_app::backup::{BackupOptions, BackupResult, DetachedChoice};
+use bonfire_app::core::index::LocationKind;
 use bonfire_app::core::index::{GameRecord, Profile};
 use bonfire_app::core::refs::RefKind;
 use bonfire_app::library::{GameRow, HistoryView, SearchHit};
 use bonfire_app::restore::{RestoreOptions, RestorePlan, RestoreReport};
+use bonfire_app::transfer::{
+    BundleImportReport, BundlePreview, BundleReport, BundleScope, ExportFormat, ExportReport,
+    FilesPreview, ImportFilesOptions, ImportFilesReport, ImportPlace,
+};
 use bonfire_app::{App, AppError, AppPaths, Config, ErrorKind, Locale, NewGame};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -42,7 +47,10 @@ impl From<AppError> for CmdError {
             ErrorKind::Locked => "locked",
             ErrorKind::GameRunning => "game-running",
         };
-        Self { kind, message: e.to_string() }
+        Self {
+            kind,
+            message: e.to_string(),
+        }
     }
 }
 
@@ -54,11 +62,17 @@ impl From<bonfire_app::core::CoreError> for CmdError {
 
 impl CmdError {
     fn not_ready() -> Self {
-        Self { kind: "not-ready", message: "尚未完成首次配置".into() }
+        Self {
+            kind: "not-ready",
+            message: "尚未完成首次配置".into(),
+        }
     }
 
     fn cancelled() -> Self {
-        Self { kind: "cancelled", message: "已取消".into() }
+        Self {
+            kind: "cancelled",
+            message: "已取消".into(),
+        }
     }
 }
 
@@ -69,8 +83,12 @@ pub fn open_app(h: &AppHandle, shared: &Shared, config: Config) -> Result<(), Ap
     let locale = Locale::resolve(config.general.language.as_deref());
     let repo_dir = config.repo_dir(&shared.paths.default_repo_dir);
     let app = App::open(shared.paths.clone(), config, locale, &repo_dir)?;
-    std::fs::create_dir_all(&shared.paths.cache_dir).map_err(|e| AppError::io(&shared.paths.cache_dir, e))?;
-    if let Err(e) = h.asset_protocol_scope().allow_directory(&shared.paths.cache_dir, true) {
+    std::fs::create_dir_all(&shared.paths.cache_dir)
+        .map_err(|e| AppError::io(&shared.paths.cache_dir, e))?;
+    if let Err(e) = h
+        .asset_protocol_scope()
+        .allow_directory(&shared.paths.cache_dir, true)
+    {
         tracing::warn!("无法开放图片缓存目录：{e}");
     }
     *shared.app.lock().unwrap() = Some(app);
@@ -90,7 +108,10 @@ where
         f(app, &h)
     })
     .await
-    .map_err(|e| CmdError { kind: "general", message: e.to_string() })?
+    .map_err(|e| CmdError {
+        kind: "general",
+        message: e.to_string(),
+    })?
 }
 
 fn find(app: &App, id: &str) -> CmdResult<GameRecord> {
@@ -118,7 +139,11 @@ pub async fn app_info(h: AppHandle) -> CmdResult<AppInfo> {
     let shared = h.state::<Shared>();
     let guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
     let (locale, theme, repo_dir) = match guard.as_ref() {
-        Some(a) => (a.locale, a.config.general.theme, Some(a.repo.root().to_path_buf())),
+        Some(a) => (
+            a.locale,
+            a.config.general.theme,
+            Some(a.repo.root().to_path_buf()),
+        ),
         None => (Locale::resolve(None), Default::default(), None),
     };
     Ok(AppInfo {
@@ -148,7 +173,9 @@ pub async fn save_settings(h: AppHandle, config: Config) -> CmdResult<AppInfo> {
     tauri::async_runtime::spawn_blocking(move || -> CmdResult<()> {
         config.validate().map_err(AppError::from)?;
         let shared = h2.state::<Shared>();
-        config.save(&shared.paths.config_file).map_err(AppError::from)?;
+        config
+            .save(&shared.paths.config_file)
+            .map_err(AppError::from)?;
         *shared.config_error.lock().unwrap() = None;
         let reopen = {
             let guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
@@ -159,14 +186,22 @@ pub async fn save_settings(h: AppHandle, config: Config) -> CmdResult<AppInfo> {
         };
         if reopen {
             open_app(&h2, &shared, config)?;
-        } else if let Some(a) = shared.app.lock().unwrap_or_else(|p| p.into_inner()).as_mut() {
+        } else if let Some(a) = shared
+            .app
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .as_mut()
+        {
             a.locale = Locale::resolve(config.general.language.as_deref());
             a.config = config;
         }
         Ok(())
     })
     .await
-    .map_err(|e| CmdError { kind: "general", message: e.to_string() })??;
+    .map_err(|e| CmdError {
+        kind: "general",
+        message: e.to_string(),
+    })??;
     app_info(h).await
 }
 
@@ -183,7 +218,11 @@ struct Phase {
 /// 加载游戏库（只含已加入管理的游戏）：逐个检测状态并推送 `library-row` 事件；
 /// `fetch_info` 时再逐个补全游戏信息（新游戏与过期的联网获取），获取一个就更新一行。
 #[tauri::command]
-pub async fn load_library(h: AppHandle, fetch_info: bool, force_verify: bool) -> CmdResult<Vec<GameRow>> {
+pub async fn load_library(
+    h: AppHandle,
+    fetch_info: bool,
+    force_verify: bool,
+) -> CmdResult<Vec<GameRow>> {
     with_app(h, move |app, h| {
         let shared = h.state::<Shared>();
         shared.cancel.store(false, Ordering::SeqCst);
@@ -194,7 +233,14 @@ pub async fn load_library(h: AppHandle, fetch_info: bool, force_verify: bool) ->
             if shared.cancel.load(Ordering::SeqCst) {
                 return Err(CmdError::cancelled());
             }
-            let _ = h.emit("library-phase", Phase { phase: "checking", done: i, total });
+            let _ = h.emit(
+                "library-phase",
+                Phase {
+                    phase: "checking",
+                    done: i,
+                    total,
+                },
+            );
             match app.game_row(g, force_verify) {
                 Ok(row) => {
                     let _ = h.emit("library-row", &row);
@@ -208,8 +254,17 @@ pub async fn load_library(h: AppHandle, fetch_info: bool, force_verify: bool) ->
                 if shared.cancel.load(Ordering::SeqCst) {
                     break;
                 }
-                let _ = h.emit("library-phase", Phase { phase: "info", done: i, total });
-                let Ok(g) = app.find_game(&row.id) else { continue };
+                let _ = h.emit(
+                    "library-phase",
+                    Phase {
+                        phase: "info",
+                        done: i,
+                        total,
+                    },
+                );
+                let Ok(g) = app.find_game(&row.id) else {
+                    continue;
+                };
                 if let Err(e) = app.refresh_metadata(&g, false) {
                     tracing::info!(game = %g.id, "获取游戏信息失败：{e}");
                     continue;
@@ -220,7 +275,14 @@ pub async fn load_library(h: AppHandle, fetch_info: bool, force_verify: bool) ->
                 }
             }
         }
-        let _ = h.emit("library-phase", Phase { phase: "idle", done: total, total });
+        let _ = h.emit(
+            "library-phase",
+            Phase {
+                phase: "idle",
+                done: total,
+                total,
+            },
+        );
         Ok(rows)
     })
     .await
@@ -266,12 +328,21 @@ pub async fn ignore_games(h: AppHandle, ids: Vec<String>) -> CmdResult<Vec<GameR
 
 #[tauri::command]
 pub async fn game_row(h: AppHandle, game_id: String) -> CmdResult<GameRow> {
-    with_app(h, move |app, _| Ok(app.game_row(&find(app, &game_id)?, false)?)).await
+    with_app(h, move |app, _| {
+        Ok(app.game_row(&find(app, &game_id)?, false)?)
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn game_changes(h: AppHandle, game_id: String) -> CmdResult<Vec<bonfire_app::core::scan::FileChange>> {
-    with_app(h, move |app, _| Ok(app.changed_files(&find(app, &game_id)?)?)).await
+pub async fn game_changes(
+    h: AppHandle,
+    game_id: String,
+) -> CmdResult<Vec<bonfire_app::core::scan::FileChange>> {
+    with_app(h, move |app, _| {
+        Ok(app.changed_files(&find(app, &game_id)?)?)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -325,7 +396,12 @@ struct BackupProgress {
 
 /// 备份所选游戏：逐个执行，单个失败不影响其他游戏（文档 8.1），每完成一个推送 `backup-progress`。
 #[tauri::command]
-pub async fn run_backup(h: AppHandle, items: Vec<BackupItem>, force: bool, on_detached: OnDetached) -> CmdResult<Vec<BackupItemResult>> {
+pub async fn run_backup(
+    h: AppHandle,
+    items: Vec<BackupItem>,
+    force: bool,
+    on_detached: OnDetached,
+) -> CmdResult<Vec<BackupItemResult>> {
     with_app(h, move |app, h| {
         let shared = h.state::<Shared>();
         shared.cancel.store(false, Ordering::SeqCst);
@@ -347,15 +423,37 @@ pub async fn run_backup(h: AppHandle, items: Vec<BackupItem>, force: bool, on_de
                 },
                 ..Default::default()
             };
-            let r = app.find_game(&item.game_id).and_then(|g| app.backup(&lock, &g, &opts));
+            let r = app
+                .find_game(&item.game_id)
+                .and_then(|g| app.backup(&lock, &g, &opts));
             let res = match r {
-                Ok(r) => BackupItemResult { game_id: item.game_id, ok: true, result: Some(r), error: None },
+                Ok(r) => BackupItemResult {
+                    game_id: item.game_id,
+                    ok: true,
+                    result: Some(r),
+                    error: None,
+                },
                 Err(e) => {
                     let e = CmdError::from(e);
-                    BackupItemResult { game_id: item.game_id, ok: false, result: None, error: Some(CmdError2 { kind: e.kind, message: e.message }) }
+                    BackupItemResult {
+                        game_id: item.game_id,
+                        ok: false,
+                        result: None,
+                        error: Some(CmdError2 {
+                            kind: e.kind,
+                            message: e.message,
+                        }),
+                    }
                 }
             };
-            let _ = h.emit("backup-progress", BackupProgress { index, total, item: res.clone() });
+            let _ = h.emit(
+                "backup-progress",
+                BackupProgress {
+                    index,
+                    total,
+                    item: res.clone(),
+                },
+            );
             out.push(res);
         }
         Ok(out)
@@ -367,21 +465,45 @@ pub async fn run_backup(h: AppHandle, items: Vec<BackupItem>, force: bool, on_de
 
 #[tauri::command]
 pub async fn history(h: AppHandle, game_id: String) -> CmdResult<HistoryView> {
-    with_app(h, move |app, _| Ok(app.history_view(&find(app, &game_id)?)?)).await
+    with_app(
+        h,
+        move |app, _| Ok(app.history_view(&find(app, &game_id)?)?),
+    )
+    .await
 }
 
 #[tauri::command]
-pub async fn snapshot_files(h: AppHandle, game_id: String, snapshot: String) -> CmdResult<Vec<bonfire_app::core::TreeEntry>> {
-    with_app(h, move |app, _| Ok(app.snapshot_files(&find(app, &game_id)?, &snapshot)?)).await
+pub async fn snapshot_files(
+    h: AppHandle,
+    game_id: String,
+    snapshot: String,
+) -> CmdResult<Vec<bonfire_app::core::TreeEntry>> {
+    with_app(h, move |app, _| {
+        Ok(app.snapshot_files(&find(app, &game_id)?, &snapshot)?)
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn diff(h: AppHandle, game_id: String, a: String, b: Option<String>) -> CmdResult<Vec<bonfire_app::DiffEntry>> {
-    with_app(h, move |app, _| Ok(app.diff(&find(app, &game_id)?, &a, b.as_deref())?)).await
+pub async fn diff(
+    h: AppHandle,
+    game_id: String,
+    a: String,
+    b: Option<String>,
+) -> CmdResult<Vec<bonfire_app::DiffEntry>> {
+    with_app(h, move |app, _| {
+        Ok(app.diff(&find(app, &game_id)?, &a, b.as_deref())?)
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn set_comment(h: AppHandle, game_id: String, snapshot: String, comment: String) -> CmdResult<()> {
+pub async fn set_comment(
+    h: AppHandle,
+    game_id: String,
+    snapshot: String,
+    comment: String,
+) -> CmdResult<()> {
     with_app(h, move |app, _| {
         let g = find(app, &game_id)?;
         let lock = app.repo.lock()?;
@@ -392,7 +514,13 @@ pub async fn set_comment(h: AppHandle, game_id: String, snapshot: String, commen
 }
 
 #[tauri::command]
-pub async fn create_ref(h: AppHandle, game_id: String, kind: RefKind, name: String, snapshot: Option<String>) -> CmdResult<()> {
+pub async fn create_ref(
+    h: AppHandle,
+    game_id: String,
+    kind: RefKind,
+    name: String,
+    snapshot: Option<String>,
+) -> CmdResult<()> {
     with_app(h, move |app, _| {
         let g = find(app, &game_id)?;
         let lock = app.repo.lock()?;
@@ -410,20 +538,52 @@ pub async fn search_comments(h: AppHandle, query: String) -> CmdResult<Vec<Searc
 // ---------- 恢复 ----------
 
 #[tauri::command]
-pub async fn plan_restore(h: AppHandle, game_id: String, target: String, paths: Vec<String>, full: bool) -> CmdResult<RestorePlan> {
+pub async fn plan_restore(
+    h: AppHandle,
+    game_id: String,
+    target: String,
+    paths: Vec<String>,
+    full: bool,
+) -> CmdResult<RestorePlan> {
     with_app(h, move |app, _| {
         let g = find(app, &game_id)?;
-        Ok(app.plan_restore(&g, &target, &RestoreOptions { paths, full, dry_run: true, force: false })?)
+        Ok(app.plan_restore(
+            &g,
+            &target,
+            &RestoreOptions {
+                paths,
+                full,
+                dry_run: true,
+                force: false,
+            },
+        )?)
     })
     .await
 }
 
 #[tauri::command]
-pub async fn restore(h: AppHandle, game_id: String, target: String, paths: Vec<String>, full: bool, force: bool) -> CmdResult<RestoreReport> {
+pub async fn restore(
+    h: AppHandle,
+    game_id: String,
+    target: String,
+    paths: Vec<String>,
+    full: bool,
+    force: bool,
+) -> CmdResult<RestoreReport> {
     with_app(h, move |app, _| {
         let g = find(app, &game_id)?;
         let lock = app.repo.lock()?;
-        Ok(app.restore(&lock, &g, &target, &RestoreOptions { paths, full, dry_run: false, force })?)
+        Ok(app.restore(
+            &lock,
+            &g,
+            &target,
+            &RestoreOptions {
+                paths,
+                full,
+                dry_run: false,
+                force,
+            },
+        )?)
     })
     .await
 }
@@ -446,10 +606,24 @@ pub async fn pending_undo(h: AppHandle, game_id: String) -> CmdResult<Option<ser
 // ---------- 游戏管理与信息 ----------
 
 #[tauri::command]
-pub async fn add_game(h: AppHandle, name: String, save_paths: Vec<PathBuf>, config_paths: Vec<PathBuf>, install_dir: Option<PathBuf>) -> CmdResult<GameRecord> {
+pub async fn add_game(
+    h: AppHandle,
+    name: String,
+    save_paths: Vec<PathBuf>,
+    config_paths: Vec<PathBuf>,
+    install_dir: Option<PathBuf>,
+) -> CmdResult<GameRecord> {
     with_app(h, move |app, _| {
         let lock = app.repo.lock()?;
-        let g = app.add_game(&lock, &NewGame { name, save_paths, config_paths, install_dir })?;
+        let g = app.add_game(
+            &lock,
+            &NewGame {
+                name,
+                save_paths,
+                config_paths,
+                install_dir,
+            },
+        )?;
         let _ = app.refresh_metadata(&g, false);
         Ok(g)
     })
@@ -476,7 +650,14 @@ pub async fn confirm_locations(h: AppHandle, game_id: String) -> CmdResult<usize
 
 #[tauri::command]
 pub async fn ignored_games(h: AppHandle) -> CmdResult<Vec<GameRecord>> {
-    with_app(h, move |app, _| Ok(app.all_games()?.into_iter().filter(|g| !g.enabled).collect())).await
+    with_app(h, move |app, _| {
+        Ok(app
+            .all_games()?
+            .into_iter()
+            .filter(|g| !g.enabled)
+            .collect())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -489,7 +670,10 @@ pub async fn enable_game(h: AppHandle, game_id: String) -> CmdResult<GameRecord>
 }
 
 #[tauri::command]
-pub async fn game_info(h: AppHandle, game_id: String) -> CmdResult<Option<bonfire_app::metadata::MetadataView>> {
+pub async fn game_info(
+    h: AppHandle,
+    game_id: String,
+) -> CmdResult<Option<bonfire_app::metadata::MetadataView>> {
     with_app(h, move |app, _| Ok(app.metadata(&game_id)?)).await
 }
 
@@ -504,7 +688,12 @@ pub async fn refresh_info(h: AppHandle, game_id: String) -> CmdResult<()> {
 }
 
 #[tauri::command]
-pub async fn set_info_field(h: AppHandle, game_id: String, field: String, value: String) -> CmdResult<()> {
+pub async fn set_info_field(
+    h: AppHandle,
+    game_id: String,
+    field: String,
+    value: String,
+) -> CmdResult<()> {
     with_app(h, move |app, _| {
         let g = find(app, &game_id)?;
         app.set_metadata_field(&g, &field, &value)?;
@@ -517,7 +706,10 @@ pub async fn set_info_field(h: AppHandle, game_id: String, field: String, value:
 
 #[tauri::command]
 pub async fn profiles(h: AppHandle) -> CmdResult<Vec<Profile>> {
-    with_app(h, move |app, _| Ok(app.index.profiles().map_err(AppError::from)?)).await
+    with_app(h, move |app, _| {
+        Ok(app.index.profiles().map_err(AppError::from)?)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -558,8 +750,13 @@ pub async fn reindex(h: AppHandle) -> CmdResult<bonfire_app::core::index::Reinde
 }
 
 #[tauri::command]
-pub async fn update_rules(h: AppHandle) -> CmdResult<bonfire_app::discovery::manifest::UpdateOutcome> {
-    with_app(h, move |app, _| Ok(app.update_rules(bonfire_app::discovery::manifest::MANIFEST_URL, None)?)).await
+pub async fn update_rules(
+    h: AppHandle,
+) -> CmdResult<bonfire_app::discovery::manifest::UpdateOutcome> {
+    with_app(h, move |app, _| {
+        Ok(app.update_rules(bonfire_app::discovery::manifest::MANIFEST_URL, None)?)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -576,6 +773,139 @@ pub async fn open_path(path: PathBuf) -> CmdResult<()> {
     } else {
         cmd.arg(&path);
     }
-    cmd.spawn().map_err(|e| CmdError { kind: "general", message: e.to_string() })?;
+    cmd.spawn().map_err(|e| CmdError {
+        kind: "general",
+        message: e.to_string(),
+    })?;
     Ok(())
+}
+
+// ---------- 导出与导入 ----------
+
+/// 打开一个存档位置：目录直接打开，通配位置打开其固定前缀目录，单个文件在资源管理器中选中。
+#[tauri::command]
+pub async fn open_location(h: AppHandle, game_id: String, ord: usize) -> CmdResult<()> {
+    let path = with_app(h, move |app, _| {
+        let loc = app
+            .locations(&game_id)?
+            .into_iter()
+            .nth(ord)
+            .ok_or_else(|| AppError::Invalid(format!("存档位置 {ord} 不存在")))?;
+        Ok(match loc.kind {
+            LocationKind::Glob => bonfire_app::core::scan::glob_base(&loc.resolved_path),
+            LocationKind::Registry => {
+                return Err(AppError::Invalid("注册表存档没有文件夹".into()).into());
+            }
+            _ => PathBuf::from(&loc.resolved_path),
+        })
+    })
+    .await?;
+    // 文件夹不存在时打开最近的上级目录。
+    let existing = path
+        .ancestors()
+        .find(|p| p.exists())
+        .map(PathBuf::from)
+        .unwrap_or(path);
+    open_path(existing).await
+}
+
+#[tauri::command]
+pub async fn export_default_name(
+    h: AppHandle,
+    game_id: String,
+    spec: Option<String>,
+) -> CmdResult<String> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.export_default_name(&g, spec.as_deref())?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn export_files(
+    h: AppHandle,
+    game_id: String,
+    spec: Option<String>,
+    dest: PathBuf,
+    format: ExportFormat,
+) -> CmdResult<ExportReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.export_files(&g, spec.as_deref(), &dest, format)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn export_bundle(
+    h: AppHandle,
+    game_id: String,
+    scope: BundleScope,
+    dest: PathBuf,
+) -> CmdResult<BundleReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.export_bundle(&g, &scope, &dest)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn inspect_bundle(
+    h: AppHandle,
+    path: PathBuf,
+    game_id: Option<String>,
+) -> CmdResult<BundlePreview> {
+    with_app(h, move |app, _| {
+        Ok(app.inspect_bundle(&path, game_id.as_deref())?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn import_bundle(
+    h: AppHandle,
+    path: PathBuf,
+    game_id: Option<String>,
+) -> CmdResult<BundleImportReport> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(app.import_bundle(&lock, &path, game_id.as_deref(), false)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn inspect_files(h: AppHandle, game_id: String, src: PathBuf) -> CmdResult<FilesPreview> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.inspect_files(&g, &src)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn import_files(
+    h: AppHandle,
+    game_id: String,
+    src: PathBuf,
+    place: ImportPlace,
+    comment: Option<String>,
+) -> CmdResult<ImportFilesReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let lock = app.repo.lock()?;
+        Ok(app.import_files(
+            &lock,
+            &g,
+            &src,
+            &ImportFilesOptions {
+                place,
+                comment,
+                dry_run: false,
+            },
+        )?)
+    })
+    .await
 }

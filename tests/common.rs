@@ -9,7 +9,10 @@ use serde::Deserialize;
 
 /// 工作区根目录。
 pub fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf()
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf()
 }
 
 pub fn inputs_dir() -> PathBuf {
@@ -18,10 +21,22 @@ pub fn inputs_dir() -> PathBuf {
 
 /// `cargo test --workspace` 会先构建所有二进制，因此直接从 target 目录取。
 pub fn bonfire_path() -> PathBuf {
-    let target = std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from).unwrap_or_else(|| root().join("target"));
-    let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
-    let p = target.join(profile).join(format!("bonfire{}", std::env::consts::EXE_SUFFIX));
-    assert!(p.is_file(), "找不到 {}，请用 cargo test --workspace 运行（会先构建 bonfire）", p.display());
+    let target = std::env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root().join("target"));
+    let profile = if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "release"
+    };
+    let p = target
+        .join(profile)
+        .join(format!("bonfire{}", std::env::consts::EXE_SUFFIX));
+    assert!(
+        p.is_file(),
+        "找不到 {}，请用 cargo test --workspace 运行（会先构建 bonfire）",
+        p.display()
+    );
     p
 }
 
@@ -32,7 +47,9 @@ pub struct Sandbox {
 
 impl Sandbox {
     pub fn new() -> Self {
-        Self { dir: tempfile::tempdir().unwrap() }
+        Self {
+            dir: tempfile::tempdir().unwrap(),
+        }
     }
 
     pub fn home(&self) -> PathBuf {
@@ -69,7 +86,9 @@ impl Sandbox {
 
     pub fn expand(&self, s: &str) -> String {
         let slash = |p: PathBuf| p.to_string_lossy().replace('\\', "/");
-        s.replace("{inputs}", &slash(inputs_dir())).replace("{saves}", &slash(self.saves())).replace("{tmp}", &slash(self.dir.path().to_path_buf()))
+        s.replace("{inputs}", &slash(inputs_dir()))
+            .replace("{saves}", &slash(self.saves()))
+            .replace("{tmp}", &slash(self.dir.path().to_path_buf()))
     }
 
     pub fn command(&self) -> std::process::Command {
@@ -91,13 +110,21 @@ impl Sandbox {
 
     pub fn run(&self, args: &[&str]) -> Output {
         let args: Vec<String> = args.iter().map(|a| self.expand(a)).collect();
-        self.command().args(&args).output().expect("无法执行 bonfire")
+        self.command()
+            .args(&args)
+            .output()
+            .expect("无法执行 bonfire")
     }
 
     /// 执行并要求成功，返回 stdout。
     pub fn ok(&self, args: &[&str]) -> String {
         let out = self.run(args);
-        assert!(out.status.success(), "bonfire {args:?} 失败：\nstdout：{}\nstderr：{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "bonfire {args:?} 失败：\nstdout：{}\nstderr：{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
         String::from_utf8(out.stdout).unwrap()
     }
 
@@ -170,8 +197,15 @@ impl CliCase {
             .args
             .iter()
             .map(|a| {
-                let a = a.replace("{inputs}", "tests/inputs").replace("{saves}", "D:/Saves/HollowKnight").replace("{tmp}", "D:/Temp");
-                if a.contains(' ') || a.is_empty() { format!("\"{a}\"") } else { a }
+                let a = a
+                    .replace("{inputs}", "tests/inputs")
+                    .replace("{saves}", "D:/Saves/HollowKnight")
+                    .replace("{tmp}", "D:/Temp");
+                if a.contains(' ') || a.is_empty() {
+                    format!("\"{a}\"")
+                } else {
+                    a
+                }
             })
             .collect();
         format!("bonfire {}", args.join(" "))
@@ -181,24 +215,39 @@ impl CliCase {
 pub fn load_cli_cases() -> Vec<CliCase> {
     let p = root().join("tests/cases/cli_cases.toml");
     let text = std::fs::read_to_string(&p).expect("读取 cli_cases.toml");
-    toml::from_str::<CliCases>(&text).expect("cli_cases.toml 格式错误").case
+    toml::from_str::<CliCases>(&text)
+        .expect("cli_cases.toml 格式错误")
+        .case
 }
 
 /// 按 `a.b.0.c` 字段路径检查 JSON 输出（数字段为数组下标；取最后一个非空行解析）。
-pub fn check_json(stream: &str, text: &str, expect: &BTreeMap<String, toml::Value>) -> Result<(), String> {
+pub fn check_json(
+    stream: &str,
+    text: &str,
+    expect: &BTreeMap<String, toml::Value>,
+) -> Result<(), String> {
     if expect.is_empty() {
         return Ok(());
     }
-    let line = text.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("");
-    let v: serde_json::Value = serde_json::from_str(line).map_err(|e| format!("{stream} 不是 JSON（{e}）"))?;
+    let line = text
+        .lines()
+        .rev()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("");
+    let v: serde_json::Value =
+        serde_json::from_str(line).map_err(|e| format!("{stream} 不是 JSON（{e}）"))?;
     for (path, want) in expect {
-        let got = path.split('.').try_fold(&v, |cur, k| match k.parse::<usize>() {
-            Ok(i) if cur.is_array() => cur.get(i),
-            _ => cur.get(k),
-        });
+        let got = path
+            .split('.')
+            .try_fold(&v, |cur, k| match k.parse::<usize>() {
+                Ok(i) if cur.is_array() => cur.get(i),
+                _ => cur.get(k),
+            });
         let want_json = serde_json::to_value(want).unwrap();
         if got != Some(&want_json) {
-            return Err(format!("{stream} 的 {path} 应为 {want_json}，实际为 {got:?}"));
+            return Err(format!(
+                "{stream} 的 {path} 应为 {want_json}，实际为 {got:?}"
+            ));
         }
     }
     Ok(())

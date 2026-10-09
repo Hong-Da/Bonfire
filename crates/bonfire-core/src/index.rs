@@ -256,7 +256,9 @@ fn now_rfc3339() -> String {
 }
 
 fn parse_id(s: String) -> rusqlite::Result<ObjectId> {
-    s.parse().map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))
+    s.parse().map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+    })
 }
 
 impl Index {
@@ -317,13 +319,16 @@ impl Index {
         let mut st = self.conn.prepare(
             "SELECT id, name, platform, app_id, install_dir, enabled, include_config, custom_rule_json FROM games ORDER BY name COLLATE NOCASE, id",
         )?;
-        let rows = st.query_map([], Self::game_from_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
+        let rows = st
+            .query_map([], Self::game_from_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }
 
     /// 删除游戏配置及其存档位置与变更检测缓存（历史快照保留在对象库中）。
     pub fn delete_game(&self, id: &str) -> Result<bool> {
-        self.conn.execute("DELETE FROM scan_index WHERE game_id = ?1", [id])?;
+        self.conn
+            .execute("DELETE FROM scan_index WHERE game_id = ?1", [id])?;
         Ok(self.conn.execute("DELETE FROM games WHERE id = ?1", [id])? > 0)
     }
 
@@ -352,7 +357,11 @@ impl Index {
                     path_template: r.get(0)?,
                     resolved_path: r.get(1)?,
                     kind: LocationKind::parse(&r.get::<_, String>(2)?),
-                    tag: if r.get::<_, String>(3)? == "config" { FileTag::Config } else { FileTag::Save },
+                    tag: if r.get::<_, String>(3)? == "config" {
+                        FileTag::Config
+                    } else {
+                        FileTag::Save
+                    },
                     source: r.get(4)?,
                     confirmed: r.get(5)?,
                 })
@@ -364,7 +373,9 @@ impl Index {
     // ---------- 变更检测缓存 ----------
 
     pub fn scan_entries(&self, game_id: &str) -> Result<HashMap<String, IndexEntry>> {
-        let mut st = self.conn.prepare("SELECT rel_path, size, mtime_ns, hash, indexed_at FROM scan_index WHERE game_id = ?1")?;
+        let mut st = self.conn.prepare(
+            "SELECT rel_path, size, mtime_ns, hash, indexed_at FROM scan_index WHERE game_id = ?1",
+        )?;
         let rows = st
             .query_map([game_id], |r| {
                 Ok(IndexEntry {
@@ -396,12 +407,23 @@ impl Index {
         Ok(())
     }
 
-    fn insert_entries(tx: &rusqlite::Transaction<'_>, game_id: &str, entries: &[IndexEntry]) -> Result<()> {
+    fn insert_entries(
+        tx: &rusqlite::Transaction<'_>,
+        game_id: &str,
+        entries: &[IndexEntry],
+    ) -> Result<()> {
         let mut st = tx.prepare(
             "INSERT OR REPLACE INTO scan_index (game_id, rel_path, size, mtime_ns, hash, indexed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         )?;
         for e in entries {
-            st.execute(params![game_id, e.path, e.size as i64, e.mtime_ns, e.hash.to_string(), e.indexed_at_ns])?;
+            st.execute(params![
+                game_id,
+                e.path,
+                e.size as i64,
+                e.mtime_ns,
+                e.hash.to_string(),
+                e.indexed_at_ns
+            ])?;
         }
         Ok(())
     }
@@ -410,15 +432,33 @@ impl Index {
 
     /// 记录快照（重复记录时忽略）；`comment` 为显示用备注（有注记时取注记）。
     pub fn add_snapshot(&mut self, id: &ObjectId, s: &Snapshot, comment: &str) -> Result<()> {
+        let game = s.game.clone();
+        self.add_snapshot_as(id, s, comment, &game)
+    }
+
+    /// 记录快照，归到 `game_id` 下（导入的快照可能记录着另一台电脑上的游戏 ID）。
+    pub fn add_snapshot_as(
+        &mut self,
+        id: &ObjectId,
+        s: &Snapshot,
+        comment: &str,
+        game_id: &str,
+    ) -> Result<()> {
         let tx = self.conn.transaction()?;
-        let trigger = serde_json::to_value(s.trigger).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default();
+        let trigger = serde_json::to_value(s.trigger)
+            .ok()
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default();
         let inserted = tx.execute(
             "INSERT OR IGNORE INTO snapshots (hash, game_id, created_at, trigger, comment, files, bytes, changed)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![id.to_string(), s.game, s.created_at, trigger, comment, s.stats.files as i64, s.stats.bytes as i64, s.stats.changed as i64],
+            params![id.to_string(), game_id, s.created_at, trigger, comment, s.stats.files as i64, s.stats.bytes as i64, s.stats.changed as i64],
         )?;
         if inserted > 0 {
-            tx.execute("INSERT INTO snapshots_fts (hash, game_id, comment) VALUES (?1, ?2, ?3)", params![id.to_string(), s.game, comment])?;
+            tx.execute(
+                "INSERT INTO snapshots_fts (hash, game_id, comment) VALUES (?1, ?2, ?3)",
+                params![id.to_string(), game_id, comment],
+            )?;
             for (i, p) in s.parents.iter().enumerate() {
                 tx.execute(
                     "INSERT OR IGNORE INTO snapshot_parents (snapshot_hash, parent_hash, ord) VALUES (?1, ?2, ?3)",
@@ -432,8 +472,14 @@ impl Index {
 
     pub fn update_comment(&mut self, id: &ObjectId, comment: &str) -> Result<()> {
         let tx = self.conn.transaction()?;
-        tx.execute("UPDATE snapshots SET comment = ?2 WHERE hash = ?1", params![id.to_string(), comment])?;
-        tx.execute("UPDATE snapshots_fts SET comment = ?2 WHERE hash = ?1", params![id.to_string(), comment])?;
+        tx.execute(
+            "UPDATE snapshots SET comment = ?2 WHERE hash = ?1",
+            params![id.to_string(), comment],
+        )?;
+        tx.execute(
+            "UPDATE snapshots_fts SET comment = ?2 WHERE hash = ?1",
+            params![id.to_string(), comment],
+        )?;
         tx.commit()?;
         Ok(())
     }
@@ -467,7 +513,9 @@ impl Index {
         let mut st = self.conn.prepare(
             "SELECT hash, game_id, created_at, trigger, comment, files, bytes, changed FROM snapshots WHERE game_id = ?1 ORDER BY created_at DESC, hash",
         )?;
-        let rows = st.query_map([game_id], Self::snapshot_from_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
+        let rows = st
+            .query_map([game_id], Self::snapshot_from_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }
 
@@ -477,20 +525,31 @@ impl Index {
         if q.is_empty() {
             return Ok(Vec::new());
         }
-        let cols = "s.hash, s.game_id, s.created_at, s.trigger, s.comment, s.files, s.bytes, s.changed";
+        let cols =
+            "s.hash, s.game_id, s.created_at, s.trigger, s.comment, s.files, s.bytes, s.changed";
         let rows = if q.chars().count() >= 3 {
             let phrase = format!("\"{}\"", q.replace('"', "\"\""));
             let mut st = self.conn.prepare(&format!(
                 "SELECT {cols} FROM snapshots_fts f JOIN snapshots s ON s.hash = f.hash
                  WHERE snapshots_fts MATCH ?1 AND (?2 IS NULL OR s.game_id = ?2) ORDER BY s.created_at DESC"
             ))?;
-            st.query_map(params![format!("comment : {phrase}"), game_id], Self::snapshot_from_row)?.collect::<rusqlite::Result<Vec<_>>>()?
+            st.query_map(
+                params![format!("comment : {phrase}"), game_id],
+                Self::snapshot_from_row,
+            )?
+            .collect::<rusqlite::Result<Vec<_>>>()?
         } else {
-            let pattern = format!("%{}%", q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
+            let pattern = format!(
+                "%{}%",
+                q.replace('\\', "\\\\")
+                    .replace('%', "\\%")
+                    .replace('_', "\\_")
+            );
             let mut st = self.conn.prepare(&format!(
                 "SELECT {cols} FROM snapshots s WHERE s.comment LIKE ?1 ESCAPE '\\' AND (?2 IS NULL OR s.game_id = ?2) ORDER BY s.created_at DESC"
             ))?;
-            st.query_map(params![pattern, game_id], Self::snapshot_from_row)?.collect::<rusqlite::Result<Vec<_>>>()?
+            st.query_map(params![pattern, game_id], Self::snapshot_from_row)?
+                .collect::<rusqlite::Result<Vec<_>>>()?
         };
         Ok(rows)
     }
@@ -498,7 +557,9 @@ impl Index {
     /// 以某快照为父的快照（用于历史图）。
     pub fn children(&self, id: &ObjectId) -> Result<Vec<ObjectId>> {
         let mut st = self.conn.prepare("SELECT snapshot_hash FROM snapshot_parents WHERE parent_hash = ?1 ORDER BY snapshot_hash")?;
-        let rows = st.query_map([id.to_string()], |r| parse_id(r.get(0)?))?.collect::<rusqlite::Result<Vec<_>>>()?;
+        let rows = st
+            .query_map([id.to_string()], |r| parse_id(r.get(0)?))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }
 
@@ -508,7 +569,10 @@ impl Index {
         tx.execute("DELETE FROM refs WHERE game_id = ?1", [game_id])?;
         let now = now_rfc3339();
         for (r, id) in refs {
-            let kind = serde_json::to_value(r.kind).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default();
+            let kind = serde_json::to_value(r.kind)
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default();
             tx.execute(
                 "INSERT INTO refs (game_id, name, kind, target_hash, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![game_id, r.name, kind, id.to_string(), now],
@@ -524,17 +588,27 @@ impl Index {
         self.conn.execute(
             "INSERT INTO backup_profiles (name, game_ids_json, default_comment) VALUES (?1, ?2, ?3)
              ON CONFLICT(name) DO UPDATE SET game_ids_json = ?2, default_comment = ?3",
-            params![p.name, serde_json::to_string(&p.game_ids).unwrap(), p.default_comment],
+            params![
+                p.name,
+                serde_json::to_string(&p.game_ids).unwrap(),
+                p.default_comment
+            ],
         )?;
         Ok(())
     }
 
     pub fn profiles(&self) -> Result<Vec<Profile>> {
-        let mut st = self.conn.prepare("SELECT name, game_ids_json, default_comment FROM backup_profiles ORDER BY name")?;
+        let mut st = self.conn.prepare(
+            "SELECT name, game_ids_json, default_comment FROM backup_profiles ORDER BY name",
+        )?;
         let rows = st
             .query_map([], |r| {
                 let ids: String = r.get(1)?;
-                Ok(Profile { name: r.get(0)?, game_ids: serde_json::from_str(&ids).unwrap_or_default(), default_comment: r.get(2)? })
+                Ok(Profile {
+                    name: r.get(0)?,
+                    game_ids: serde_json::from_str(&ids).unwrap_or_default(),
+                    default_comment: r.get(2)?,
+                })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
@@ -545,7 +619,10 @@ impl Index {
     }
 
     pub fn delete_profile(&self, name: &str) -> Result<bool> {
-        Ok(self.conn.execute("DELETE FROM backup_profiles WHERE name = ?1", [name])? > 0)
+        Ok(self
+            .conn
+            .execute("DELETE FROM backup_profiles WHERE name = ?1", [name])?
+            > 0)
     }
 
     // ---------- 游戏信息 ----------
@@ -613,7 +690,12 @@ impl Index {
 
     // ---------- 操作日志 ----------
 
-    pub fn begin_op(&self, kind: &str, game_id: Option<&str>, detail: &serde_json::Value) -> Result<i64> {
+    pub fn begin_op(
+        &self,
+        kind: &str,
+        game_id: Option<&str>,
+        detail: &serde_json::Value,
+    ) -> Result<i64> {
         self.conn.execute(
             "INSERT INTO operations (kind, game_id, started_at, status, detail_json) VALUES (?1, ?2, ?3, 'running', ?4)",
             params![kind, game_id, now_rfc3339(), detail.to_string()],
@@ -630,7 +712,10 @@ impl Index {
     }
 
     pub fn set_op_status(&self, id: i64, status: &str) -> Result<()> {
-        self.conn.execute("UPDATE operations SET status = ?2 WHERE id = ?1", params![id, status])?;
+        self.conn.execute(
+            "UPDATE operations SET status = ?2 WHERE id = ?1",
+            params![id, status],
+        )?;
         Ok(())
     }
 
@@ -689,10 +774,20 @@ pub fn reindex(repo: &Repo, index: &mut Index) -> Result<ReindexStats> {
     index.conn.execute_batch(
         "DELETE FROM snapshots; DELETE FROM snapshots_fts; DELETE FROM snapshot_parents; DELETE FROM refs; DELETE FROM scan_index;",
     )?;
+    let mut alias_of = std::collections::HashMap::new();
+    for game in repo.games()? {
+        for a in repo.aliases(&game)? {
+            alias_of.insert(a, game.clone());
+        }
+    }
     for id in repo.list_objects(crate::object::Kind::Snapshot)? {
         let snap = repo.get_snapshot(&id)?;
         let comment = repo.effective_comment(&id, &snap)?;
-        index.add_snapshot(&id, &snap, &comment)?;
+        let game = alias_of
+            .get(&snap.game)
+            .cloned()
+            .unwrap_or_else(|| snap.game.clone());
+        index.add_snapshot_as(&id, &snap, &comment, &game)?;
         stats.snapshots += 1;
     }
     for game in repo.games()? {
@@ -705,7 +800,13 @@ pub fn reindex(repo: &Repo, index: &mut Index) -> Result<ReindexStats> {
             let entries: Vec<IndexEntry> = tree
                 .entries
                 .iter()
-                .map(|e| IndexEntry { path: e.path.clone(), size: e.size, mtime_ns: e.mtime_ns, hash: e.blob, indexed_at_ns: 0 })
+                .map(|e| IndexEntry {
+                    path: e.path.clone(),
+                    size: e.size,
+                    mtime_ns: e.mtime_ns,
+                    hash: e.blob,
+                    indexed_at_ns: 0,
+                })
                 .collect();
             index.replace_scan_entries(&game, &entries)?;
             stats.games_with_history += 1;
@@ -735,7 +836,11 @@ mod tests {
             trigger: Trigger::Manual,
             host: "PC".into(),
             comment: comment.into(),
-            stats: SnapshotStats { files: 2, bytes: 10, changed: 1 },
+            stats: SnapshotStats {
+                files: 2,
+                bytes: 10,
+                changed: 1,
+            },
             playtime_min: None,
         }
     }
@@ -745,16 +850,38 @@ mod tests {
         let (_d, _r, mut idx) = setup();
         let a = ObjectId::of(b"a");
         let b = ObjectId::of(b"b");
-        idx.add_snapshot(&a, &snapshot("g1", "打完大树守卫，强化 +5 前", "2026-10-01T10:00:00+08:00"), "打完大树守卫，强化 +5 前").unwrap();
-        idx.add_snapshot(&b, &snapshot("g2", "Before the BOSS fight", "2026-10-02T10:00:00+08:00"), "Before the BOSS fight").unwrap();
+        idx.add_snapshot(
+            &a,
+            &snapshot(
+                "g1",
+                "打完大树守卫，强化 +5 前",
+                "2026-10-01T10:00:00+08:00",
+            ),
+            "打完大树守卫，强化 +5 前",
+        )
+        .unwrap();
+        idx.add_snapshot(
+            &b,
+            &snapshot("g2", "Before the BOSS fight", "2026-10-02T10:00:00+08:00"),
+            "Before the BOSS fight",
+        )
+        .unwrap();
         fn ids(idx: &Index, q: &str, g: Option<&str>) -> Vec<ObjectId> {
-            idx.search_comments(q, g).unwrap().into_iter().map(|r| r.id).collect()
+            idx.search_comments(q, g)
+                .unwrap()
+                .into_iter()
+                .map(|r| r.id)
+                .collect()
         }
         assert_eq!(ids(&idx, "大树守卫", None), [a]);
         assert_eq!(ids(&idx, "大树", None), [a], "两个字退回 LIKE");
         assert_eq!(ids(&idx, "boss", None), [b], "不区分大小写");
         assert_eq!(ids(&idx, "boss", Some("g1")), Vec::<ObjectId>::new());
-        assert_eq!(ids(&idx, "\"引号", None), Vec::<ObjectId>::new(), "特殊字符不报错");
+        assert_eq!(
+            ids(&idx, "\"引号", None),
+            Vec::<ObjectId>::new(),
+            "特殊字符不报错"
+        );
         assert_eq!(ids(&idx, "100%", None), Vec::<ObjectId>::new());
 
         idx.update_comment(&a, "新的备注 ã ç é").unwrap();
@@ -777,34 +904,66 @@ mod tests {
         };
         idx.upsert_game(&g).unwrap();
         let locs = vec![
-            LocationRecord { path_template: "D:/saves".into(), resolved_path: "D:/saves".into(), kind: LocationKind::Dir, tag: FileTag::Save, source: "user".into(), confirmed: true },
-            LocationRecord { path_template: "D:/cfg.ini".into(), resolved_path: "D:/cfg.ini".into(), kind: LocationKind::File, tag: FileTag::Config, source: "user".into(), confirmed: true },
+            LocationRecord {
+                path_template: "D:/saves".into(),
+                resolved_path: "D:/saves".into(),
+                kind: LocationKind::Dir,
+                tag: FileTag::Save,
+                source: "user".into(),
+                confirmed: true,
+            },
+            LocationRecord {
+                path_template: "D:/cfg.ini".into(),
+                resolved_path: "D:/cfg.ini".into(),
+                kind: LocationKind::File,
+                tag: FileTag::Config,
+                source: "user".into(),
+                confirmed: true,
+            },
         ];
         idx.set_locations("custom-1", &locs).unwrap();
         assert_eq!(idx.game("custom-1").unwrap(), Some(g.clone()));
         assert_eq!(idx.locations("custom-1").unwrap(), locs);
         assert!(idx.delete_game("custom-1").unwrap());
-        assert!(idx.locations("custom-1").unwrap().is_empty(), "存档位置随游戏删除");
+        assert!(
+            idx.locations("custom-1").unwrap().is_empty(),
+            "存档位置随游戏删除"
+        );
         assert_eq!(idx.game("custom-1").unwrap(), None);
     }
 
     #[test]
     fn scan_entries_replace_and_upsert() {
         let (_d, _r, mut idx) = setup();
-        let e = |p: &str, size| IndexEntry { path: p.into(), size, mtime_ns: 1, hash: ObjectId::of(p.as_bytes()), indexed_at_ns: 2 };
-        idx.replace_scan_entries("g", &[e("0/a", 1), e("0/b", 2)]).unwrap();
+        let e = |p: &str, size| IndexEntry {
+            path: p.into(),
+            size,
+            mtime_ns: 1,
+            hash: ObjectId::of(p.as_bytes()),
+            indexed_at_ns: 2,
+        };
+        idx.replace_scan_entries("g", &[e("0/a", 1), e("0/b", 2)])
+            .unwrap();
         idx.upsert_scan_entries("g", &[e("0/b", 3)]).unwrap();
         let m = idx.scan_entries("g").unwrap();
         assert_eq!(m.len(), 2);
         assert_eq!(m["0/b"].size, 3);
         idx.replace_scan_entries("g", &[e("0/c", 1)]).unwrap();
-        assert_eq!(idx.scan_entries("g").unwrap().keys().collect::<Vec<_>>(), ["0/c"]);
+        assert_eq!(
+            idx.scan_entries("g").unwrap().keys().collect::<Vec<_>>(),
+            ["0/c"]
+        );
     }
 
     #[test]
     fn metadata_roundtrip_and_v1_upgrade() {
         let (dir, _r, idx) = setup();
-        let mut m = GameMetadata { game_id: "steam-1".into(), name: Some("Hollow Knight".into()), name_zh: Some("空洞骑士".into()), ..Default::default() };
+        let mut m = GameMetadata {
+            game_id: "steam-1".into(),
+            name: Some("Hollow Knight".into()),
+            name_zh: Some("空洞骑士".into()),
+            ..Default::default()
+        };
         m.genres = vec!["动作".into()];
         m.external_ids.insert("steam".into(), "1".into());
         m.locked_fields.push("name".into());
@@ -814,7 +973,9 @@ mod tests {
         assert_eq!(idx.metadata("steam-1").unwrap(), Some(m));
         assert_eq!(idx.metadata("nope").unwrap(), None);
         // 模拟旧版本数据库：删除新表并把版本改回 1，重新打开后自动升级。
-        idx.conn.execute_batch("DROP TABLE game_metadata; PRAGMA user_version = 1;").unwrap();
+        idx.conn
+            .execute_batch("DROP TABLE game_metadata; PRAGMA user_version = 1;")
+            .unwrap();
         drop(idx);
         let idx = Index::open(&dir.path().join("bonfire.db")).unwrap();
         assert_eq!(idx.metadata("steam-1").unwrap(), None);
@@ -823,14 +984,27 @@ mod tests {
     #[test]
     fn profiles_and_operations() {
         let (_d, _r, idx) = setup();
-        idx.save_profile(&Profile { name: "周末".into(), game_ids: vec!["a".into(), "b".into()], default_comment: "".into() }).unwrap();
-        idx.save_profile(&Profile { name: "周末".into(), game_ids: vec!["a".into()], default_comment: "x".into() }).unwrap();
+        idx.save_profile(&Profile {
+            name: "周末".into(),
+            game_ids: vec!["a".into(), "b".into()],
+            default_comment: "".into(),
+        })
+        .unwrap();
+        idx.save_profile(&Profile {
+            name: "周末".into(),
+            game_ids: vec!["a".into()],
+            default_comment: "x".into(),
+        })
+        .unwrap();
         assert_eq!(idx.profiles().unwrap().len(), 1);
         assert_eq!(idx.profile("周末").unwrap().unwrap().game_ids, ["a"]);
         assert!(idx.delete_profile("周末").unwrap());
 
-        let id = idx.begin_op("restore", Some("g"), &serde_json::json!({"target": "x"})).unwrap();
-        idx.finish_op(id, "done", &serde_json::json!({"target": "x", "files": 3})).unwrap();
+        let id = idx
+            .begin_op("restore", Some("g"), &serde_json::json!({"target": "x"}))
+            .unwrap();
+        idx.finish_op(id, "done", &serde_json::json!({"target": "x", "files": 3}))
+            .unwrap();
         let op = idx.last_op("g").unwrap().unwrap();
         assert_eq!((op.kind.as_str(), op.status.as_str()), ("restore", "done"));
         assert_eq!(op.detail["files"], 3);
@@ -841,15 +1015,39 @@ mod tests {
         let (_d, repo, mut idx) = setup();
         let lock = repo.lock().unwrap();
         let blob = repo.write_file(&b"save"[..], Path::new("s")).unwrap().blob;
-        let tree = repo.put_tree(&Tree::new(vec![TreeEntry { path: "0/s.sav".into(), blob, size: 4, mtime_ns: 99, tag: FileTag::Save }])).unwrap();
+        let tree = repo
+            .put_tree(&Tree::new(vec![TreeEntry {
+                path: "0/s.sav".into(),
+                blob,
+                size: 4,
+                mtime_ns: 99,
+                tag: FileTag::Save,
+            }]))
+            .unwrap();
         let mut s = snapshot("custom-g", "第一次", "2026-10-09T10:00:00+08:00");
         s.tree = tree;
         let id = repo.put_snapshot(&s).unwrap();
-        repo.update_ref(&lock, "custom-g", &RefName::branch("main"), None, id, "backup", "").unwrap();
+        repo.update_ref(
+            &lock,
+            "custom-g",
+            &RefName::branch("main"),
+            None,
+            id,
+            "backup",
+            "",
+        )
+        .unwrap();
         repo.set_note(&lock, &id, "改过的备注").unwrap();
 
         let stats = reindex(&repo, &mut idx).unwrap();
-        assert_eq!(stats, ReindexStats { snapshots: 1, refs: 1, games_with_history: 1 });
+        assert_eq!(
+            stats,
+            ReindexStats {
+                snapshots: 1,
+                refs: 1,
+                games_with_history: 1
+            }
+        );
         assert_eq!(idx.snapshot(&id).unwrap().unwrap().comment, "改过的备注");
         let entries = idx.scan_entries("custom-g").unwrap();
         assert_eq!(entries["0/s.sav"].hash, blob);

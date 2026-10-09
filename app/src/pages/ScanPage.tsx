@@ -19,6 +19,8 @@ export default function ScanPage() {
   const { scan, scanning, scanPhase, startScan } = store;
   const [filter, setFilter] = useState<Filter>("new");
   const [query, setQuery] = useState("");
+  const [platform, setPlatform] = useState("all");
+  const [source, setSource] = useState<"all" | "rules" | "guessed">("all");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
 
@@ -28,12 +30,28 @@ export default function ScanPage() {
     for (const g of games) c[g.state]++;
     return c;
   }, [games]);
+  const platforms = useMemo(() => [...new Set(games.map((g) => g.platform))].sort(), [games]);
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return games
       .filter((g) => filter === "all" || g.state === filter)
-      .filter((g) => !q || g.name.toLowerCase().includes(q) || (g.nameZh ?? "").toLowerCase().includes(q));
-  }, [games, filter, query]);
+      .filter((g) => platform === "all" || g.platform === platform)
+      .filter((g) => source === "all" || (source === "rules") === !!g.rule)
+      .filter((g) => !q || g.name.toLowerCase().includes(q) || (g.nameZh ?? "").toLowerCase().includes(q) || g.id.includes(q));
+  }, [games, filter, platform, source, query]);
+  const visiblePicked = visible.filter((g) => picked.has(g.id)).length;
+  const filtered = platform !== "all" || source !== "all" || query.trim() !== "";
+  // 全选、全不选、反选只作用于当前筛选出的游戏；筛掉的游戏保持原来的勾选。
+  const pickVisible = (mode: "all" | "none" | "invert") =>
+    setPicked((s) => {
+      const n = new Set(s);
+      for (const g of visible) {
+        const on = mode === "all" ? true : mode === "none" ? false : !n.has(g.id);
+        if (on) n.add(g.id);
+        else n.delete(g.id);
+      }
+      return n;
+    });
   const pickedGames = games.filter((g) => picked.has(g.id));
   const canInclude = pickedGames.some((g) => g.state !== "managed");
   const canIgnore = pickedGames.some((g) => g.state !== "ignored");
@@ -87,7 +105,24 @@ export default function ScanPage() {
           </div>
         )}
         <div className="grow" />
-        {scan && <input className="field" type="search" placeholder={t("ui.library.search")} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t("ui.library.search")} />}
+        {scan && platforms.length > 1 && (
+          <select className="field" value={platform} onChange={(e) => setPlatform(e.target.value)} aria-label={t("ui.library.filterPlatform")}>
+            <option value="all">{t("ui.library.allPlatforms")}</option>
+            {platforms.map((p) => (
+              <option key={p} value={p}>
+                {t(`ui.platform.${p}`, { defaultValue: p })}
+              </option>
+            ))}
+          </select>
+        )}
+        {scan && (
+          <select className="field" value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label={t("ui.scan.filterSource")}>
+            <option value="all">{t("ui.scan.sourceAll")}</option>
+            <option value="rules">{t("ui.scan.fromRules")}</option>
+            <option value="guessed">{t("ui.scan.guessed")}</option>
+          </select>
+        )}
+        {scan && <input className="field" type="search" placeholder={t("ui.scan.search")} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t("ui.scan.search")} />}
       </div>
       <div className="progress-line" aria-hidden>
         <span style={{ width: scanning ? (scanPhase === "rules" ? "30%" : "70%") : "0%" }} />
@@ -108,6 +143,33 @@ export default function ScanPage() {
           <>
             {scan.platforms.length === 0 && <div className="callout warn" style={{ margin: "12px 20px" }}>{t("ui.scan.noPlatforms")}</div>}
             {scan.rules && !scan.rules.path && <div className="callout warn" style={{ margin: "12px 20px" }}>{t("ui.scan.noRules")}</div>}
+            {visible.length > 0 && (
+              <div className="list-head">
+                <input
+                  type="checkbox"
+                  className="check"
+                  checked={visiblePicked === visible.length}
+                  ref={(el) => {
+                    if (el) el.indeterminate = visiblePicked > 0 && visiblePicked < visible.length;
+                  }}
+                  onChange={() => pickVisible(visiblePicked === visible.length ? "none" : "all")}
+                  aria-label={t("ui.scan.pickVisible")}
+                />
+                <span className="muted">{t(filtered ? "ui.scan.shownFiltered" : "ui.scan.shown", { n: visible.length, total: games.length })}</span>
+                {filtered && (
+                  <button
+                    className="btn ghost small"
+                    onClick={() => {
+                      setPlatform("all");
+                      setSource("all");
+                      setQuery("");
+                    }}
+                  >
+                    {t("ui.library.clearFilters")}
+                  </button>
+                )}
+              </div>
+            )}
             <ul className="game-list">
               {visible.map((g) => (
                 <FoundLine key={g.id} game={g} lang={i18n.language} picked={picked.has(g.id)} onToggle={() => toggle(g.id)} />
@@ -139,11 +201,14 @@ export default function ScanPage() {
 
       {scan && games.length > 0 && (
         <div className="actionbar">
-          <button className="btn ghost small" onClick={() => setPicked(new Set(games.filter((g) => g.state === "new").map((g) => g.id)))} disabled={counts.new === 0}>
-            {t("ui.scan.pickAllNew")}
+          <button className="btn ghost small" onClick={() => pickVisible("all")} disabled={visible.length === 0}>
+            {t("ui.scan.pickAll")}
           </button>
-          <button className="btn ghost small" onClick={() => setPicked(new Set())} disabled={picked.size === 0}>
-            {t("ui.scan.clearPick")}
+          <button className="btn ghost small" onClick={() => pickVisible("none")} disabled={visiblePicked === 0}>
+            {t("ui.scan.pickNone")}
+          </button>
+          <button className="btn ghost small" onClick={() => pickVisible("invert")} disabled={visible.length === 0}>
+            {t("ui.scan.pickInvert")}
           </button>
           <div className="grow" style={{ flex: 1 }} />
           <span className="count num">{t("ui.library.selected", { n: picked.size })}</span>

@@ -168,6 +168,9 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .empty h2 { font: 500 20px var(--font-sign); color: var(--ink); margin: 0; }
 .empty .actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 
+/* 列表上方的全选框与筛选结果 */
+.list-head { display: flex; align-items: center; gap: 10px; padding: 8px 20px 8px 26px; font-size: 13px; border-bottom: 1px solid var(--line); }
+
 /* 发现游戏页：存档位置与来源列 */
 .game.found { grid-template-columns: 28px 40px minmax(180px, 1fr) minmax(160px, 220px) 110px 100px 72px; }
 .path-short { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
@@ -217,21 +220,62 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 
 /* ---------- 游戏详情 / 历史 ---------- */
 
-.detail { flex: 1; display: grid; grid-template-columns: 200px minmax(360px, 1fr) minmax(300px, 0.9fr); min-height: 0; }
-.detail > section { overflow: auto; min-height: 0; }
-.refs { padding: 16px; border-right: 1px solid var(--line); background: var(--surface); }
-.refs h3, .files h3 { font: 600 13px var(--font-sign); color: var(--muted); margin: 16px 0 6px; }
-.refs h3:first-child, .files h3:first-child { margin-top: 0; }
-.refs ul { list-style: none; margin: 0; padding: 0; }
-.refs li button {
-  width: 100%; text-align: left; display: flex; align-items: center; gap: 8px; padding: 5px 8px;
-  border: 0; border-radius: var(--radius); background: none; cursor: pointer;
+.toolbar.slim { padding: 6px 12px; border-bottom: 0; }
+
+/* 顶部的营地牌：有横幅图时铺在后面并压暗，文字一律落在烟色渐变上 */
+.hero {
+  position: relative; display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: end;
+  padding: 18px 24px 16px; background: var(--surface); border-bottom: 1px solid var(--line); isolation: isolate; z-index: 3;
 }
-.refs li button:hover { background: var(--smoke); }
-.refs li button[aria-current="true"] { color: var(--ember); font-weight: 600; }
-.trail { padding: 8px 16px 32px; }
-.trail-search { position: sticky; top: 0; padding: 8px 0; background: var(--smoke); z-index: 1; }
-.trail-search .field { width: 100%; }
+.hero[style] { color: #f1f3f5; background: #151a20; border-bottom-color: transparent; }
+.hero[style]::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(90deg, rgba(17, 22, 28, 0.94) 0%, rgba(17, 22, 28, 0.78) 45%, rgba(17, 22, 28, 0.35) 100%), var(--hero) center 30% / cover no-repeat;
+}
+.hero-cover { width: 96px; aspect-ratio: 2 / 3; border-radius: 6px; overflow: hidden; background: var(--smoke); box-shadow: var(--shadow); display: grid; place-items: center; }
+.hero-cover img { width: 100%; height: 100%; object-fit: cover; }
+.hero-cover span { font: 600 36px var(--font-sign); color: var(--faint); }
+.hero-main { min-width: 0; }
+.hero-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.hero-title h1 { margin: 0; font: 700 28px/1.15 var(--font-sign); letter-spacing: 0.01em; }
+.hero-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0 12px; font-size: 13px; color: var(--muted); }
+.hero[style] .hero-meta { color: rgba(241, 243, 245, 0.75); }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.hero[style] .hero-actions .btn:not(.primary) { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.18); color: inherit; }
+.hero[style] .hero-actions .btn.ghost { background: none; border-color: transparent; }
+.hero[style] .hero-actions .btn:hover:not(:disabled) { border-color: rgba(255, 255, 255, 0.5); }
+.hero-note { margin: 8px 0 0; font-size: 12px; color: var(--ember); }
+.hero[style] .hero-note { color: var(--glow); }
+
+/* 下拉菜单 */
+.menu { position: relative; display: inline-flex; }
+.menu-list {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 15; min-width: 220px; padding: 4px;
+  background: var(--raised); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.menu-list.right { left: auto; right: 0; }
+.menu-list button { display: block; width: 100%; text-align: left; white-space: nowrap; padding: 7px 10px; border: 0; border-radius: 4px; background: none; cursor: pointer; color: inherit; }
+.menu-list button:hover:not(:disabled) { background: var(--smoke); }
+.menu-list button:disabled { color: var(--faint); cursor: default; }
+.menu-list button.danger { color: var(--danger); }
+.loc-item { display: grid; }
+.loc-item b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loc-item small { color: var(--muted); }
+
+.detail { flex: 1; display: grid; grid-template-columns: minmax(380px, 1.25fr) minmax(320px, 1fr); min-height: 0; }
+.detail > section { overflow: auto; min-height: 0; }
+.trail { padding: 0 16px 32px; }
+.trail-head { position: sticky; top: 0; z-index: 1; display: grid; gap: 8px; padding: 12px 0 10px; background: var(--smoke); }
+.trail-head .field { width: 100%; }
+.ref-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ref-chips:empty { display: none; }
+.ref-chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 10px; border-radius: 13px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; font-size: 13px;
+}
+.ref-chip.branch { color: var(--ink); }
+.ref-chip.current { border-color: var(--ember); color: var(--ember); font-weight: 600; }
+.ref-chip:hover { border-color: var(--muted); }
 
 /* 时间线：每个快照是路线上的一处篝火 */
 .trail-row { display: flex; align-items: stretch; min-height: 64px; cursor: pointer; border-radius: var(--radius); }
@@ -247,9 +291,60 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .tag.branch { border: 1px solid var(--line); background: none; }
 .tag.current { color: var(--ember); border-color: var(--ember); }
 .tag.auto { color: var(--faint); }
+.tag.new { color: var(--moss); border: 1px dashed var(--moss); background: none; }
+.trail-row.compact { min-height: 0; }
+.trail-row.compact .entry { padding: 5px 8px 5px 4px; }
+.trail-row.compact .entry .stats { display: none; }
+.trail-row.mark-out .entry { opacity: 0.45; }
+.trail-row.mark-pick { background: var(--ember-soft); }
 
-.files { padding: 16px; border-left: 1px solid var(--line); background: var(--surface); }
+/* ---------- 导出与导入 ---------- */
+
+.transfer { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 20px; min-height: 420px; }
+.transfer-options { display: grid; align-content: start; gap: 12px; }
+.transfer-options fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin: 0; display: grid; gap: 6px; }
+.transfer-options legend { padding: 0 4px; font: 600 13px var(--font-sign); color: var(--muted); }
+.transfer-options .field { width: 100%; }
+.radio { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.radio input { accent-color: var(--ember); }
+.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; justify-self: start; }
+.segmented button { padding: 6px 14px; border: 0; background: none; cursor: pointer; color: var(--muted); }
+.segmented button[aria-checked="true"] { background: var(--ink); color: var(--surface); }
+.segmented button:disabled { opacity: 0.5; cursor: default; }
+.picked { display: grid; gap: 2px; padding: 8px 10px; background: var(--ember-soft); border-radius: var(--radius); font-size: 13px; }
+.branch-picks, .range-picks { display: grid; gap: 4px; padding-left: 24px; font-size: 13px; }
+.summary { margin: 4px 0 0; font-size: 13px; color: var(--ink); }
+.transfer-graph { border: 1px solid var(--line); border-radius: var(--radius); overflow: auto; max-height: 56vh; padding: 4px 8px; background: var(--smoke); }
+.graph-hint { padding: 6px 4px; }
+.source-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.source-path { margin: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.import-summary p { margin: 0 0 8px; font-size: 13px; }
+.ref-plans, .folder-map { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.ref-plan { display: grid; grid-template-columns: 16px auto 1fr; gap: 6px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.ref-plan.create b, .ref-plan.fast-forward b { color: var(--moss); }
+.ref-plan.diverged b { color: var(--ember); }
+.ref-plan.same, .ref-plan.contained, .ref-plan.tag-conflict { color: var(--muted); }
+.folder-map li { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.folder-map li.bad { color: var(--danger); }
+.folder-map .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.files { padding: 18px 20px; border-left: 1px solid var(--line); background: var(--surface); }
 .files .actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 4px; }
+.snap-head h2 { margin: 0; font: 600 20px var(--font-sign); }
+.snap-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.snap-tags:empty { display: none; }
+.snap-comment { white-space: pre-wrap; margin: 12px 0; font-size: 15px; line-height: 1.55; cursor: text; }
+.snap-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; margin: 0; }
+.snap-stats div { padding: 8px 10px; background: var(--smoke); border-radius: var(--radius); }
+.snap-stats dt { font: 12px var(--font-ui); color: var(--muted); }
+.snap-stats dd { margin: 2px 0 0; font-size: 17px; }
+.snap-id { margin: 8px 0 0; font-size: 12px; }
+.snap-actions { display: flex; gap: 8px; align-items: center; margin: 16px 0 6px; }
+.tabs { display: flex; gap: 2px; margin: 18px 0 10px; border-bottom: 1px solid var(--line); }
+.tabs button { padding: 8px 12px; border: 0; background: none; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ember); font-weight: 600; }
+[role="tabpanel"] .file-list { margin-top: 8px; }
+.file-list li .path .dir { color: var(--faint); }
 .file-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
 .file-list li { display: grid; grid-template-columns: 18px 1fr auto; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
 .file-list li .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -307,5 +402,8 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
   .game .col-backup, .game .col-size { display: none; }
   .game.found { grid-template-columns: 28px 40px 1fr 110px 72px; }
   .detail { grid-template-columns: 1fr; }
-  .refs, .files { border: 0; }
+  .files { border: 0; }
+  .transfer { grid-template-columns: 1fr; }
+  .hero { grid-template-columns: 1fr; }
+  .hero-cover { display: none; }
 }

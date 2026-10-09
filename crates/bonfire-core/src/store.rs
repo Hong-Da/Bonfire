@@ -31,7 +31,10 @@ pub struct WriteStats {
 impl Repo {
     fn object_path(&self, kind: Kind, id: &ObjectId) -> PathBuf {
         let hex = id.to_hex();
-        self.objects_dir().join(kind.dir()).join(&hex[..2]).join(&hex[2..])
+        self.objects_dir()
+            .join(kind.dir())
+            .join(&hex[..2])
+            .join(&hex[2..])
     }
 
     pub fn has(&self, kind: Kind, id: &ObjectId) -> bool {
@@ -74,10 +77,16 @@ impl Repo {
         let path = self.object_path(kind, id);
         let bytes = match std::fs::read(&path) {
             Ok(b) => b,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(CoreError::NotFound { kind, id: *id }),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Err(CoreError::NotFound { kind, id: *id });
+            }
             Err(e) => return Err(CoreError::io(path, e)),
         };
-        zstd::stream::decode_all(&bytes[..]).map_err(|e| CoreError::Corrupt { kind, id: *id, reason: e.to_string() })
+        zstd::stream::decode_all(&bytes[..]).map_err(|e| CoreError::Corrupt {
+            kind,
+            id: *id,
+            reason: e.to_string(),
+        })
     }
 
     fn put_json<T: Serialize>(&self, kind: Kind, v: &T) -> Result<ObjectId> {
@@ -91,9 +100,58 @@ impl Repo {
     fn get_json<T: DeserializeOwned>(&self, kind: Kind, id: &ObjectId) -> Result<T> {
         let raw = self.get_raw(kind, id)?;
         if ObjectId::of(&raw) != *id {
-            return Err(CoreError::Corrupt { kind, id: *id, reason: "内容哈希不匹配".into() });
+            return Err(CoreError::Corrupt {
+                kind,
+                id: *id,
+                reason: "内容哈希不匹配".into(),
+            });
         }
-        serde_json::from_slice(&raw).map_err(|e| CoreError::Corrupt { kind, id: *id, reason: e.to_string() })
+        serde_json::from_slice(&raw).map_err(|e| CoreError::Corrupt {
+            kind,
+            id: *id,
+            reason: e.to_string(),
+        })
+    }
+
+    /// 对象文件中存放的字节（压缩后），用于导出历史包时原样复制。
+    pub fn read_object_file(&self, kind: Kind, id: &ObjectId) -> Result<Vec<u8>> {
+        let path = self.object_path(kind, id);
+        match std::fs::read(&path) {
+            Ok(b) => Ok(b),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                Err(CoreError::NotFound { kind, id: *id })
+            }
+            Err(e) => Err(CoreError::io(path, e)),
+        }
+    }
+
+    /// 导入别处导出的对象文件：解压并校验后原样写入，已存在时不写（返回 false）。
+    /// Chunk、Tree、Snapshot 校验 ID；Blob 只校验格式，整个文件的哈希在还原时（或导入后）校验。
+    pub fn import_object_file(&self, kind: Kind, id: &ObjectId, stored: &[u8]) -> Result<bool> {
+        let path = self.object_path(kind, id);
+        if path.is_file() {
+            return Ok(false);
+        }
+        let raw = zstd::stream::decode_all(stored).map_err(|e| CoreError::Corrupt {
+            kind,
+            id: *id,
+            reason: e.to_string(),
+        })?;
+        let ok = match kind {
+            Kind::Blob => serde_json::from_slice::<Blob>(&raw).is_ok(),
+            _ => ObjectId::of(&raw) == *id,
+        };
+        if !ok {
+            return Err(CoreError::Corrupt {
+                kind,
+                id: *id,
+                reason: "内容与 ID 不符".into(),
+            });
+        }
+        let dir = path.parent().expect("对象路径有上级目录");
+        std::fs::create_dir_all(dir).at(dir)?;
+        write_atomic(&self.tmp_dir(), &path, stored, true)?;
+        Ok(true)
     }
 
     /// 写入一个分块，返回 (ID, 是否新写入)。
@@ -106,14 +164,22 @@ impl Repo {
     pub fn get_chunk(&self, id: &ObjectId) -> Result<Vec<u8>> {
         let data = self.get_raw(Kind::Chunk, id)?;
         if ObjectId::of(&data) != *id {
-            return Err(CoreError::Corrupt { kind: Kind::Chunk, id: *id, reason: "内容哈希不匹配".into() });
+            return Err(CoreError::Corrupt {
+                kind: Kind::Chunk,
+                id: *id,
+                reason: "内容哈希不匹配".into(),
+            });
         }
         Ok(data)
     }
 
     pub fn get_blob(&self, id: &ObjectId) -> Result<Blob> {
         let raw = self.get_raw(Kind::Blob, id)?;
-        serde_json::from_slice(&raw).map_err(|e| CoreError::Corrupt { kind: Kind::Blob, id: *id, reason: e.to_string() })
+        serde_json::from_slice(&raw).map_err(|e| CoreError::Corrupt {
+            kind: Kind::Blob,
+            id: *id,
+            reason: e.to_string(),
+        })
     }
 
     pub fn put_tree(&self, tree: &Tree) -> Result<ObjectId> {
@@ -142,7 +208,13 @@ impl Repo {
         let cfg = self.config();
         let mut hasher = blake3::Hasher::new();
         let mut chunks = Vec::new();
-        let mut stats = WriteStats { blob: ObjectId::of(b""), size: 0, chunks: 0, new_chunks: 0, new_bytes: 0 };
+        let mut stats = WriteStats {
+            blob: ObjectId::of(b""),
+            size: 0,
+            chunks: 0,
+            new_chunks: 0,
+            new_bytes: 0,
+        };
 
         let mut add = |data: &[u8], stats: &mut WriteStats| -> Result<()> {
             hasher.update(data);
@@ -160,23 +232,35 @@ impl Repo {
         // 先读到阈值大小，判断是否需要分块。
         let threshold = cfg.chunk_threshold as usize;
         let mut head = Vec::with_capacity(threshold.min(1 << 20));
-        (&mut reader).take(threshold as u64).read_to_end(&mut head).at(source)?;
+        (&mut reader)
+            .take(threshold as u64)
+            .read_to_end(&mut head)
+            .at(source)?;
         if head.len() < threshold {
             if !head.is_empty() {
                 add(&head, &mut stats)?;
             }
         } else {
             let stream = std::io::Cursor::new(head).chain(reader);
-            let cdc = fastcdc::v2020::StreamCDC::new(stream, cfg.chunk_min as usize, cfg.chunk_avg as usize, cfg.chunk_max as usize);
+            let cdc = fastcdc::v2020::StreamCDC::new(
+                stream,
+                cfg.chunk_min as usize,
+                cfg.chunk_avg as usize,
+                cfg.chunk_max as usize,
+            );
             for chunk in cdc {
-                let chunk = chunk.map_err(|e| CoreError::io(source, std::io::Error::other(e.to_string())))?;
+                let chunk = chunk
+                    .map_err(|e| CoreError::io(source, std::io::Error::other(e.to_string())))?;
                 add(&chunk.data, &mut stats)?;
             }
         }
 
         stats.blob = ObjectId::from_hash(hasher.finalize());
         stats.chunks = chunks.len() as u64;
-        let blob = Blob { size: stats.size, chunks };
+        let blob = Blob {
+            size: stats.size,
+            chunks,
+        };
         if self.put_raw(Kind::Blob, &stats.blob, &canonical_json(&blob))? {
             fault::point(points::AFTER_BLOB);
         }
@@ -195,7 +279,11 @@ impl Repo {
             written += data.len() as u64;
         }
         if written != blob.size || ObjectId::from_hash(hasher.finalize()) != *id {
-            return Err(CoreError::Corrupt { kind: Kind::Blob, id: *id, reason: "还原后的内容与记录不符".into() });
+            return Err(CoreError::Corrupt {
+                kind: Kind::Blob,
+                id: *id,
+                reason: "还原后的内容与记录不符".into(),
+            });
         }
         Ok(written)
     }
@@ -211,12 +299,21 @@ fn compress(raw: &[u8], level: i32) -> std::io::Result<Vec<u8>> {
 /// 唯一的临时文件名：进程号 + 进程内序号。
 fn tmp_name() -> String {
     static SEQ: AtomicU64 = AtomicU64::new(0);
-    format!("{}-{}.tmp", std::process::id(), SEQ.fetch_add(1, Ordering::Relaxed))
+    format!(
+        "{}-{}.tmp",
+        std::process::id(),
+        SEQ.fetch_add(1, Ordering::Relaxed)
+    )
 }
 
 /// 原子写入：写临时文件 → 落盘 → 重命名到目标位置。
 /// `content_addressed` 为 true 时，目标已存在即视为成功（同一 ID 的内容必然相同）。
-pub(crate) fn write_atomic(tmp_dir: &Path, dest: &Path, bytes: &[u8], content_addressed: bool) -> Result<()> {
+pub(crate) fn write_atomic(
+    tmp_dir: &Path,
+    dest: &Path,
+    bytes: &[u8],
+    content_addressed: bool,
+) -> Result<()> {
     std::fs::create_dir_all(tmp_dir).at(tmp_dir)?;
     let tmp = tmp_dir.join(tmp_name());
     let result = (|| {
@@ -284,8 +381,20 @@ mod tests {
     fn missing_object_is_not_found() {
         let (_d, r) = repo();
         let id = ObjectId::of(b"nope");
-        assert!(matches!(r.get_chunk(&id), Err(CoreError::NotFound { kind: Kind::Chunk, .. })));
-        assert!(matches!(r.get_tree(&id), Err(CoreError::NotFound { kind: Kind::Tree, .. })));
+        assert!(matches!(
+            r.get_chunk(&id),
+            Err(CoreError::NotFound {
+                kind: Kind::Chunk,
+                ..
+            })
+        ));
+        assert!(matches!(
+            r.get_tree(&id),
+            Err(CoreError::NotFound {
+                kind: Kind::Tree,
+                ..
+            })
+        ));
     }
 
     #[test]
@@ -312,7 +421,11 @@ mod tests {
         let (_d, r) = repo();
         let mut data = pseudo_random(12 << 20, 42);
         let first = r.write_file(&data[..], Path::new("big")).unwrap();
-        assert!(first.chunks >= 4, "12 MiB 应分为多个块，实际 {}", first.chunks);
+        assert!(
+            first.chunks >= 4,
+            "12 MiB 应分为多个块，实际 {}",
+            first.chunks
+        );
         assert_eq!(first.blob, ObjectId::of(&data));
         assert_eq!(roundtrip(&r, &first.blob), data);
 
@@ -326,7 +439,11 @@ mod tests {
         }
         let changed = r.write_file(&data[..], Path::new("big")).unwrap();
         assert_ne!(changed.blob, first.blob);
-        assert!(changed.new_chunks <= 2, "只应新增 1–2 个块，实际 {}", changed.new_chunks);
+        assert!(
+            changed.new_chunks <= 2,
+            "只应新增 1–2 个块，实际 {}",
+            changed.new_chunks
+        );
         assert!(changed.new_bytes < (data.len() as u64) / 2);
         assert_eq!(roundtrip(&r, &changed.blob), data);
     }
@@ -343,7 +460,13 @@ mod tests {
     fn tree_and_snapshot_roundtrip() {
         let (_d, r) = repo();
         let blob = r.write_file(&b"x"[..], Path::new("x")).unwrap().blob;
-        let tree = Tree::new(vec![TreeEntry { path: "0/存档.sav".into(), blob, size: 1, mtime_ns: 123, tag: FileTag::Save }]);
+        let tree = Tree::new(vec![TreeEntry {
+            path: "0/存档.sav".into(),
+            blob,
+            size: 1,
+            mtime_ns: 123,
+            tag: FileTag::Save,
+        }]);
         let tid = r.put_tree(&tree).unwrap();
         assert_eq!(r.get_tree(&tid).unwrap(), tree);
         assert_eq!(r.put_tree(&tree).unwrap(), tid, "同样的清单得到同样的 ID");
@@ -356,7 +479,11 @@ mod tests {
             trigger: Trigger::Manual,
             host: "PC".into(),
             comment: "第一次".into(),
-            stats: SnapshotStats { files: 1, bytes: 1, changed: 1 },
+            stats: SnapshotStats {
+                files: 1,
+                bytes: 1,
+                changed: 1,
+            },
             playtime_min: Some(42 * 60),
         };
         let sid = r.put_snapshot(&snap).unwrap();
@@ -399,13 +526,20 @@ mod tests {
         let s = r.write_file(&b"hello"[..], Path::new("h")).unwrap();
         std::fs::remove_file(r.object_path(Kind::Chunk, &s.blob)).unwrap();
         let mut out = Vec::new();
-        assert!(matches!(r.read_blob_to(&s.blob, &mut out, Path::new("h")), Err(CoreError::NotFound { kind: Kind::Chunk, .. })));
+        assert!(matches!(
+            r.read_blob_to(&s.blob, &mut out, Path::new("h")),
+            Err(CoreError::NotFound {
+                kind: Kind::Chunk,
+                ..
+            })
+        ));
     }
 
     #[test]
     fn no_tmp_files_left_behind() {
         let (_d, r) = repo();
-        r.write_file(&pseudo_random(3 << 20, 3)[..], Path::new("f")).unwrap();
+        r.write_file(&pseudo_random(3 << 20, 3)[..], Path::new("f"))
+            .unwrap();
         assert_eq!(std::fs::read_dir(r.tmp_dir()).unwrap().count(), 0);
     }
 
@@ -416,11 +550,23 @@ mod tests {
     /// 子进程入口：仅在父测试设置了环境变量时执行写入。
     #[test]
     fn crash_child() {
-        let Some(dir) = std::env::var_os(CHILD_REPO) else { return };
+        let Some(dir) = std::env::var_os(CHILD_REPO) else {
+            return;
+        };
         let r = Repo::open(Path::new(&dir)).unwrap();
-        r.write_file(&pseudo_random(8 << 20, 11)[..], Path::new("big")).unwrap();
-        let blob = r.write_file(&b"small"[..], Path::new("small")).unwrap().blob;
-        let tree = Tree::new(vec![TreeEntry { path: "0/small".into(), blob, size: 5, mtime_ns: 0, tag: FileTag::Save }]);
+        r.write_file(&pseudo_random(8 << 20, 11)[..], Path::new("big"))
+            .unwrap();
+        let blob = r
+            .write_file(&b"small"[..], Path::new("small"))
+            .unwrap()
+            .blob;
+        let tree = Tree::new(vec![TreeEntry {
+            path: "0/small".into(),
+            blob,
+            size: 5,
+            mtime_ns: 0,
+            tag: FileTag::Save,
+        }]);
         r.put_tree(&tree).unwrap();
     }
 
@@ -428,12 +574,24 @@ mod tests {
     fn assert_all_objects_valid(r: &Repo) -> usize {
         let mut n = 0;
         for kind in Kind::ALL {
-            for sub in std::fs::read_dir(r.objects_dir().join(kind.dir())).unwrap().flatten() {
+            for sub in std::fs::read_dir(r.objects_dir().join(kind.dir()))
+                .unwrap()
+                .flatten()
+            {
                 for f in std::fs::read_dir(sub.path()).unwrap().flatten() {
-                    let id: ObjectId = format!("{}{}", sub.file_name().to_string_lossy(), f.file_name().to_string_lossy()).parse().unwrap();
+                    let id: ObjectId = format!(
+                        "{}{}",
+                        sub.file_name().to_string_lossy(),
+                        f.file_name().to_string_lossy()
+                    )
+                    .parse()
+                    .unwrap();
                     match kind {
                         Kind::Chunk => drop(r.get_chunk(&id).unwrap()),
-                        Kind::Blob => drop(r.read_blob_to(&id, std::io::sink(), Path::new("x")).unwrap()),
+                        Kind::Blob => drop(
+                            r.read_blob_to(&id, std::io::sink(), Path::new("x"))
+                                .unwrap(),
+                        ),
                         Kind::Tree => drop(r.get_tree(&id).unwrap()),
                         Kind::Snapshot => drop(r.get_snapshot(&id).unwrap()),
                     }
@@ -447,7 +605,12 @@ mod tests {
     fn crash_at(point: &str) -> (tempfile::TempDir, Repo) {
         let (dir, r) = repo();
         let status = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "store::tests::crash_child", "--nocapture", "--test-threads=1"])
+            .args([
+                "--exact",
+                "store::tests::crash_child",
+                "--nocapture",
+                "--test-threads=1",
+            ])
             .env(CHILD_REPO, dir.path())
             .env(fault::ENV, point)
             .stdout(std::process::Stdio::null())
@@ -463,7 +626,8 @@ mod tests {
         let (_d, r) = crash_at("before-rename:3");
         assert_eq!(assert_all_objects_valid(&r), 2, "只有前两个分块完整写入");
         // 临时文件可能残留，但不会出现在对象目录中；下次写入同一对象仍然成功。
-        r.write_file(&pseudo_random(8 << 20, 11)[..], Path::new("big")).unwrap();
+        r.write_file(&pseudo_random(8 << 20, 11)[..], Path::new("big"))
+            .unwrap();
         assert_all_objects_valid(&r);
     }
 
@@ -472,7 +636,12 @@ mod tests {
         let (_d, r) = crash_at("after-chunk:2");
         let n = assert_all_objects_valid(&r);
         assert_eq!(n, 2);
-        assert!(std::fs::read_dir(r.objects_dir().join("blobs")).unwrap().next().is_none());
+        assert!(
+            std::fs::read_dir(r.objects_dir().join("blobs"))
+                .unwrap()
+                .next()
+                .is_none()
+        );
     }
 
     #[test]

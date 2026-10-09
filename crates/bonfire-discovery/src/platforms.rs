@@ -90,7 +90,17 @@ impl SteamAdapter {
 
     fn user_dirs(&self) -> Vec<PathBuf> {
         std::fs::read_dir(self.root.join("userdata"))
-            .map(|rd| rd.flatten().map(|e| e.path()).filter(|p| p.is_dir() && p.file_name().is_some_and(|n| n.to_string_lossy().chars().all(|c| c.is_ascii_digit()))).collect())
+            .map(|rd| {
+                rd.flatten()
+                    .map(|e| e.path())
+                    .filter(|p| {
+                        p.is_dir()
+                            && p.file_name().is_some_and(|n| {
+                                n.to_string_lossy().chars().all(|c| c.is_ascii_digit())
+                            })
+                    })
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -99,9 +109,15 @@ impl SteamAdapter {
         let mut playtime = None;
         let mut last = None;
         for u in self.user_dirs() {
-            let Some(text) = read_text(&u.join("config/localconfig.vdf")) else { continue };
+            let Some(text) = read_text(&u.join("config/localconfig.vdf")) else {
+                continue;
+            };
             let Ok(v) = vdf::parse(&text) else { continue };
-            let apps = v.path(&["UserLocalConfigStore", "Software", "Valve", "Steam", "apps"]).or_else(|| v.path(&["UserLocalConfigStore", "Software", "Valve", "Steam", "Apps"]));
+            let apps = v
+                .path(&["UserLocalConfigStore", "Software", "Valve", "Steam", "apps"])
+                .or_else(|| {
+                    v.path(&["UserLocalConfigStore", "Software", "Valve", "Steam", "Apps"])
+                });
             if let Some(app) = apps.and_then(|a| a.obj(app_id)) {
                 if let Some(p) = app.str("Playtime").and_then(|s| s.parse::<u64>().ok()) {
                     playtime = Some(playtime.map_or(p, |x: u64| x.max(p)));
@@ -115,14 +131,22 @@ impl SteamAdapter {
     }
 
     fn cloud_enabled(&self, app_id: &str) -> bool {
-        self.user_dirs().iter().any(|u| u.join(app_id).join("remotecache.vdf").is_file())
+        self.user_dirs()
+            .iter()
+            .any(|u| u.join(app_id).join("remotecache.vdf").is_file())
     }
 
     /// 本地 librarycache 中的图片：旧版为 `<appid>_library_600x900.jpg` 等，新版为 `<appid>/<哈希>.jpg`。
     pub fn cached_images(&self, app_id: &str) -> Vec<PathBuf> {
         let cache = self.root.join("appcache/librarycache");
         let mut out = Vec::new();
-        for suffix in ["_library_600x900.jpg", "_header.jpg", "_library_hero.jpg", "_icon.jpg", "_logo.png"] {
+        for suffix in [
+            "_library_600x900.jpg",
+            "_header.jpg",
+            "_library_hero.jpg",
+            "_icon.jpg",
+            "_logo.png",
+        ] {
             let p = cache.join(format!("{app_id}{suffix}"));
             if p.is_file() {
                 out.push(p);
@@ -134,7 +158,10 @@ impl SteamAdapter {
                 let p = e.path();
                 if p.is_dir() {
                     stack.push(p);
-                } else if p.extension().is_some_and(|x| x.eq_ignore_ascii_case("jpg") || x.eq_ignore_ascii_case("png")) {
+                } else if p
+                    .extension()
+                    .is_some_and(|x| x.eq_ignore_ascii_case("jpg") || x.eq_ignore_ascii_case("png"))
+                {
                     out.push(p);
                 }
             }
@@ -156,19 +183,27 @@ impl PlatformAdapter for SteamAdapter {
         let mut games = Vec::new();
         for lib in self.libraries() {
             let apps = lib.join("steamapps");
-            let Ok(rd) = std::fs::read_dir(&apps) else { continue };
+            let Ok(rd) = std::fs::read_dir(&apps) else {
+                continue;
+            };
             for e in rd.flatten() {
                 let name = e.file_name().to_string_lossy().into_owned();
                 if !(name.starts_with("appmanifest_") && name.ends_with(".acf")) {
                     continue;
                 }
-                let Some(text) = read_text(&e.path()) else { continue };
+                let Some(text) = read_text(&e.path()) else {
+                    continue;
+                };
                 let Ok(v) = vdf::parse(&text) else {
                     tracing::warn!(file = %e.path().display(), "无法解析 appmanifest");
                     continue;
                 };
-                let Some(state) = v.obj("AppState") else { continue };
-                let (Some(app_id), Some(title)) = (state.str("appid"), state.str("name")) else { continue };
+                let Some(state) = v.obj("AppState") else {
+                    continue;
+                };
+                let (Some(app_id), Some(title)) = (state.str("appid"), state.str("name")) else {
+                    continue;
+                };
                 // Steamworks 公共组件等非游戏条目。
                 if app_id == "228980" {
                     continue;
@@ -176,7 +211,9 @@ impl PlatformAdapter for SteamAdapter {
                 let folder = state.str("installdir").map(String::from);
                 let common = apps.join("common");
                 let (playtime, last_local) = self.play_stats(app_id);
-                let last_played = last_local.or_else(|| state.str("LastPlayed").and_then(|s| s.parse().ok())).filter(|&t: &i64| t > 0);
+                let last_played = last_local
+                    .or_else(|| state.str("LastPlayed").and_then(|s| s.parse().ok()))
+                    .filter(|&t: &i64| t > 0);
                 games.push(InstalledGame {
                     platform: "steam".into(),
                     app_id: app_id.to_string(),
@@ -196,12 +233,18 @@ impl PlatformAdapter for SteamAdapter {
     }
 
     fn list_users(&self) -> Vec<String> {
-        self.user_dirs().iter().filter_map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned())).collect()
+        self.user_dirs()
+            .iter()
+            .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+            .collect()
     }
 }
 
 fn same_path(a: &Path, b: &Path) -> bool {
-    a.to_string_lossy().replace('\\', "/").trim_end_matches('/').eq_ignore_ascii_case(b.to_string_lossy().replace('\\', "/").trim_end_matches('/'))
+    a.to_string_lossy()
+        .replace('\\', "/")
+        .trim_end_matches('/')
+        .eq_ignore_ascii_case(b.to_string_lossy().replace('\\', "/").trim_end_matches('/'))
 }
 
 // ---------- Epic ----------
@@ -230,13 +273,30 @@ impl PlatformAdapter for EpicAdapter {
 
     fn list_games(&self) -> Vec<InstalledGame> {
         let mut games = Vec::new();
-        for e in std::fs::read_dir(&self.manifests_dir).into_iter().flatten().flatten() {
-            if !e.path().extension().is_some_and(|x| x.eq_ignore_ascii_case("item")) {
+        for e in std::fs::read_dir(&self.manifests_dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            if !e
+                .path()
+                .extension()
+                .is_some_and(|x| x.eq_ignore_ascii_case("item"))
+            {
                 continue;
             }
-            let Some(text) = read_text(&e.path()) else { continue };
-            let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else { continue };
-            let s = |k: &str| v.get(k).and_then(|x| x.as_str()).filter(|x| !x.is_empty()).map(String::from);
+            let Some(text) = read_text(&e.path()) else {
+                continue;
+            };
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else {
+                continue;
+            };
+            let s = |k: &str| {
+                v.get(k)
+                    .and_then(|x| x.as_str())
+                    .filter(|x| !x.is_empty())
+                    .map(String::from)
+            };
             if v.get("bIsIncompleteInstall").and_then(|x| x.as_bool()) == Some(true) {
                 continue;
             }
@@ -246,14 +306,23 @@ impl PlatformAdapter for EpicAdapter {
             {
                 continue;
             }
-            let (Some(id), Some(name)) = (s("CatalogItemId").or_else(|| s("AppName")), s("DisplayName")) else { continue };
+            let (Some(id), Some(name)) = (
+                s("CatalogItemId").or_else(|| s("AppName")),
+                s("DisplayName"),
+            ) else {
+                continue;
+            };
             let install = s("InstallLocation").map(PathBuf::from);
             games.push(InstalledGame {
                 platform: "epic".into(),
                 app_id: id,
                 name,
-                library_root: install.as_ref().and_then(|p| p.parent().map(Path::to_path_buf)),
-                install_folder: install.as_ref().and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned())),
+                library_root: install
+                    .as_ref()
+                    .and_then(|p| p.parent().map(Path::to_path_buf)),
+                install_folder: install
+                    .as_ref()
+                    .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned())),
                 install_dir: install,
                 last_played: None,
                 playtime_min: None,
@@ -279,7 +348,10 @@ impl GogAdapter {
         let mut entries = Vec::new();
         for id in crate::registry::subkeys(base) {
             let key = format!("{base}\\{id}");
-            if let (Some(name), Some(path)) = (crate::registry::read_string(&key, "gameName"), crate::registry::read_string(&key, "path")) {
+            if let (Some(name), Some(path)) = (
+                crate::registry::read_string(&key, "gameName"),
+                crate::registry::read_string(&key, "path"),
+            ) {
                 let gid = crate::registry::read_string(&key, "gameID").unwrap_or(id);
                 entries.push((gid, name, PathBuf::from(path)));
             }
@@ -362,18 +434,36 @@ pub(crate) mod tests {
                 lib2.display().to_string().replace('\\', "\\\\")
             ),
         );
-        write(&steam.join("steamapps/appmanifest_367520.acf"), "\"AppState\" { \"appid\" \"367520\" \"name\" \"Hollow Knight\" \"installdir\" \"Hollow Knight\" \"LastPlayed\" \"1700000000\" }");
-        write(&steam.join("steamapps/appmanifest_228980.acf"), "\"AppState\" { \"appid\" \"228980\" \"name\" \"Steamworks Common Redistributables\" \"installdir\" \"Steamworks Shared\" }");
+        write(
+            &steam.join("steamapps/appmanifest_367520.acf"),
+            "\"AppState\" { \"appid\" \"367520\" \"name\" \"Hollow Knight\" \"installdir\" \"Hollow Knight\" \"LastPlayed\" \"1700000000\" }",
+        );
+        write(
+            &steam.join("steamapps/appmanifest_228980.acf"),
+            "\"AppState\" { \"appid\" \"228980\" \"name\" \"Steamworks Common Redistributables\" \"installdir\" \"Steamworks Shared\" }",
+        );
         std::fs::create_dir_all(steam.join("steamapps/common/Hollow Knight")).unwrap();
-        write(&lib2.join("steamapps/appmanifest_1245620.acf"), "\"AppState\" { \"appid\" \"1245620\" \"name\" \"ELDEN RING\" \"installdir\" \"ELDEN RING\" }");
+        write(
+            &lib2.join("steamapps/appmanifest_1245620.acf"),
+            "\"AppState\" { \"appid\" \"1245620\" \"name\" \"ELDEN RING\" \"installdir\" \"ELDEN RING\" }",
+        );
         std::fs::create_dir_all(lib2.join("steamapps/common/ELDEN RING")).unwrap();
-        write(&steam.join("steamapps/appmanifest_broken.acf"), "\"AppState\" { ");
+        write(
+            &steam.join("steamapps/appmanifest_broken.acf"),
+            "\"AppState\" { ",
+        );
         write(
             &steam.join("userdata/12345678/config/localconfig.vdf"),
             "\"UserLocalConfigStore\" { \"Software\" { \"Valve\" { \"Steam\" { \"apps\" { \"367520\" { \"LastPlayed\" \"1710000000\" \"Playtime\" \"2520\" } } } } } }",
         );
-        write(&steam.join("userdata/12345678/367520/remotecache.vdf"), "\"367520\" { }");
-        write(&steam.join("appcache/librarycache/367520/abc/cover.jpg"), "jpg");
+        write(
+            &steam.join("userdata/12345678/367520/remotecache.vdf"),
+            "\"367520\" { }",
+        );
+        write(
+            &steam.join("appcache/librarycache/367520/abc/cover.jpg"),
+            "jpg",
+        );
         SteamAdapter { root: steam }
     }
 
@@ -384,14 +474,33 @@ pub(crate) mod tests {
         assert_eq!(s.libraries().len(), 2);
         let games = s.list_games();
         let names: Vec<_> = games.iter().map(|g| g.name.as_str()).collect();
-        assert_eq!(names, ["ELDEN RING", "Hollow Knight"], "跳过公共组件与损坏的清单");
+        assert_eq!(
+            names,
+            ["ELDEN RING", "Hollow Knight"],
+            "跳过公共组件与损坏的清单"
+        );
         let hk = &games[1];
         assert_eq!(hk.game_id(), "steam-367520");
         assert_eq!(hk.playtime_min, Some(2520));
-        assert_eq!(hk.last_played, Some(1710000000), "localconfig 优先于 appmanifest");
+        assert_eq!(
+            hk.last_played,
+            Some(1710000000),
+            "localconfig 优先于 appmanifest"
+        );
         assert!(hk.cloud_save);
-        assert!(hk.install_dir.as_ref().unwrap().ends_with("steamapps/common/Hollow Knight"));
-        assert!(games[0].library_root.as_ref().unwrap().starts_with(d.path().join("SteamLibrary")));
+        assert!(
+            hk.install_dir
+                .as_ref()
+                .unwrap()
+                .ends_with("steamapps/common/Hollow Knight")
+        );
+        assert!(
+            games[0]
+                .library_root
+                .as_ref()
+                .unwrap()
+                .starts_with(d.path().join("SteamLibrary"))
+        );
         assert!(!games[0].cloud_save);
         assert_eq!(s.list_users(), ["12345678"]);
         assert_eq!(s.cached_images("367520").len(), 1);
@@ -402,12 +511,29 @@ pub(crate) mod tests {
         let d = tempfile::tempdir().unwrap();
         let install = d.path().join("Epic Games/Celeste");
         std::fs::create_dir_all(&install).unwrap();
-        let item = |name: &str, body: serde_json::Value| write(&d.path().join(format!("Manifests/{name}.item")), &body.to_string());
-        item("a", serde_json::json!({"DisplayName": "Celeste", "InstallLocation": install, "AppName": "Salt", "MainGameAppName": "Salt", "CatalogItemId": "cat123"}));
-        item("b", serde_json::json!({"DisplayName": "Celeste DLC", "AppName": "SaltDLC", "MainGameAppName": "Salt", "CatalogItemId": "dlc"}));
-        item("c", serde_json::json!({"DisplayName": "Half", "AppName": "H", "MainGameAppName": "H", "CatalogItemId": "h", "bIsIncompleteInstall": true}));
+        let item = |name: &str, body: serde_json::Value| {
+            write(
+                &d.path().join(format!("Manifests/{name}.item")),
+                &body.to_string(),
+            )
+        };
+        item(
+            "a",
+            serde_json::json!({"DisplayName": "Celeste", "InstallLocation": install, "AppName": "Salt", "MainGameAppName": "Salt", "CatalogItemId": "cat123"}),
+        );
+        item(
+            "b",
+            serde_json::json!({"DisplayName": "Celeste DLC", "AppName": "SaltDLC", "MainGameAppName": "Salt", "CatalogItemId": "dlc"}),
+        );
+        item(
+            "c",
+            serde_json::json!({"DisplayName": "Half", "AppName": "H", "MainGameAppName": "H", "CatalogItemId": "h", "bIsIncompleteInstall": true}),
+        );
         write(&d.path().join("Manifests/bad.item"), "{");
-        let games = EpicAdapter { manifests_dir: d.path().join("Manifests") }.list_games();
+        let games = EpicAdapter {
+            manifests_dir: d.path().join("Manifests"),
+        }
+        .list_games();
         assert_eq!(games.len(), 1);
         assert_eq!(games[0].game_id(), "epic-cat123");
         assert_eq!(games[0].install_folder.as_deref(), Some("Celeste"));
@@ -419,8 +545,16 @@ pub(crate) mod tests {
         std::fs::create_dir_all(d.path().join("GOG Games/Witcher 3")).unwrap();
         let a = GogAdapter {
             entries: vec![
-                ("1207664663".into(), "The Witcher 3".into(), d.path().join("GOG Games/Witcher 3")),
-                ("1".into(), "Uninstalled".into(), d.path().join("GOG Games/gone")),
+                (
+                    "1207664663".into(),
+                    "The Witcher 3".into(),
+                    d.path().join("GOG Games/Witcher 3"),
+                ),
+                (
+                    "1".into(),
+                    "Uninstalled".into(),
+                    d.path().join("GOG Games/gone"),
+                ),
             ],
         };
         let games = a.list_games();

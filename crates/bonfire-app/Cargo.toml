@@ -20,6 +20,8 @@ jiff.workspace = true
 globset.workspace = true
 sysinfo.workspace = true
 image.workspace = true
+zip.workspace = true
+zstd.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

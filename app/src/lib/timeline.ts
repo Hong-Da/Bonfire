@@ -65,3 +65,27 @@ export function layout(nodes: GraphInput[]): GraphLayout {
   const columns = rows.reduce((m, r) => Math.max(m, r.col + 1), 1);
   return { rows, edges, columns };
 }
+
+/** 从若干快照出发能到达的全部快照（含自身），只在 `nodes` 内查找。 */
+export function ancestors(nodes: GraphInput[], starts: string[]): Set<string> {
+  const parents = new Map(nodes.map((n) => [n.id, n.parents]));
+  const seen = new Set<string>();
+  const stack = starts.filter((s) => parents.has(s));
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    for (const p of parents.get(id) ?? []) if (parents.has(p)) stack.push(p);
+  }
+  return seen;
+}
+
+/** 一段历史：`to` 之前（含）的快照，去掉 `from` 的父快照之前的部分；`from` 为空时到最早。与后端 BundleScope::Range 一致。 */
+export function rangeOf(nodes: GraphInput[], from: string | null, to: string): Set<string> {
+  const set = ancestors(nodes, [to]);
+  if (from) {
+    const parents = nodes.find((n) => n.id === from)?.parents ?? [];
+    for (const id of ancestors(nodes, parents)) set.delete(id);
+  }
+  return set;
+}

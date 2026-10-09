@@ -17,7 +17,10 @@ fn run_case(case: &CliCase) -> Result<(), String> {
         let args: Vec<&str> = pre.iter().map(String::as_str).collect();
         let out = sb.run(&args);
         if !out.status.success() {
-            return Err(format!("前置命令 {pre:?} 失败：{}", String::from_utf8_lossy(&out.stderr)));
+            return Err(format!(
+                "前置命令 {pre:?} 失败：{}",
+                String::from_utf8_lossy(&out.stderr)
+            ));
         }
     }
     for (rel, content) in &case.edit {
@@ -25,7 +28,11 @@ fn run_case(case: &CliCase) -> Result<(), String> {
     }
     for p in &case.remove {
         let p = std::path::PathBuf::from(sb.expand(p));
-        let _ = if p.is_dir() { std::fs::remove_dir_all(&p) } else { std::fs::remove_file(&p) };
+        let _ = if p.is_dir() {
+            std::fs::remove_dir_all(&p)
+        } else {
+            std::fs::remove_file(&p)
+        };
     }
     let args: Vec<&str> = case.args.iter().map(String::as_str).collect();
     let out = sb.run(&args);
@@ -58,7 +65,9 @@ fn run_case(case: &CliCase) -> Result<(), String> {
     common::check_json("stdout", &stdout, &case.expect_stdout_json).map_err(|e| e + &ctx())?;
     common::check_json("stderr", &stderr, &case.expect_stderr_json).map_err(|e| e + &ctx())?;
     for (rel, want) in &case.expect_files {
-        let got = sb.read(rel).map(|b| String::from_utf8_lossy(&b).into_owned());
+        let got = sb
+            .read(rel)
+            .map(|b| String::from_utf8_lossy(&b).into_owned());
         if got.as_deref() != Some(want.as_str()) {
             return Err(format!("文件 {rel} 应为 {want:?}，实际为 {got:?}{}", ctx()));
         }
@@ -70,8 +79,16 @@ fn run_case(case: &CliCase) -> Result<(), String> {
 fn cli_cases() {
     let cases = load_cli_cases();
     assert!(!cases.is_empty());
-    let failures: Vec<String> = cases.iter().filter_map(|c| run_case(c).err().map(|e| format!("[{}] {e}", c.id))).collect();
-    assert!(failures.is_empty(), "{} 条 CLI 用例失败：\n{}", failures.len(), failures.join("\n\n"));
+    let failures: Vec<String> = cases
+        .iter()
+        .filter_map(|c| run_case(c).err().map(|e| format!("[{}] {e}", c.id)))
+        .collect();
+    assert!(
+        failures.is_empty(),
+        "{} 条 CLI 用例失败：\n{}",
+        failures.len(),
+        failures.join("\n\n")
+    );
 }
 
 #[test]
@@ -89,8 +106,33 @@ fn case_ids_are_unique() {
 fn every_command_has_ok_and_error_cases() {
     let cases = load_cli_cases();
     let cmds = [
-        "game add", "game list", "game rm", "game include", "game ignore", "game confirm", "scan", "status", "info", "rules info", "backup", "log", "diff", "restore", "undo-restore", "comment", "branch", "tag",
-        "profile save", "profile list", "profile rm", "fsck", "reindex",
+        "game add",
+        "game list",
+        "game rm",
+        "game include",
+        "game ignore",
+        "game confirm",
+        "scan",
+        "status",
+        "info",
+        "rules info",
+        "backup",
+        "log",
+        "diff",
+        "restore",
+        "undo-restore",
+        "comment",
+        "branch",
+        "tag",
+        "profile save",
+        "profile list",
+        "profile rm",
+        "fsck",
+        "reindex",
+        "export",
+        "import",
+        "bundle export",
+        "bundle import",
     ];
     let mut missing = Vec::new();
     for cmd in cmds {
@@ -136,7 +178,12 @@ fn repo_locked_by_other_process_exits_6() {
     let repo = bonfire_app::core::Repo::open(&sb.repo()).unwrap();
     let _lock = repo.lock().unwrap();
     let out = sb.run(&["backup", "G", "--json"]);
-    assert_eq!(out.status.code(), Some(6), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(
+        out.status.code(),
+        Some(6),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let err: serde_json::Value = serde_json::from_slice(&out.stderr).unwrap();
     assert_eq!(err["error"]["kind"], "locked");
 }
@@ -145,7 +192,14 @@ fn repo_locked_by_other_process_exits_6() {
 fn help_switches_language() {
     let sb = Sandbox::new();
     let zh = String::from_utf8(sb.command().args(["--help"]).output().unwrap().stdout).unwrap();
-    let en = String::from_utf8(sb.command().args(["--lang", "en", "backup", "--help"]).output().unwrap().stdout).unwrap();
+    let en = String::from_utf8(
+        sb.command()
+            .args(["--lang", "en", "backup", "--help"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
     assert!(zh.contains("备份游戏，生成快照"), "{zh}");
     assert!(en.contains("Back up games as snapshots"), "{en}");
     assert!(en.contains("Snapshot comment"), "{en}");

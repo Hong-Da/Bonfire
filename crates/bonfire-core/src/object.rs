@@ -100,6 +100,8 @@ pub enum Trigger {
     AutoExit,
     AutoTimer,
     PreRestore,
+    /// 从别人分享或其他电脑导出的存档文件导入。
+    Import,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -136,7 +138,13 @@ mod tests {
     use super::*;
 
     fn entry(path: &str) -> TreeEntry {
-        TreeEntry { path: path.into(), blob: ObjectId::of(path.as_bytes()), size: 1, mtime_ns: 0, tag: FileTag::Save }
+        TreeEntry {
+            path: path.into(),
+            blob: ObjectId::of(path.as_bytes()),
+            size: 1,
+            mtime_ns: 0,
+            tag: FileTag::Save,
+        }
     }
 
     #[test]
@@ -156,7 +164,11 @@ mod tests {
             trigger: Trigger::PreRestore,
             host: "DESKTOP-01".into(),
             comment: "打完大树守卫".into(),
-            stats: SnapshotStats { files: 12, bytes: 48213504, changed: 2 },
+            stats: SnapshotStats {
+                files: 12,
+                bytes: 48213504,
+                changed: 2,
+            },
             playtime_min: None,
         };
         let v: serde_json::Value = serde_json::from_slice(&canonical_json(&s)).unwrap();

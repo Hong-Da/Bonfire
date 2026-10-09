@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
 import { Cover, Icon, StatusBadge, displayName } from "../components/ui";
 import { bytes, relative } from "../lib/format";
+import { useDelayed } from "../lib/hooks";
 import { visibleRows, useStore, type StateFilter } from "../store";
 import type { GameRow, Profile } from "../types";
 import BackupDialog from "./BackupDialog";
@@ -47,16 +48,17 @@ export default function Library() {
   };
 
   const phase = s.phase;
+  const busy = useDelayed(s.loading);
   const pct = phase.total > 0 ? Math.round((phase.done / phase.total) * 100) : 0;
 
   return (
     <>
       <div className="toolbar">
         <h1>{t("ui.nav.library")}</h1>
-        <button className="btn" onClick={() => s.loadLibrary(false)} disabled={s.loading}>
-          <Icon name="scan" /> {s.loading ? t(`ui.library.phase.${phase.phase}`, { done: phase.done, total: phase.total }) : t("ui.library.check")}
+        <button className="btn" onClick={() => s.loadLibrary(false)} disabled={busy}>
+          <Icon name="scan" /> {busy ? t(`ui.library.phase.${phase.phase}`, { done: phase.done, total: phase.total }) : t("ui.library.check")}
         </button>
-        {s.loading && (
+        {busy && (
           <button className="btn ghost" onClick={() => api.cancelTask()}>
             {t("ui.cancel")}
           </button>
@@ -86,7 +88,7 @@ export default function Library() {
         </button>
       </div>
       <div className="progress-line" aria-hidden>
-        <span style={{ width: s.loading ? `${Math.max(pct, 8)}%` : "0%" }} />
+        <span style={{ width: busy ? `${Math.max(pct, 8)}%` : "0%" }} />
       </div>
 
       <div className="library">
@@ -134,6 +136,9 @@ export default function Library() {
           <button className="btn ghost small" onClick={() => s.selectAll(rows.map((r) => r.id))}>
             {t("ui.library.selectAll")}
           </button>
+          <button className="btn ghost small" onClick={() => s.clearSelection()} disabled={selected.length === 0}>
+            {t("ui.library.selectNone")}
+          </button>
           <button className="btn ghost small" onClick={() => s.invert(rows.map((r) => r.id))}>
             {t("ui.library.invert")}
           </button>
@@ -173,7 +178,7 @@ export default function Library() {
           )}
           <div className="grow" style={{ flex: 1 }} />
           <span className="count num">{t("ui.library.selected", { n: selected.length })}</span>
-          <button className="btn primary" disabled={selected.length === 0 || s.loading} onClick={() => setBackupOpen(true)}>
+          <button className="btn primary" disabled={selected.length === 0 || busy} onClick={() => setBackupOpen(true)}>
             <Icon name="backup" /> {t("ui.library.backupSelected")}
           </button>
         </div>

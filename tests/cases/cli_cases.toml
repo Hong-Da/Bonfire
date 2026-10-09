@@ -291,6 +291,106 @@ args = ["diff", "空洞骑士", "nope"]
 expect_exit = 4
 stderr_contains = ["找不到引用「nope」"]
 
+# ---------- export / import / bundle ----------
+
+[[case]]
+id = "export-snapshot-zip"
+title = { zh-CN = "把某个快照导出为 zip", en = "Export a snapshot as zip" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+edit = { "slot1.sav" = "level 2" }
+args = ["export", "空洞骑士", "HEAD", "--zip", "{tmp}/share.zip"]
+expect_exit = 0
+stdout_contains = ["已导出快照", "share.zip"]
+expect_files = { "slot1.sav" = "level 2" }
+in_docs = true
+
+[[case]]
+id = "export-current-folder"
+title = { zh-CN = "把当前存档导出到文件夹", en = "Export current saves to a folder" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["export", "空洞骑士", "--folder", "{tmp}", "--json"]
+expect_exit = 0
+expect_stdout_json = { "files" = 3 }
+
+[[case]]
+id = "export-into-save-dir"
+title = { zh-CN = "不能导出到存档目录", en = "Refuse exporting into a save folder" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["export", "空洞骑士", "--zip", "{saves}/x.zip"]
+expect_exit = 2
+stderr_contains = ["存档位置"]
+
+[[case]]
+id = "export-no-target"
+title = { zh-CN = "未指定导出位置", en = "No export target" }
+args = ["export", "空洞骑士"]
+expect_exit = 2
+
+[[case]]
+id = "import-files-new-branch"
+title = { zh-CN = "导入别人的存档为新分支", en = "Import shared saves as a new branch" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["export", "空洞骑士", "--folder", "{tmp}/out"]]
+edit = { "slot1.sav" = "level 2" }
+args = ["import", "空洞骑士", "{saves}", "--branch", "friend"]
+expect_exit = 0
+stdout_contains = ["已导入为快照", "分支 friend", "存档目录没有改动"]
+expect_files = { "slot1.sav" = "level 2" }
+in_docs = true
+
+[[case]]
+id = "import-files-identical"
+title = { zh-CN = "导入的内容与已有快照相同", en = "Imported content already exists" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["export", "空洞骑士", "HEAD", "--zip", "{tmp}/same.zip"]]
+args = ["import", "空洞骑士", "{tmp}/same.zip"]
+expect_exit = 0
+stdout_contains = ["完全相同"]
+
+[[case]]
+id = "import-unknown-game"
+title = { zh-CN = "游戏不存在", en = "Unknown game" }
+args = ["import", "nope", "{inputs}/saves/basic"]
+expect_exit = 4
+
+[[case]]
+id = "bundle-export-empty"
+title = { zh-CN = "还没有快照", en = "No snapshots yet" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["bundle", "export", "空洞骑士", "-o", "{tmp}/hk.bonfire"]
+expect_exit = 2
+stderr_contains = ["还没有快照"]
+
+[[case]]
+id = "bundle-export-all"
+title = { zh-CN = "导出全部分支的历史包", en = "Export all branches as a bundle" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["bundle", "export", "空洞骑士", "-o", "{tmp}/hk.bonfire"]
+expect_exit = 0
+stdout_contains = ["已导出 1 个快照", "main"]
+in_docs = true
+
+[[case]]
+id = "bundle-import-same"
+title = { zh-CN = "导入历史包（预览）", en = "Preview a bundle import" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["bundle", "export", "空洞骑士", "-o", "{tmp}/hk.bonfire"]]
+args = ["bundle", "import", "{tmp}/hk.bonfire", "--dry-run"]
+expect_exit = 0
+stdout_contains = ["共 1 个快照，其中 0 个本地没有", "与本地相同", "预览"]
+in_docs = true
+
+[[case]]
+id = "bundle-import-not-bundle"
+title = { zh-CN = "不是历史包", en = "Not a bundle" }
+args = ["bundle", "import", "{inputs}/saves/basic/slot1.sav"]
+expect_exit = 2
+
 # ---------- restore / undo-restore ----------
 
 [[case]]

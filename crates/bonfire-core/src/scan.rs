@@ -16,10 +16,10 @@ use std::time::UNIX_EPOCH;
 use rayon::prelude::*;
 use serde::Serialize;
 
+use crate::ObjectId;
 use crate::error::{CoreError, IoContext, Result};
 use crate::index::IndexEntry;
 use crate::object::FileTag;
-use crate::ObjectId;
 
 pub const RACY_WINDOW_NS: i64 = 2_000_000_000;
 
@@ -75,13 +75,23 @@ pub fn glob_base(pattern: &str) -> PathBuf {
 }
 
 fn glob_matches(pattern: &str) -> Vec<PathBuf> {
-    let opts = glob::MatchOptions { case_sensitive: false, require_literal_separator: true, require_literal_leading_dot: false };
-    glob::glob_with(&pattern.replace('\\', "/"), opts).map(|it| it.flatten().collect()).unwrap_or_default()
+    let opts = glob::MatchOptions {
+        case_sensitive: false,
+        require_literal_separator: true,
+        require_literal_leading_dot: false,
+    };
+    glob::glob_with(&pattern.replace('\\', "/"), opts)
+        .map(|it| it.flatten().collect())
+        .unwrap_or_default()
 }
 
 fn rel_path(p: &Path, base: &Path) -> Option<String> {
     let rel = p.strip_prefix(base).ok()?;
-    let s = rel.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/");
+    let s = rel
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/");
     (!s.is_empty()).then_some(s)
 }
 
@@ -117,7 +127,10 @@ pub fn mtime_ns(meta: &std::fs::Metadata) -> i64 {
 }
 
 pub fn now_ns() -> i64 {
-    std::time::SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as i64).unwrap_or(0)
+    std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos() as i64)
+        .unwrap_or(0)
 }
 
 /// 计算文件内容的 BLAKE3（即 Blob ID）。以共享读方式打开，不阻止游戏写入。
@@ -133,10 +146,20 @@ pub fn hash_file(path: &Path) -> Result<ObjectId> {
 pub fn collect_files(roots: &[ScanRoot]) -> Result<Vec<DiskFile>> {
     let mut out = Vec::new();
     let mut seen = std::collections::HashSet::new();
-    let mut push = |out: &mut Vec<DiskFile>, root: &ScanRoot, abs: PathBuf, rel: String, meta: &std::fs::Metadata| {
+    let mut push = |out: &mut Vec<DiskFile>,
+                    root: &ScanRoot,
+                    abs: PathBuf,
+                    rel: String,
+                    meta: &std::fs::Metadata| {
         let key = abs.to_string_lossy().replace('\\', "/").to_lowercase();
         if seen.insert(key) {
-            out.push(DiskFile { path: format!("{}/{rel}", root.ord), abs, size: meta.len(), mtime_ns: mtime_ns(meta), tag: root.tag });
+            out.push(DiskFile {
+                path: format!("{}/{rel}", root.ord),
+                abs,
+                size: meta.len(),
+                mtime_ns: mtime_ns(meta),
+                tag: root.tag,
+            });
         }
     };
     for root in roots {
@@ -146,7 +169,10 @@ pub fn collect_files(roots: &[ScanRoot]) -> Result<Vec<DiskFile>> {
             RootKind::Glob => {
                 let pattern = root.path.to_string_lossy();
                 let base = glob_base(&pattern);
-                glob_matches(&pattern).into_iter().map(|m| (m, base.clone())).collect()
+                glob_matches(&pattern)
+                    .into_iter()
+                    .map(|m| (m, base.clone()))
+                    .collect()
             }
         };
         for (target, base) in targets {
@@ -157,7 +183,10 @@ pub fn collect_files(roots: &[ScanRoot]) -> Result<Vec<DiskFile>> {
             };
             if meta.is_file() {
                 let rel = match root.kind {
-                    RootKind::File => target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+                    RootKind::File => target
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default(),
                     _ => match rel_path(&target, &base) {
                         Some(r) => r,
                         None => continue,
@@ -169,7 +198,10 @@ pub fn collect_files(roots: &[ScanRoot]) -> Result<Vec<DiskFile>> {
             if !meta.is_dir() || root.kind == RootKind::File {
                 continue;
             }
-            for entry in walkdir::WalkDir::new(&target).follow_links(false).sort_by_file_name() {
+            for entry in walkdir::WalkDir::new(&target)
+                .follow_links(false)
+                .sort_by_file_name()
+            {
                 let entry = match entry {
                     Ok(e) => e,
                     Err(e) => {
@@ -180,8 +212,12 @@ pub fn collect_files(roots: &[ScanRoot]) -> Result<Vec<DiskFile>> {
                 if !entry.file_type().is_file() {
                     continue;
                 }
-                let m = entry.metadata().map_err(|e| CoreError::io(entry.path(), std::io::Error::other(e.to_string())))?;
-                let Some(rel) = rel_path(entry.path(), &base) else { continue };
+                let m = entry.metadata().map_err(|e| {
+                    CoreError::io(entry.path(), std::io::Error::other(e.to_string()))
+                })?;
+                let Some(rel) = rel_path(entry.path(), &base) else {
+                    continue;
+                };
                 push(&mut out, root, entry.into_path(), rel, &m);
             }
         }
@@ -192,37 +228,74 @@ pub fn collect_files(roots: &[ScanRoot]) -> Result<Vec<DiskFile>> {
 
 /// 对比磁盘与索引，结果按路径排序。`force_verify` 时忽略元数据，全部重算哈希。
 /// 哈希计算在线程池中并行进行。
-pub fn detect(disk: &[DiskFile], index: &HashMap<String, IndexEntry>, force_verify: bool) -> Result<Vec<FileChange>> {
+pub fn detect(
+    disk: &[DiskFile],
+    index: &HashMap<String, IndexEntry>,
+    force_verify: bool,
+) -> Result<Vec<FileChange>> {
     let mut changes: Vec<FileChange> = disk
         .par_iter()
         .map(|f| -> Result<FileChange> {
             let Some(prev) = index.get(&f.path) else {
-                return Ok(FileChange { path: f.path.clone(), status: FileStatus::Added, size: f.size, hash: None, refresh_index: false });
+                return Ok(FileChange {
+                    path: f.path.clone(),
+                    status: FileStatus::Added,
+                    size: f.size,
+                    hash: None,
+                    refresh_index: false,
+                });
             };
             let racy = (f.mtime_ns - prev.indexed_at_ns).abs() < RACY_WINDOW_NS;
             let same_meta = f.size == prev.size && f.mtime_ns == prev.mtime_ns;
             if same_meta && !racy && !force_verify {
-                return Ok(FileChange { path: f.path.clone(), status: FileStatus::Unchanged, size: f.size, hash: Some(prev.hash), refresh_index: false });
+                return Ok(FileChange {
+                    path: f.path.clone(),
+                    status: FileStatus::Unchanged,
+                    size: f.size,
+                    hash: Some(prev.hash),
+                    refresh_index: false,
+                });
             }
             if f.size != prev.size {
                 // 大小不同必然已修改，哈希留到备份时计算。
-                return Ok(FileChange { path: f.path.clone(), status: FileStatus::Modified, size: f.size, hash: None, refresh_index: false });
+                return Ok(FileChange {
+                    path: f.path.clone(),
+                    status: FileStatus::Modified,
+                    size: f.size,
+                    hash: None,
+                    refresh_index: false,
+                });
             }
             let hash = hash_file(&f.abs)?;
-            let status = if hash == prev.hash { FileStatus::Unchanged } else { FileStatus::Modified };
+            let status = if hash == prev.hash {
+                FileStatus::Unchanged
+            } else {
+                FileStatus::Modified
+            };
             let refresh = status == FileStatus::Unchanged && (f.mtime_ns != prev.mtime_ns || racy);
-            Ok(FileChange { path: f.path.clone(), status, size: f.size, hash: Some(hash), refresh_index: refresh })
+            Ok(FileChange {
+                path: f.path.clone(),
+                status,
+                size: f.size,
+                hash: Some(hash),
+                refresh_index: refresh,
+            })
         })
         .collect::<Result<Vec<_>>>()?;
 
     let on_disk: std::collections::HashSet<&str> = disk.iter().map(|f| f.path.as_str()).collect();
-    changes.extend(index.values().filter(|e| !on_disk.contains(e.path.as_str())).map(|e| FileChange {
-        path: e.path.clone(),
-        status: FileStatus::Deleted,
-        size: e.size,
-        hash: Some(e.hash),
-        refresh_index: false,
-    }));
+    changes.extend(
+        index
+            .values()
+            .filter(|e| !on_disk.contains(e.path.as_str()))
+            .map(|e| FileChange {
+                path: e.path.clone(),
+                status: FileStatus::Deleted,
+                size: e.size,
+                hash: Some(e.hash),
+                refresh_index: false,
+            }),
+    );
     changes.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(changes)
 }
@@ -279,7 +352,12 @@ mod tests {
 
     fn set_mtime(p: &Path, ns: i64) {
         let t = UNIX_EPOCH + std::time::Duration::from_nanos(ns as u64);
-        std::fs::File::options().write(true).open(p).unwrap().set_modified(t).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(p)
+            .unwrap()
+            .set_modified(t)
+            .unwrap();
     }
 
     /// 1 小时前，避开 racy 窗口。
@@ -290,15 +368,41 @@ mod tests {
     fn index_of(files: &[DiskFile], indexed_at_ns: i64) -> HashMap<String, IndexEntry> {
         files
             .iter()
-            .map(|f| (f.path.clone(), IndexEntry { path: f.path.clone(), size: f.size, mtime_ns: f.mtime_ns, hash: hash_file(&f.abs).unwrap(), indexed_at_ns }))
+            .map(|f| {
+                (
+                    f.path.clone(),
+                    IndexEntry {
+                        path: f.path.clone(),
+                        size: f.size,
+                        mtime_ns: f.mtime_ns,
+                        hash: hash_file(&f.abs).unwrap(),
+                        indexed_at_ns,
+                    },
+                )
+            })
             .collect()
     }
 
     fn roots(dir: &Path) -> Vec<ScanRoot> {
         vec![
-            ScanRoot { ord: 0, path: dir.join("saves"), kind: RootKind::Dir, tag: FileTag::Save },
-            ScanRoot { ord: 1, path: dir.join("options.ini"), kind: RootKind::File, tag: FileTag::Config },
-            ScanRoot { ord: 2, path: dir.join("missing"), kind: RootKind::Dir, tag: FileTag::Save },
+            ScanRoot {
+                ord: 0,
+                path: dir.join("saves"),
+                kind: RootKind::Dir,
+                tag: FileTag::Save,
+            },
+            ScanRoot {
+                ord: 1,
+                path: dir.join("options.ini"),
+                kind: RootKind::File,
+                tag: FileTag::Config,
+            },
+            ScanRoot {
+                ord: 2,
+                path: dir.join("missing"),
+                kind: RootKind::Dir,
+                tag: FileTag::Save,
+            },
         ]
     }
 
@@ -314,7 +418,10 @@ mod tests {
         write(&d.path().join("options.ini"), b"x=1");
         let files = collect_files(&roots(d.path())).unwrap();
         let paths: Vec<_> = files.iter().map(|f| f.path.as_str()).collect();
-        assert_eq!(paths, ["0/slot1.sav", "0/子目录/存档 ã.sav", "1/options.ini"]);
+        assert_eq!(
+            paths,
+            ["0/slot1.sav", "0/子目录/存档 ã.sav", "1/options.ini"]
+        );
         assert_eq!(files[2].tag, FileTag::Config);
     }
 
@@ -322,7 +429,12 @@ mod tests {
     fn detects_all_statuses() {
         let d = tempfile::tempdir().unwrap();
         let p = |s: &str| d.path().join(s);
-        for (f, data) in [("saves/keep", "k"), ("saves/modify", "m"), ("saves/delete", "d"), ("saves/touch", "t")] {
+        for (f, data) in [
+            ("saves/keep", "k"),
+            ("saves/modify", "m"),
+            ("saves/delete", "d"),
+            ("saves/touch", "t"),
+        ] {
             write(&p(f), data.as_bytes());
             set_mtime(&p(f), old_ns());
         }
@@ -375,19 +487,34 @@ mod tests {
             idx
         };
         let idx = hashes_from(&indexed_long_after);
-        assert_eq!(detect(&after, &idx, false).unwrap()[0].status, FileStatus::Unchanged);
-        assert_eq!(detect(&after, &idx, true).unwrap()[0].status, FileStatus::Modified, "强制校验");
+        assert_eq!(
+            detect(&after, &idx, false).unwrap()[0].status,
+            FileStatus::Unchanged
+        );
+        assert_eq!(
+            detect(&after, &idx, true).unwrap()[0].status,
+            FileStatus::Modified,
+            "强制校验"
+        );
 
         // 索引写入时间与 mtime 相差不到 2 秒：racy，重算哈希。
         let idx = hashes_from(&index_of(&before, mtime + RACY_WINDOW_NS / 2));
-        assert_eq!(detect(&after, &idx, false).unwrap()[0].status, FileStatus::Modified);
+        assert_eq!(
+            detect(&after, &idx, false).unwrap()[0].status,
+            FileStatus::Modified
+        );
     }
 
     #[test]
     fn empty_index_means_all_added() {
         let d = tempfile::tempdir().unwrap();
         write(&d.path().join("saves/a"), b"a");
-        let changes = detect(&collect_files(&roots(d.path())).unwrap(), &HashMap::new(), false).unwrap();
+        let changes = detect(
+            &collect_files(&roots(d.path())).unwrap(),
+            &HashMap::new(),
+            false,
+        )
+        .unwrap();
         assert_eq!(changes[0].status, FileStatus::Added);
         assert!(changes[0].hash.is_none());
     }
@@ -402,13 +529,40 @@ mod tests {
         write(&base.join("Config/x.ini"), b"x");
         let pattern = format!("{}/*/Saved/*.sav", base.display());
         let roots = vec![
-            ScanRoot { ord: 0, path: PathBuf::from(&pattern), kind: RootKind::Glob, tag: FileTag::Save },
-            ScanRoot { ord: 1, path: base.join("Conf*"), kind: RootKind::Glob, tag: FileTag::Config },
+            ScanRoot {
+                ord: 0,
+                path: PathBuf::from(&pattern),
+                kind: RootKind::Glob,
+                tag: FileTag::Save,
+            },
+            ScanRoot {
+                ord: 1,
+                path: base.join("Conf*"),
+                kind: RootKind::Glob,
+                tag: FileTag::Config,
+            },
             // 与第一个位置重叠：同一文件只计一次。
-            ScanRoot { ord: 2, path: base.join("123"), kind: RootKind::Dir, tag: FileTag::Save },
+            ScanRoot {
+                ord: 2,
+                path: base.join("123"),
+                kind: RootKind::Dir,
+                tag: FileTag::Save,
+            },
         ];
-        let paths: Vec<_> = collect_files(&roots).unwrap().into_iter().map(|f| f.path).collect();
-        assert_eq!(paths, ["0/123/Saved/a.sav", "0/456/Saved/c.sav", "1/Config/x.ini", "2/Saved/b.txt"]);
+        let paths: Vec<_> = collect_files(&roots)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.path)
+            .collect();
+        assert_eq!(
+            paths,
+            [
+                "0/123/Saved/a.sav",
+                "0/456/Saved/c.sav",
+                "1/Config/x.ini",
+                "2/Saved/b.txt"
+            ]
+        );
         // 新出现的存档栏位不需要重新扫描平台即被包含。
         write(&base.join("789/Saved/new.sav"), b"n");
         assert_eq!(collect_files(&roots[..1]).unwrap().len(), 3);
@@ -416,8 +570,14 @@ mod tests {
 
     #[test]
     fn glob_base_is_longest_literal_prefix() {
-        assert_eq!(glob_base("C:/Users/a/Docs/*/Saved/*.sav"), PathBuf::from("C:/Users/a/Docs"));
-        assert_eq!(glob_base("C:\\Games\\x\\save.dat"), PathBuf::from("C:/Games/x"));
+        assert_eq!(
+            glob_base("C:/Users/a/Docs/*/Saved/*.sav"),
+            PathBuf::from("C:/Users/a/Docs")
+        );
+        assert_eq!(
+            glob_base("C:\\Games\\x\\save.dat"),
+            PathBuf::from("C:/Games/x")
+        );
         assert_eq!(glob_base("C:/*.sav"), PathBuf::from("C:/"));
     }
 
@@ -425,7 +585,10 @@ mod tests {
     fn many_files_hash_in_parallel() {
         let d = tempfile::tempdir().unwrap();
         for i in 0..200 {
-            write(&d.path().join(format!("saves/f{i:03}")), format!("{i}").as_bytes());
+            write(
+                &d.path().join(format!("saves/f{i:03}")),
+                format!("{i}").as_bytes(),
+            );
         }
         let files = collect_files(&roots(d.path())).unwrap();
         let changes = detect(&files, &HashMap::new(), true).unwrap();

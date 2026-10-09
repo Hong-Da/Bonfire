@@ -11,7 +11,10 @@ pub struct HttpResponse {
 
 impl HttpResponse {
     pub fn header(&self, name: &str) -> Option<&str> {
-        self.headers.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)).map(|(_, v)| v.as_str())
+        self.headers
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.as_str())
     }
 }
 
@@ -20,7 +23,12 @@ pub trait Http: Send + Sync {
     fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<HttpResponse, String>;
 
     /// 发送 POST 请求（正文为文本）。
-    fn post(&self, url: &str, headers: &[(&str, &str)], body: &str) -> Result<HttpResponse, String> {
+    fn post(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: &str,
+    ) -> Result<HttpResponse, String> {
         let _ = (url, headers, body);
         Err("不支持 POST".into())
     }
@@ -45,15 +53,29 @@ pub struct Throttled<H: Http> {
 
 impl<H: Http> Throttled<H> {
     pub fn new(inner: H) -> Self {
-        Self { inner, last: Default::default(), scale: 1.0 }
+        Self {
+            inner,
+            last: Default::default(),
+            scale: 1.0,
+        }
     }
 
     fn host(url: &str) -> String {
-        url.split("://").nth(1).unwrap_or(url).split('/').next().unwrap_or("").to_string()
+        url.split("://")
+            .nth(1)
+            .unwrap_or(url)
+            .split('/')
+            .next()
+            .unwrap_or("")
+            .to_string()
     }
 
     fn interval(host: &str) -> Duration {
-        if host.ends_with("store.steampowered.com") { Duration::from_millis(1500) } else { Duration::from_millis(250) }
+        if host.ends_with("store.steampowered.com") {
+            Duration::from_millis(1500)
+        } else {
+            Duration::from_millis(250)
+        }
     }
 
     fn wait_turn(&self, url: &str) {
@@ -69,7 +91,11 @@ impl<H: Http> Throttled<H> {
         last.insert(host, std::time::Instant::now());
     }
 
-    fn retry(&self, url: &str, f: impl Fn() -> Result<HttpResponse, String>) -> Result<HttpResponse, String> {
+    fn retry(
+        &self,
+        url: &str,
+        f: impl Fn() -> Result<HttpResponse, String>,
+    ) -> Result<HttpResponse, String> {
         let mut delay = Duration::from_secs(2).mul_f64(self.scale);
         for attempt in 0..3 {
             self.wait_turn(url);
@@ -91,7 +117,12 @@ impl<H: Http> Http for Throttled<H> {
         self.retry(url, || self.inner.get(url, headers))
     }
 
-    fn post(&self, url: &str, headers: &[(&str, &str)], body: &str) -> Result<HttpResponse, String> {
+    fn post(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: &str,
+    ) -> Result<HttpResponse, String> {
         self.retry(url, || self.inner.post(url, headers, body))
     }
 }
@@ -108,7 +139,9 @@ impl Default for UreqHttp {
             .http_status_as_error(false)
             .user_agent(concat!("Bonfire/", env!("CARGO_PKG_VERSION")))
             .build();
-        Self { agent: config.into() }
+        Self {
+            agent: config.into(),
+        }
     }
 }
 
@@ -120,21 +153,52 @@ impl Http for UreqHttp {
         }
         let mut resp = req.call().map_err(|e| e.to_string())?;
         let status = resp.status().as_u16();
-        let headers = resp.headers().iter().map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("").to_string())).collect();
-        let body = resp.body_mut().with_config().limit(64 * 1024 * 1024).read_to_vec().map_err(|e| e.to_string())?;
-        Ok(HttpResponse { status, headers, body })
+        let headers = resp
+            .headers()
+            .iter()
+            .map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("").to_string()))
+            .collect();
+        let body = resp
+            .body_mut()
+            .with_config()
+            .limit(64 * 1024 * 1024)
+            .read_to_vec()
+            .map_err(|e| e.to_string())?;
+        Ok(HttpResponse {
+            status,
+            headers,
+            body,
+        })
     }
 
-    fn post(&self, url: &str, headers: &[(&str, &str)], body: &str) -> Result<HttpResponse, String> {
+    fn post(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: &str,
+    ) -> Result<HttpResponse, String> {
         let mut req = self.agent.post(url);
         for (k, v) in headers {
             req = req.header(*k, *v);
         }
         let mut resp = req.send(body).map_err(|e| e.to_string())?;
         let status = resp.status().as_u16();
-        let headers = resp.headers().iter().map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("").to_string())).collect();
-        let body = resp.body_mut().with_config().limit(64 * 1024 * 1024).read_to_vec().map_err(|e| e.to_string())?;
-        Ok(HttpResponse { status, headers, body })
+        let headers = resp
+            .headers()
+            .iter()
+            .map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("").to_string()))
+            .collect();
+        let body = resp
+            .body_mut()
+            .with_config()
+            .limit(64 * 1024 * 1024)
+            .read_to_vec()
+            .map_err(|e| e.to_string())?;
+        Ok(HttpResponse {
+            status,
+            headers,
+            body,
+        })
     }
 }
 
@@ -150,13 +214,36 @@ pub struct FakeHttp {
 
 impl FakeHttp {
     pub fn route(mut self, prefix: &str, status: u16, body: impl Into<Vec<u8>>) -> Self {
-        self.routes.push((prefix.to_string(), HttpResponse { status, headers: Vec::new(), body: body.into() }));
+        self.routes.push((
+            prefix.to_string(),
+            HttpResponse {
+                status,
+                headers: Vec::new(),
+                body: body.into(),
+            },
+        ));
         self
     }
 
-    pub fn route_with_headers(mut self, prefix: &str, status: u16, headers: &[(&str, &str)], body: impl Into<Vec<u8>>) -> Self {
-        let headers = headers.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
-        self.routes.push((prefix.to_string(), HttpResponse { status, headers, body: body.into() }));
+    pub fn route_with_headers(
+        mut self,
+        prefix: &str,
+        status: u16,
+        headers: &[(&str, &str)],
+        body: impl Into<Vec<u8>>,
+    ) -> Self {
+        let headers = headers
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        self.routes.push((
+            prefix.to_string(),
+            HttpResponse {
+                status,
+                headers,
+                body: body.into(),
+            },
+        ));
         self
     }
 
@@ -167,15 +254,37 @@ impl FakeHttp {
 
 impl Http for FakeHttp {
     fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<HttpResponse, String> {
-        self.requests.lock().unwrap().push((url.to_string(), headers.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()));
-        self.routes.iter().find(|(p, _)| url.starts_with(p.as_str())).map(|(_, r)| r.clone()).ok_or_else(|| format!("离线：{url}"))
+        self.requests.lock().unwrap().push((
+            url.to_string(),
+            headers
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        ));
+        self.routes
+            .iter()
+            .find(|(p, _)| url.starts_with(p.as_str()))
+            .map(|(_, r)| r.clone())
+            .ok_or_else(|| format!("离线：{url}"))
     }
 
-    fn post(&self, url: &str, headers: &[(&str, &str)], body: &str) -> Result<HttpResponse, String> {
-        let mut h: Vec<(String, String)> = headers.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+    fn post(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: &str,
+    ) -> Result<HttpResponse, String> {
+        let mut h: Vec<(String, String)> = headers
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
         h.push(("body".into(), body.to_string()));
         self.requests.lock().unwrap().push((url.to_string(), h));
-        self.routes.iter().find(|(p, _)| url.starts_with(p.as_str())).map(|(_, r)| r.clone()).ok_or_else(|| format!("离线：{url}"))
+        self.routes
+            .iter()
+            .find(|(p, _)| url.starts_with(p.as_str()))
+            .map(|(_, r)| r.clone())
+            .ok_or_else(|| format!("离线：{url}"))
     }
 }
 
@@ -185,7 +294,11 @@ pub struct SequenceHttp(pub std::sync::Mutex<Vec<HttpResponse>>);
 impl Http for SequenceHttp {
     fn get(&self, _: &str, _: &[(&str, &str)]) -> Result<HttpResponse, String> {
         let mut v = self.0.lock().unwrap();
-        if v.is_empty() { Err("没有更多响应".into()) } else { Ok(v.remove(0)) }
+        if v.is_empty() {
+            Err("没有更多响应".into())
+        } else {
+            Ok(v.remove(0))
+        }
     }
 }
 
@@ -195,18 +308,36 @@ mod tests {
 
     #[test]
     fn throttled_retries_on_429() {
-        let r = |s| HttpResponse { status: s, ..Default::default() };
-        let mut t = Throttled::new(SequenceHttp(std::sync::Mutex::new(vec![r(429), r(503), r(200)])));
+        let r = |s| HttpResponse {
+            status: s,
+            ..Default::default()
+        };
+        let mut t = Throttled::new(SequenceHttp(std::sync::Mutex::new(vec![
+            r(429),
+            r(503),
+            r(200),
+        ])));
         t.scale = 0.0;
         assert_eq!(t.get("https://x.test/a", &[]).unwrap().status, 200);
-        let mut t = Throttled::new(SequenceHttp(std::sync::Mutex::new(vec![r(429), r(429), r(429)])));
+        let mut t = Throttled::new(SequenceHttp(std::sync::Mutex::new(vec![
+            r(429),
+            r(429),
+            r(429),
+        ])));
         t.scale = 0.0;
-        assert_eq!(t.get("https://x.test/a", &[]).unwrap().status, 429, "重试 2 次后返回最后的结果");
+        assert_eq!(
+            t.get("https://x.test/a", &[]).unwrap().status,
+            429,
+            "重试 2 次后返回最后的结果"
+        );
     }
 
     #[test]
     fn host_parsing() {
-        assert_eq!(Throttled::<Offline>::host("https://store.steampowered.com/api/appdetails?x"), "store.steampowered.com");
+        assert_eq!(
+            Throttled::<Offline>::host("https://store.steampowered.com/api/appdetails?x"),
+            "store.steampowered.com"
+        );
         assert!(Offline.get("https://a", &[]).is_err());
     }
 }

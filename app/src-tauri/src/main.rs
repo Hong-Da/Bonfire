@@ -20,22 +20,41 @@ fn main() {
         Ok(c) => (c, None),
         Err(e) => (Config::default(), Some(e.to_string())),
     };
-    let _log_guard = bonfire_app::logging::init(&paths.logs_dir, &config.log, cfg!(debug_assertions));
+    let _log_guard =
+        bonfire_app::logging::init(&paths.logs_dir, &config.log, cfg!(debug_assertions));
     if let Some(e) = &config_error {
         tracing::error!("配置加载失败，使用默认配置：{e}");
     }
-    tracing::info!(version = bonfire_app::VERSION, portable = paths.portable, first_run, "桌面应用启动");
+    tracing::info!(
+        version = bonfire_app::VERSION,
+        portable = paths.portable,
+        first_run,
+        "桌面应用启动"
+    );
 
     let webview_dir = paths.webview_dir();
-    let shared = Shared { app: Mutex::new(None), paths, cancel: AtomicBool::new(false), config_error: Mutex::new(config_error) };
+    let shared = Shared {
+        app: Mutex::new(None),
+        paths,
+        cancel: AtomicBool::new(false),
+        config_error: Mutex::new(config_error),
+    };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(shared)
         .setup(move |app| {
             // 窗口数据（WebView 本地存储等）也放在 data 中，而不是用户目录。
-            let window = app.config().app.windows.first().cloned().expect("tauri.conf.json 中定义了主窗口");
-            tauri::WebviewWindowBuilder::from_config(app.handle(), &window)?.data_directory(webview_dir).build()?;
+            let window = app
+                .config()
+                .app
+                .windows
+                .first()
+                .cloned()
+                .expect("tauri.conf.json 中定义了主窗口");
+            tauri::WebviewWindowBuilder::from_config(app.handle(), &window)?
+                .data_directory(webview_dir)
+                .build()?;
             if !first_run {
                 let h = app.handle().clone();
                 let shared = h.state::<Shared>();
@@ -48,6 +67,14 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            commands::open_location,
+            commands::export_default_name,
+            commands::export_files,
+            commands::export_bundle,
+            commands::inspect_bundle,
+            commands::import_bundle,
+            commands::inspect_files,
+            commands::import_files,
             commands::get_settings,
             commands::save_settings,
             commands::load_library,

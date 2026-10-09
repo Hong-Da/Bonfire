@@ -57,7 +57,14 @@ pub struct MetaQuery {
 
 impl MetaQuery {
     pub fn steam_id(&self) -> Option<&str> {
-        self.external_ids.get("steam").map(String::as_str).or(if self.platform == "steam" { self.app_id.as_deref() } else { None })
+        self.external_ids
+            .get("steam")
+            .map(String::as_str)
+            .or(if self.platform == "steam" {
+                self.app_id.as_deref()
+            } else {
+                None
+            })
     }
 }
 
@@ -94,7 +101,9 @@ fn url_encode(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
             _ => out.push_str(&format!("%{b:02X}")),
         }
     }
@@ -114,11 +123,16 @@ impl SteamLocal {
         type Best = Option<(PathBuf, u32)>;
         let (mut cover, mut hero, mut icon): (Best, Best, Best) = (None, None, None);
         for p in paths {
-            let name = p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+            let name = p
+                .file_name()
+                .map(|n| n.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
             if name.contains("logo") {
                 continue;
             }
-            let Ok((w, h)) = image::image_dimensions(p) else { continue };
+            let Ok((w, h)) = image::image_dimensions(p) else {
+                continue;
+            };
             if w == 0 || h == 0 {
                 continue;
             }
@@ -182,7 +196,11 @@ pub struct SteamStore {
 
 impl SteamStore {
     pub fn new(http: Arc<dyn Http>) -> Self {
-        Self { http, base: "https://store.steampowered.com".into(), cdn: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps".into() }
+        Self {
+            http,
+            base: "https://store.steampowered.com".into(),
+            cdn: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps".into(),
+        }
     }
 }
 
@@ -201,23 +219,57 @@ impl MetadataProvider for SteamStore {
 
     fn fetch(&self, q: &MetaQuery) -> Result<MetaPatch, String> {
         let id = q.steam_id().ok_or("没有 Steam ID")?;
-        let v = json(self.http.get(&format!("{}/api/appdetails?appids={id}&l=schinese", self.base), &[])?)?;
+        let v = json(self.http.get(
+            &format!("{}/api/appdetails?appids={id}&l=schinese", self.base),
+            &[],
+        )?)?;
         let entry = v.get(id).ok_or("响应中没有该游戏")?;
         if entry.get("success").and_then(Value::as_bool) != Some(true) {
             return Err("Steam 商店没有该游戏".into());
         }
         let d = &entry["data"];
-        let s = |k: &str| d.get(k).and_then(Value::as_str).filter(|x| !x.is_empty()).map(String::from);
-        let first = |k: &str| d.get(k).and_then(Value::as_array).and_then(|a| a.first()).and_then(Value::as_str).map(String::from);
-        let name_zh = s("name").filter(|n| *n != q.name && n.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
+        let s = |k: &str| {
+            d.get(k)
+                .and_then(Value::as_str)
+                .filter(|x| !x.is_empty())
+                .map(String::from)
+        };
+        let first = |k: &str| {
+            d.get(k)
+                .and_then(Value::as_array)
+                .and_then(|a| a.first())
+                .and_then(Value::as_str)
+                .map(String::from)
+        };
+        let name_zh = s("name")
+            .filter(|n| *n != q.name && n.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
         Ok(MetaPatch {
             name_zh,
             developer: first("developers"),
             publisher: first("publishers"),
-            release_date: d.get("release_date").and_then(|r| r.get("date")).and_then(Value::as_str).filter(|x| !x.is_empty()).map(String::from),
-            genres: d.get("genres").and_then(Value::as_array).map(|a| a.iter().filter_map(|g| g.get("description").and_then(Value::as_str).map(String::from)).collect()),
-            cover: Some(ImageSource::Url(format!("{}/{id}/library_600x900_2x.jpg", self.cdn))),
-            hero: Some(ImageSource::Url(format!("{}/{id}/library_hero.jpg", self.cdn))),
+            release_date: d
+                .get("release_date")
+                .and_then(|r| r.get("date"))
+                .and_then(Value::as_str)
+                .filter(|x| !x.is_empty())
+                .map(String::from),
+            genres: d.get("genres").and_then(Value::as_array).map(|a| {
+                a.iter()
+                    .filter_map(|g| {
+                        g.get("description")
+                            .and_then(Value::as_str)
+                            .map(String::from)
+                    })
+                    .collect()
+            }),
+            cover: Some(ImageSource::Url(format!(
+                "{}/{id}/library_600x900_2x.jpg",
+                self.cdn
+            ))),
+            hero: Some(ImageSource::Url(format!(
+                "{}/{id}/library_hero.jpg",
+                self.cdn
+            ))),
             icon: None,
             ..Default::default()
         })
@@ -251,9 +303,18 @@ impl Igdb {
         if let Some(t) = self.token.lock().unwrap().clone() {
             return Ok(t);
         }
-        let url = format!("{}?client_id={}&client_secret={}&grant_type=client_credentials", self.auth, url_encode(&self.client_id), url_encode(&self.client_secret));
+        let url = format!(
+            "{}?client_id={}&client_secret={}&grant_type=client_credentials",
+            self.auth,
+            url_encode(&self.client_id),
+            url_encode(&self.client_secret)
+        );
         let v = json(self.http.post(&url, &[], "")?)?;
-        let t = v.get("access_token").and_then(Value::as_str).ok_or("Twitch 未返回令牌")?.to_string();
+        let t = v
+            .get("access_token")
+            .and_then(Value::as_str)
+            .ok_or("Twitch 未返回令牌")?
+            .to_string();
         *self.token.lock().unwrap() = Some(t.clone());
         Ok(t)
     }
@@ -261,21 +322,42 @@ impl Igdb {
     fn query(&self, body: &str) -> Result<Vec<Value>, String> {
         let token = self.token()?;
         let auth = format!("Bearer {token}");
-        let v = json(self.http.post(&format!("{}/games", self.api), &[("Client-ID", &self.client_id), ("Authorization", &auth)], body)?)?;
+        let v = json(self.http.post(
+            &format!("{}/games", self.api),
+            &[("Client-ID", &self.client_id), ("Authorization", &auth)],
+            body,
+        )?)?;
         Ok(v.as_array().cloned().unwrap_or_default())
     }
 
     const FIELDS: &'static str = "fields name,first_release_date,cover.image_id,genres.name,involved_companies.company.name,involved_companies.developer,involved_companies.publisher,alternative_names.name;";
 
     fn to_patch(g: &Value) -> MetaPatch {
-        let companies = g.get("involved_companies").and_then(Value::as_array).cloned().unwrap_or_default();
+        let companies = g
+            .get("involved_companies")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         let company = |role: &str| {
-            companies.iter().find(|c| c.get(role).and_then(Value::as_bool) == Some(true)).and_then(|c| c["company"]["name"].as_str()).map(String::from)
+            companies
+                .iter()
+                .find(|c| c.get(role).and_then(Value::as_bool) == Some(true))
+                .and_then(|c| c["company"]["name"].as_str())
+                .map(String::from)
         };
-        let zh = g.get("alternative_names").and_then(Value::as_array).and_then(|a| {
-            a.iter().filter_map(|n| n.get("name").and_then(Value::as_str)).find(|n| n.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c))).map(String::from)
-        });
-        let date = g.get("first_release_date").and_then(Value::as_i64).and_then(jiff_date);
+        let zh = g
+            .get("alternative_names")
+            .and_then(Value::as_array)
+            .and_then(|a| {
+                a.iter()
+                    .filter_map(|n| n.get("name").and_then(Value::as_str))
+                    .find(|n| n.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)))
+                    .map(String::from)
+            });
+        let date = g
+            .get("first_release_date")
+            .and_then(Value::as_i64)
+            .and_then(jiff_date);
         let mut ids = BTreeMap::new();
         if let Some(id) = g.get("id").and_then(Value::as_i64) {
             ids.insert("igdb".to_string(), id.to_string());
@@ -286,8 +368,16 @@ impl Igdb {
             developer: company("developer"),
             publisher: company("publisher"),
             release_date: date,
-            genres: g.get("genres").and_then(Value::as_array).map(|a| a.iter().filter_map(|x| x["name"].as_str().map(String::from)).collect()),
-            cover: g["cover"]["image_id"].as_str().map(|i| ImageSource::Url(format!("https://images.igdb.com/igdb/image/upload/t_cover_big/{i}.jpg"))),
+            genres: g.get("genres").and_then(Value::as_array).map(|a| {
+                a.iter()
+                    .filter_map(|x| x["name"].as_str().map(String::from))
+                    .collect()
+            }),
+            cover: g["cover"]["image_id"].as_str().map(|i| {
+                ImageSource::Url(format!(
+                    "https://images.igdb.com/igdb/image/upload/t_cover_big/{i}.jpg"
+                ))
+            }),
             external_ids: ids,
             ..Default::default()
         }
@@ -307,7 +397,10 @@ fn jiff_date(t: i64) -> Option<String> {
     let mp = (5 * doy + 2) / 153;
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    Some(format!("{:04}-{m:02}-{d:02}", if m <= 2 { y + 1 } else { y }))
+    Some(format!(
+        "{:04}-{m:02}-{d:02}",
+        if m <= 2 { y + 1 } else { y }
+    ))
 }
 
 impl MetadataProvider for Igdb {
@@ -327,7 +420,9 @@ impl MetadataProvider for Igdb {
         let id = q.external_ids.get("igdb").ok_or("没有 IGDB ID")?;
         let id: u64 = id.parse().map_err(|_| "IGDB ID 无效")?;
         let list = self.query(&format!("{} where id = {id};", Self::FIELDS))?;
-        list.first().map(Self::to_patch).ok_or_else(|| "IGDB 没有该游戏".into())
+        list.first()
+            .map(Self::to_patch)
+            .ok_or_else(|| "IGDB 没有该游戏".into())
     }
 
     fn search(&self, query: &str) -> Result<Vec<Candidate>, String> {
@@ -341,7 +436,9 @@ impl MetadataProvider for Igdb {
                     source: "igdb".into(),
                     id: p.external_ids.get("igdb")?.clone(),
                     name: p.name?,
-                    year: p.release_date.and_then(|d| d.get(..4).and_then(|y| y.parse().ok())),
+                    year: p
+                        .release_date
+                        .and_then(|d| d.get(..4).and_then(|y| y.parse().ok())),
                     cover_url: match p.cover {
                         Some(ImageSource::Url(u)) => Some(u),
                         _ => None,
@@ -362,17 +459,29 @@ pub struct SteamGridDb {
 
 impl SteamGridDb {
     pub fn new(http: Arc<dyn Http>, key: &str) -> Self {
-        Self { http, key: key.into(), api: "https://www.steamgriddb.com/api/v2".into() }
+        Self {
+            http,
+            key: key.into(),
+            api: "https://www.steamgriddb.com/api/v2".into(),
+        }
     }
 
     fn get(&self, path: &str) -> Result<Value, String> {
         let auth = format!("Bearer {}", self.key);
-        json(self.http.get(&format!("{}{path}", self.api), &[("Authorization", &auth)])?)
+        json(
+            self.http
+                .get(&format!("{}{path}", self.api), &[("Authorization", &auth)])?,
+        )
     }
 
     fn first_url(&self, path: &str) -> Option<String> {
         let v = self.get(path).ok()?;
-        v["data"].as_array()?.first()?.get("url")?.as_str().map(String::from)
+        v["data"]
+            .as_array()?
+            .first()?
+            .get("url")?
+            .as_str()
+            .map(String::from)
     }
 }
 
@@ -396,9 +505,15 @@ impl MetadataProvider for SteamGridDb {
             _ => return Err("没有可用的 ID".into()),
         };
         Ok(MetaPatch {
-            cover: self.first_url(&format!("/grids/{key}?dimensions=600x900")).map(ImageSource::Url),
-            hero: self.first_url(&format!("/heroes/{key}")).map(ImageSource::Url),
-            icon: self.first_url(&format!("/icons/{key}")).map(ImageSource::Url),
+            cover: self
+                .first_url(&format!("/grids/{key}?dimensions=600x900"))
+                .map(ImageSource::Url),
+            hero: self
+                .first_url(&format!("/heroes/{key}"))
+                .map(ImageSource::Url),
+            icon: self
+                .first_url(&format!("/icons/{key}"))
+                .map(ImageSource::Url),
             ..Default::default()
         })
     }
@@ -414,7 +529,11 @@ impl MetadataProvider for SteamGridDb {
                             source: "sgdb".into(),
                             id: g.get("id")?.as_i64()?.to_string(),
                             name: g.get("name")?.as_str()?.to_string(),
-                            year: g.get("release_date").and_then(Value::as_i64).and_then(jiff_date).and_then(|d| d[..4].parse().ok()),
+                            year: g
+                                .get("release_date")
+                                .and_then(Value::as_i64)
+                                .and_then(jiff_date)
+                                .and_then(|d| d[..4].parse().ok()),
                             cover_url: None,
                         })
                     })
@@ -440,12 +559,18 @@ pub fn search_name(name: &str) -> String {
     // 版本号：v1、v1.4、1.2.3；标题中的普通数字（如 Witcher 3）保留。
     let is_version = |w: &str| {
         let body = w.strip_prefix(['v', 'V']).unwrap_or(w);
-        !body.is_empty() && body.chars().all(|c| c.is_ascii_digit() || c == '.') && (w.len() > body.len() || body.contains('.'))
+        !body.is_empty()
+            && body.chars().all(|c| c.is_ascii_digit() || c == '.')
+            && (w.len() > body.len() || body.contains('.'))
     };
     let words: Vec<String> = no_brackets
         .split_whitespace()
         .filter(|w| !is_version(w))
-        .map(|w| w.chars().filter(|c| c.is_alphanumeric()).collect::<String>())
+        .map(|w| {
+            w.chars()
+                .filter(|c| c.is_alphanumeric())
+                .collect::<String>()
+        })
         .filter(|w| !w.is_empty())
         .collect();
     words.join(" ")
@@ -454,7 +579,10 @@ pub fn search_name(name: &str) -> String {
 /// 候选唯一且名称一致（归一化后相等）时自动采用（文档 4.3 匹配策略第 3 条）。
 pub fn auto_pick<'a>(name: &str, candidates: &'a [Candidate]) -> Option<&'a Candidate> {
     let n = normalize(name);
-    let exact: Vec<&Candidate> = candidates.iter().filter(|c| normalize(&c.name) == n).collect();
+    let exact: Vec<&Candidate> = candidates
+        .iter()
+        .filter(|c| normalize(&c.name) == n)
+        .collect();
     (exact.len() == 1).then(|| exact[0])
 }
 
@@ -465,20 +593,40 @@ mod tests {
     use crate::platforms::tests::fake_steam;
 
     fn q(platform: &str, id: Option<&str>, name: &str) -> MetaQuery {
-        MetaQuery { platform: platform.into(), app_id: id.map(String::from), name: name.into(), external_ids: BTreeMap::new() }
+        MetaQuery {
+            platform: platform.into(),
+            app_id: id.map(String::from),
+            name: name.into(),
+            external_ids: BTreeMap::new(),
+        }
     }
 
     #[test]
     fn steam_store_parses_appdetails() {
         let body = r#"{"367520":{"success":true,"data":{"name":"空洞骑士","developers":["Team Cherry"],"publishers":["Team Cherry"],"release_date":{"date":"2017 年 2 月 24 日"},"genres":[{"description":"动作"},{"description":"独立"}]}}}"#;
-        let http = Arc::new(FakeHttp::default().route("https://store.steampowered.com/api/appdetails?appids=367520", 200, body));
-        let p = SteamStore::new(http.clone()).fetch(&q("steam", Some("367520"), "Hollow Knight")).unwrap();
+        let http = Arc::new(FakeHttp::default().route(
+            "https://store.steampowered.com/api/appdetails?appids=367520",
+            200,
+            body,
+        ));
+        let p = SteamStore::new(http.clone())
+            .fetch(&q("steam", Some("367520"), "Hollow Knight"))
+            .unwrap();
         assert_eq!(p.name_zh.as_deref(), Some("空洞骑士"));
         assert_eq!(p.developer.as_deref(), Some("Team Cherry"));
         assert_eq!(p.genres.unwrap(), ["动作", "独立"]);
-        assert!(matches!(p.cover, Some(ImageSource::Url(u)) if u.contains("367520/library_600x900")));
-        assert!(http.requests.lock().unwrap()[0].0.contains("l=schinese"), "只发送游戏 ID");
-        let fail = SteamStore::new(Arc::new(FakeHttp::default().route("https://store", 200, r#"{"1":{"success":false}}"#)));
+        assert!(
+            matches!(p.cover, Some(ImageSource::Url(u)) if u.contains("367520/library_600x900"))
+        );
+        assert!(
+            http.requests.lock().unwrap()[0].0.contains("l=schinese"),
+            "只发送游戏 ID"
+        );
+        let fail = SteamStore::new(Arc::new(FakeHttp::default().route(
+            "https://store",
+            200,
+            r#"{"1":{"success":false}}"#,
+        )));
         assert!(fail.fetch(&q("steam", Some("1"), "x")).is_err());
         assert!(!SteamStore::new(Arc::new(FakeHttp::default())).supports(&q("custom", None, "x")));
     }
@@ -489,9 +637,15 @@ mod tests {
         let steam = fake_steam(d.path());
         // 写一张竖版封面与一张横幅。
         let cache = steam.root.join("appcache/librarycache/367520");
-        image::RgbImage::new(60, 90).save(cache.join("abc/cover.png")).unwrap();
-        image::RgbImage::new(300, 100).save(cache.join("hero.png")).unwrap();
-        let p = SteamLocal { steam }.fetch(&q("steam", Some("367520"), "Hollow Knight")).unwrap();
+        image::RgbImage::new(60, 90)
+            .save(cache.join("abc/cover.png"))
+            .unwrap();
+        image::RgbImage::new(300, 100)
+            .save(cache.join("hero.png"))
+            .unwrap();
+        let p = SteamLocal { steam }
+            .fetch(&q("steam", Some("367520"), "Hollow Knight"))
+            .unwrap();
         assert_eq!(p.playtime_min, Some(2520));
         assert_eq!(p.cloud_save, Some(true));
         assert!(matches!(p.cover, Some(ImageSource::File(f)) if f.ends_with("cover.png")));
@@ -505,7 +659,11 @@ mod tests {
             "alternative_names":[{"name":"巫师3：狂猎"}]}]"#;
         let http = Arc::new(
             FakeHttp::default()
-                .route("https://id.twitch.tv/oauth2/token", 200, r#"{"access_token":"tok"}"#)
+                .route(
+                    "https://id.twitch.tv/oauth2/token",
+                    200,
+                    r#"{"access_token":"tok"}"#,
+                )
                 .route("https://api.igdb.com/v4/games", 200, games),
         );
         let igdb = Igdb::new(http.clone(), "cid", "secret");
@@ -519,17 +677,36 @@ mod tests {
         assert_eq!(p.name_zh.as_deref(), Some("巫师3：狂猎"));
         assert_eq!(p.release_date.as_deref(), Some("2015-05-19"));
         let reqs = http.requests.lock().unwrap();
-        assert_eq!(reqs.iter().filter(|r| r.0.contains("oauth2")).count(), 1, "令牌缓存");
-        assert!(reqs.iter().any(|r| r.1.iter().any(|(k, v)| k == "Authorization" && v == "Bearer tok")));
+        assert_eq!(
+            reqs.iter().filter(|r| r.0.contains("oauth2")).count(),
+            1,
+            "令牌缓存"
+        );
+        assert!(reqs.iter().any(|r| {
+            r.1.iter()
+                .any(|(k, v)| k == "Authorization" && v == "Bearer tok")
+        }));
     }
 
     #[test]
     fn sgdb_images_and_search() {
         let http = Arc::new(
             FakeHttp::default()
-                .route("https://www.steamgriddb.com/api/v2/grids/steam/367520", 200, r#"{"data":[{"url":"https://cdn/c.png"}]}"#)
-                .route("https://www.steamgriddb.com/api/v2/heroes/steam/367520", 200, r#"{"data":[]}"#)
-                .route("https://www.steamgriddb.com/api/v2/search/autocomplete/", 200, r#"{"data":[{"id":5,"name":"Celeste","release_date":1516579200}]}"#),
+                .route(
+                    "https://www.steamgriddb.com/api/v2/grids/steam/367520",
+                    200,
+                    r#"{"data":[{"url":"https://cdn/c.png"}]}"#,
+                )
+                .route(
+                    "https://www.steamgriddb.com/api/v2/heroes/steam/367520",
+                    200,
+                    r#"{"data":[]}"#,
+                )
+                .route(
+                    "https://www.steamgriddb.com/api/v2/search/autocomplete/",
+                    200,
+                    r#"{"data":[{"id":5,"name":"Celeste","release_date":1516579200}]}"#,
+                ),
         );
         let s = SteamGridDb::new(http, "k");
         let p = s.fetch(&q("steam", Some("367520"), "HK")).unwrap();
@@ -542,13 +719,25 @@ mod tests {
     #[test]
     fn name_cleanup_and_auto_pick() {
         assert_eq!(search_name("Celeste v1.4.0.0 (GOG)!"), "Celeste");
-        assert_eq!(search_name("The Witcher 3: Wild Hunt 1.32"), "The Witcher 3 Wild Hunt");
+        assert_eq!(
+            search_name("The Witcher 3: Wild Hunt 1.32"),
+            "The Witcher 3 Wild Hunt"
+        );
         assert_eq!(search_name("Hades™ v2"), "Hades");
-        let c = |n: &str, id: &str| Candidate { source: "igdb".into(), id: id.into(), name: n.into(), year: None, cover_url: None };
+        let c = |n: &str, id: &str| Candidate {
+            source: "igdb".into(),
+            id: id.into(),
+            name: n.into(),
+            year: None,
+            cover_url: None,
+        };
         let list = vec![c("Celeste", "1"), c("Celeste Classic", "2")];
         assert_eq!(auto_pick("celeste", &list).unwrap().id, "1");
         assert!(auto_pick("Celest", &list).is_none());
-        assert!(auto_pick("Celeste", &[c("Celeste", "1"), c("CELESTE", "3")]).is_none(), "多个同名候选时让用户选择");
+        assert!(
+            auto_pick("Celeste", &[c("Celeste", "1"), c("CELESTE", "3")]).is_none(),
+            "多个同名候选时让用户选择"
+        );
     }
 
     #[test]

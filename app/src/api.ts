@@ -1,6 +1,15 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  BundleImportReport,
+  BundlePreview,
+  BundleReport,
+  BundleScope,
+  ExportFormat,
+  ExportReport,
+  FilesPreview,
+  ImportFilesReport,
+  ImportPlace,
   AppInfo,
   BackupItemResult,
   CmdError,
@@ -90,6 +99,15 @@ export const api = {
   updateRules: () => invoke<{ result: "updated"; games: number; bytes: number } | { result: "notModified" }>("update_rules"),
   rulesInfo: () => invoke<{ path: string | null; games: number; userGames: number }>("rules_info"),
   openPath: (path: string) => invoke<void>("open_path", { path }),
+  openLocation: (gameId: string, ord: number) => invoke<void>("open_location", { gameId, ord }),
+
+  exportDefaultName: (gameId: string, spec: string | null) => invoke<string>("export_default_name", { gameId, spec }),
+  exportFiles: (gameId: string, spec: string | null, dest: string, format: ExportFormat) => invoke<ExportReport>("export_files", { gameId, spec, dest, format }),
+  exportBundle: (gameId: string, scope: BundleScope, dest: string) => invoke<BundleReport>("export_bundle", { gameId, scope, dest }),
+  inspectBundle: (path: string, gameId: string | null) => invoke<BundlePreview>("inspect_bundle", { path, gameId }),
+  importBundle: (path: string, gameId: string | null) => invoke<BundleImportReport>("import_bundle", { path, gameId }),
+  inspectFiles: (gameId: string, src: string) => invoke<FilesPreview>("inspect_files", { gameId, src }),
+  importFiles: (gameId: string, src: string, place: ImportPlace, comment: string | null) => invoke<ImportFilesReport>("import_files", { gameId, src, place, comment }),
 
   onLibraryRow: (cb: (row: GameRow) => void): Promise<UnlistenFn> => listen<GameRow>("library-row", (e) => cb(e.payload)),
   onLibraryPhase: (cb: (p: Phase) => void): Promise<UnlistenFn> => listen<Phase>("library-phase", (e) => cb(e.payload)),

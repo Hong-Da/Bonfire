@@ -65,3 +65,20 @@ describe("timeline layout", () => {
     expect(layout([])).toEqual({ rows: [], edges: [], columns: 1 });
   });
 });
+
+describe("历史段", () => {
+  it("祖先与一段历史", async () => {
+    const { ancestors, rangeOf } = await import("./timeline");
+    // a ← b ← c，b ← d（d 从 b 分叉）
+    const nodes = [
+      { id: "d", parents: ["b"] },
+      { id: "c", parents: ["b"] },
+      { id: "b", parents: ["a"] },
+      { id: "a", parents: [] },
+    ];
+    expect([...ancestors(nodes, ["c"])].sort()).toEqual(["a", "b", "c"]);
+    expect([...ancestors(nodes, ["c", "d"])].sort()).toEqual(["a", "b", "c", "d"]);
+    expect([...rangeOf(nodes, "b", "c")].sort()).toEqual(["b", "c"]);
+    expect([...rangeOf(nodes, null, "d")].sort()).toEqual(["a", "b", "d"]);
+  });
+});

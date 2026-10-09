@@ -42,7 +42,11 @@ pub struct Global {
 
 impl Global {
     pub fn format(&self) -> OutputFormat {
-        if self.json { OutputFormat::Json } else { self.output }
+        if self.json {
+            OutputFormat::Json
+        } else {
+            self.output
+        }
     }
 }
 
@@ -150,6 +154,37 @@ pub enum Cmd {
         #[command(subcommand)]
         cmd: ProfileCmd,
     },
+    Export {
+        game: String,
+        snapshot: Option<String>,
+        #[arg(
+            long,
+            value_name = "FILE",
+            required_unless_present = "folder",
+            conflicts_with = "folder"
+        )]
+        zip: Option<PathBuf>,
+        #[arg(long, value_name = "DIR")]
+        folder: Option<PathBuf>,
+    },
+    Import {
+        game: String,
+        source: PathBuf,
+        #[arg(long, value_name = "NAME", conflicts_with = "onto")]
+        branch: Option<String>,
+        #[arg(long, value_name = "SNAPSHOT", conflicts_with = "onto")]
+        parent: Option<String>,
+        #[arg(long, value_name = "BRANCH")]
+        onto: Option<String>,
+        #[arg(short = 'm', long)]
+        message: Option<String>,
+        #[arg(long)]
+        dry_run: bool,
+    },
+    Bundle {
+        #[command(subcommand)]
+        cmd: BundleCmd,
+    },
     Fsck {
         #[arg(long)]
         deep: bool,
@@ -158,10 +193,36 @@ pub enum Cmd {
 }
 
 #[derive(Debug, Subcommand)]
+pub enum BundleCmd {
+    Export {
+        game: String,
+        #[arg(short = 'o', long = "out", value_name = "FILE")]
+        out_file: PathBuf,
+        #[arg(long = "branch", value_name = "NAME", conflicts_with_all = ["from", "to"])]
+        branches: Vec<String>,
+        #[arg(long, value_name = "SNAPSHOT", requires = "to")]
+        from: Option<String>,
+        #[arg(long, value_name = "SNAPSHOT")]
+        to: Option<String>,
+    },
+    Import {
+        file: PathBuf,
+        #[arg(long)]
+        game: Option<String>,
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 pub enum GameCmd {
     Add {
         name: String,
-        #[arg(long = "path", value_name = "PATH", required_unless_present = "config_paths")]
+        #[arg(
+            long = "path",
+            value_name = "PATH",
+            required_unless_present = "config_paths"
+        )]
         paths: Vec<PathBuf>,
         #[arg(long = "config-path", value_name = "PATH")]
         config_paths: Vec<PathBuf>,
@@ -222,19 +283,33 @@ pub fn command(locale: Locale) -> Command {
 
 /// 按 `cli.cmd.<路径>` 与 `cli.arg.<路径>.<参数>` 填入说明；参数说明找不到时依次向上一级路径查找，最后查 `cli.arg.<参数>`。
 fn localize(mut cmd: Command, l: Locale, path: &str) -> Command {
-    let key = if path.is_empty() { "cli.cmd.root".to_string() } else { format!("cli.cmd.{path}") };
+    let key = if path.is_empty() {
+        "cli.cmd.root".to_string()
+    } else {
+        format!("cli.cmd.{path}")
+    };
     if let Some(text) = lookup(l, &key) {
         cmd = cmd.about(text);
     }
-    let ids: Vec<String> = cmd.get_arguments().map(|a| a.get_id().to_string()).collect();
+    let ids: Vec<String> = cmd
+        .get_arguments()
+        .map(|a| a.get_id().to_string())
+        .collect();
     for id in ids {
         if let Some(text) = arg_help(l, path, &id) {
             cmd = cmd.mut_arg(id.as_str(), |a| a.help(text));
         }
     }
-    let subs: Vec<String> = cmd.get_subcommands().map(|s| s.get_name().to_string()).collect();
+    let subs: Vec<String> = cmd
+        .get_subcommands()
+        .map(|s| s.get_name().to_string())
+        .collect();
     for name in subs {
-        let sub_path = if path.is_empty() { name.clone() } else { format!("{path}.{name}") };
+        let sub_path = if path.is_empty() {
+            name.clone()
+        } else {
+            format!("{path}.{name}")
+        };
         cmd = cmd.mut_subcommand(name.as_str(), |s| localize(s, l, &sub_path));
     }
     cmd
@@ -243,28 +318,40 @@ fn localize(mut cmd: Command, l: Locale, path: &str) -> Command {
 pub fn arg_help(l: Locale, path: &str, id: &str) -> Option<&'static str> {
     let mut p = path.to_string();
     loop {
-        let key = if p.is_empty() { format!("cli.arg.{id}") } else { format!("cli.arg.{p}.{id}") };
+        let key = if p.is_empty() {
+            format!("cli.arg.{id}")
+        } else {
+            format!("cli.arg.{p}.{id}")
+        };
         if let Some(t) = lookup(l, &key) {
             return Some(t);
         }
         // 分支与标签共用 `cli.arg.ref.*`。
         if (p == "branch" || p == "tag")
-            && let Some(t) = lookup(l, &format!("cli.arg.ref.{id}")) {
-                return Some(t);
-            }
+            && let Some(t) = lookup(l, &format!("cli.arg.ref.{id}"))
+        {
+            return Some(t);
+        }
         if p.is_empty() {
             return None;
         }
-        p = p.rsplit_once('.').map(|(a, _)| a.to_string()).unwrap_or_default();
+        p = p
+            .rsplit_once('.')
+            .map(|(a, _)| a.to_string())
+            .unwrap_or_default();
     }
 }
 
 /// 解析参数之前确定语言：`--lang` 参数 > 环境变量 > 配置文件 > 系统语言。
 pub fn early_locale(args: &[String], config_lang: impl FnOnce() -> Option<String>) -> Locale {
     let from_args = args.iter().enumerate().find_map(|(i, a)| {
-        a.strip_prefix("--lang=").map(String::from).or_else(|| (a == "--lang").then(|| args.get(i + 1).cloned()).flatten())
+        a.strip_prefix("--lang=")
+            .map(String::from)
+            .or_else(|| (a == "--lang").then(|| args.get(i + 1).cloned()).flatten())
     });
-    let configured = from_args.or_else(|| std::env::var(bonfire_app::config::ENV_LANG).ok()).or_else(config_lang);
+    let configured = from_args
+        .or_else(|| std::env::var(bonfire_app::config::ENV_LANG).ok())
+        .or_else(config_lang);
     Locale::resolve(configured.as_deref())
 }
 
@@ -276,7 +363,11 @@ mod tests {
     #[test]
     fn every_command_and_arg_is_documented() {
         fn walk(cmd: &Command, path: &str, l: Locale, missing: &mut Vec<String>) {
-            let key = if path.is_empty() { "cli.cmd.root".to_string() } else { format!("cli.cmd.{path}") };
+            let key = if path.is_empty() {
+                "cli.cmd.root".to_string()
+            } else {
+                format!("cli.cmd.{path}")
+            };
             if lookup(l, &key).is_none() {
                 missing.push(format!("{} {key}", l.code()));
             }
@@ -286,7 +377,11 @@ mod tests {
                 }
             }
             for s in cmd.get_subcommands() {
-                let p = if path.is_empty() { s.get_name().to_string() } else { format!("{path}.{}", s.get_name()) };
+                let p = if path.is_empty() {
+                    s.get_name().to_string()
+                } else {
+                    format!("{path}.{}", s.get_name())
+                };
                 walk(s, &p, l, missing);
             }
         }
@@ -310,8 +405,14 @@ mod tests {
     #[test]
     fn early_locale_from_args() {
         let args = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        assert_eq!(early_locale(&args(&["bonfire", "--lang", "en", "status"]), || None), Locale::En);
-        assert_eq!(early_locale(&args(&["bonfire", "--lang=zh-CN"]), || Some("en".into())), Locale::ZhCn);
+        assert_eq!(
+            early_locale(&args(&["bonfire", "--lang", "en", "status"]), || None),
+            Locale::En
+        );
+        assert_eq!(
+            early_locale(&args(&["bonfire", "--lang=zh-CN"]), || Some("en".into())),
+            Locale::ZhCn
+        );
     }
 
     #[test]

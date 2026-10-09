@@ -11,14 +11,20 @@ pub fn running_under(dirs: &[PathBuf]) -> Vec<(String, PathBuf)> {
     }
     let dirs: Vec<PathBuf> = dirs.iter().map(|d| normalize(d)).collect();
     let mut sys = System::new();
-    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet));
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
+    );
     let mut out: Vec<(String, PathBuf)> = sys
         .processes()
         .values()
         .filter_map(|p| {
             let exe = p.exe()?;
             let n = normalize(exe);
-            dirs.iter().any(|d| n.starts_with(d)).then(|| (p.name().to_string_lossy().into_owned(), exe.to_path_buf()))
+            dirs.iter()
+                .any(|d| n.starts_with(d))
+                .then(|| (p.name().to_string_lossy().into_owned(), exe.to_path_buf()))
         })
         .collect();
     out.sort();
@@ -29,7 +35,11 @@ pub fn running_under(dirs: &[PathBuf]) -> Vec<(String, PathBuf)> {
 /// Windows 路径不区分大小写：统一转为小写比较。
 fn normalize(p: &Path) -> PathBuf {
     let abs = std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
-    if cfg!(windows) { PathBuf::from(abs.to_string_lossy().to_lowercase()) } else { abs }
+    if cfg!(windows) {
+        PathBuf::from(abs.to_string_lossy().to_lowercase())
+    } else {
+        abs
+    }
 }
 
 #[cfg(test)]
@@ -55,7 +65,12 @@ mod tests {
         let found = running_under(&[dir.path().to_path_buf()]);
         child.kill().unwrap();
         let _ = child.wait();
-        assert!(found.iter().any(|(name, _)| name.eq_ignore_ascii_case("FakeGame.exe")), "{found:?}");
+        assert!(
+            found
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case("FakeGame.exe")),
+            "{found:?}"
+        );
         let other = tempfile::tempdir().unwrap();
         assert!(running_under(&[other.path().to_path_buf()]).is_empty());
     }

@@ -57,8 +57,15 @@ impl App {
     /// 打开（必要时初始化）仓库与索引。索引是新建的时，从 `games.toml` 恢复游戏并从对象库重建索引。
     pub fn open(paths: AppPaths, config: Config, locale: Locale, repo_dir: &Path) -> Result<Self> {
         // 仓库自带的参数文件也叫 config.toml：仓库不能与应用配置放在同一目录。
-        if paths.config_file.parent().is_some_and(|d| crate::discover::same_dir(d, repo_dir)) {
-            return Err(AppError::Invalid(format!("仓库位置不能与数据目录相同：{}，请改用其下的子目录（如 repo）", repo_dir.display())));
+        if paths
+            .config_file
+            .parent()
+            .is_some_and(|d| crate::discover::same_dir(d, repo_dir))
+        {
+            return Err(AppError::Invalid(format!(
+                "仓库位置不能与数据目录相同：{}，请改用其下的子目录（如 repo）",
+                repo_dir.display()
+            )));
         }
         let fresh_db = !repo_dir.join("bonfire.db").exists();
         let repo = Repo::init(repo_dir)?;
@@ -72,7 +79,9 @@ impl App {
             http: if std::env::var("BONFIRE_OFFLINE").is_ok_and(|v| v == "1") {
                 std::sync::Arc::new(bonfire_discovery::http::Offline)
             } else {
-                std::sync::Arc::new(bonfire_discovery::http::Throttled::new(bonfire_discovery::http::UreqHttp::default()))
+                std::sync::Arc::new(bonfire_discovery::http::Throttled::new(
+                    bonfire_discovery::http::UreqHttp::default(),
+                ))
             },
             known_dirs: match crate::discover::fake_root() {
                 Some(root) => bonfire_discovery::KnownDirs::under(&root),
@@ -83,7 +92,10 @@ impl App {
         };
         if fresh_db {
             let restored = app.restore_games_file()?;
-            let has_history = !app.repo.list_objects(bonfire_core::Kind::Snapshot)?.is_empty();
+            let has_history = !app
+                .repo
+                .list_objects(bonfire_core::Kind::Snapshot)?
+                .is_empty();
             if has_history {
                 let stats = bonfire_core::index::reindex(&app.repo, &mut app.index)?;
                 tracing::info!(restored, ?stats, "索引数据库不存在，已从仓库重建");
@@ -98,17 +110,34 @@ impl App {
             return Ok(g);
         }
         let lower = key.to_lowercase();
-        let matches: Vec<GameRecord> = self.index.games()?.into_iter().filter(|g| g.name.to_lowercase() == lower).collect();
+        let matches: Vec<GameRecord> = self
+            .index
+            .games()?
+            .into_iter()
+            .filter(|g| g.name.to_lowercase() == lower)
+            .collect();
         match matches.len() {
             0 => Err(AppError::GameNotFound(key.to_string())),
             1 => Ok(matches.into_iter().next().unwrap()),
-            _ => Err(AppError::AmbiguousGame { name: key.to_string(), candidates: matches.iter().map(|g| g.id.as_str()).collect::<Vec<_>>().join("、") }),
+            _ => Err(AppError::AmbiguousGame {
+                name: key.to_string(),
+                candidates: matches
+                    .iter()
+                    .map(|g| g.id.as_str())
+                    .collect::<Vec<_>>()
+                    .join("、"),
+            }),
         }
     }
 
     /// 未被忽略的游戏。
     pub fn games(&self) -> Result<Vec<GameRecord>> {
-        Ok(self.index.games()?.into_iter().filter(|g| g.enabled).collect())
+        Ok(self
+            .index
+            .games()?
+            .into_iter()
+            .filter(|g| g.enabled)
+            .collect())
     }
 
     /// 全部游戏（含已忽略的）。
@@ -126,22 +155,45 @@ impl App {
             return Err(AppError::NoLocations(name.to_string()));
         }
         let mut locations = Vec::new();
-        for (paths, tag) in [(&new.save_paths, FileTag::Save), (&new.config_paths, FileTag::Config)] {
+        for (paths, tag) in [
+            (&new.save_paths, FileTag::Save),
+            (&new.config_paths, FileTag::Config),
+        ] {
             for p in paths {
                 let abs = absolute(p)?;
-                let kind = if abs.is_file() { LocationKind::File } else { LocationKind::Dir };
+                let kind = if abs.is_file() {
+                    LocationKind::File
+                } else {
+                    LocationKind::Dir
+                };
                 let s = abs.to_string_lossy().into_owned();
-                locations.push(LocationRecord { path_template: s.clone(), resolved_path: s, kind, tag, source: "user".into(), confirmed: true });
+                locations.push(LocationRecord {
+                    path_template: s.clone(),
+                    resolved_path: s,
+                    kind,
+                    tag,
+                    source: "user".into(),
+                    confirmed: true,
+                });
             }
         }
-        let seed = format!("{name}\0{}\0{}", bonfire_core::scan::now_ns(), std::process::id());
+        let seed = format!(
+            "{name}\0{}\0{}",
+            bonfire_core::scan::now_ns(),
+            std::process::id()
+        );
         let id = format!("custom-{}", ObjectId::of(seed.as_bytes()).short(12));
         let record = GameRecord {
             id,
             name: name.to_string(),
             platform: "custom".into(),
             app_id: None,
-            install_dir: new.install_dir.as_deref().map(absolute).transpose()?.map(|p| p.to_string_lossy().into_owned()),
+            install_dir: new
+                .install_dir
+                .as_deref()
+                .map(absolute)
+                .transpose()?
+                .map(|p| p.to_string_lossy().into_owned()),
             enabled: true,
             include_config: None,
             custom_rule_json: None,
@@ -182,7 +234,9 @@ impl App {
     /// 扫描用的存档位置。按游戏或全局设置决定是否包含配置文件；未确认的（启发式）位置不参与。
     /// 注册表位置先导出为缓存目录中的 .reg 文件，再当作普通文件处理（文档 4.2）。
     pub fn scan_roots(&self, game: &GameRecord) -> Result<Vec<ScanRoot>> {
-        let include_config = game.include_config.unwrap_or(self.config.backup.include_config_files);
+        let include_config = game
+            .include_config
+            .unwrap_or(self.config.backup.include_config_files);
         let mut roots = Vec::new();
         for (ord, l) in self.locations(&game.id)?.into_iter().enumerate() {
             if !l.confirmed || (l.tag == FileTag::Config && !include_config) {
@@ -201,25 +255,38 @@ impl App {
                 LocationKind::Dir => (PathBuf::from(&l.resolved_path), RootKind::Dir),
                 LocationKind::Glob => (PathBuf::from(&l.resolved_path), RootKind::Glob),
             };
-            roots.push(ScanRoot { ord, path, kind, tag: l.tag });
+            roots.push(ScanRoot {
+                ord,
+                path,
+                kind,
+                tag: l.tag,
+            });
         }
         Ok(roots)
     }
 
     /// 注册表存档导出的缓存文件。
     pub fn registry_file(&self, game_id: &str, ord: usize) -> PathBuf {
-        self.paths.cache_dir.join("registry").join(game_id).join(format!("{ord}.reg"))
+        self.paths
+            .cache_dir
+            .join("registry")
+            .join(game_id)
+            .join(format!("{ord}.reg"))
     }
 
     /// 清单路径（`<序号>/<相对路径>`）对应的磁盘路径。
     pub fn disk_path(&self, game_id: &str, tree_path: &str) -> Result<PathBuf> {
         let locations = self.locations(game_id)?;
-        let (ord, rel) = tree_path.split_once('/').ok_or_else(|| AppError::Invalid(format!("无效的清单路径 {tree_path}")))?;
+        let (ord, rel) = tree_path
+            .split_once('/')
+            .ok_or_else(|| AppError::Invalid(format!("无效的清单路径 {tree_path}")))?;
         let loc = ord
             .parse::<usize>()
             .ok()
             .and_then(|i| locations.get(i))
-            .ok_or_else(|| AppError::Invalid(format!("清单路径 {tree_path} 对应的存档位置不存在")))?;
+            .ok_or_else(|| {
+                AppError::Invalid(format!("清单路径 {tree_path} 对应的存档位置不存在"))
+            })?;
         if loc.kind == LocationKind::Registry {
             return Ok(self.registry_file(game_id, ord.parse().unwrap_or(0)));
         }
@@ -231,7 +298,9 @@ impl App {
         let mut p = base;
         for part in rel.split('/') {
             if part.is_empty() || part == "." || part == ".." {
-                return Err(AppError::Invalid(format!("清单路径 {tree_path} 含非法片段")));
+                return Err(AppError::Invalid(format!(
+                    "清单路径 {tree_path} 含非法片段"
+                )));
             }
             p.push(part);
         }
@@ -254,9 +323,15 @@ impl App {
         let mut file = GamesFile { game: Vec::new() };
         for g in self.index.games()? {
             let location = self.index.locations(&g.id)?;
-            file.game.push(GameEntry { record: g, location });
+            file.game.push(GameEntry {
+                record: g,
+                location,
+            });
         }
-        let text = format!("# 篝火 Bonfire 游戏配置备份（自动生成，索引数据库丢失时用于恢复）\n\n{}", toml::to_string_pretty(&file).expect("游戏配置序列化不会失败"));
+        let text = format!(
+            "# 篝火 Bonfire 游戏配置备份（自动生成，索引数据库丢失时用于恢复）\n\n{}",
+            toml::to_string_pretty(&file).expect("游戏配置序列化不会失败")
+        );
         let path = self.games_file();
         let tmp = path.with_extension("toml.tmp");
         std::fs::write(&tmp, text).map_err(|e| AppError::io(&tmp, e))?;
@@ -271,10 +346,12 @@ impl App {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
             Err(e) => return Err(AppError::io(path, e)),
         };
-        let file: GamesFile = toml::from_str(&text).map_err(|e| AppError::Invalid(format!("{} 格式错误：{e}", path.display())))?;
+        let file: GamesFile = toml::from_str(&text)
+            .map_err(|e| AppError::Invalid(format!("{} 格式错误：{e}", path.display())))?;
         for entry in &file.game {
             self.index.upsert_game(&entry.record)?;
-            self.index.set_locations(&entry.record.id, &entry.location)?;
+            self.index
+                .set_locations(&entry.record.id, &entry.location)?;
         }
         Ok(file.game.len())
     }

@@ -26,13 +26,23 @@ pub fn init(logs_dir: &Path, log: &Log, stderr: bool) -> Option<WorkerGuard> {
     let (file_layer, guard) = match file {
         Some(appender) => {
             let (writer, guard) = tracing_appender::non_blocking(appender);
-            let layer = fmt::layer().with_writer(writer).with_ansi(false).with_filter(EnvFilter::new(&level));
+            let layer = fmt::layer()
+                .with_writer(writer)
+                .with_ansi(false)
+                .with_filter(EnvFilter::new(&level));
             (Some(layer), Some(guard))
         }
         None => (None, None),
     };
-    let stderr_layer = stderr.then(|| fmt::layer().with_writer(std::io::stderr).with_filter(EnvFilter::new(&level)));
+    let stderr_layer = stderr.then(|| {
+        fmt::layer()
+            .with_writer(std::io::stderr)
+            .with_filter(EnvFilter::new(&level))
+    });
     // 重复初始化（例如测试中）时忽略错误。
-    let _ = tracing_subscriber::registry().with(file_layer).with(stderr_layer).try_init();
+    let _ = tracing_subscriber::registry()
+        .with(file_layer)
+        .with(stderr_layer)
+        .try_init();
     guard
 }

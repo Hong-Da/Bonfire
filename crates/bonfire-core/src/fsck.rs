@@ -49,7 +49,8 @@ pub fn fsck(repo: &Repo, deep: bool) -> Result<FsckReport> {
         match repo.get_blob(id) {
             Ok(b) => {
                 if let Some(missing) = b.chunks.iter().find(|c| !chunks.contains(c)) {
-                    r.errors.push(format!("文件对象 {id} 引用的分块 {missing} 不存在"));
+                    r.errors
+                        .push(format!("文件对象 {id} 引用的分块 {missing} 不存在"));
                 } else if deep && let Err(e) = repo.read_blob_to(id, std::io::sink(), repo.root()) {
                     err(&mut r, e);
                 }
@@ -64,7 +65,10 @@ pub fn fsck(repo: &Repo, deep: bool) -> Result<FsckReport> {
         match repo.get_tree(id) {
             Ok(t) => {
                 for e in t.entries.iter().filter(|e| !blobs.contains(&e.blob)) {
-                    r.errors.push(format!("清单 {id} 中的文件 {} 引用的对象 {} 不存在", e.path, e.blob));
+                    r.errors.push(format!(
+                        "清单 {id} 中的文件 {} 引用的对象 {} 不存在",
+                        e.path, e.blob
+                    ));
                 }
             }
             Err(e) => err(&mut r, e),
@@ -108,17 +112,38 @@ pub fn fsck(repo: &Repo, deep: bool) -> Result<FsckReport> {
                     check_ref_target(repo, &game, "HEAD", &d, &snapshots, &mut r);
                     reachable.push(d);
                 }
-                if repo.read_ref(&game, &RefName { kind: RefKind::Branch, name: h.branch.clone() })?.is_none() && h.detached.is_none() {
-                    let any_branch = repo.list_refs(&game)?.iter().any(|(n, _)| n.kind == RefKind::Branch);
+                if repo
+                    .read_ref(
+                        &game,
+                        &RefName {
+                            kind: RefKind::Branch,
+                            name: h.branch.clone(),
+                        },
+                    )?
+                    .is_none()
+                    && h.detached.is_none()
+                {
+                    let any_branch = repo
+                        .list_refs(&game)?
+                        .iter()
+                        .any(|(n, _)| n.kind == RefKind::Branch);
                     if any_branch {
-                        r.errors.push(format!("游戏 {game} 的 HEAD 指向不存在的分支 {}", h.branch));
+                        r.errors
+                            .push(format!("游戏 {game} 的 HEAD 指向不存在的分支 {}", h.branch));
                     }
                 }
             }
             Err(e) => err(&mut r, e),
         }
         for entry in repo.reflog(&game)? {
-            reachable.extend(entry.new.iter().chain(entry.old.iter()).copied().filter(|id| snapshots.contains(id)));
+            reachable.extend(
+                entry
+                    .new
+                    .iter()
+                    .chain(entry.old.iter())
+                    .copied()
+                    .filter(|id| snapshots.contains(id)),
+            );
         }
     }
 
@@ -134,7 +159,9 @@ pub fn fsck(repo: &Repo, deep: bool) -> Result<FsckReport> {
     }
     r.unreachable_snapshots = snapshots.iter().filter(|id| !seen.contains(id)).count() as u64;
 
-    r.tmp_files = std::fs::read_dir(repo.tmp_dir()).map(|rd| rd.count() as u64).unwrap_or(0);
+    r.tmp_files = std::fs::read_dir(repo.tmp_dir())
+        .map(|rd| rd.count() as u64)
+        .unwrap_or(0);
     Ok(r)
 }
 
@@ -142,15 +169,26 @@ fn err(r: &mut FsckReport, e: CoreError) {
     r.errors.push(e.to_string());
 }
 
-fn check_ref_target(repo: &Repo, game: &str, name: &str, id: &ObjectId, snapshots: &HashSet<ObjectId>, r: &mut FsckReport) {
+fn check_ref_target(
+    repo: &Repo,
+    game: &str,
+    name: &str,
+    id: &ObjectId,
+    snapshots: &HashSet<ObjectId>,
+    r: &mut FsckReport,
+) {
     if !snapshots.contains(id) {
-        r.errors.push(format!("游戏 {game} 的引用 {name} 指向不存在的快照 {id}"));
+        r.errors
+            .push(format!("游戏 {game} 的引用 {name} 指向不存在的快照 {id}"));
         return;
     }
     if let Ok(s) = repo.get_snapshot(id)
         && s.game != game
     {
-        r.errors.push(format!("游戏 {game} 的引用 {name} 指向其他游戏（{}）的快照 {id}", s.game));
+        r.errors.push(format!(
+            "游戏 {game} 的引用 {name} 指向其他游戏（{}）的快照 {id}",
+            s.game
+        ));
     }
 }
 
@@ -162,7 +200,15 @@ mod tests {
 
     fn snap(repo: &Repo, parents: Vec<ObjectId>, data: &[u8]) -> ObjectId {
         let blob = repo.write_file(data, Path::new("x")).unwrap().blob;
-        let tree = repo.put_tree(&Tree::new(vec![TreeEntry { path: "0/x".into(), blob, size: data.len() as u64, mtime_ns: 0, tag: FileTag::Save }])).unwrap();
+        let tree = repo
+            .put_tree(&Tree::new(vec![TreeEntry {
+                path: "0/x".into(),
+                blob,
+                size: data.len() as u64,
+                mtime_ns: 0,
+                tag: FileTag::Save,
+            }]))
+            .unwrap();
         repo.put_snapshot(&Snapshot {
             game: "custom-g".into(),
             tree,
@@ -184,7 +230,16 @@ mod tests {
         let lock = repo.lock().unwrap();
         let a = snap(&repo, vec![], b"1");
         let b = snap(&repo, vec![a], b"2");
-        repo.update_ref(&lock, "custom-g", &RefName::branch("main"), None, b, "backup", "").unwrap();
+        repo.update_ref(
+            &lock,
+            "custom-g",
+            &RefName::branch("main"),
+            None,
+            b,
+            "backup",
+            "",
+        )
+        .unwrap();
         let _orphan = snap(&repo, vec![], b"orphan");
         let r = fsck(&repo, true).unwrap();
         assert!(r.ok(), "{:?}", r.errors);
@@ -197,13 +252,37 @@ mod tests {
         let repo = Repo::init(dir.path()).unwrap();
         let lock = repo.lock().unwrap();
         let a = snap(&repo, vec![], b"first");
-        repo.update_ref(&lock, "custom-g", &RefName::branch("main"), None, a, "backup", "").unwrap();
+        repo.update_ref(
+            &lock,
+            "custom-g",
+            &RefName::branch("main"),
+            None,
+            a,
+            "backup",
+            "",
+        )
+        .unwrap();
         // 删除唯一的分块。
         let chunk = repo.list_objects(Kind::Chunk).unwrap()[0];
         let hex = chunk.to_hex();
-        std::fs::remove_file(repo.objects_dir().join("chunks").join(&hex[..2]).join(&hex[2..])).unwrap();
+        std::fs::remove_file(
+            repo.objects_dir()
+                .join("chunks")
+                .join(&hex[..2])
+                .join(&hex[2..]),
+        )
+        .unwrap();
         // 引用指向不存在的快照。
-        repo.update_ref(&lock, "custom-g", &RefName::branch("ghost"), None, ObjectId::of(b"ghost"), "branch", "").unwrap();
+        repo.update_ref(
+            &lock,
+            "custom-g",
+            &RefName::branch("ghost"),
+            None,
+            ObjectId::of(b"ghost"),
+            "branch",
+            "",
+        )
+        .unwrap();
         let r = fsck(&repo, false).unwrap();
         assert!(!r.ok());
         assert_eq!(r.errors.len(), 2, "{:?}", r.errors);

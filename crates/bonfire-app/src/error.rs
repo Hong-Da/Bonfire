@@ -32,7 +32,10 @@ pub enum AppError {
     #[error("恢复失败，已回滚到恢复前的状态：{0}")]
     RolledBack(String),
     #[error("{path}: {source}")]
-    Io { path: PathBuf, source: std::io::Error },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     #[error("联网失败：{0}")]
     Network(String),
     #[error("仓库校验发现 {0} 个问题")]
@@ -55,22 +58,37 @@ pub enum ErrorKind {
 
 impl AppError {
     pub fn io(path: impl Into<PathBuf>, source: std::io::Error) -> Self {
-        Self::Io { path: path.into(), source }
+        Self::Io {
+            path: path.into(),
+            source,
+        }
     }
 
     pub fn kind(&self) -> ErrorKind {
         match self {
             AppError::Core(e) => match e {
                 CoreError::Locked(_) => ErrorKind::Locked,
-                CoreError::NotInitialized(_) | CoreError::UnsupportedVersion { .. } | CoreError::BadRepoConfig(_) => ErrorKind::Config,
-                CoreError::RefNotFound(_) | CoreError::NoSnapshots(_) | CoreError::NoParent(_) => ErrorKind::NotFound,
-                CoreError::InvalidName { .. } | CoreError::AmbiguousRef { .. } | CoreError::RefExists(_) => ErrorKind::Usage,
+                CoreError::NotInitialized(_)
+                | CoreError::UnsupportedVersion { .. }
+                | CoreError::BadRepoConfig(_) => ErrorKind::Config,
+                CoreError::RefNotFound(_) | CoreError::NoSnapshots(_) | CoreError::NoParent(_) => {
+                    ErrorKind::NotFound
+                }
+                CoreError::InvalidName { .. }
+                | CoreError::AmbiguousRef { .. }
+                | CoreError::RefExists(_) => ErrorKind::Usage,
                 CoreError::Db(_) => ErrorKind::External,
                 _ => ErrorKind::General,
             },
             AppError::Config(_) => ErrorKind::Config,
-            AppError::GameNotFound(_) | AppError::ProfileNotFound(_) | AppError::PathNotFound(_) | AppError::NothingToUndo(_) => ErrorKind::NotFound,
-            AppError::AmbiguousGame { .. } | AppError::CommentTooLong { .. } | AppError::NoLocations(_) | AppError::Invalid(_) => ErrorKind::Usage,
+            AppError::GameNotFound(_)
+            | AppError::ProfileNotFound(_)
+            | AppError::PathNotFound(_)
+            | AppError::NothingToUndo(_) => ErrorKind::NotFound,
+            AppError::AmbiguousGame { .. }
+            | AppError::CommentTooLong { .. }
+            | AppError::NoLocations(_)
+            | AppError::Invalid(_) => ErrorKind::Usage,
             AppError::GameRunning { .. } => ErrorKind::GameRunning,
             AppError::Network(_) => ErrorKind::External,
             _ => ErrorKind::General,

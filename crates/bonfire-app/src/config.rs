@@ -18,11 +18,17 @@ pub const LOG_LEVELS: [&str; 5] = ["error", "warn", "info", "debug", "trace"];
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("无法读取配置文件 {path}: {source}")]
-    Read { path: PathBuf, source: std::io::Error },
+    Read {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     #[error("配置文件格式错误 {path}: {message}")]
     Parse { path: PathBuf, message: String },
     #[error("无法写入配置文件 {path}: {source}")]
-    Write { path: PathBuf, source: std::io::Error },
+    Write {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     #[error("配置项 {key} 的值无效：{message}")]
     Invalid { key: &'static str, message: String },
 }
@@ -70,7 +76,11 @@ pub struct Backup {
 
 impl Default for Backup {
     fn default() -> Self {
-        Self { include_config_files: true, size_warning_gb: 2.0, disabled_platforms: Vec::new() }
+        Self {
+            include_config_files: true,
+            size_warning_gb: 2.0,
+            disabled_platforms: Vec::new(),
+        }
     }
 }
 
@@ -104,7 +114,10 @@ pub struct Log {
 
 impl Default for Log {
     fn default() -> Self {
-        Self { level: "info".into(), keep_days: 14 }
+        Self {
+            level: "info".into(),
+            keep_days: 14,
+        }
     }
 }
 
@@ -121,9 +134,17 @@ impl Config {
         let text = match std::fs::read_to_string(path) {
             Ok(t) => t,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Self::default()),
-            Err(source) => return Err(ConfigError::Read { path: path.into(), source }),
+            Err(source) => {
+                return Err(ConfigError::Read {
+                    path: path.into(),
+                    source,
+                });
+            }
         };
-        toml::from_str(&text).map_err(|e| ConfigError::Parse { path: path.into(), message: e.to_string() })
+        toml::from_str(&text).map_err(|e| ConfigError::Parse {
+            path: path.into(),
+            message: e.to_string(),
+        })
     }
 
     fn apply_env(&mut self, get: impl Fn(&str) -> Option<String>) {
@@ -142,25 +163,40 @@ impl Config {
         if let Some(lang) = &self.general.language
             && Locale::parse(lang).is_none()
         {
-            return Err(ConfigError::Invalid { key: "general.language", message: format!("{lang}（可选 zh-CN、en）") });
+            return Err(ConfigError::Invalid {
+                key: "general.language",
+                message: format!("{lang}（可选 zh-CN、en）"),
+            });
         }
         let level = self.log.level.to_ascii_lowercase();
         if !LOG_LEVELS.contains(&level.as_str()) {
-            return Err(ConfigError::Invalid { key: "log.level", message: format!("{}（可选 {}）", self.log.level, LOG_LEVELS.join("、")) });
+            return Err(ConfigError::Invalid {
+                key: "log.level",
+                message: format!("{}（可选 {}）", self.log.level, LOG_LEVELS.join("、")),
+            });
         }
         if !(1..=365).contains(&self.log.keep_days) {
-            return Err(ConfigError::Invalid { key: "log.keep_days", message: format!("{}（范围 1–365）", self.log.keep_days) });
+            return Err(ConfigError::Invalid {
+                key: "log.keep_days",
+                message: format!("{}（范围 1–365）", self.log.keep_days),
+            });
         }
         let gb = self.backup.size_warning_gb;
         if gb.is_nan() || gb <= 0.0 {
-            return Err(ConfigError::Invalid { key: "backup.size_warning_gb", message: format!("{}（必须大于 0）", self.backup.size_warning_gb) });
+            return Err(ConfigError::Invalid {
+                key: "backup.size_warning_gb",
+                message: format!("{}（必须大于 0）", self.backup.size_warning_gb),
+            });
         }
         Ok(())
     }
 
     /// 写入配置文件（先写临时文件再替换）。
     pub fn save(&self, path: &Path) -> Result<(), ConfigError> {
-        let werr = |source| ConfigError::Write { path: path.into(), source };
+        let werr = |source| ConfigError::Write {
+            path: path.into(),
+            source,
+        };
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(werr)?;
         }
@@ -172,7 +208,10 @@ impl Config {
 
     /// 实际使用的仓库目录。
     pub fn repo_dir(&self, default: &Path) -> PathBuf {
-        self.general.repo.clone().unwrap_or_else(|| default.to_path_buf())
+        self.general
+            .repo
+            .clone()
+            .unwrap_or_else(|| default.to_path_buf())
     }
 
     /// 带注释的配置示例，内容即默认值。
@@ -258,7 +297,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("c.toml");
         std::fs::write(&p, "[log\nlevel=").unwrap();
-        assert!(matches!(Config::load_file(&p), Err(ConfigError::Parse { .. })));
+        assert!(matches!(
+            Config::load_file(&p),
+            Err(ConfigError::Parse { .. })
+        ));
     }
 
     #[test]
@@ -279,15 +321,33 @@ mod tests {
     fn validate_rejects_bad_values() {
         let mut cfg = Config::default();
         cfg.general.language = Some("pt-BR".into());
-        assert!(matches!(cfg.validate(), Err(ConfigError::Invalid { key: "general.language", .. })));
+        assert!(matches!(
+            cfg.validate(),
+            Err(ConfigError::Invalid {
+                key: "general.language",
+                ..
+            })
+        ));
 
         let mut cfg = Config::default();
         cfg.log.level = "verbose".into();
-        assert!(matches!(cfg.validate(), Err(ConfigError::Invalid { key: "log.level", .. })));
+        assert!(matches!(
+            cfg.validate(),
+            Err(ConfigError::Invalid {
+                key: "log.level",
+                ..
+            })
+        ));
 
         let mut cfg = Config::default();
         cfg.log.keep_days = 0;
-        assert!(matches!(cfg.validate(), Err(ConfigError::Invalid { key: "log.keep_days", .. })));
+        assert!(matches!(
+            cfg.validate(),
+            Err(ConfigError::Invalid {
+                key: "log.keep_days",
+                ..
+            })
+        ));
     }
 
     #[test]

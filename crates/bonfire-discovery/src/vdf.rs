@@ -53,7 +53,11 @@ pub struct VdfError {
 
 /// 解析整个文件，返回顶层对象。
 pub fn parse(text: &str) -> Result<VdfObj, VdfError> {
-    let mut p = Parser { chars: text.trim_start_matches('\u{feff}').chars().collect(), pos: 0, line: 1 };
+    let mut p = Parser {
+        chars: text.trim_start_matches('\u{feff}').chars().collect(),
+        pos: 0,
+        line: 1,
+    };
     let obj = p.object(false)?;
     Ok(obj)
 }
@@ -73,7 +77,10 @@ enum Token {
 
 impl Parser {
     fn err(&self, msg: &'static str) -> VdfError {
-        VdfError { line: self.line, msg }
+        VdfError {
+            line: self.line,
+            msg,
+        }
     }
 
     fn skip_ws(&mut self) {
@@ -89,7 +96,11 @@ impl Parser {
                 }
             } else if c == '[' {
                 // 条件标记如 [$WIN32]，忽略。
-                while self.chars.get(self.pos).is_some_and(|&c| c != ']' && c != '\n') {
+                while self
+                    .chars
+                    .get(self.pos)
+                    .is_some_and(|&c| c != ']' && c != '\n')
+                {
                     self.pos += 1;
                 }
                 self.pos += 1;
@@ -101,7 +112,9 @@ impl Parser {
 
     fn token(&mut self) -> Result<Token, VdfError> {
         self.skip_ws();
-        let Some(&c) = self.chars.get(self.pos) else { return Ok(Token::Eof) };
+        let Some(&c) = self.chars.get(self.pos) else {
+            return Ok(Token::Eof);
+        };
         match c {
             '{' => {
                 self.pos += 1;
@@ -115,12 +128,18 @@ impl Parser {
                 self.pos += 1;
                 let mut s = String::new();
                 loop {
-                    let Some(&c) = self.chars.get(self.pos) else { return Err(self.err("字符串未结束")) };
+                    let Some(&c) = self.chars.get(self.pos) else {
+                        return Err(self.err("字符串未结束"));
+                    };
                     self.pos += 1;
                     match c {
                         '"' => break,
                         '\\' => {
-                            let n = self.chars.get(self.pos).copied().ok_or_else(|| self.err("转义未结束"))?;
+                            let n = self
+                                .chars
+                                .get(self.pos)
+                                .copied()
+                                .ok_or_else(|| self.err("转义未结束"))?;
                             self.pos += 1;
                             s.push(match n {
                                 'n' => '\n',
@@ -139,7 +158,11 @@ impl Parser {
             }
             _ => {
                 let start = self.pos;
-                while self.chars.get(self.pos).is_some_and(|&c| !c.is_whitespace() && c != '{' && c != '}' && c != '"') {
+                while self
+                    .chars
+                    .get(self.pos)
+                    .is_some_and(|&c| !c.is_whitespace() && c != '{' && c != '}' && c != '"')
+                {
                     self.pos += 1;
                 }
                 Ok(Token::Str(self.chars[start..self.pos].iter().collect()))
@@ -163,7 +186,9 @@ impl Parser {
                 Token::Open => Vdf::Obj(self.object(true)?),
                 _ => return Err(self.err("缺少值")),
             };
-            obj.0.entry(key.to_ascii_lowercase()).or_insert((key, value));
+            obj.0
+                .entry(key.to_ascii_lowercase())
+                .or_insert((key, value));
         }
     }
 }
@@ -194,8 +219,18 @@ mod tests {
     fn parses_library_folders() {
         let v = parse(LIBRARY).unwrap();
         let lf = v.obj("libraryfolders").unwrap();
-        assert_eq!(lf.obj("0").unwrap().str("path"), Some(r"D:\01Softwares\Steam"));
-        let apps: Vec<_> = lf.obj("0").unwrap().obj("apps").unwrap().iter().map(|(k, _)| k.to_string()).collect();
+        assert_eq!(
+            lf.obj("0").unwrap().str("path"),
+            Some(r"D:\01Softwares\Steam")
+        );
+        let apps: Vec<_> = lf
+            .obj("0")
+            .unwrap()
+            .obj("apps")
+            .unwrap()
+            .iter()
+            .map(|(k, _)| k.to_string())
+            .collect();
         assert_eq!(apps, ["1030300", "228980"]);
         assert_eq!(lf.path(&["1", "apps"]).unwrap().str("70"), Some("1"));
     }

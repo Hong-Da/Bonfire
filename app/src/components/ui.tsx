@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { imageSrc } from "../api";
 import { useStore } from "../store";
@@ -6,7 +6,7 @@ import type { GameRow } from "../types";
 
 type IconName =
   | "library" | "settings" | "scan" | "backup" | "restore" | "branch" | "tag" | "search" | "folder"
-  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check";
+  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron";
 
 const PATHS: Record<IconName, string> = {
   library: "M4 5h4v14H4zM10 5h4v14h-4zM16.5 5.5l3.8 1-3.6 13.5-3.8-1z",
@@ -25,6 +25,11 @@ const PATHS: Record<IconName, string> = {
   edit: "M4 20h4L19 9l-4-4L4 16zM14 6l4 4",
   trash: "M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13",
   check: "M5 12l5 5 9-10",
+  export: "M12 15V4m0 0L8 8m4-4 4 4M5 14v5h14v-5",
+  import: "M12 4v11m0 0-4-4m4 4 4-4M5 14v5h14v-5",
+  more: "M6 12h.01M12 12h.01M18 12h.01",
+  game: "M7 8h10a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L14.5 13h-5l-1.1 1.8A3 3 0 0 1 3 13v-1a4 4 0 0 1 4-4zM8 10v3M6.5 11.5h3M16 11h.01M18 12.5h.01",
+  chevron: "M8 10l4 4 4-4",
 };
 
 export function Icon({ name, size = 18, label }: { name: IconName; size?: number; label?: string }) {
@@ -69,6 +74,57 @@ export function Modal({ title, subtitle, children, footer, onClose, wide }: { ti
         <div className="body">{children}</div>
         <footer>{footer}</footer>
       </div>
+    </div>
+  );
+}
+
+/** 下拉菜单：点按钮展开，点外部或按 Esc 关闭。 */
+export function Menu({ label, icon, items, className = "btn", align = "left", title }: {
+  label?: ReactNode;
+  icon?: IconName;
+  items: { label: ReactNode; onClick: () => void; danger?: boolean; disabled?: boolean; hint?: string }[];
+  className?: string;
+  align?: "left" | "right";
+  title?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  return (
+    <div className="menu" ref={ref}>
+      <button className={className} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)} title={title} aria-label={title}>
+        {icon && <Icon name={icon} />} {label}
+        {label && <Icon name="chevron" size={14} />}
+      </button>
+      {open && (
+        <div className={`menu-list ${align}`} role="menu">
+          {items.map((it, i) => (
+            <button
+              key={i}
+              role="menuitem"
+              className={it.danger ? "danger" : undefined}
+              disabled={it.disabled}
+              title={it.hint}
+              onClick={() => {
+                setOpen(false);
+                it.onClick();
+              }}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

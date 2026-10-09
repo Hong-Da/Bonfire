@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::http::Http;
 
-pub const MANIFEST_URL: &str = "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.yaml";
+pub const MANIFEST_URL: &str =
+    "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.yaml";
 pub const COMPACT_FILE: &str = "manifest.json.zst";
 const ETAG_FILE: &str = "manifest.etag";
 pub const CUSTOM_RULES_FILE: &str = "custom-rules.yaml";
@@ -21,7 +22,10 @@ pub enum ManifestError {
     #[error("规则库格式错误：{0}")]
     Parse(String),
     #[error("{path}: {source}")]
-    Io { path: PathBuf, source: std::io::Error },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     #[error("下载规则库失败：{0}")]
     Network(String),
 }
@@ -117,7 +121,10 @@ fn windows_stores(when: &[RawWhen]) -> Option<Vec<String>> {
     if when.is_empty() {
         return Some(Vec::new());
     }
-    let applicable: Vec<&RawWhen> = when.iter().filter(|w| w.os.as_deref().is_none_or(|o| o == "windows")).collect();
+    let applicable: Vec<&RawWhen> = when
+        .iter()
+        .filter(|w| w.os.as_deref().is_none_or(|o| o == "windows"))
+        .collect();
     if applicable.is_empty() {
         return None;
     }
@@ -132,7 +139,13 @@ fn windows_stores(when: &[RawWhen]) -> Option<Vec<String>> {
 
 fn convert_rules(raw: BTreeMap<String, RawRule>) -> Vec<PathRule> {
     raw.into_iter()
-        .filter_map(|(path, r)| windows_stores(&r.when).map(|stores| PathRule { path, tags: r.tags, stores }))
+        .filter_map(|(path, r)| {
+            windows_stores(&r.when).map(|stores| PathRule {
+                path,
+                tags: r.tags,
+                stores,
+            })
+        })
         .collect()
 }
 
@@ -147,7 +160,8 @@ impl Manifest {
         opts.budget = Some(budget);
         opts.emit_comments = false;
         opts.with_snippet = false;
-        let raw: BTreeMap<String, RawGame> = serde_saphyr::from_str_with_options(text, opts).map_err(|e| ManifestError::Parse(e.to_string()))?;
+        let raw: BTreeMap<String, RawGame> = serde_saphyr::from_str_with_options(text, opts)
+            .map_err(|e| ManifestError::Parse(e.to_string()))?;
         let mut games = Vec::new();
         for (name, g) in raw {
             let files = convert_rules(g.files);
@@ -162,7 +176,13 @@ impl Manifest {
                 install_dirs: g.install_dir.into_keys().collect(),
                 steam_id: g.steam.and_then(|s| s.id),
                 gog_id: g.gog.and_then(|s| s.id),
-                cloud: g.cloud.unwrap_or_default().into_iter().filter(|(_, v)| *v).map(|(k, _)| k).collect(),
+                cloud: g
+                    .cloud
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|(_, v)| *v)
+                    .map(|(k, _)| k)
+                    .collect(),
                 alias: g.alias,
             });
         }
@@ -177,12 +197,16 @@ impl Manifest {
     }
 
     pub fn from_compact(bytes: &[u8]) -> Result<Self, ManifestError> {
-        let json = zstd::stream::decode_all(bytes).map_err(|e| ManifestError::Parse(e.to_string()))?;
+        let json =
+            zstd::stream::decode_all(bytes).map_err(|e| ManifestError::Parse(e.to_string()))?;
         serde_json::from_slice(&json).map_err(|e| ManifestError::Parse(e.to_string()))
     }
 
     pub fn load_compact(path: &Path) -> Result<Self, ManifestError> {
-        let bytes = std::fs::read(path).map_err(|e| ManifestError::Io { path: path.into(), source: e })?;
+        let bytes = std::fs::read(path).map_err(|e| ManifestError::Io {
+            path: path.into(),
+            source: e,
+        })?;
         Self::from_compact(&bytes)
     }
 }
@@ -208,7 +232,10 @@ pub struct RuleIndex {
 
 /// 名称归一化：小写，只保留字母与数字（用于模糊匹配）。
 pub fn normalize(s: &str) -> String {
-    s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+    s.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 impl RuleIndex {
@@ -261,13 +288,18 @@ impl RuleIndex {
     fn resolve_alias(&self, i: usize) -> Option<(&GameRule, RuleSource)> {
         let (g, s) = &self.games[i];
         match &g.alias {
-            Some(target) => self.by_name.get(&target.to_lowercase()).map(|&j| (&self.games[j].0, self.games[j].1)),
+            Some(target) => self
+                .by_name
+                .get(&target.to_lowercase())
+                .map(|&j| (&self.games[j].0, self.games[j].1)),
             None => Some((g, *s)),
         }
     }
 
     pub fn by_name(&self, name: &str) -> Option<(&GameRule, RuleSource)> {
-        self.by_name.get(&name.to_lowercase()).and_then(|&i| self.resolve_alias(i))
+        self.by_name
+            .get(&name.to_lowercase())
+            .and_then(|&i| self.resolve_alias(i))
     }
 
     pub fn by_steam_id(&self, id: u64) -> Option<(&GameRule, RuleSource)> {
@@ -279,12 +311,16 @@ impl RuleIndex {
     }
 
     pub fn by_install_dir(&self, dir: &str) -> Option<(&GameRule, RuleSource)> {
-        self.by_install_dir.get(&dir.to_lowercase()).and_then(|&i| self.resolve_alias(i))
+        self.by_install_dir
+            .get(&dir.to_lowercase())
+            .and_then(|&i| self.resolve_alias(i))
     }
 
     /// 按归一化名称匹配（忽略大小写、空格与符号）。
     pub fn by_fuzzy_name(&self, name: &str) -> Option<(&GameRule, RuleSource)> {
-        self.by_normalized.get(&normalize(name)).and_then(|&i| self.resolve_alias(i))
+        self.by_normalized
+            .get(&normalize(name))
+            .and_then(|&i| self.resolve_alias(i))
     }
 }
 
@@ -309,7 +345,8 @@ pub struct LoadedFrom {
 
 /// 加载规则：缓存中的更新版本优先，其次内置快照；都没有时只有用户规则。
 pub fn load(paths: &ManifestPaths) -> Result<(RuleIndex, LoadedFrom), ManifestError> {
-    let candidates = std::iter::once(paths.cache_dir.join(COMPACT_FILE)).chain(paths.bundled.iter().cloned());
+    let candidates =
+        std::iter::once(paths.cache_dir.join(COMPACT_FILE)).chain(paths.bundled.iter().cloned());
     let mut manifest = Manifest::default();
     let mut from = None;
     for p in candidates {
@@ -320,12 +357,18 @@ pub fn load(paths: &ManifestPaths) -> Result<(RuleIndex, LoadedFrom), ManifestEr
                     from = Some(p);
                     break;
                 }
-                Err(e) => tracing::warn!(path = %p.display(), "规则库文件无法读取，尝试下一个：{e}"),
+                Err(e) => {
+                    tracing::warn!(path = %p.display(), "规则库文件无法读取，尝试下一个：{e}")
+                }
             }
         }
     }
     let user = load_custom_rules(&paths.custom_rules)?;
-    let loaded = LoadedFrom { path: from, games: manifest.games.len(), user_games: user.games.len() };
+    let loaded = LoadedFrom {
+        path: from,
+        games: manifest.games.len(),
+        user_games: user.games.len(),
+    };
     Ok((RuleIndex::new(manifest, user), loaded))
 }
 
@@ -334,7 +377,10 @@ pub fn load_custom_rules(path: &Path) -> Result<Manifest, ManifestError> {
         Ok(t) if t.trim().is_empty() => Ok(Manifest::default()),
         Ok(t) => Manifest::from_yaml(&t),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Manifest::default()),
-        Err(e) => Err(ManifestError::Io { path: path.into(), source: e }),
+        Err(e) => Err(ManifestError::Io {
+            path: path.into(),
+            source: e,
+        }),
     }
 }
 
@@ -344,7 +390,9 @@ fn yaml_str(s: &str) -> String {
 
 /// 以 Ludusavi 格式写出用户规则（只含本程序用到的字段）。
 pub fn to_yaml(m: &Manifest) -> String {
-    let mut out = String::from("# 篝火 Bonfire 用户自定义存档规则（格式同 Ludusavi Manifest），优先于社区规则库\n");
+    let mut out = String::from(
+        "# 篝火 Bonfire 用户自定义存档规则（格式同 Ludusavi Manifest），优先于社区规则库\n",
+    );
     for g in &m.games {
         out.push_str(&format!("{}:\n", yaml_str(&g.name)));
         for (key, rules) in [("files", &g.files), ("registry", &g.registry)] {
@@ -354,7 +402,11 @@ pub fn to_yaml(m: &Manifest) -> String {
             out.push_str(&format!("  {key}:\n"));
             for r in rules {
                 out.push_str(&format!("    {}:\n", yaml_str(&r.path)));
-                let tags = if r.tags.is_empty() { "save".to_string() } else { r.tags.join(", ") };
+                let tags = if r.tags.is_empty() {
+                    "save".to_string()
+                } else {
+                    r.tags.join(", ")
+                };
                 out.push_str(&format!("      tags: [{tags}]\n"));
                 if !r.stores.is_empty() {
                     out.push_str("      when:\n");
@@ -384,21 +436,42 @@ pub fn to_yaml(m: &Manifest) -> String {
 }
 
 /// 新增或替换用户规则文件中的一个游戏（按名称，不区分大小写）。`files` 为 (路径, 是否配置文件)。
-pub fn save_custom_rule(path: &Path, name: &str, files: &[(String, bool)]) -> Result<(), ManifestError> {
+pub fn save_custom_rule(
+    path: &Path,
+    name: &str,
+    files: &[(String, bool)],
+) -> Result<(), ManifestError> {
     let mut m = load_custom_rules(path)?;
     let rule = GameRule {
         name: name.to_string(),
-        files: files.iter().map(|(p, cfg)| PathRule { path: p.clone(), tags: vec![if *cfg { "config" } else { "save" }.into()], stores: Vec::new() }).collect(),
+        files: files
+            .iter()
+            .map(|(p, cfg)| PathRule {
+                path: p.clone(),
+                tags: vec![if *cfg { "config" } else { "save" }.into()],
+                stores: Vec::new(),
+            })
+            .collect(),
         ..Default::default()
     };
-    match m.games.iter_mut().find(|g| g.name.eq_ignore_ascii_case(name)) {
+    match m
+        .games
+        .iter_mut()
+        .find(|g| g.name.eq_ignore_ascii_case(name))
+    {
         Some(g) => *g = rule,
         None => m.games.push(rule),
     }
     if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| ManifestError::Io { path: dir.into(), source: e })?;
+        std::fs::create_dir_all(dir).map_err(|e| ManifestError::Io {
+            path: dir.into(),
+            source: e,
+        })?;
     }
-    std::fs::write(path, to_yaml(&m)).map_err(|e| ManifestError::Io { path: path.into(), source: e })
+    std::fs::write(path, to_yaml(&m)).map_err(|e| ManifestError::Io {
+        path: path.into(),
+        source: e,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -409,12 +482,26 @@ pub enum UpdateOutcome {
 }
 
 /// 下载最新规则库并转换到缓存目录。服务器返回 304 时不改动（按 ETag 增量更新）。
-pub fn update(http: &dyn Http, url: &str, cache_dir: &Path) -> Result<UpdateOutcome, ManifestError> {
-    let io = |path: &Path, e| ManifestError::Io { path: path.into(), source: e };
+pub fn update(
+    http: &dyn Http,
+    url: &str,
+    cache_dir: &Path,
+) -> Result<UpdateOutcome, ManifestError> {
+    let io = |path: &Path, e| ManifestError::Io {
+        path: path.into(),
+        source: e,
+    };
     let etag_path = cache_dir.join(ETAG_FILE);
     let compact = cache_dir.join(COMPACT_FILE);
-    let etag = if compact.is_file() { std::fs::read_to_string(&etag_path).ok() } else { None };
-    let headers: Vec<(&str, &str)> = etag.as_deref().map(|e| vec![("If-None-Match", e.trim())]).unwrap_or_default();
+    let etag = if compact.is_file() {
+        std::fs::read_to_string(&etag_path).ok()
+    } else {
+        None
+    };
+    let headers: Vec<(&str, &str)> = etag
+        .as_deref()
+        .map(|e| vec![("If-None-Match", e.trim())])
+        .unwrap_or_default();
     let resp = http.get(url, &headers).map_err(ManifestError::Network)?;
     match resp.status {
         304 => return Ok(UpdateOutcome::NotModified),
@@ -428,13 +515,20 @@ pub fn update(http: &dyn Http, url: &str, cache_dir: &Path) -> Result<UpdateOutc
     let tmp = compact.with_extension("zst.tmp");
     std::fs::write(&tmp, &bytes).map_err(|e| io(&tmp, e))?;
     std::fs::rename(&tmp, &compact).map_err(|e| io(&compact, e))?;
-    match resp.headers.iter().find(|(k, _)| k.eq_ignore_ascii_case("etag")) {
+    match resp
+        .headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("etag"))
+    {
         Some((_, e)) => std::fs::write(&etag_path, e).map_err(|e| io(&etag_path, e))?,
         None => {
             let _ = std::fs::remove_file(&etag_path);
         }
     }
-    Ok(UpdateOutcome::Updated { games: manifest.games.len(), bytes: bytes.len() as u64 })
+    Ok(UpdateOutcome::Updated {
+        games: manifest.games.len(),
+        bytes: bytes.len() as u64,
+    })
 }
 
 #[cfg(test)]
@@ -489,7 +583,11 @@ pub(crate) mod tests {
     fn converts_yaml_keeping_windows_rules() {
         let m = Manifest::from_yaml(SAMPLE).unwrap();
         let names: Vec<_> = m.games.iter().map(|g| g.name.as_str()).collect();
-        assert_eq!(names, ["Elden Ring", "HK Alias", "Hollow Knight", "Registry Game"], "没有存档规则的条目被丢弃");
+        assert_eq!(
+            names,
+            ["Elden Ring", "HK Alias", "Hollow Knight", "Registry Game"],
+            "没有存档规则的条目被丢弃"
+        );
         let hk = m.games.iter().find(|g| g.name == "Hollow Knight").unwrap();
         assert_eq!(hk.files.len(), 1, "Linux 专用规则被丢弃");
         assert_eq!((hk.steam_id, hk.gog_id), (Some(367520), Some(1308320804)));
@@ -511,49 +609,90 @@ pub(crate) mod tests {
 
     #[test]
     fn index_lookups_and_user_override() {
-        let user = Manifest::from_yaml("\"hollow knight\":\n  files:\n    \"D:/MySaves/*.dat\": {}\n").unwrap();
+        let user =
+            Manifest::from_yaml("\"hollow knight\":\n  files:\n    \"D:/MySaves/*.dat\": {}\n")
+                .unwrap();
         let idx = RuleIndex::new(Manifest::from_yaml(SAMPLE).unwrap(), user);
         let (g, src) = idx.by_steam_id(1245620).unwrap();
         assert_eq!((g.name.as_str(), src), ("Elden Ring", RuleSource::Manifest));
         let (g, src) = idx.by_name("Hollow Knight").unwrap();
         assert_eq!(src, RuleSource::User, "用户规则覆盖社区规则");
         assert_eq!(g.files[0].path, "D:/MySaves/*.dat");
-        assert_eq!(idx.by_name("HK Alias").unwrap().0.name, "hollow knight", "别名指向正式条目");
-        assert_eq!(idx.by_install_dir("regGAME").unwrap().0.name, "Registry Game");
-        assert_eq!(idx.by_fuzzy_name("ELDEN-RING™").unwrap().0.name, "Elden Ring");
+        assert_eq!(
+            idx.by_name("HK Alias").unwrap().0.name,
+            "hollow knight",
+            "别名指向正式条目"
+        );
+        assert_eq!(
+            idx.by_install_dir("regGAME").unwrap().0.name,
+            "Registry Game"
+        );
+        assert_eq!(
+            idx.by_fuzzy_name("ELDEN-RING™").unwrap().0.name,
+            "Elden Ring"
+        );
         assert!(idx.by_steam_id(1).is_none());
     }
 
     #[test]
     fn update_downloads_converts_and_uses_etag() {
         let dir = tempfile::tempdir().unwrap();
-        let http = FakeHttp::default().route_with_headers("https://example.test/m.yaml", 200, &[("ETag", "\"v1\"")], SAMPLE);
+        let http = FakeHttp::default().route_with_headers(
+            "https://example.test/m.yaml",
+            200,
+            &[("ETag", "\"v1\"")],
+            SAMPLE,
+        );
         let r = update(&http, "https://example.test/m.yaml", dir.path()).unwrap();
-        assert!(matches!(r, UpdateOutcome::Updated { games: 4, .. }), "{r:?}");
-        let paths = ManifestPaths { cache_dir: dir.path().into(), bundled: vec![], custom_rules: dir.path().join("none.yaml") };
+        assert!(
+            matches!(r, UpdateOutcome::Updated { games: 4, .. }),
+            "{r:?}"
+        );
+        let paths = ManifestPaths {
+            cache_dir: dir.path().into(),
+            bundled: vec![],
+            custom_rules: dir.path().join("none.yaml"),
+        };
         let (idx, from) = load(&paths).unwrap();
         assert_eq!((idx.len(), from.games), (4, 4));
 
         // 第二次带上 If-None-Match，服务器返回 304。
         let http = FakeHttp::default().route("https://example.test/m.yaml", 304, "");
-        assert_eq!(update(&http, "https://example.test/m.yaml", dir.path()).unwrap(), UpdateOutcome::NotModified);
+        assert_eq!(
+            update(&http, "https://example.test/m.yaml", dir.path()).unwrap(),
+            UpdateOutcome::NotModified
+        );
         let reqs = http.requests.lock().unwrap();
-        assert_eq!(reqs[0].1, vec![("If-None-Match".to_string(), "\"v1\"".to_string())]);
+        assert_eq!(
+            reqs[0].1,
+            vec![("If-None-Match".to_string(), "\"v1\"".to_string())]
+        );
     }
 
     #[test]
     fn custom_rules_yaml_roundtrip() {
         let d = tempfile::tempdir().unwrap();
         let p = d.path().join("custom-rules.yaml");
-        save_custom_rule(&p, "独立 \"游戏\"", &[("D:/存档/a b".into(), false), ("C:\\cfg.ini".into(), true)]).unwrap();
+        save_custom_rule(
+            &p,
+            "独立 \"游戏\"",
+            &[("D:/存档/a b".into(), false), ("C:\\cfg.ini".into(), true)],
+        )
+        .unwrap();
         save_custom_rule(&p, "Other", &[("E:/x".into(), false)]).unwrap();
         save_custom_rule(&p, "other", &[("E:/y".into(), false)]).unwrap();
         let m = load_custom_rules(&p).unwrap();
         assert_eq!(m.games.len(), 2, "同名替换");
         let g = m.games.iter().find(|g| g.name == "独立 \"游戏\"").unwrap();
-        assert_eq!(g.files.iter().map(|r| r.path.as_str()).collect::<Vec<_>>(), ["C:\\cfg.ini", "D:/存档/a b"]);
+        assert_eq!(
+            g.files.iter().map(|r| r.path.as_str()).collect::<Vec<_>>(),
+            ["C:\\cfg.ini", "D:/存档/a b"]
+        );
         assert!(g.files[0].is_config_only());
-        assert_eq!(m.games.iter().find(|g| g.name == "other").unwrap().files[0].path, "E:/y");
+        assert_eq!(
+            m.games.iter().find(|g| g.name == "other").unwrap().files[0].path,
+            "E:/y"
+        );
         // 完整格式也能往返。
         let full = Manifest::from_yaml(SAMPLE).unwrap();
         let mut again = Manifest::from_yaml(&to_yaml(&full)).unwrap();
@@ -572,8 +711,19 @@ pub(crate) mod tests {
         let dir = tempfile::tempdir().unwrap();
         let bundled = dir.path().join("bundled.json.zst");
         std::fs::write(&bundled, Manifest::from_yaml(SAMPLE).unwrap().to_compact()).unwrap();
-        assert!(matches!(update(&FakeHttp::default(), MANIFEST_URL, &dir.path().join("cache")), Err(ManifestError::Network(_))));
-        let paths = ManifestPaths { cache_dir: dir.path().join("cache"), bundled: vec![dir.path().join("missing"), bundled.clone()], custom_rules: dir.path().join("x") };
+        assert!(matches!(
+            update(
+                &FakeHttp::default(),
+                MANIFEST_URL,
+                &dir.path().join("cache")
+            ),
+            Err(ManifestError::Network(_))
+        ));
+        let paths = ManifestPaths {
+            cache_dir: dir.path().join("cache"),
+            bundled: vec![dir.path().join("missing"), bundled.clone()],
+            custom_rules: dir.path().join("x"),
+        };
         let (idx, from) = load(&paths).unwrap();
         assert_eq!(from.path, Some(bundled));
         assert!(idx.by_steam_id(367520).is_some());

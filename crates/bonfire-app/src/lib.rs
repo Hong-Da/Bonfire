@@ -15,6 +15,7 @@ pub mod metadata;
 pub mod paths;
 pub mod process;
 pub mod restore;
+pub mod transfer;
 pub mod util;
 
 #[cfg(test)]

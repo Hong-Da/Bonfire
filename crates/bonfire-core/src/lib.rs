@@ -15,8 +15,8 @@ pub mod store;
 
 pub use error::{CoreError, Result};
 pub use id::ObjectId;
+pub use index::Index;
 pub use object::{Blob, FileTag, Kind, Snapshot, SnapshotStats, Tree, TreeEntry, Trigger};
 pub use refs::{Head, Note, RefKind, RefName, ReflogEntry};
-pub use index::Index;
 pub use repo::{Repo, RepoConfig, RepoLock};
 pub use store::WriteStats;
