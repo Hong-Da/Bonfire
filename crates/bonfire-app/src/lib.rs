@@ -9,6 +9,8 @@ pub mod error;
 pub mod i18n;
 pub mod logging;
 pub mod paths;
+pub mod process;
+pub mod restore;
 pub mod util;
 
 #[cfg(test)]
@@ -20,5 +22,6 @@ pub use config::Config;
 pub use error::{AppError, ErrorKind};
 pub use i18n::{Locale, t, tf};
 pub use paths::AppPaths;
+pub use restore::{Action, RestoreOptions, RestorePlan, RestoreReport};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
