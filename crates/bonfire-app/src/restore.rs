@@ -255,6 +255,18 @@ impl App {
                 let _ = file.set_modified(now);
             }
         }
+        // 4. 注册表存档：把恢复出的 .reg 导入注册表。
+        for (f, _) in &staged {
+            self.import_registry(&f.disk)?;
+        }
+        Ok(())
+    }
+
+    /// 恢复出的文件是注册表导出文件时执行 reg import。
+    fn import_registry(&self, disk: &Path) -> Result<()> {
+        if disk.starts_with(self.paths.cache_dir.join("registry")) {
+            bonfire_discovery::registry::import(disk).map_err(|e| AppError::io(disk, e))?;
+        }
         Ok(())
     }
 
@@ -269,6 +281,7 @@ impl App {
                     let tmp = tmp_path(&disk);
                     write_blob(self, e.blob, &tmp)?;
                     replace(&tmp, &disk)?;
+                    self.import_registry(&disk)?;
                 }
                 None => {
                     let _ = std::fs::remove_file(&f.disk);

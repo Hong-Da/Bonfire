@@ -1,0 +1,7 @@
+# 测试用规则（格式同 Ludusavi Manifest）
+"Hollow Knight":
+  files:
+    "<winLocalAppDataLow>/Team Cherry/Hollow Knight/*.dat":
+      tags: [save]
+  steam:
+    id: 367520

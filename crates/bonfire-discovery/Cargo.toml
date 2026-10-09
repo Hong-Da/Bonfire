@@ -6,3 +6,19 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
+serde-saphyr.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ureq.workspace = true
+glob.workspace = true
+dirs.workspace = true
+zstd.workspace = true
+image.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+winreg.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

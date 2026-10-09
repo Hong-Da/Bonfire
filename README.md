@@ -4,7 +4,7 @@
 
 Windows 桌面端游戏存档备份工具：自动扫描各平台的游戏存档，判断哪些有更新，按 Git 式快照保存完整历史，随时恢复到任意版本。
 
-> 开发中：M1（核心库 + 命令行）已完成，桌面界面在 M3 提供。
+> 开发中：M1（核心库 + 命令行）、M2（存档发现）已完成，桌面界面在 M3 提供。
 
 ## 功能
 
@@ -13,14 +13,15 @@ Windows 桌面端游戏存档备份工具：自动扫描各平台的游戏存档
 - **版本历史**：时间线、快照差异、分支（多周目）与标签（永久保留的存档点），备注可搜索、可事后修改。
 - **安全恢复**：恢复前预览差异、自动生成保护快照、失败自动回滚，恢复后可一键撤销；游戏运行时阻止恢复。
 - **可靠**：任何时刻中断都不会损坏已有快照，`fsck` 可校验整个仓库。
-
-M1 只支持手动添加存档路径；自动识别 Steam、Epic、GOG 等平台的游戏在 M2 提供。
+- **自动识别**：扫描 Steam、Epic、GOG，按 Ludusavi 社区规则库（2 万多款游戏）定位存档，并获取中文名、封面、游玩时长等信息；规则库没有的游戏用启发式探测，确认后转为自定义规则。
 
 ## 使用方式
 
 命令行（详见 [docs/cli.md](docs/cli.md)）：
 
 ```bat
+bonfire rules update
+bonfire scan
 bonfire game add 空洞骑士 --path "%USERPROFILE%\AppData\LocalLow\Team Cherry\Hollow Knight"
 bonfire status
 bonfire backup 空洞骑士 -m "打完螳螂领主" --tag 螳螂
@@ -72,7 +73,8 @@ bonfire/
 │   └── project-config/         选项页面与用户的选择（history/ 不入库）
 ├── docs/
 │   ├── project-spec.md         项目规范
-│   └── cli.md                  CLI 调用文档
+│   ├── cli.md                  CLI 调用文档
+│   └── acceptance/             里程碑验收报告
 ├── tests/                      测试：输入、用例数据、CLI 与文档测试（见 tests/README.md）
 ├── target/                     Rust 构建输出（不入库）
 └── dist/                       打包结果（不入库）

@@ -53,8 +53,31 @@ pub enum Cmd {
         cmd: GameCmd,
     },
     Scan {
+        #[arg(long, value_name = "PLATFORM")]
+        platform: Option<String>,
+        #[arg(long)]
+        no_discover: bool,
+        #[arg(long)]
+        no_metadata: bool,
         #[arg(long)]
         force_verify: bool,
+    },
+    Rules {
+        #[command(subcommand)]
+        cmd: RulesCmd,
+    },
+    Info {
+        game: String,
+        #[arg(long)]
+        refresh: bool,
+        #[arg(long = "set", value_name = "FIELD=VALUE")]
+        set: Vec<String>,
+        #[arg(long, value_name = "FIELD")]
+        unlock: Vec<String>,
+        #[arg(long)]
+        search: bool,
+        #[arg(long, value_name = "SOURCE:ID")]
+        pick: Option<String>,
     },
     Status {
         game: Option<String>,
@@ -145,10 +168,30 @@ pub enum GameCmd {
         #[arg(long, value_name = "DIR")]
         install_dir: Option<PathBuf>,
     },
-    List,
+    List {
+        #[arg(long)]
+        all: bool,
+    },
     Rm {
         game: String,
     },
+    Enable {
+        game: String,
+    },
+    Confirm {
+        game: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum RulesCmd {
+    Update {
+        #[arg(long, value_name = "FILE")]
+        bundle: Option<PathBuf>,
+        #[arg(long, value_name = "URL")]
+        url: Option<String>,
+    },
+    Info,
 }
 
 #[derive(Debug, Subcommand)]

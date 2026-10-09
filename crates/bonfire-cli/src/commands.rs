@@ -12,7 +12,7 @@ use bonfire_app::core::refs::RefKind;
 use bonfire_app::core::scan::FileStatus;
 use serde_json::{Value, json};
 
-use crate::cli::{Cmd, GameCmd, OutputFormat, ProfileCmd};
+use crate::cli::{Cmd, GameCmd, OutputFormat, ProfileCmd, RulesCmd};
 
 type Result<T> = std::result::Result<T, AppError>;
 
@@ -70,10 +70,29 @@ impl Out {
 pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
     match cmd {
         Cmd::Game { cmd } => game(app, cmd, out),
-        Cmd::Scan { force_verify } => scan(app, force_verify, out),
+        Cmd::Scan { platform, no_discover, no_metadata, force_verify } => {
+            app.fetch_metadata_on_scan = !no_metadata;
+            let discovery = if no_discover {
+                None
+            } else {
+                let lock = app.repo.lock()?;
+                let report = app.scan_platforms(&lock, platform.as_deref())?;
+                print_discovery(&report, out);
+                Some(report)
+            };
+            let rows = status_table(app, force_verify, out)?;
+            out.emit(json!({ "discovery": discovery, "games": rows }));
+            Ok(())
+        }
+        Cmd::Rules { cmd } => rules(app, cmd, out),
+        Cmd::Info { game, refresh, set, unlock, search, pick } => info(app, &game, refresh, set, unlock, search, pick, out),
         Cmd::Status { game, force_verify } => match game {
             Some(key) => status_one(app, &key, force_verify, out),
-            None => scan(app, force_verify, out),
+            None => {
+                let rows = status_table(app, force_verify, out)?;
+                out.emit(Value::Array(rows));
+                Ok(())
+            }
         },
         Cmd::Backup { games, message, profile, tag, force, all, new_branch, move_branch } => {
             let on_detached = match (new_branch, move_branch) {
@@ -127,15 +146,28 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
             out.emit(v);
             out.line(out.tf("cli.out.game_added", &[("name", &g.name), ("id", &g.id), ("n", &n)]));
         }
-        GameCmd::List => {
-            let games = app.games()?;
+        GameCmd::Enable { game } => {
+            let lock = app.repo.lock()?;
+            let g = app.enable_game(&lock, &game)?;
+            out.emit(json!({ "enabled": g.id }));
+            out.line(out.tf("cli.out.game_enabled", &[("name", &g.name)]));
+        }
+        GameCmd::Confirm { game } => {
+            let lock = app.repo.lock()?;
+            let (g, n) = app.confirm_locations(&lock, &game)?;
+            out.emit(json!({ "game": g.id, "confirmed": n }));
+            out.line(out.tf("cli.out.confirmed", &[("name", &g.name), ("n", &n)]));
+        }
+        GameCmd::List { all } => {
+            let games = if all { app.all_games()? } else { app.games()? };
             out.emit(Value::Array(games.iter().map(|g| game_json(app, g)).collect::<Result<_>>()?));
             if games.is_empty() {
                 out.line(out.t("cli.out.no_games"));
             }
             for g in &games {
                 let n = app.locations(&g.id)?.len();
-                out.line(format!("{:<20} {}  [{}]", g.id, g.name, out.tf("cli.out.locations", &[("n", &n)])));
+                let ignored = if g.enabled { String::new() } else { format!("  ({})", out.t("cli.out.ignored")) };
+                out.line(format!("{:<20} {}  [{}]{ignored}", g.id, g.name, out.tf("cli.out.locations", &[("n", &n)])));
             }
         }
         GameCmd::Rm { game } => {
@@ -145,9 +177,10 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
                 return Ok(());
             }
             let lock = app.repo.lock()?;
-            app.remove_game(&lock, &g.id)?;
+            let g = app.remove_game(&lock, &g.id)?;
             out.emit(json!({ "removed": g.id }));
-            out.line(out.tf("cli.out.game_removed", &[("name", &g.name)]));
+            let key = if g.enabled { "cli.out.game_removed" } else { "cli.out.game_ignored" };
+            out.line(out.tf(key, &[("name", &g.name)]));
         }
     }
     Ok(())
@@ -194,18 +227,113 @@ fn game_status(app: &App, g: &GameRecord, force_verify: bool) -> Result<GameStat
     if force_verify { app.status_verified(g) } else { app.status(g) }
 }
 
-fn scan(app: &App, force_verify: bool, out: &Out) -> Result<()> {
+/// 所有游戏的状态表（文本输出），返回 JSON 行。
+fn status_table(app: &App, force_verify: bool, out: &Out) -> Result<Vec<Value>> {
     let games = app.games()?;
     let mut rows = Vec::new();
     if games.is_empty() {
         out.line(out.t("cli.out.no_games"));
     }
-    for g in games.iter().filter(|g| g.enabled) {
+    for g in &games {
         let s = game_status(app, g, force_verify)?;
         out.line(format!("{:<20} {:<16} {}", g.id, g.name, state_text(out, &s)));
         rows.push(status_json(&s, false));
     }
-    out.emit(Value::Array(rows));
+    Ok(rows)
+}
+
+fn print_discovery(r: &bonfire_app::discover::ScanReport, out: &Out) {
+    let added = r.games.iter().filter(|g| g.added).count();
+    let platforms = if r.platforms.is_empty() { out.t("cli.out.no_platforms").to_string() } else { r.platforms.join(", ") };
+    out.line(out.tf("cli.out.discovered", &[("platforms", &platforms), ("found", &r.games.len()), ("added", &added), ("nosave", &r.without_saves.len())]));
+    for g in r.games.iter().filter(|g| g.unconfirmed > 0) {
+        out.line(out.tf("cli.out.unconfirmed", &[("name", &g.name), ("n", &g.unconfirmed)]));
+    }
+    if r.rules.as_ref().is_some_and(|l| l.path.is_none()) {
+        out.line(out.t("cli.out.no_rules"));
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn info(app: &mut App, key: &str, refresh: bool, set: Vec<String>, unlock: Vec<String>, search: bool, pick: Option<String>, out: &Out) -> Result<()> {
+    let g = app.find_game(key)?;
+    if search {
+        let c = app.search_metadata(&g);
+        out.emit(serde_json::to_value(&c).unwrap());
+        if c.is_empty() {
+            out.line(out.t("cli.out.no_candidates"));
+        }
+        for x in &c {
+            let year = x.year.map(|y| format!(" ({y})")).unwrap_or_default();
+            out.line(format!("{}:{}  {}{year}", x.source, x.id, x.name));
+        }
+        return Ok(());
+    }
+    for s in &set {
+        let (field, value) = s.split_once('=').ok_or_else(|| AppError::Invalid(format!("--set 的格式为 字段=值：{s}")))?;
+        app.set_metadata_field(&g, field.trim(), value)?;
+    }
+    for f in &unlock {
+        app.unlock_field(&g, f.trim())?;
+    }
+    if let Some(p) = &pick {
+        let (source, id) = p.split_once(':').ok_or_else(|| AppError::Invalid(format!("--pick 的格式为 来源:ID：{p}")))?;
+        app.pick_metadata(&g, source, id)?;
+    } else if refresh {
+        app.refresh_metadata(&g, true)?;
+    }
+    let view = app.metadata(&g.id)?;
+    out.emit(json!({ "game": g, "metadata": view }));
+    let Some(v) = view else {
+        out.line(format!("{} ({})", g.name, g.id));
+        out.line(out.t("cli.out.no_metadata"));
+        return Ok(());
+    };
+    let m = &v.data;
+    let title = match (&m.name_zh, &m.name) {
+        (Some(zh), Some(n)) if zh != n => format!("{zh} / {n}"),
+        (Some(x), _) | (None, Some(x)) => x.clone(),
+        _ => g.name.clone(),
+    };
+    out.line(format!("{title} ({})", g.id));
+    let row = |k: &str, v: Option<String>| {
+        if let Some(v) = v.filter(|s| !s.is_empty()) {
+            out.line(format!("  {:<8} {v}", out.t(k)));
+        }
+    };
+    row("cli.meta.developer", m.developer.clone());
+    row("cli.meta.publisher", m.publisher.clone());
+    row("cli.meta.release", m.release_date.clone());
+    row("cli.meta.genres", Some(m.genres.join(", ")));
+    row("cli.meta.playtime", m.playtime_min.map(|p| out.tf("cli.meta.hours", &[("h", &format!("{:.1}", p as f64 / 60.0))])));
+    row("cli.meta.cloud", m.cloud_save.map(|c| out.t(if c { "cli.meta.yes" } else { "cli.meta.no" }).to_string()));
+    row("cli.meta.cover", m.cover_path.clone());
+    if !m.locked_fields.is_empty() {
+        row("cli.meta.locked", Some(m.locked_fields.join(", ")));
+    }
+    Ok(())
+}
+
+fn rules(app: &App, cmd: RulesCmd, out: &Out) -> Result<()> {
+    match cmd {
+        RulesCmd::Update { bundle, url } => {
+            let url = url.as_deref().unwrap_or(bonfire_app::discovery::manifest::MANIFEST_URL);
+            let r = app.update_rules(url, bundle.as_deref())?;
+            out.emit(serde_json::to_value(&r).unwrap());
+            match r {
+                bonfire_app::discovery::manifest::UpdateOutcome::Updated { games, bytes } => {
+                    out.line(out.tf("cli.out.rules_updated", &[("games", &games), ("bytes", &human_bytes(bytes))]))
+                }
+                bonfire_app::discovery::manifest::UpdateOutcome::NotModified => out.line(out.t("cli.out.rules_not_modified")),
+            }
+        }
+        RulesCmd::Info => {
+            let (_, loaded) = app.load_rules()?;
+            out.emit(serde_json::to_value(&loaded).unwrap());
+            let src = loaded.path.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| out.t("cli.out.no_rules").to_string());
+            out.line(out.tf("cli.out.rules_info", &[("games", &loaded.games), ("user", &loaded.user_games), ("source", &src)]));
+        }
+    }
     Ok(())
 }
 

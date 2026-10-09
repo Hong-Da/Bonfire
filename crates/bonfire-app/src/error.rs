@@ -33,6 +33,8 @@ pub enum AppError {
     RolledBack(String),
     #[error("{path}: {source}")]
     Io { path: PathBuf, source: std::io::Error },
+    #[error("联网失败：{0}")]
+    Network(String),
     #[error("仓库校验发现 {0} 个问题")]
     RepoDamaged(usize),
     #[error("{0}")]
@@ -70,6 +72,7 @@ impl AppError {
             AppError::GameNotFound(_) | AppError::ProfileNotFound(_) | AppError::PathNotFound(_) | AppError::NothingToUndo(_) => ErrorKind::NotFound,
             AppError::AmbiguousGame { .. } | AppError::CommentTooLong { .. } | AppError::NoLocations(_) | AppError::Invalid(_) => ErrorKind::Usage,
             AppError::GameRunning { .. } => ErrorKind::GameRunning,
+            AppError::Network(_) => ErrorKind::External,
             _ => ErrorKind::General,
         }
     }

@@ -10,9 +10,13 @@
 | 命令 | 作用 |
 |---|---|
 | `bonfire game add <名称> --path <目录或文件>... [--config-path <路径>]... [--install-dir <目录>]` | 手动添加游戏；`--install-dir` 用于恢复前检测游戏是否在运行 |
-| `bonfire game list` | 列出游戏 |
-| `bonfire game rm <game>` | 移除游戏（需确认；历史快照保留在仓库中） |
-| `bonfire scan [--force-verify]` | 检测所有游戏的状态：未备份 / 有更新 / 已是最新 |
+| `bonfire game list [--all]` | 列出游戏；`--all` 包括已忽略的 |
+| `bonfire game rm <game>` | 移除游戏（需确认）：手动添加的删除配置，自动识别的改为忽略；历史快照都保留 |
+| `bonfire game enable <game>` | 恢复被忽略的游戏 |
+| `bonfire game confirm <game>` | 确认启发式找到的存档位置（写入自定义规则 `custom-rules.yaml`） |
+| `bonfire scan [--platform steam\|epic\|gog] [--no-discover] [--no-metadata] [--force-verify]` | 扫描本机平台识别游戏与存档，获取游戏信息，再检测所有游戏的状态：未备份 / 有更新 / 已是最新 |
+| `bonfire rules update` / `rules info` | 下载最新的 Ludusavi 规则库（按 ETag 增量） / 查看当前使用的规则库 |
+| `bonfire info <game> [--refresh] [--set 字段=值]... [--unlock 字段]... [--search] [--pick 来源:ID]` | 游戏信息：名称、中文名、开发商、发行商、发行日期、类型、封面、游玩时长、云存档；手动修改的字段加锁 |
 | `bonfire status [<game>] [--force-verify]` | 不带游戏时同 `scan`；带游戏时列出变化的文件 |
 | `bonfire backup <game>... [-m <备注>] [--tag <标签>] [--force]` | 备份游戏；备注最多 500 字，省略时自动生成 |
 | `bonfire backup --all` / `--profile <方案>` | 备份所有有更新或未备份的游戏 / 方案中的游戏 |
@@ -60,6 +64,8 @@
 | `BONFIRE_REPO` | 仓库目录 |
 | `BONFIRE_LANG` | 语言 |
 | `BONFIRE_LOG_LEVEL` | 日志级别 |
+| `BONFIRE_OFFLINE` | 设为 `1` 时不发起任何联网请求 |
+| `BONFIRE_FAKE_ROOT` | 测试用：把平台安装与系统目录指向伪造的目录 |
 
 ## 退出码
 
@@ -226,6 +232,38 @@ bonfire fsck --deep
 
 ```bat
 bonfire reindex
+```
+
+退出码：0
+
+### 扫描本机平台，识别游戏与存档
+
+```bat
+bonfire scan
+```
+
+退出码：0
+
+### 确认推测的存档位置
+
+```bat
+bonfire game confirm "Indie Quest"
+```
+
+退出码：0
+
+### 查看游戏信息
+
+```bat
+bonfire info "Hollow Knight"
+```
+
+退出码：0
+
+### 查看规则库
+
+```bat
+bonfire rules info
 ```
 
 退出码：0

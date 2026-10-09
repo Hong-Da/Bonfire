@@ -51,5 +51,10 @@ impl Env {
 pub fn open(root: &Path) -> App {
     let paths = AppPaths::under_root(&root.join("home"), true);
     let repo = paths.default_repo_dir.clone();
-    App::open(paths, Config::default(), Locale::ZhCn, &repo).unwrap()
+    let mut app = App::open(paths, Config::default(), Locale::ZhCn, &repo).unwrap();
+    // 测试不读取开发机上真实的平台安装与系统目录，也不联网。
+    app.fake_root = Some(root.join("pc"));
+    app.known_dirs = bonfire_discovery::KnownDirs::under(&root.join("pc"));
+    app.http = std::sync::Arc::new(bonfire_discovery::http::Offline);
+    app
 }

@@ -10,6 +10,9 @@ fn run_case(case: &CliCase) -> Result<(), String> {
     if let Some(f) = &case.fixture {
         sb.fixture(f);
     }
+    if let Some(r) = &case.root {
+        sb.root_fixture(r);
+    }
     for pre in &case.pre {
         let args: Vec<&str> = pre.iter().map(String::as_str).collect();
         let out = sb.run(&args);
@@ -86,7 +89,7 @@ fn case_ids_are_unique() {
 fn every_command_has_ok_and_error_cases() {
     let cases = load_cli_cases();
     let cmds = [
-        "game add", "game list", "game rm", "scan", "status", "backup", "log", "diff", "restore", "undo-restore", "comment", "branch", "tag",
+        "game add", "game list", "game rm", "game enable", "game confirm", "scan", "status", "info", "rules info", "backup", "log", "diff", "restore", "undo-restore", "comment", "branch", "tag",
         "profile save", "profile list", "profile rm", "fsck", "reindex",
     ];
     let mut missing = Vec::new();

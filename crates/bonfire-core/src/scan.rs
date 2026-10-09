@@ -34,14 +34,55 @@ pub struct DiskFile {
     pub tag: FileTag,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RootKind {
+    /// 单个文件。
+    File,
+    /// 目录（递归）。
+    Dir,
+    /// 通配模式（规则库中的路径模板展开后）：每次扫描重新匹配，匹配到的目录递归收集。
+    Glob,
+}
+
 /// 一个存档位置：序号作为清单路径前缀。
 #[derive(Debug, Clone)]
 pub struct ScanRoot {
     pub ord: usize,
     pub path: PathBuf,
-    /// true 为单个文件，false 为目录（递归）。
-    pub is_file: bool,
+    pub kind: RootKind,
     pub tag: FileTag,
+}
+
+/// 通配模式中不含通配符的最长目录前缀，作为清单相对路径的起点。
+pub fn glob_base(pattern: &str) -> PathBuf {
+    let norm = pattern.replace('\\', "/");
+    let mut parts: Vec<&str> = Vec::new();
+    for seg in norm.split('/') {
+        if seg.contains(['*', '?', '[']) {
+            break;
+        }
+        parts.push(seg);
+    }
+    // 整个模式都不含通配符时，基准为其上级目录。
+    if parts.len() == norm.split('/').count() {
+        parts.pop();
+    }
+    let mut base = parts.join("/");
+    if base.ends_with(':') {
+        base.push('/');
+    }
+    PathBuf::from(base)
+}
+
+fn glob_matches(pattern: &str) -> Vec<PathBuf> {
+    let opts = glob::MatchOptions { case_sensitive: false, require_literal_separator: true, require_literal_leading_dot: false };
+    glob::glob_with(&pattern.replace('\\', "/"), opts).map(|it| it.flatten().collect()).unwrap_or_default()
+}
+
+fn rel_path(p: &Path, base: &Path) -> Option<String> {
+    let rel = p.strip_prefix(base).ok()?;
+    let s = rel.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/");
+    (!s.is_empty()).then_some(s)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -88,41 +129,64 @@ pub fn hash_file(path: &Path) -> Result<ObjectId> {
 }
 
 /// 列出存档位置下的全部文件。不存在的位置视为没有文件；无法访问的子项跳过并记录日志。
+/// 同一个文件被多个位置命中时只计一次（取序号最小的位置）。
 pub fn collect_files(roots: &[ScanRoot]) -> Result<Vec<DiskFile>> {
     let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let mut push = |out: &mut Vec<DiskFile>, root: &ScanRoot, abs: PathBuf, rel: String, meta: &std::fs::Metadata| {
+        let key = abs.to_string_lossy().replace('\\', "/").to_lowercase();
+        if seen.insert(key) {
+            out.push(DiskFile { path: format!("{}/{rel}", root.ord), abs, size: meta.len(), mtime_ns: mtime_ns(meta), tag: root.tag });
+        }
+    };
     for root in roots {
-        if root.is_file {
-            match std::fs::metadata(&root.path) {
-                Ok(m) if m.is_file() => {
-                    let name = root.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                    out.push(DiskFile { path: format!("{}/{name}", root.ord), abs: root.path.clone(), size: m.len(), mtime_ns: mtime_ns(&m), tag: root.tag });
-                }
-                Ok(_) => {}
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => return Err(CoreError::io(&root.path, e)),
+        // (匹配到的路径, 计算相对路径的基准)
+        let targets: Vec<(PathBuf, PathBuf)> = match root.kind {
+            RootKind::File | RootKind::Dir => vec![(root.path.clone(), root.path.clone())],
+            RootKind::Glob => {
+                let pattern = root.path.to_string_lossy();
+                let base = glob_base(&pattern);
+                glob_matches(&pattern).into_iter().map(|m| (m, base.clone())).collect()
             }
-            continue;
-        }
-        if !root.path.is_dir() {
-            continue;
-        }
-        for entry in walkdir::WalkDir::new(&root.path).follow_links(false).sort_by_file_name() {
-            let entry = match entry {
-                Ok(e) => e,
-                Err(e) => {
-                    tracing::warn!(root = %root.path.display(), "跳过无法访问的项：{e}");
-                    continue;
-                }
+        };
+        for (target, base) in targets {
+            let meta = match std::fs::metadata(&target) {
+                Ok(m) => m,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(e) => return Err(CoreError::io(&target, e)),
             };
-            if !entry.file_type().is_file() {
+            if meta.is_file() {
+                let rel = match root.kind {
+                    RootKind::File => target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+                    _ => match rel_path(&target, &base) {
+                        Some(r) => r,
+                        None => continue,
+                    },
+                };
+                push(&mut out, root, target, rel, &meta);
                 continue;
             }
-            let meta = entry.metadata().map_err(|e| CoreError::io(entry.path(), std::io::Error::other(e.to_string())))?;
-            let rel = entry.path().strip_prefix(&root.path).expect("walkdir 返回的路径在根目录下");
-            let rel = rel.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/");
-            out.push(DiskFile { path: format!("{}/{rel}", root.ord), abs: entry.into_path(), size: meta.len(), mtime_ns: mtime_ns(&meta), tag: root.tag });
+            if !meta.is_dir() || root.kind == RootKind::File {
+                continue;
+            }
+            for entry in walkdir::WalkDir::new(&target).follow_links(false).sort_by_file_name() {
+                let entry = match entry {
+                    Ok(e) => e,
+                    Err(e) => {
+                        tracing::warn!(root = %target.display(), "跳过无法访问的项：{e}");
+                        continue;
+                    }
+                };
+                if !entry.file_type().is_file() {
+                    continue;
+                }
+                let m = entry.metadata().map_err(|e| CoreError::io(entry.path(), std::io::Error::other(e.to_string())))?;
+                let Some(rel) = rel_path(entry.path(), &base) else { continue };
+                push(&mut out, root, entry.into_path(), rel, &m);
+            }
         }
     }
+    out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(out)
 }
 
@@ -232,9 +296,9 @@ mod tests {
 
     fn roots(dir: &Path) -> Vec<ScanRoot> {
         vec![
-            ScanRoot { ord: 0, path: dir.join("saves"), is_file: false, tag: FileTag::Save },
-            ScanRoot { ord: 1, path: dir.join("options.ini"), is_file: true, tag: FileTag::Config },
-            ScanRoot { ord: 2, path: dir.join("missing"), is_file: false, tag: FileTag::Save },
+            ScanRoot { ord: 0, path: dir.join("saves"), kind: RootKind::Dir, tag: FileTag::Save },
+            ScanRoot { ord: 1, path: dir.join("options.ini"), kind: RootKind::File, tag: FileTag::Config },
+            ScanRoot { ord: 2, path: dir.join("missing"), kind: RootKind::Dir, tag: FileTag::Save },
         ]
     }
 
@@ -326,6 +390,35 @@ mod tests {
         let changes = detect(&collect_files(&roots(d.path())).unwrap(), &HashMap::new(), false).unwrap();
         assert_eq!(changes[0].status, FileStatus::Added);
         assert!(changes[0].hash.is_none());
+    }
+
+    #[test]
+    fn glob_roots_rematch_and_dedupe() {
+        let d = tempfile::tempdir().unwrap();
+        let base = d.path().join("Docs/My Games/Sifu");
+        write(&base.join("123/Saved/a.sav"), b"a");
+        write(&base.join("123/Saved/b.txt"), b"b");
+        write(&base.join("456/Saved/c.sav"), b"c");
+        write(&base.join("Config/x.ini"), b"x");
+        let pattern = format!("{}/*/Saved/*.sav", base.display());
+        let roots = vec![
+            ScanRoot { ord: 0, path: PathBuf::from(&pattern), kind: RootKind::Glob, tag: FileTag::Save },
+            ScanRoot { ord: 1, path: base.join("Conf*"), kind: RootKind::Glob, tag: FileTag::Config },
+            // 与第一个位置重叠：同一文件只计一次。
+            ScanRoot { ord: 2, path: base.join("123"), kind: RootKind::Dir, tag: FileTag::Save },
+        ];
+        let paths: Vec<_> = collect_files(&roots).unwrap().into_iter().map(|f| f.path).collect();
+        assert_eq!(paths, ["0/123/Saved/a.sav", "0/456/Saved/c.sav", "1/Config/x.ini", "2/Saved/b.txt"]);
+        // 新出现的存档栏位不需要重新扫描平台即被包含。
+        write(&base.join("789/Saved/new.sav"), b"n");
+        assert_eq!(collect_files(&roots[..1]).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn glob_base_is_longest_literal_prefix() {
+        assert_eq!(glob_base("C:/Users/a/Docs/*/Saved/*.sav"), PathBuf::from("C:/Users/a/Docs"));
+        assert_eq!(glob_base("C:\\Games\\x\\save.dat"), PathBuf::from("C:/Games/x"));
+        assert_eq!(glob_base("C:/*.sav"), PathBuf::from("C:/"));
     }
 
     #[test]

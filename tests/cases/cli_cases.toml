@@ -518,3 +518,147 @@ id = "reindex-bad-repo"
 title = { zh-CN = "仓库格式版本过高", en = "Repository format too new" }
 args = ["--repo", "{inputs}/repo-future", "reindex"]
 expect_exit = 3
+
+# ---------- 平台识别（伪造的本机：tests/inputs/roots/steam-basic） ----------
+
+[[case]]
+id = "scan-discovers-steam"
+title = { zh-CN = "扫描本机平台，识别游戏与存档", en = "Discover games and saves" }
+root = "steam-basic"
+args = ["scan"]
+expect_exit = 0
+stdout_contains = ["平台：steam", "找到 2 个有存档的游戏（新增 2）", "「Indie Quest」有 1 个推测的存档位置待确认", "Hollow Knight", "未备份"]
+in_docs = true
+
+[[case]]
+id = "scan-json"
+title = { zh-CN = "扫描（JSON）", en = "Scan (JSON)" }
+root = "steam-basic"
+args = ["scan", "--json"]
+expect_exit = 0
+expect_stdout_json = { "discovery.games.0.id" = "steam-367520", "discovery.games.0.rule" = "Hollow Knight", "discovery.games.0.playtimeMin" = 2520, "discovery.games.1.unconfirmed" = 1, "games.0.files" = 2 }
+
+[[case]]
+id = "scan-no-discover"
+title = { zh-CN = "只检测已有游戏，不扫描平台", en = "Only detect changes" }
+root = "steam-basic"
+args = ["scan", "--no-discover"]
+expect_exit = 0
+stdout_contains = ["还没有游戏"]
+
+[[case]]
+id = "game-confirm-ok"
+title = { zh-CN = "确认推测的存档位置", en = "Confirm guessed save locations" }
+root = "steam-basic"
+pre = [["scan"]]
+args = ["game", "confirm", "Indie Quest"]
+expect_exit = 0
+stdout_contains = ["已确认「Indie Quest」的 1 个存档位置"]
+in_docs = true
+
+[[case]]
+id = "game-confirm-unknown"
+title = { zh-CN = "游戏不存在", en = "Unknown game" }
+args = ["game", "confirm", "nope"]
+expect_exit = 4
+
+[[case]]
+id = "game-rm-discovered-ignores"
+title = { zh-CN = "移除自动识别的游戏改为忽略", en = "Removing a discovered game ignores it" }
+root = "steam-basic"
+pre = [["scan"]]
+args = ["game", "rm", "Hollow Knight", "-y"]
+expect_exit = 0
+stdout_contains = ["已忽略游戏「Hollow Knight」"]
+
+[[case]]
+id = "game-list-all"
+title = { zh-CN = "列出包括已忽略的游戏", en = "List including ignored games" }
+root = "steam-basic"
+pre = [["scan"], ["game", "rm", "Hollow Knight", "-y"], ["scan"]]
+args = ["game", "list", "--all"]
+expect_exit = 0
+stdout_contains = ["Hollow Knight", "(已忽略)"]
+
+[[case]]
+id = "game-enable-ok"
+title = { zh-CN = "恢复被忽略的游戏", en = "Stop ignoring a game" }
+root = "steam-basic"
+pre = [["scan"], ["game", "rm", "Hollow Knight", "-y"]]
+args = ["game", "enable", "Hollow Knight"]
+expect_exit = 0
+stdout_contains = ["已恢复游戏「Hollow Knight」"]
+
+[[case]]
+id = "game-enable-unknown"
+title = { zh-CN = "游戏不存在", en = "Unknown game" }
+args = ["game", "enable", "nope"]
+expect_exit = 4
+
+[[case]]
+id = "backup-discovered-records-playtime"
+title = { zh-CN = "备份识别的游戏，快照记录游玩时长", en = "Snapshots record playtime" }
+root = "steam-basic"
+pre = [["scan"], ["backup", "Hollow Knight"]]
+args = ["log", "Hollow Knight", "--json"]
+expect_exit = 0
+expect_stdout_json = { "0.files" = 2 }
+
+[[case]]
+id = "info-ok"
+title = { zh-CN = "查看游戏信息", en = "Show game info" }
+root = "steam-basic"
+pre = [["scan"]]
+args = ["info", "Hollow Knight"]
+expect_exit = 0
+stdout_contains = ["Hollow Knight (steam-367520)", "游玩时长", "42.0 小时"]
+in_docs = true
+
+[[case]]
+id = "info-set-json"
+title = { zh-CN = "手动修改中文名并加锁", en = "Edit and lock the Chinese name" }
+root = "steam-basic"
+pre = [["scan"]]
+args = ["info", "Hollow Knight", "--set", "nameZh=空洞骑士", "--json"]
+expect_exit = 0
+expect_stdout_json = { "metadata.nameZh" = "空洞骑士", "metadata.lockedFields.0" = "nameZh", "metadata.fieldSources.nameZh" = "user" }
+
+[[case]]
+id = "info-bad-field"
+title = { zh-CN = "不可修改的字段", en = "Field cannot be edited" }
+root = "steam-basic"
+pre = [["scan"]]
+args = ["info", "Hollow Knight", "--set", "playtime=1"]
+expect_exit = 2
+stderr_contains = ["不可修改的字段"]
+
+[[case]]
+id = "info-unknown-game"
+title = { zh-CN = "游戏不存在", en = "Unknown game" }
+args = ["info", "nope"]
+expect_exit = 4
+
+[[case]]
+id = "rules-info-ok"
+title = { zh-CN = "查看规则库", en = "Show rules" }
+root = "steam-basic"
+args = ["rules", "info"]
+expect_exit = 0
+stdout_contains = ["自定义规则 1 个"]
+in_docs = true
+
+[[case]]
+id = "rules-update-offline"
+title = { zh-CN = "离线时更新规则库失败", en = "Updating rules offline fails" }
+args = ["rules", "update"]
+expect_exit = 5
+expect_stderr_json = {}
+stderr_contains = ["联网失败"]
+
+[[case]]
+id = "rules-info-bad-custom"
+title = { zh-CN = "自定义规则格式错误", en = "Malformed custom rules" }
+root = "bad-rules"
+args = ["rules", "info"]
+expect_exit = 2
+stderr_contains = ["规则库格式错误"]

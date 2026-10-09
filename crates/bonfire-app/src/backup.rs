@@ -227,7 +227,8 @@ impl App {
             host: host_name(),
             comment: comment.clone(),
             stats: SnapshotStats { files: tree.entries.len() as u64, bytes: total, changed: summary.changed_files() },
-            playtime_min: None,
+            // 文档 4.3：快照记录当时的游戏时长，便于显示“已玩 42 小时时的存档”。
+            playtime_min: self.playtime_of(&game.id),
         };
         let snap_id = self.repo.put_snapshot(&snap)?;
 

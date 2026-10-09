@@ -5,10 +5,12 @@
 pub mod app;
 pub mod backup;
 pub mod config;
+pub mod discover;
 pub mod error;
 pub mod history;
 pub mod i18n;
 pub mod logging;
+pub mod metadata;
 pub mod paths;
 pub mod process;
 pub mod restore;
@@ -28,5 +30,7 @@ pub use restore::{Action, RestoreOptions, RestorePlan, RestoreReport};
 
 /// 引擎层，供 CLI 与 Tauri 命令层使用其中的数据类型。
 pub use bonfire_core as core;
+/// 存档发现层，供命令层使用其中的数据类型。
+pub use bonfire_discovery as discovery;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

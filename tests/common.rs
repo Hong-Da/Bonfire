@@ -52,6 +52,11 @@ impl Sandbox {
         copy_dir(&inputs_dir().join("saves").join(name), &self.saves());
     }
 
+    /// 把 tests/inputs/roots/<名称> 整体复制到沙箱根目录（含伪造的平台 pc/ 与配置 home/）。
+    pub fn root_fixture(&self, name: &str) {
+        copy_dir(&inputs_dir().join("roots").join(name), self.dir.path());
+    }
+
     pub fn write(&self, rel: &str, data: &[u8]) {
         let p = self.saves().join(rel);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
@@ -77,6 +82,9 @@ impl Sandbox {
             .env_remove("BONFIRE_FAULT_INJECT")
             // 测试中的语言固定为中文，不随开发机系统语言变化。
             .env("BONFIRE_LANG", "zh-CN")
+            // 不读取开发机上真实的平台安装，也不联网。
+            .env("BONFIRE_FAKE_ROOT", self.dir.path().join("pc"))
+            .env("BONFIRE_OFFLINE", "1")
             .stdin(std::process::Stdio::null());
         c
     }
@@ -124,6 +132,9 @@ pub struct CliCase {
     /// 复制 tests/inputs/saves/<fixture> 为存档目录 {saves}。
     #[serde(default)]
     pub fixture: Option<String>,
+    /// 复制 tests/inputs/roots/<root> 到沙箱根目录（伪造的平台安装与用户规则）。
+    #[serde(default)]
+    pub root: Option<String>,
     /// 先依次执行的命令（必须成功）。
     #[serde(default)]
     pub pre: Vec<Vec<String>>,

@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use bonfire_core::index::{GameRecord, LocationKind, LocationRecord, ReindexStats};
-use bonfire_core::scan::ScanRoot;
+use bonfire_core::scan::{RootKind, ScanRoot, glob_base};
 use bonfire_core::{FileTag, Index, ObjectId, Repo, RepoLock};
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +20,14 @@ pub struct App {
     pub locale: Locale,
     pub repo: Repo,
     pub index: Index,
+    /// 联网请求（规则库更新、游戏信息）；测试中替换为模拟实现。
+    pub http: std::sync::Arc<dyn bonfire_discovery::http::Http>,
+    /// Windows 已知目录（存档路径变量）；测试中替换为临时目录。
+    pub known_dirs: bonfire_discovery::KnownDirs,
+    /// 扫描平台后是否刷新游戏信息（CLI `scan --no-metadata` 关闭）。
+    pub fetch_metadata_on_scan: bool,
+    /// 伪造的“本机”根目录（测试用，见 `BONFIRE_FAKE_ROOT`）；设置后不读取真实的平台安装。
+    pub fake_root: Option<PathBuf>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -51,7 +59,24 @@ impl App {
         let fresh_db = !repo_dir.join("bonfire.db").exists();
         let repo = Repo::init(repo_dir)?;
         let index = Index::open_repo(&repo)?;
-        let mut app = Self { paths, config, locale, repo, index };
+        let mut app = Self {
+            paths,
+            config,
+            locale,
+            repo,
+            index,
+            http: if std::env::var("BONFIRE_OFFLINE").is_ok_and(|v| v == "1") {
+                std::sync::Arc::new(bonfire_discovery::http::Offline)
+            } else {
+                std::sync::Arc::new(bonfire_discovery::http::Throttled::new(bonfire_discovery::http::UreqHttp::default()))
+            },
+            known_dirs: match crate::discover::fake_root() {
+                Some(root) => bonfire_discovery::KnownDirs::under(&root),
+                None => bonfire_discovery::KnownDirs::system(),
+            },
+            fetch_metadata_on_scan: true,
+            fake_root: crate::discover::fake_root(),
+        };
         if fresh_db {
             let restored = app.restore_games_file()?;
             let has_history = !app.repo.list_objects(bonfire_core::Kind::Snapshot)?.is_empty();
@@ -77,7 +102,13 @@ impl App {
         }
     }
 
+    /// 未被忽略的游戏。
     pub fn games(&self) -> Result<Vec<GameRecord>> {
+        Ok(self.index.games()?.into_iter().filter(|g| g.enabled).collect())
+    }
+
+    /// 全部游戏（含已忽略的）。
+    pub fn all_games(&self) -> Result<Vec<GameRecord>> {
         Ok(self.index.games()?)
     }
 
@@ -117,10 +148,25 @@ impl App {
         Ok(record)
     }
 
-    /// 移除游戏配置。历史快照保留在仓库中，重新添加同名游戏不会自动关联。
+    /// 移除游戏。手动添加的游戏直接删除配置；自动识别的游戏标记为已忽略，重新扫描不会再加回。
+    /// 历史快照都保留在仓库中。
     pub fn remove_game(&mut self, _lock: &RepoLock, key: &str) -> Result<GameRecord> {
-        let g = self.find_game(key)?;
-        self.index.delete_game(&g.id)?;
+        let mut g = self.find_game(key)?;
+        if g.platform == "custom" {
+            self.index.delete_game(&g.id)?;
+        } else {
+            g.enabled = false;
+            self.index.upsert_game(&g)?;
+        }
+        self.save_games_file()?;
+        Ok(g)
+    }
+
+    /// 恢复被忽略的游戏。
+    pub fn enable_game(&mut self, _lock: &RepoLock, key: &str) -> Result<GameRecord> {
+        let mut g = self.find_game(key)?;
+        g.enabled = true;
+        self.index.upsert_game(&g)?;
         self.save_games_file()?;
         Ok(g)
     }
@@ -129,16 +175,36 @@ impl App {
         Ok(self.index.locations(game_id)?)
     }
 
-    /// 扫描用的存档位置。按游戏或全局设置决定是否包含配置文件；注册表位置在 M2 实现。
+    /// 扫描用的存档位置。按游戏或全局设置决定是否包含配置文件；未确认的（启发式）位置不参与。
+    /// 注册表位置先导出为缓存目录中的 .reg 文件，再当作普通文件处理（文档 4.2）。
     pub fn scan_roots(&self, game: &GameRecord) -> Result<Vec<ScanRoot>> {
         let include_config = game.include_config.unwrap_or(self.config.backup.include_config_files);
-        Ok(self
-            .locations(&game.id)?
-            .into_iter()
-            .enumerate()
-            .filter(|(_, l)| l.kind != LocationKind::Registry && (l.tag == FileTag::Save || include_config))
-            .map(|(ord, l)| ScanRoot { ord, path: PathBuf::from(&l.resolved_path), is_file: l.kind == LocationKind::File, tag: l.tag })
-            .collect())
+        let mut roots = Vec::new();
+        for (ord, l) in self.locations(&game.id)?.into_iter().enumerate() {
+            if !l.confirmed || (l.tag == FileTag::Config && !include_config) {
+                continue;
+            }
+            let (path, kind) = match l.kind {
+                LocationKind::Registry => {
+                    let file = self.registry_file(&game.id, ord);
+                    if let Err(e) = bonfire_discovery::registry::export(&l.resolved_path, &file) {
+                        tracing::warn!(key = %l.resolved_path, "导出注册表失败，跳过：{e}");
+                        let _ = std::fs::remove_file(&file);
+                    }
+                    (file, RootKind::File)
+                }
+                LocationKind::File => (PathBuf::from(&l.resolved_path), RootKind::File),
+                LocationKind::Dir => (PathBuf::from(&l.resolved_path), RootKind::Dir),
+                LocationKind::Glob => (PathBuf::from(&l.resolved_path), RootKind::Glob),
+            };
+            roots.push(ScanRoot { ord, path, kind, tag: l.tag });
+        }
+        Ok(roots)
+    }
+
+    /// 注册表存档导出的缓存文件。
+    pub fn registry_file(&self, game_id: &str, ord: usize) -> PathBuf {
+        self.paths.cache_dir.join("registry").join(game_id).join(format!("{ord}.reg"))
     }
 
     /// 清单路径（`<序号>/<相对路径>`）对应的磁盘路径。
@@ -150,10 +216,14 @@ impl App {
             .ok()
             .and_then(|i| locations.get(i))
             .ok_or_else(|| AppError::Invalid(format!("清单路径 {tree_path} 对应的存档位置不存在")))?;
-        let base = PathBuf::from(&loc.resolved_path);
-        if loc.kind == LocationKind::File {
-            return Ok(base);
+        if loc.kind == LocationKind::Registry {
+            return Ok(self.registry_file(game_id, ord.parse().unwrap_or(0)));
         }
+        let base = match loc.kind {
+            LocationKind::File => return Ok(PathBuf::from(&loc.resolved_path)),
+            LocationKind::Glob => glob_base(&loc.resolved_path),
+            _ => PathBuf::from(&loc.resolved_path),
+        };
         let mut p = base;
         for part in rel.split('/') {
             if part.is_empty() || part == "." || part == ".." {
@@ -176,7 +246,7 @@ impl App {
         self.repo.root().join(GAMES_FILE)
     }
 
-    fn save_games_file(&self) -> Result<()> {
+    pub(crate) fn save_games_file(&self) -> Result<()> {
         let mut file = GamesFile { game: Vec::new() };
         for g in self.index.games()? {
             let location = self.index.locations(&g.id)?;

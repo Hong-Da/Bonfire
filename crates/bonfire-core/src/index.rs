@@ -15,7 +15,7 @@ use crate::refs::RefName;
 use crate::{ObjectId, Repo};
 
 /// 数据库结构版本（PRAGMA user_version）。
-const SCHEMA_VERSION: i32 = 1;
+const SCHEMA_VERSION: i32 = 2;
 
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS games (
@@ -92,6 +92,25 @@ CREATE TABLE IF NOT EXISTS operations (
     detail_json TEXT NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS operations_game ON operations(game_id, id);
+CREATE TABLE IF NOT EXISTS game_metadata (
+    game_id TEXT PRIMARY KEY,
+    name TEXT,
+    name_zh TEXT,
+    developer TEXT,
+    publisher TEXT,
+    release_date TEXT,
+    genres_json TEXT NOT NULL DEFAULT '[]',
+    cover_path TEXT,
+    icon_path TEXT,
+    hero_path TEXT,
+    playtime_min INTEGER,
+    last_played_at INTEGER,
+    cloud_save INTEGER,
+    external_ids_json TEXT NOT NULL DEFAULT '{}',
+    field_sources_json TEXT NOT NULL DEFAULT '{}',
+    locked_fields_json TEXT NOT NULL DEFAULT '[]',
+    fetched_at TEXT
+);
 "#;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -118,6 +137,8 @@ pub struct GameRecord {
 pub enum LocationKind {
     File,
     Dir,
+    /// 通配模式，每次扫描重新匹配。
+    Glob,
     Registry,
 }
 
@@ -126,6 +147,7 @@ impl LocationKind {
         match self {
             LocationKind::File => "file",
             LocationKind::Dir => "dir",
+            LocationKind::Glob => "glob",
             LocationKind::Registry => "registry",
         }
     }
@@ -133,6 +155,7 @@ impl LocationKind {
     fn parse(s: &str) -> Self {
         match s {
             "file" => LocationKind::File,
+            "glob" => LocationKind::Glob,
             "registry" => LocationKind::Registry,
             _ => LocationKind::Dir,
         }
@@ -182,6 +205,34 @@ pub struct Profile {
     pub name: String,
     pub game_ids: Vec<String>,
     pub default_comment: String,
+}
+
+/// 游戏信息（文档 4.3 game_metadata 表）。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameMetadata {
+    pub game_id: String,
+    pub name: Option<String>,
+    pub name_zh: Option<String>,
+    pub developer: Option<String>,
+    pub publisher: Option<String>,
+    pub release_date: Option<String>,
+    pub genres: Vec<String>,
+    pub cover_path: Option<String>,
+    pub icon_path: Option<String>,
+    pub hero_path: Option<String>,
+    pub playtime_min: Option<u64>,
+    /// Unix 秒。
+    pub last_played_at: Option<i64>,
+    pub cloud_save: Option<bool>,
+    /// 外部 ID：steam / igdb / sgdb …
+    pub external_ids: std::collections::BTreeMap<String, String>,
+    /// 每个字段的来源提供者。
+    pub field_sources: std::collections::BTreeMap<String, String>,
+    /// 用户手动修改、自动刷新不覆盖的字段。
+    pub locked_fields: Vec<String>,
+    /// 联网信息最后获取时间（RFC 3339）。
+    pub fetched_at: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -497,6 +548,69 @@ impl Index {
         Ok(self.conn.execute("DELETE FROM backup_profiles WHERE name = ?1", [name])? > 0)
     }
 
+    // ---------- 游戏信息 ----------
+
+    pub fn metadata(&self, game_id: &str) -> Result<Option<GameMetadata>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT game_id, name, name_zh, developer, publisher, release_date, genres_json, cover_path, icon_path, hero_path,
+                        playtime_min, last_played_at, cloud_save, external_ids_json, field_sources_json, locked_fields_json, fetched_at
+                 FROM game_metadata WHERE game_id = ?1",
+                [game_id],
+                |r| {
+                    Ok(GameMetadata {
+                        game_id: r.get(0)?,
+                        name: r.get(1)?,
+                        name_zh: r.get(2)?,
+                        developer: r.get(3)?,
+                        publisher: r.get(4)?,
+                        release_date: r.get(5)?,
+                        genres: from_json(&r.get::<_, String>(6)?),
+                        cover_path: r.get(7)?,
+                        icon_path: r.get(8)?,
+                        hero_path: r.get(9)?,
+                        playtime_min: r.get::<_, Option<i64>>(10)?.map(|v| v as u64),
+                        last_played_at: r.get(11)?,
+                        cloud_save: r.get(12)?,
+                        external_ids: from_json(&r.get::<_, String>(13)?),
+                        field_sources: from_json(&r.get::<_, String>(14)?),
+                        locked_fields: from_json(&r.get::<_, String>(15)?),
+                        fetched_at: r.get(16)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    pub fn save_metadata(&self, m: &GameMetadata) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO game_metadata (game_id, name, name_zh, developer, publisher, release_date, genres_json, cover_path, icon_path, hero_path,
+                playtime_min, last_played_at, cloud_save, external_ids_json, field_sources_json, locked_fields_json, fetched_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+            params![
+                m.game_id,
+                m.name,
+                m.name_zh,
+                m.developer,
+                m.publisher,
+                m.release_date,
+                to_json(&m.genres),
+                m.cover_path,
+                m.icon_path,
+                m.hero_path,
+                m.playtime_min.map(|v| v as i64),
+                m.last_played_at,
+                m.cloud_save,
+                to_json(&m.external_ids),
+                to_json(&m.field_sources),
+                to_json(&m.locked_fields),
+                m.fetched_at,
+            ],
+        )?;
+        Ok(())
+    }
+
     // ---------- 操作日志 ----------
 
     pub fn begin_op(&self, kind: &str, game_id: Option<&str>, detail: &serde_json::Value) -> Result<i64> {
@@ -542,6 +656,15 @@ impl Index {
             )
             .optional()?)
     }
+}
+
+fn to_json<T: Serialize>(v: &T) -> String {
+    serde_json::to_string(v).expect("序列化不会失败")
+}
+
+/// 解析 JSON 列；格式错误时取默认值（索引可重建，不让单行坏数据阻塞读取）。
+fn from_json<T: serde::de::DeserializeOwned + Default>(s: &str) -> T {
+    serde_json::from_str(s).unwrap_or_default()
 }
 
 pub(crate) fn tag_str(t: FileTag) -> &'static str {
@@ -676,6 +799,25 @@ mod tests {
         assert_eq!(m["0/b"].size, 3);
         idx.replace_scan_entries("g", &[e("0/c", 1)]).unwrap();
         assert_eq!(idx.scan_entries("g").unwrap().keys().collect::<Vec<_>>(), ["0/c"]);
+    }
+
+    #[test]
+    fn metadata_roundtrip_and_v1_upgrade() {
+        let (dir, _r, idx) = setup();
+        let mut m = GameMetadata { game_id: "steam-1".into(), name: Some("Hollow Knight".into()), name_zh: Some("空洞骑士".into()), ..Default::default() };
+        m.genres = vec!["动作".into()];
+        m.external_ids.insert("steam".into(), "1".into());
+        m.locked_fields.push("name".into());
+        m.playtime_min = Some(2520);
+        m.cloud_save = Some(true);
+        idx.save_metadata(&m).unwrap();
+        assert_eq!(idx.metadata("steam-1").unwrap(), Some(m));
+        assert_eq!(idx.metadata("nope").unwrap(), None);
+        // 模拟旧版本数据库：删除新表并把版本改回 1，重新打开后自动升级。
+        idx.conn.execute_batch("DROP TABLE game_metadata; PRAGMA user_version = 1;").unwrap();
+        drop(idx);
+        let idx = Index::open(&dir.path().join("bonfire.db")).unwrap();
+        assert_eq!(idx.metadata("steam-1").unwrap(), None);
     }
 
     #[test]
