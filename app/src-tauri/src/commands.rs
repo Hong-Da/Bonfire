@@ -12,10 +12,12 @@ use bonfire_app::core::index::LocationKind;
 use bonfire_app::core::index::{GameRecord, Profile};
 use bonfire_app::core::refs::RefKind;
 use bonfire_app::library::{GameRow, HistoryView, SearchHit};
+use bonfire_app::prune::DeleteReport;
 use bonfire_app::restore::{RestoreOptions, RestorePlan, RestoreReport};
 use bonfire_app::transfer::{
-    BundleImportReport, BundlePreview, BundleReport, BundleScope, ExportFormat, ExportReport,
-    FilesPreview, ImportFilesOptions, ImportFilesReport, ImportPlace,
+    ArchiveImportItem, ArchivePick, ArchivePreview, BundleImportReport, BundlePreview,
+    BundleReport, BundleScope, CollectionReport, ExportFormat, ExportReport, FilesAutoReport,
+    FilesPreview, FilesSource, ImportFilesOptions, ImportFilesReport, ImportPlace,
 };
 use bonfire_app::{App, AppError, AppPaths, Config, ErrorKind, Locale, NewGame};
 use serde::{Deserialize, Serialize};
@@ -513,6 +515,48 @@ pub async fn set_comment(
     .await
 }
 
+/// 删除分支（`dry_run` 时只返回会删除的快照）。
+#[tauri::command]
+pub async fn delete_branch(
+    h: AppHandle,
+    game_id: String,
+    name: String,
+    dry_run: bool,
+) -> CmdResult<DeleteReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let lock = app.repo.lock()?;
+        Ok(app.delete_branch(&lock, &g, &name, dry_run)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn delete_tag(h: AppHandle, game_id: String, name: String) -> CmdResult<()> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let lock = app.repo.lock()?;
+        Ok(app.delete_tag(&lock, &g, &name)?)
+    })
+    .await
+}
+
+/// 删除快照（`dry_run` 时只返回影响范围）。
+#[tauri::command]
+pub async fn delete_snapshot(
+    h: AppHandle,
+    game_id: String,
+    snapshot: String,
+    dry_run: bool,
+) -> CmdResult<DeleteReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let lock = app.repo.lock()?;
+        Ok(app.delete_snapshot(&lock, &g, &snapshot, dry_run)?)
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn create_ref(
     h: AppHandle,
@@ -912,6 +956,58 @@ pub async fn import_files(
                 dry_run: false,
             },
         )?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn export_collection(
+    h: AppHandle,
+    game_ids: Vec<String>,
+    dest: PathBuf,
+) -> CmdResult<CollectionReport> {
+    with_app(h, move |app, _| {
+        let games = game_ids
+            .iter()
+            .map(|id| find(app, id))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(app.export_collection(&games, &dest)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn inspect_archive(h: AppHandle, path: PathBuf) -> CmdResult<ArchivePreview> {
+    with_app(h, move |app, _| Ok(app.inspect_archive(&path)?)).await
+}
+
+#[tauri::command]
+pub async fn import_archive(
+    h: AppHandle,
+    path: PathBuf,
+    picks: Vec<ArchivePick>,
+) -> CmdResult<Vec<ArchiveImportItem>> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(app.import_archive(&lock, &path, &picks, false)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn inspect_files_source(h: AppHandle, src: PathBuf) -> CmdResult<FilesSource> {
+    with_app(h, move |app, _| Ok(app.inspect_files_source(&src)?)).await
+}
+
+#[tauri::command]
+pub async fn import_files_auto(
+    h: AppHandle,
+    src: PathBuf,
+    comment: Option<String>,
+) -> CmdResult<FilesAutoReport> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(app.import_files_auto(&lock, &src, comment, false)?)
     })
     .await
 }

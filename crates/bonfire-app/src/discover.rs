@@ -486,7 +486,10 @@ impl App {
         let g = self.find_game(key)?;
         let mut locs = self.index.locations(&g.id)?;
         let mut n = 0;
-        for l in locs.iter_mut().filter(|l| !l.confirmed) {
+        for l in locs
+            .iter_mut()
+            .filter(|l| !l.confirmed && !l.resolved_path.is_empty())
+        {
             l.confirmed = true;
             l.source = LocationSource::User.as_str().to_string();
             n += 1;
@@ -533,10 +536,11 @@ fn merge_locations(
 ) -> Vec<LocationRecord> {
     let mut out = previous;
     for f in found {
-        match out
-            .iter_mut()
-            .find(|p| resolve::path_key(&p.resolved_path) == resolve::path_key(&f.resolved_path))
-        {
+        // 导入时尚未确定路径的位置（未安装的游戏）按模板对上。
+        match out.iter_mut().find(|p| {
+            resolve::path_key(&p.resolved_path) == resolve::path_key(&f.resolved_path)
+                || (p.resolved_path.is_empty() && p.path_template == f.path_template)
+        }) {
             Some(p) => {
                 let confirmed = p.confirmed || f.confirmed;
                 *p = LocationRecord { confirmed, ..f };
@@ -750,5 +754,24 @@ mod tests {
         let merged = merge_locations(vec![a("C:/x"), a("C:/y")], vec![a("C:/z"), a("c:/X")]);
         let paths: Vec<_> = merged.iter().map(|l| l.resolved_path.as_str()).collect();
         assert_eq!(paths, ["c:/X", "C:/y", "C:/z"]);
+
+        // 导入的未安装游戏：路径未确定的位置按模板对上，序号不变。
+        let pending = LocationRecord {
+            path_template: "<base>/save".into(),
+            resolved_path: String::new(),
+            confirmed: false,
+            source: "import".into(),
+            ..a("")
+        };
+        let found = LocationRecord {
+            path_template: "<base>/save".into(),
+            ..a("D:/Games/X/save")
+        };
+        let merged = merge_locations(vec![pending, a("C:/y")], vec![found]);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(
+            (merged[0].resolved_path.as_str(), merged[0].confirmed),
+            ("D:/Games/X/save", true)
+        );
     }
 }

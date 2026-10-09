@@ -243,8 +243,9 @@ function Hero({
   const hero = imageSrc(meta?.heroPath);
   const cover = imageSrc(meta?.coverPath ?? meta?.coverThumbPath ?? row.coverThumb);
   const other = name !== hist.game.name ? hist.game.name : null;
-  const folders = hist.locations.map((l, ord) => ({ l, ord })).filter(({ l }) => l.kind !== "registry");
-  const unconfirmed = hist.locations.filter((l) => !l.confirmed).length;
+  // 未安装的游戏中路径还没确定的位置不能打开。
+  const folders = hist.locations.map((l, ord) => ({ l, ord })).filter(({ l }) => l.kind !== "registry" && l.resolvedPath !== "");
+  const unconfirmed = hist.locations.filter((l) => !l.confirmed && l.resolvedPath !== "").length;
   const installDir = hist.game.installDir;
   const playtime = meta?.playtimeMin ?? row.playtimeMin;
 
@@ -257,6 +258,11 @@ function Hero({
         <div className="hero-title">
           <h1>{name}</h1>
           <StatusBadge row={row} />
+          {!row.installed && (
+            <span className="tag not-installed" title={t("ui.library.notInstalledHint")}>
+              {t("ui.library.notInstalled")}
+            </span>
+          )}
         </div>
         <p className="hero-meta">
           <span>{t(`ui.platform.${hist.game.platform}`, { defaultValue: hist.game.platform })}</span>
@@ -350,6 +356,7 @@ function Hero({
             ]}
           />
         </div>
+        {!row.installed && <p className="hero-note">{t("ui.history.notInstalledNote")}</p>}
         {unconfirmed > 0 && <p className="hero-note">{t("ui.history.unconfirmedNote", { n: unconfirmed })}</p>}
       </div>
     </header>
@@ -417,6 +424,55 @@ function SnapshotPanel({
       onChanged();
     } catch (e) {
       store.toast("error", errorMessage(e));
+    }
+  };
+
+  const branchNames = node.refs.filter((r) => r.startsWith("heads/")).map((r) => r.slice("heads/".length));
+  const tagNames = node.refs.filter((r) => r.startsWith("tags/")).map((r) => r.slice("tags/".length));
+  const fail = (e: unknown) => store.toast("error", errorMessage(e));
+
+  // 删除前先预览影响范围（dryRun），在确认框中说明。
+  const deleteSnapshot = async () => {
+    try {
+      const plan = await api.deleteSnapshot(gameId, node.id, true);
+      const lines: string[] = [];
+      if (plan.rewritten > 0) lines.push(t("ui.history.deleteRewire", { n: plan.rewritten }));
+      if (plan.branchesDeleted.length > 0) lines.push(t("ui.history.deleteBranchGone", { names: plan.branchesDeleted.join("、") }));
+      if (plan.headBranch) lines.push(t("ui.history.deleteHeadSwitch", { name: plan.headBranch }));
+      if (isHead) lines.push(t("ui.history.deleteHereNote"));
+      lines.push(t("ui.history.deleteFinal"));
+      if (!(await ask(lines.join("\n\n"), { title: t("ui.history.deleteSnapshotConfirm"), kind: "warning" }))) return;
+      await api.deleteSnapshot(gameId, node.id, false);
+      store.toast("success", t("ui.history.deleted"));
+      onChanged();
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const deleteBranch = async (name: string) => {
+    try {
+      const plan = await api.deleteBranch(gameId, name, true);
+      const lines = [t("ui.history.deleteBranchConfirm", { name, n: plan.removed.length })];
+      if (plan.headBranch) lines.push(t("ui.history.deleteHeadSwitch", { name: plan.headBranch }));
+      lines.push(t("ui.history.deleteFinal"));
+      if (!(await ask(lines.join("\n\n"), { title: t("ui.history.deleteBranch", { name }).replace(/…$/, ""), kind: "warning" }))) return;
+      await api.deleteBranch(gameId, name, false);
+      store.toast("success", t("ui.history.deleted"));
+      onChanged();
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const deleteTag = async (name: string) => {
+    try {
+      if (!(await ask(t("ui.history.deleteTagConfirm", { name }), { title: t("ui.history.deleteTag", { name }), kind: "warning" }))) return;
+      await api.deleteTag(gameId, name);
+      store.toast("success", t("ui.history.deleted"));
+      onChanged();
+    } catch (e) {
+      fail(e);
     }
   };
 
@@ -504,6 +560,15 @@ function SnapshotPanel({
             { label: t("ui.history.editComment"), onClick: () => setEditing(true) },
             { label: t("ui.history.addTag"), onClick: () => setRefKind("tag") },
             { label: t("ui.history.addBranch"), onClick: () => setRefKind("branch") },
+            ...tagNames.map((name) => ({ label: t("ui.history.deleteTag", { name }), onClick: () => void deleteTag(name) })),
+            ...branchNames.map((name) => ({ label: t("ui.history.deleteBranch", { name }), danger: true, onClick: () => void deleteBranch(name) })),
+            {
+              label: t("ui.history.deleteSnapshot"),
+              danger: true,
+              disabled: tagNames.length > 0,
+              hint: tagNames.length > 0 ? t("ui.history.deleteTagged") : undefined,
+              onClick: () => void deleteSnapshot(),
+            },
           ]}
         />
       </div>

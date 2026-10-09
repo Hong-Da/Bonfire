@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
-import { Cover, Icon, StatusBadge, displayName } from "../components/ui";
+import { Cover, Icon, Menu, StatusBadge, displayName } from "../components/ui";
 import { bytes, relative } from "../lib/format";
 import { useDelayed } from "../lib/hooks";
 import { visibleRows, useStore, type StateFilter } from "../store";
 import type { GameRow, Profile } from "../types";
 import BackupDialog from "./BackupDialog";
 import AddGameDialog from "./AddGameDialog";
+import { CollectionExportDialog, CollectionImportDialog } from "./CollectionDialogs";
 
 const STATES: StateFilter[] = ["all", "has-changes", "never-backed-up", "up-to-date"];
 
@@ -22,6 +23,8 @@ export default function Library() {
   const [addOpen, setAddOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [exportIds, setExportIds] = useState<string[] | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     api.profiles().then(setProfiles).catch(() => setProfiles([]));
@@ -47,6 +50,14 @@ export default function Library() {
     }
   };
 
+  // 检查更新：按钮图标立即转动，完成后提示结果（很快完成时也有反馈，进度条与文字只在较慢时显示）。
+  const check = async () => {
+    await s.loadLibrary(false);
+    const list = Object.values(useStore.getState().rows);
+    const n = list.filter((r) => r.state === "has-changes").length;
+    s.toast("success", n > 0 ? t("ui.library.checkedChanges", { n }) : t("ui.library.checkedNone", { total: list.length }));
+  };
+
   const phase = s.phase;
   const busy = useDelayed(s.loading);
   const pct = phase.total > 0 ? Math.round((phase.done / phase.total) * 100) : 0;
@@ -55,7 +66,7 @@ export default function Library() {
     <>
       <div className="toolbar">
         <h1>{t("ui.nav.library")}</h1>
-        <button className="btn" onClick={() => s.loadLibrary(false)} disabled={busy}>
+        <button className={`btn${s.loading ? " working" : ""}`} onClick={() => void check()} disabled={s.loading} aria-busy={s.loading}>
           <Icon name="scan" /> {busy ? t(`ui.library.phase.${phase.phase}`, { done: phase.done, total: phase.total }) : t("ui.library.check")}
         </button>
         {busy && (
@@ -83,6 +94,16 @@ export default function Library() {
         )}
         <div className="grow" />
         <input className="field" type="search" placeholder={t("ui.library.search")} value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label={t("ui.library.search")} />
+        <Menu
+          icon="import"
+          label={t("ui.library.transfer")}
+          align="right"
+          items={[
+            { label: t("ui.library.importSaves"), onClick: () => setImportOpen(true) },
+            { label: t("ui.library.exportSelected", { n: selected.length }), onClick: () => setExportIds(selected.map((r) => r.id)), disabled: selected.length === 0 },
+            { label: t("ui.library.exportAll", { n: allRows.length }), onClick: () => setExportIds(allRows.map((r) => r.id)), disabled: allRows.length === 0 },
+          ]}
+        />
         <button className="btn" onClick={() => setAddOpen(true)}>
           <Icon name="plus" /> {t("ui.library.add")}
         </button>
@@ -206,6 +227,8 @@ export default function Library() {
 
       {backupOpen && <BackupDialog rows={selected} onClose={() => setBackupOpen(false)} />}
       {addOpen && <AddGameDialog onClose={() => setAddOpen(false)} />}
+      {exportIds && <CollectionExportDialog rows={allRows} initial={exportIds} onClose={() => setExportIds(null)} />}
+      {importOpen && <CollectionImportDialog onClose={() => setImportOpen(false)} onDone={() => void s.loadLibrary(false)} />}
     </>
   );
 }
@@ -222,6 +245,11 @@ function GameLine({ row, lang, selected, onToggle, onOpen }: { row: GameRow; lan
         <strong>{name}</strong>
         <span className="sub">
           <span>{t(`ui.platform.${row.platform}`, { defaultValue: row.platform })}</span>
+          {!row.installed && (
+            <span className="tag not-installed" title={t("ui.library.notInstalledHint")}>
+              {t("ui.library.notInstalled")}
+            </span>
+          )}
           {name !== row.name && <span>{row.name}</span>}
           {row.cloudSave && <Icon name="cloud" size={12} label={t("ui.library.cloud")} />}
         </span>

@@ -28,12 +28,16 @@
 | `bonfire undo-restore <game>` | 撤销最近一次恢复（需确认；之后又备份过则不可撤销） |
 | `bonfire comment <game> <ref> -m <备注>` | 修改快照备注（保留修改历史） |
 | `bonfire branch <game> [<名称> [<ref>]]` | 创建分支；省略名称时列出分支与标签 |
+| `bonfire branch <game> -d <名称> [--dry-run]` | 删除分支（需确认）：只属于这个分支的快照一并删除，与其他分支、标签共用的保留；删除的是当前分支时切换到 main（或其他分支） |
 | `bonfire tag <game> [<名称> [<ref>]]` | 创建标签（不会被自动清理）；省略名称时列出 |
+| `bonfire tag <game> -d <名称>` | 删除标签（快照保留） |
+| `bonfire rm <game> <ref> [--dry-run]` | 删除快照（需确认）：后面的快照改接到它的上一个快照上（内容不变、ID 改变，分支、标签与备注随之更新）；分支的最新快照被删时分支退回上一个；带标签的快照受保护。被删快照占用的空间在之后的仓库清理（GC）时释放 |
 | `bonfire profile list` / `save <名称> <game>... [-m <默认备注>]` / `rm <名称>` | 备份方案 |
 | `bonfire export <game> [<ref>] (--zip <文件> \| --folder <目录>)` | 导出存档文件：省略 `<ref>` 时导出当前磁盘上的存档；每个存档位置一个子文件夹，附 `bonfire-export.json`；`--folder` 在目录中新建文件夹；拒绝导出到存档位置或仓库中 |
 | `bonfire import <game> <zip或文件夹> [--branch <名称>] [--parent <ref>] [--onto <分支>] [-m <备注>] [--dry-run]` | 导入存档文件为新快照（触发方式“导入”），**不写入存档目录**；默认新分支、独立起点，`--parent` 从某个快照分出，`--onto` 接在分支之后；内容与已有快照相同时不重复生成 |
 | `bonfire bundle export <game> -o <文件.bonfire> [--branch <分支>]... [--from <ref>] [--to <ref>]` | 导出历史包：默认全部分支与标签；`--branch` 指定分支；`--from`/`--to` 导出一段历史（含两端，导入方需已有更早的快照） |
-| `bonfire bundle import <文件> [--game <game>] [--dry-run]` | 导入历史包：按快照 ID 判断每个分支与本地的关系——新建、相同、后续更新（快进）、本地已包含、分叉（另建 `<分支>-<来源电脑>`，不覆盖本地）；不移动当前快照，不写入存档目录；自定义游戏在不同电脑上 ID 不同时用 `--game` 指定 |
+| `bonfire bundle export (<game> <game>... \| --all) -o <文件.bonfire>` | 导出合集包：多个游戏（或游戏库中全部游戏）的全部分支放在一个文件里；还没有快照的游戏跳过 |
+| `bonfire bundle import <文件> [--game <game>] [--only <game>]... [--dry-run]` | 导入历史包或合集包：按快照 ID 判断每个分支与本地的关系——新建、相同、后续更新（快进）、本地已包含、分叉（另建 `<分支>-<来源电脑>`，不覆盖本地）；不移动当前快照，不写入存档目录；自定义游戏在不同电脑上 ID 不同时用 `--game` 指定。合集包默认导入全部游戏，`--only` 只导入指定的（ID 或名称）；某个游戏失败不影响其他游戏（退出码 2）。游戏库中没有的游戏自动加入并标为“未安装”：能在本机确定的存档位置照常使用，需要安装目录的位置等装好游戏、扫描后确定（之前恢复会报错） |
 | `bonfire fsck [--deep]` | 校验仓库；`--deep` 还原每个文件并校验哈希 |
 | `bonfire reindex` | 从仓库重建索引数据库 |
 
@@ -209,6 +213,22 @@ bonfire bundle import D:/Temp/hk.bonfire --dry-run
 
 退出码：0
 
+### 把全部游戏导出为合集包
+
+```bat
+bonfire bundle export --all -o D:/Temp/all.bonfire
+```
+
+退出码：0
+
+### 导入游戏库中没有的游戏
+
+```bat
+bonfire bundle import D:/Temp/all.bonfire
+```
+
+退出码：0
+
 ### 恢复到上一个快照
 
 ```bat
@@ -245,6 +265,22 @@ bonfire comment 空洞骑士 HEAD -m 白宫之前
 
 ```bat
 bonfire tag 空洞骑士 "Boss 前"
+```
+
+退出码：0
+
+### 删除分支
+
+```bat
+bonfire branch 空洞骑士 -d 二周目 -y
+```
+
+退出码：0
+
+### 删除快照
+
+```bat
+bonfire rm 空洞骑士 HEAD -y
 ```
 
 退出码：0

@@ -36,6 +36,10 @@ pub struct GameRow {
     pub playtime_min: Option<u64>,
     /// 待确认的推测存档位置数（状态徽标“待确认”）。
     pub unconfirmed: u64,
+    /// 从别处导入、本机还没有安装（或还没扫描到）的游戏。
+    pub installed: bool,
+    /// 本机还不能确定路径的存档位置数（未安装的游戏需要安装目录的位置）。
+    pub unresolved: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -96,11 +100,17 @@ impl App {
         };
         let snaps = self.index.snapshots_of(&game.id)?;
         let meta = self.metadata(&game.id)?;
-        let unconfirmed = self
-            .locations(&game.id)?
+        let locations = self.locations(&game.id)?;
+        let unconfirmed = locations
             .iter()
-            .filter(|l| !l.confirmed)
+            .filter(|l| !l.confirmed && !l.resolved_path.is_empty())
             .count() as u64;
+        let unresolved = locations
+            .iter()
+            .filter(|l| l.resolved_path.is_empty())
+            .count() as u64;
+        let installed =
+            game.install_dir.is_some() || !locations.iter().any(|l| l.source == "import");
         let name_zh = meta.as_ref().and_then(|m| m.data.name_zh.clone());
         Ok(GameRow {
             id: game.id.clone(),
@@ -129,6 +139,8 @@ impl App {
                 .unwrap_or(false),
             playtime_min: meta.as_ref().and_then(|m| m.data.playtime_min),
             unconfirmed,
+            installed,
+            unresolved,
         })
     }
 

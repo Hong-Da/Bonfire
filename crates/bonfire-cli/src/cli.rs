@@ -144,11 +144,23 @@ pub enum Cmd {
         game: String,
         name: Option<String>,
         snapshot: Option<String>,
+        #[arg(long, short = 'd', value_name = "NAME", conflicts_with_all = ["name", "snapshot"])]
+        delete: Option<String>,
+        #[arg(long, requires = "delete")]
+        dry_run: bool,
     },
     Tag {
         game: String,
         name: Option<String>,
         snapshot: Option<String>,
+        #[arg(long, short = 'd', value_name = "NAME", conflicts_with_all = ["name", "snapshot"])]
+        delete: Option<String>,
+    },
+    Rm {
+        game: String,
+        snapshot: String,
+        #[arg(long)]
+        dry_run: bool,
     },
     Profile {
         #[command(subcommand)]
@@ -195,7 +207,10 @@ pub enum Cmd {
 #[derive(Debug, Subcommand)]
 pub enum BundleCmd {
     Export {
-        game: String,
+        #[arg(required_unless_present = "all")]
+        games: Vec<String>,
+        #[arg(long, conflicts_with = "games")]
+        all: bool,
         #[arg(short = 'o', long = "out", value_name = "FILE")]
         out_file: PathBuf,
         #[arg(long = "branch", value_name = "NAME", conflicts_with_all = ["from", "to"])]
@@ -207,8 +222,10 @@ pub enum BundleCmd {
     },
     Import {
         file: PathBuf,
-        #[arg(long)]
+        #[arg(long, conflicts_with = "only")]
         game: Option<String>,
+        #[arg(long, value_name = "GAME")]
+        only: Vec<String>,
         #[arg(long)]
         dry_run: bool,
     },

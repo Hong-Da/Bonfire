@@ -290,6 +290,13 @@ impl App {
         if loc.kind == LocationKind::Registry {
             return Ok(self.registry_file(game_id, ord.parse().unwrap_or(0)));
         }
+        // 导入的未安装游戏：需要安装目录的位置还没有确定。
+        if loc.resolved_path.is_empty() {
+            return Err(AppError::Invalid(format!(
+                "存档位置 {} 在这台电脑上还没有确定（游戏未安装）；装好游戏并扫描后再恢复",
+                loc.path_template
+            )));
+        }
         let base = match loc.kind {
             LocationKind::File => return Ok(PathBuf::from(&loc.resolved_path)),
             LocationKind::Glob => glob_base(&loc.resolved_path),

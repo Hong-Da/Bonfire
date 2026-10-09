@@ -15,7 +15,7 @@ use serde::de::DeserializeOwned;
 use crate::error::{CoreError, IoContext, Result};
 use crate::fault::{self, points};
 use crate::object::{Blob, Kind, Snapshot, Tree, canonical_json};
-use crate::{ObjectId, Repo};
+use crate::{ObjectId, Repo, RepoLock};
 
 /// 写入一个文件后的结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -200,6 +200,17 @@ impl Repo {
 
     pub fn get_snapshot(&self, id: &ObjectId) -> Result<Snapshot> {
         self.get_json(Kind::Snapshot, id)
+    }
+
+    /// 删除快照对象（用户删除快照或分支时）。调用方须先确认没有引用、子快照指向它；
+    /// 它引用的清单与文件不删除，由 GC 清理。不存在时返回 false。
+    pub fn remove_snapshot(&self, _lock: &RepoLock, id: &ObjectId) -> Result<bool> {
+        let path = self.object_path(Kind::Snapshot, id);
+        match std::fs::remove_file(&path) {
+            Ok(()) => Ok(true),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(CoreError::io(path, e)),
+        }
     }
 
     /// 读取整个文件内容并入库：小文件整体作为一个 Chunk，大文件用 FastCDC 分块。

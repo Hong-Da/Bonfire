@@ -124,6 +124,7 @@ fn every_command_has_ok_and_error_cases() {
         "comment",
         "branch",
         "tag",
+        "rm",
         "profile save",
         "profile list",
         "profile rm",

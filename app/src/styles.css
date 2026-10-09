@@ -131,6 +131,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 }
 .toolbar h1 { font: 700 22px/1.2 var(--font-sign); margin: 0 12px 0 4px; letter-spacing: 0.01em; }
 .toolbar .grow { flex: 1; }
+.toolbar input[type="search"] { width: 180px; min-width: 120px; flex: 0 1 180px; }
 .chips { display: flex; gap: 4px; }
 .chip {
   height: 28px; padding: 0 10px; border-radius: 14px; border: 1px solid var(--line); background: none; cursor: pointer; color: var(--muted);
@@ -195,6 +196,12 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .tag.found-new { color: var(--ember); background: var(--ember-soft); font-weight: 600; }
 .tag.found-managed { color: var(--moss); background: color-mix(in srgb, var(--moss) 12%, transparent); }
 .tag.found-ignored { color: var(--faint); }
+/* 状态标签在自己的列里居中，不被拉伸成整列宽 */
+.game.found > .tag { justify-self: center; }
+.tag.not-installed { color: var(--muted); border: 1px dashed var(--faint); background: none; }
+/* 检查更新：点击后图标立即转动（文字与进度条只在较慢时出现，避免闪烁） */
+.btn.working svg { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .no-saves { margin: 8px 20px 96px; color: var(--muted); }
 .no-saves summary { cursor: pointer; padding: 6px 0; }
 .no-saves .file-list { margin-top: 6px; }
@@ -360,6 +367,27 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .source-picks.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .source-picks.compact .source-pick { padding: 6px 8px; gap: 6px; font-size: 13px; }
 .source-picks.compact .source-pick b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 游戏库的导出 / 导入：可勾选的游戏列表 */
+.collection-import { display: grid; gap: 12px; min-width: min(560px, 80vw); }
+.pick-head { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; font-size: 13px; }
+.pick-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; max-height: 46vh; overflow: auto; }
+.pick-list li { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.pick-list li.on { border-color: var(--ember); background: color-mix(in srgb, var(--ember) 5%, var(--surface)); }
+.pick-list li.disabled { opacity: 0.6; }
+.pick-list input, .pick-head input { accent-color: var(--ember); }
+.pick-list label { display: grid; grid-template-columns: 20px auto 1fr auto; align-items: center; gap: 12px; padding: 8px 12px; cursor: pointer; }
+.pick-list li.disabled label { cursor: default; }
+.pick-list .cover { width: 30px; height: 45px; }
+.pick-name { display: grid; gap: 2px; min-width: 0; }
+.pick-name b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-name small { color: var(--muted); font-size: 12px; }
+.collection-import .pick-list label { grid-template-columns: 20px 1fr auto; }
+.pick-state { font-size: 13px; text-align: right; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ok-text { color: var(--moss); display: inline-flex; align-items: center; gap: 4px; }
+.danger-text { color: var(--danger); }
+.files-target { display: grid; gap: 8px; }
+.files-target p { margin: 0; }
 .source-path { margin: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .import-summary p { margin: 0 0 8px; font-size: 13px; }
 .ref-plans, .folder-map { list-style: none; margin: 0; padding: 0; font-size: 13px; }

@@ -7,6 +7,11 @@
 //!   相同、后续更新（快进）、本地已包含、分叉（另建分支，不覆盖本地）。
 //! - **导入存档文件**：生成一个新快照（触发方式“导入”），放在新分支上或接在某个分支之后；内容与已有快照相同时不重复生成。
 //!
+//! - **合集包**（也是 `.bonfire`）：多个游戏的历史包放在一个文件里（`collection.json` + `games/<序号>/…`），
+//!   用于一次导出、导入全部或选定的游戏。
+//! - 导入时游戏库中没有的游戏（如这台电脑上没有安装）自动加入游戏库，标为“未安装”：
+//!   能在本机确定的存档位置照常使用，需要安装目录的位置等装好游戏、扫描后再确定。
+//!
 //! 导入只写入仓库，不写入存档目录；要用导入的存档玩，在历史中选中后正常恢复（恢复前会自动建保护快照）。
 
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
@@ -14,7 +19,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use bonfire_core::index::{GameRecord, LocationKind, LocationRecord};
-use bonfire_core::object::{Kind, Snapshot, SnapshotStats, Tree, TreeEntry, Trigger};
+use bonfire_core::object::{FileTag, Kind, Snapshot, SnapshotStats, Tree, TreeEntry, Trigger};
 use bonfire_core::refs::{RefKind, RefName};
 use bonfire_core::scan::{self, glob_base};
 use bonfire_core::{ObjectId, RepoLock};
@@ -32,6 +37,9 @@ const BUNDLE_FORMAT: &str = "bonfire-bundle";
 const FILES_FORMAT: &str = "bonfire-files";
 /// 历史包的扩展名。
 pub const BUNDLE_EXT: &str = "bonfire";
+/// 合集包的说明文件名。
+const COLLECTION_MANIFEST: &str = "collection.json";
+const COLLECTION_FORMAT: &str = "bonfire-collection";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -105,6 +113,9 @@ pub struct BundleRef {
 pub struct BundleLocation {
     pub path_template: String,
     pub kind: LocationKind,
+    /// 存档或配置文件；旧版历史包没有，按存档处理。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag: Option<FileTag>,
 }
 
 /// `bundle.json`。
@@ -196,6 +207,8 @@ pub struct BundlePreview {
     pub game_name: String,
     /// 本地游戏库中有这个游戏。
     pub local_game: bool,
+    /// 导入时会把这个游戏加入游戏库（本地没有这个游戏，标为“未安装”）。
+    pub create_game: bool,
     pub created_at: String,
     pub host: String,
     pub nodes: Vec<BundleNode>,
@@ -213,6 +226,79 @@ pub struct BundleImportReport {
     pub preview: BundlePreview,
     pub imported_snapshots: usize,
     pub objects: usize,
+    /// 新加入游戏库的游戏（本地原来没有）。
+    pub created_game: bool,
+}
+
+/// 合集包中的一个游戏。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionEntry {
+    pub game_id: String,
+    pub game_name: String,
+    /// 包内的目录，如 `games/0/`。
+    pub dir: String,
+    pub snapshots: usize,
+}
+
+/// `collection.json`。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionManifest {
+    pub format: String,
+    pub version: u32,
+    pub created_at: String,
+    pub host: String,
+    pub games: Vec<CollectionEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionReport {
+    pub dest: PathBuf,
+    pub bytes: u64,
+    pub games: Vec<CollectionEntry>,
+    pub objects: usize,
+    /// 还没有快照、没有导出的游戏（名称）。
+    pub skipped: Vec<String>,
+}
+
+/// 历史包或合集包中的一个游戏的预览。`key` 是包内目录（单个游戏的历史包为空）。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveGame {
+    pub key: String,
+    pub preview: BundlePreview,
+}
+
+/// 历史包或合集包的预览。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchivePreview {
+    pub collection: bool,
+    pub created_at: String,
+    pub host: String,
+    pub games: Vec<ArchiveGame>,
+}
+
+/// 导入合集包时选中的游戏：`key` 为包内目录，`target` 为导入到的本地游戏（省略时按游戏 ID 对应或新建）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchivePick {
+    pub key: String,
+    #[serde(default)]
+    pub target: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveImportItem {
+    pub key: String,
+    pub game_id: String,
+    pub game_name: String,
+    pub report: Option<BundleImportReport>,
+    /// 这个游戏导入失败的原因（其他游戏照常导入）。
+    pub error: Option<String>,
 }
 
 /// 导入的存档文件放在哪里。
@@ -276,6 +362,40 @@ pub struct ImportFilesReport {
     pub snapshot: Option<ObjectId>,
     pub branch: Option<String>,
     pub dry_run: bool,
+}
+
+/// 一个历史包的内容：说明与要打包的对象（快照即说明中的 `snapshots`）。
+struct BundlePlan {
+    manifest: BundleManifest,
+    chunks: Vec<ObjectId>,
+    blobs: Vec<ObjectId>,
+    trees: Vec<ObjectId>,
+}
+
+impl BundlePlan {
+    fn objects(&self) -> usize {
+        self.chunks.len() + self.blobs.len() + self.trees.len() + self.manifest.snapshots.len()
+    }
+}
+
+/// 在游戏库中导入存档文件：按附带的说明找到（或新建）游戏。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilesSource {
+    pub manifest: ExportManifest,
+    /// 游戏库中对应的游戏；没有时导入会新建（未安装）。
+    pub game_id: Option<String>,
+    /// 已有游戏时的预览。
+    pub preview: Option<FilesPreview>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilesAutoReport {
+    pub game_id: String,
+    pub game_name: String,
+    pub created_game: bool,
+    pub report: ImportFilesReport,
 }
 
 /// 来源中的文件：(相对路径, 磁盘文件)。
@@ -504,6 +624,99 @@ impl App {
         scope: &BundleScope,
         dest: &Path,
     ) -> Result<BundleReport> {
+        let plan = self.plan_bundle(game, scope)?;
+        self.check_export_target(dest)?;
+        let tmp = with_suffix(dest, ".bonfire-tmp");
+        let result = (|| -> Result<()> {
+            let file = std::fs::File::create(&tmp).map_err(|e| AppError::io(&tmp, e))?;
+            let mut zip = zip::ZipWriter::new(file);
+            self.write_bundle(&mut zip, &plan, "", &tmp)?;
+            let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
+            f.sync_all().map_err(|e| AppError::io(&tmp, e))
+        })();
+        if let Err(e) = result {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e);
+        }
+        replace_file(&tmp, dest)?;
+        let bytes = std::fs::metadata(dest).map(|m| m.len()).unwrap_or(0);
+        Ok(BundleReport {
+            dest: dest.to_path_buf(),
+            snapshots: plan.manifest.snapshots.len(),
+            objects: plan.objects(),
+            bytes,
+            refs: plan.manifest.refs.clone(),
+            prerequisites: plan.manifest.prerequisites.len(),
+        })
+    }
+
+    /// 导出多个游戏的全部历史到一个合集包。还没有快照的游戏跳过。
+    pub fn export_collection(&self, games: &[GameRecord], dest: &Path) -> Result<CollectionReport> {
+        if games.is_empty() {
+            return Err(AppError::Invalid("请至少选择一个游戏".into()));
+        }
+        let mut plans = Vec::new();
+        let mut skipped = Vec::new();
+        for g in games {
+            if self.repo.list_refs(&g.id)?.is_empty() {
+                skipped.push(g.name.clone());
+                continue;
+            }
+            plans.push(self.plan_bundle(g, &BundleScope::All)?);
+        }
+        if plans.is_empty() {
+            return Err(AppError::Invalid("选中的游戏都还没有快照".into()));
+        }
+        let entries: Vec<CollectionEntry> = plans
+            .iter()
+            .enumerate()
+            .map(|(i, p)| CollectionEntry {
+                game_id: p.manifest.game_id.clone(),
+                game_name: p.manifest.game_name.clone(),
+                dir: format!("games/{i}/"),
+                snapshots: p.manifest.snapshots.len(),
+            })
+            .collect();
+        let manifest = CollectionManifest {
+            format: COLLECTION_FORMAT.into(),
+            version: 1,
+            created_at: now_local_rfc3339(),
+            host: host_name(),
+            games: entries.clone(),
+        };
+        self.check_export_target(dest)?;
+        let tmp = with_suffix(dest, ".bonfire-tmp");
+        let result = (|| -> Result<()> {
+            let file = std::fs::File::create(&tmp).map_err(|e| AppError::io(&tmp, e))?;
+            let mut zip = zip::ZipWriter::new(file);
+            let deflate = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated);
+            zip.start_file(COLLECTION_MANIFEST, deflate)
+                .map_err(|e| zip_err(&tmp, e))?;
+            zip.write_all(&serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化"))
+                .map_err(|e| AppError::io(&tmp, e))?;
+            for (plan, e) in plans.iter().zip(&entries) {
+                self.write_bundle(&mut zip, plan, &e.dir, &tmp)?;
+            }
+            let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
+            f.sync_all().map_err(|e| AppError::io(&tmp, e))
+        })();
+        if let Err(e) = result {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e);
+        }
+        replace_file(&tmp, dest)?;
+        Ok(CollectionReport {
+            dest: dest.to_path_buf(),
+            bytes: std::fs::metadata(dest).map(|m| m.len()).unwrap_or(0),
+            games: entries,
+            objects: plans.iter().map(BundlePlan::objects).sum(),
+            skipped,
+        })
+    }
+
+    /// 历史包的内容：说明与要打包的对象。
+    fn plan_bundle(&self, game: &GameRecord, scope: &BundleScope) -> Result<BundlePlan> {
         let all_refs = self.repo.list_refs(&game.id)?;
         let (included, mut refs) = match scope {
             BundleScope::All => {
@@ -667,65 +880,166 @@ impl App {
                 .map(|l| BundleLocation {
                     path_template: l.path_template.clone(),
                     kind: l.kind,
+                    tag: Some(l.tag),
                 })
                 .collect(),
         };
-
-        self.check_export_target(dest)?;
-        let tmp = with_suffix(dest, ".bonfire-tmp");
-        let objects = chunks.len() + blobs.len() + trees.len() + order.len();
-        let result = (|| -> Result<()> {
-            let file = std::fs::File::create(&tmp).map_err(|e| AppError::io(&tmp, e))?;
-            let mut zip = zip::ZipWriter::new(file);
-            let deflate = zip::write::SimpleFileOptions::default()
-                .compression_method(zip::CompressionMethod::Deflated);
-            zip.start_file(BUNDLE_MANIFEST, deflate)
-                .map_err(|e| zip_err(&tmp, e))?;
-            zip.write_all(&serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化"))
-                .map_err(|e| AppError::io(&tmp, e))?;
-            // 对象文件已是 zstd 压缩，原样存放。
-            let stored = zip::write::SimpleFileOptions::default()
-                .compression_method(zip::CompressionMethod::Stored)
-                .large_file(true);
-            for (kind, ids) in [
-                (Kind::Chunk, &chunks),
-                (Kind::Blob, &blobs),
-                (Kind::Tree, &trees),
-                (Kind::Snapshot, &order),
-            ] {
-                for id in ids {
-                    let bytes = self.repo.read_object_file(kind, id)?;
-                    zip.start_file(format!("objects/{}/{}", kind.dir(), id.to_hex()), stored)
-                        .map_err(|e| zip_err(&tmp, e))?;
-                    zip.write_all(&bytes).map_err(|e| AppError::io(&tmp, e))?;
-                }
-            }
-            let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
-            f.sync_all().map_err(|e| AppError::io(&tmp, e))
-        })();
-        if let Err(e) = result {
-            let _ = std::fs::remove_file(&tmp);
-            return Err(e);
-        }
-        replace_file(&tmp, dest)?;
-        let bytes = std::fs::metadata(dest).map(|m| m.len()).unwrap_or(0);
-        Ok(BundleReport {
-            dest: dest.to_path_buf(),
-            snapshots: order.len(),
-            objects,
-            bytes,
-            refs,
-            prerequisites: prerequisites.len(),
+        Ok(BundlePlan {
+            manifest,
+            chunks,
+            blobs,
+            trees,
         })
+    }
+
+    /// 把一个游戏的历史包写入压缩包中的 `prefix` 目录（单个历史包为空）。
+    fn write_bundle(
+        &self,
+        zip: &mut zip::ZipWriter<std::fs::File>,
+        plan: &BundlePlan,
+        prefix: &str,
+        tmp: &Path,
+    ) -> Result<()> {
+        let deflate = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+        zip.start_file(format!("{prefix}{BUNDLE_MANIFEST}"), deflate)
+            .map_err(|e| zip_err(tmp, e))?;
+        zip.write_all(&serde_json::to_vec_pretty(&plan.manifest).expect("说明文件可以序列化"))
+            .map_err(|e| AppError::io(tmp, e))?;
+        // 对象文件已是 zstd 压缩，原样存放。
+        let stored = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored)
+            .large_file(true);
+        for (kind, ids) in [
+            (Kind::Chunk, &plan.chunks),
+            (Kind::Blob, &plan.blobs),
+            (Kind::Tree, &plan.trees),
+            (Kind::Snapshot, &plan.manifest.snapshots),
+        ] {
+            for id in ids {
+                let bytes = self.repo.read_object_file(kind, id)?;
+                zip.start_file(
+                    format!("{prefix}objects/{}/{}", kind.dir(), id.to_hex()),
+                    stored,
+                )
+                .map_err(|e| zip_err(tmp, e))?;
+                zip.write_all(&bytes).map_err(|e| AppError::io(tmp, e))?;
+            }
+        }
+        Ok(())
     }
 
     /// 读取历史包并与本地历史比较，不写入任何东西。
     /// `target` 为导入到的本地游戏；省略时按包内的游戏 ID 查找（自定义游戏在不同电脑上的 ID 不同，需要指定）。
+    /// 选中的是合集包时，取其中与 `target` 同一 ID 的游戏（只有一个游戏时取它）。
     pub fn inspect_bundle(&self, path: &Path, target: Option<&str>) -> Result<BundlePreview> {
         let mut zip = open_zip(path)?;
-        let manifest = read_bundle_manifest(&mut zip, path)?;
-        let snaps = read_bundle_snapshots(&mut zip, path, &manifest)?;
+        let prefix = self.prefix_for(&mut zip, path, target)?;
+        let manifest = read_bundle_manifest(&mut zip, path, &prefix)?;
+        let snaps = read_bundle_snapshots(&mut zip, path, &manifest, &prefix)?;
         self.preview_bundle(&manifest, &snaps, target)
+    }
+
+    /// 合集包中对应 `target` 游戏的目录；单个历史包为空。
+    fn prefix_for(
+        &self,
+        zip: &mut zip::ZipArchive<std::fs::File>,
+        path: &Path,
+        target: Option<&str>,
+    ) -> Result<String> {
+        let Some(c) = read_collection_manifest(zip, path)? else {
+            return Ok(String::new());
+        };
+        if c.games.len() == 1 {
+            return Ok(c.games[0].dir.clone());
+        }
+        let id = match target {
+            Some(key) => self.find_game(key)?.id,
+            None => String::new(),
+        };
+        c.games
+            .iter()
+            .find(|e| e.game_id == id)
+            .map(|e| e.dir.clone())
+            .ok_or_else(|| {
+                AppError::Invalid(format!(
+                    "这是包含 {} 个游戏的合集包，其中没有这个游戏；请在游戏库中用“导入”选择要导入的游戏",
+                    c.games.len()
+                ))
+            })
+    }
+
+    /// 读取历史包或合集包中的全部游戏并与本地比较，不写入任何东西。
+    pub fn inspect_archive(&self, path: &Path) -> Result<ArchivePreview> {
+        let mut zip = open_zip(path)?;
+        let collection = read_collection_manifest(&mut zip, path)?;
+        let dirs: Vec<String> = match &collection {
+            Some(c) => c.games.iter().map(|e| e.dir.clone()).collect(),
+            None => vec![String::new()],
+        };
+        let mut games = Vec::new();
+        for dir in dirs {
+            let m = read_bundle_manifest(&mut zip, path, &dir)?;
+            let snaps = read_bundle_snapshots(&mut zip, path, &m, &dir)?;
+            games.push(ArchiveGame {
+                key: dir,
+                preview: self.preview_bundle(&m, &snaps, None)?,
+            });
+        }
+        let (created_at, host) = match &collection {
+            Some(c) => (c.created_at.clone(), c.host.clone()),
+            None => (
+                games[0].preview.created_at.clone(),
+                games[0].preview.host.clone(),
+            ),
+        };
+        Ok(ArchivePreview {
+            collection: collection.is_some(),
+            created_at,
+            host,
+            games,
+        })
+    }
+
+    /// 导入历史包或合集包中选中的游戏（`picks` 为空表示全部）。每个游戏单独导入，一个失败不影响其他。
+    pub fn import_archive(
+        &mut self,
+        lock: &RepoLock,
+        path: &Path,
+        picks: &[ArchivePick],
+        dry_run: bool,
+    ) -> Result<Vec<ArchiveImportItem>> {
+        let preview = self.inspect_archive(path)?;
+        let picks: Vec<ArchivePick> = if picks.is_empty() {
+            preview
+                .games
+                .iter()
+                .map(|g| ArchivePick {
+                    key: g.key.clone(),
+                    target: None,
+                })
+                .collect()
+        } else {
+            picks.to_vec()
+        };
+        let mut out = Vec::new();
+        for pick in &picks {
+            let game = preview
+                .games
+                .iter()
+                .find(|g| g.key == pick.key)
+                .ok_or_else(|| AppError::Invalid(format!("包内没有 {}", pick.key)))?;
+            let result =
+                self.import_bundle_at(lock, path, &pick.key, pick.target.as_deref(), dry_run);
+            out.push(ArchiveImportItem {
+                key: pick.key.clone(),
+                game_id: game.preview.game_id.clone(),
+                game_name: game.preview.game_name.clone(),
+                error: result.as_ref().err().map(|e| e.to_string()),
+                report: result.ok(),
+            });
+        }
+        Ok(out)
     }
 
     fn preview_bundle(
@@ -832,6 +1146,7 @@ impl App {
             })
             .collect();
         nodes.reverse();
+        let create_game = local_game.is_none();
         let location_mismatch = match &local_game {
             Some(g) => {
                 let local: Vec<String> = self
@@ -855,6 +1170,7 @@ impl App {
                 .unwrap_or_else(|| m.game_id.clone()),
             game_name: m.game_name.clone(),
             local_game: local_game.is_some(),
+            create_game,
             created_at: m.created_at.clone(),
             host: m.host.clone(),
             new_snapshots: nodes.iter().filter(|n| !n.known).count(),
@@ -866,6 +1182,7 @@ impl App {
     }
 
     /// 导入历史包：写入对象并校验，再按预览中的关系更新分支与标签。不移动当前所在的快照，不写入存档目录。
+    /// 游戏库中没有这个游戏时加入游戏库（未安装）。选中的是合集包时导入其中与 `target` 对应的游戏。
     pub fn import_bundle(
         &mut self,
         lock: &RepoLock,
@@ -873,16 +1190,25 @@ impl App {
         target: Option<&str>,
         dry_run: bool,
     ) -> Result<BundleImportReport> {
+        let prefix = {
+            let mut zip = open_zip(path)?;
+            self.prefix_for(&mut zip, path, target)?
+        };
+        self.import_bundle_at(lock, path, &prefix, target, dry_run)
+    }
+
+    fn import_bundle_at(
+        &mut self,
+        lock: &RepoLock,
+        path: &Path,
+        prefix: &str,
+        target: Option<&str>,
+        dry_run: bool,
+    ) -> Result<BundleImportReport> {
         let mut zip = open_zip(path)?;
-        let manifest = read_bundle_manifest(&mut zip, path)?;
-        let snaps = read_bundle_snapshots(&mut zip, path, &manifest)?;
-        let preview = self.preview_bundle(&manifest, &snaps, target)?;
-        if !preview.local_game {
-            return Err(AppError::Invalid(format!(
-                "游戏库中没有「{}」（{}），请先在“发现”页加入这个游戏或手动添加后再导入",
-                manifest.game_name, manifest.game_id
-            )));
-        }
+        let manifest = read_bundle_manifest(&mut zip, path, prefix)?;
+        let snaps = read_bundle_snapshots(&mut zip, path, &manifest, prefix)?;
+        let mut preview = self.preview_bundle(&manifest, &snaps, target)?;
         if !preview.missing.is_empty() {
             return Err(AppError::Invalid(format!(
                 "缺少 {} 个更早的快照（如 {}），这个历史包只包含一段历史，请先导入更早的部分",
@@ -894,8 +1220,32 @@ impl App {
             return Ok(BundleImportReport {
                 imported_snapshots: preview.new_snapshots,
                 objects: 0,
+                created_game: preview.create_game,
                 preview,
             });
+        }
+        let created_game = !preview.local_game;
+        if created_game {
+            let locations: Vec<(String, LocationKind, FileTag)> = manifest
+                .locations
+                .iter()
+                .map(|l| {
+                    (
+                        l.path_template.clone(),
+                        l.kind,
+                        l.tag.unwrap_or(FileTag::Save),
+                    )
+                })
+                .collect();
+            let g = self.adopt_game(&manifest.game_id, &manifest.game_name, &locations)?;
+            preview = self.preview_bundle(&manifest, &snaps, Some(&g.id))?;
+        } else if let Ok(mut g) = self.find_game(&preview.game_id)
+            && !g.enabled
+        {
+            // 导入到发现了但未加入（或已忽略）的游戏：加入游戏库。
+            g.enabled = true;
+            self.index.upsert_game(&g)?;
+            self.save_games_file()?;
         }
 
         // 1. 对象：分块、文件、清单、快照依次写入（最后写快照，中途失败只留下无引用的对象）。
@@ -906,9 +1256,9 @@ impl App {
         let mut written = 0;
         let mut new_blobs = Vec::new();
         for kind in [Kind::Chunk, Kind::Blob, Kind::Tree, Kind::Snapshot] {
-            let prefix = format!("objects/{}/", kind.dir());
-            for name in names.iter().filter(|n| n.starts_with(&prefix)) {
-                let id: ObjectId = name[prefix.len()..]
+            let dir = format!("{prefix}objects/{}/", kind.dir());
+            for name in names.iter().filter(|n| n.starts_with(&dir)) {
+                let id: ObjectId = name[dir.len()..]
                     .parse()
                     .map_err(|_| AppError::Invalid(format!("历史包中的对象名无效：{name}")))?;
                 let bytes = read_entry(&mut zip, name, path)?;
@@ -994,12 +1344,96 @@ impl App {
                 RefAction::Same | RefAction::Contained | RefAction::TagConflict => {}
             }
         }
+        // 新加入的游戏：当前分支取 main（包内没有 main 时取第一个分支）。
+        if created_game {
+            let refs = self.repo.list_refs(&game)?;
+            let head = self.repo.head(&game)?;
+            let has = |n: &str| {
+                refs.iter()
+                    .any(|(r, _)| r.kind == RefKind::Branch && r.name == n)
+            };
+            if !has(&head.branch)
+                && let Some((r, _)) = refs.iter().find(|(r, _)| r.kind == RefKind::Branch)
+            {
+                self.repo.set_head(
+                    lock,
+                    &game,
+                    &bonfire_core::refs::Head {
+                        branch: r.name.clone(),
+                        detached: None,
+                    },
+                )?;
+            }
+        }
         self.index.set_refs(&game, &self.repo.list_refs(&game)?)?;
+        // 新加入的游戏：状态与导入的当前快照比较（磁盘上已有相同存档时显示“已是最新”）。
+        if created_game {
+            self.cache_head_tree(&game)?;
+        }
         Ok(BundleImportReport {
             preview,
             imported_snapshots: imported,
             objects: written,
+            created_game,
         })
+    }
+
+    /// 把别处导出的游戏加入游戏库（本机没有安装或没有发现时），标为未安装：没有安装目录。
+    /// 存档位置按模板在本机展开；需要安装目录（`<base>` 等）或本机不存在的绝对路径暂不确定（路径留空），
+    /// 装好游戏、扫描平台时按模板对上原来的位置序号，历史照常可用。
+    pub fn adopt_game(
+        &mut self,
+        id: &str,
+        name: &str,
+        locations: &[(String, LocationKind, FileTag)],
+    ) -> Result<GameRecord> {
+        bonfire_core::refs::validate_game_id(id)?;
+        if let Some(g) = self.index.game(id)? {
+            return Ok(g);
+        }
+        let (platform, app_id) = match id.split_once('-') {
+            Some(("custom", _)) | None => ("custom".to_string(), None),
+            Some((p, rest)) => (p.to_string(), Some(rest.to_string())),
+        };
+        let ctx = bonfire_discovery::paths::PathContext {
+            dirs: self.known_dirs.clone(),
+            ..Default::default()
+        };
+        let records: Vec<LocationRecord> = locations
+            .iter()
+            .map(|(template, kind, tag)| {
+                let resolved = if *kind == LocationKind::Registry {
+                    bonfire_discovery::registry::to_reg_path(template)
+                        .or_else(|| Some(template.clone()))
+                } else if template.contains('<') {
+                    bonfire_discovery::paths::expand(template, &ctx)
+                } else {
+                    Path::new(template).exists().then(|| template.clone())
+                };
+                LocationRecord {
+                    path_template: template.clone(),
+                    confirmed: resolved.is_some(),
+                    resolved_path: resolved.unwrap_or_default(),
+                    kind: *kind,
+                    tag: *tag,
+                    source: "import".into(),
+                }
+            })
+            .collect();
+        let record = GameRecord {
+            id: id.to_string(),
+            name: name.to_string(),
+            platform,
+            app_id,
+            install_dir: None,
+            enabled: true,
+            include_config: None,
+            custom_rule_json: None,
+        };
+        self.index.upsert_game(&record)?;
+        self.index.set_locations(id, &records)?;
+        self.save_games_file()?;
+        Ok(record)
     }
 
     // ---------- 导入存档文件 ----------
@@ -1035,6 +1469,95 @@ impl App {
         })();
         let _ = std::fs::remove_dir_all(&staging);
         result
+    }
+
+    /// 读取存档文件附带的说明（篝火导出的 zip 或文件夹），找出属于游戏库中的哪个游戏。
+    pub fn inspect_files_source(&self, src: &Path) -> Result<FilesSource> {
+        let staging = self
+            .paths
+            .cache_dir
+            .join("import")
+            .join(format!("source-{}", now_compact()));
+        let result = (|| {
+            let (files, manifest) = gather_source(src, &staging)?;
+            let manifest = manifest.ok_or_else(|| {
+                AppError::Invalid(
+                    "这些存档文件没有篝火的导出说明，无法判断属于哪个游戏；请在对应游戏的详情页中导入".into(),
+                )
+            })?;
+            let game = self
+                .index
+                .game(&manifest.game_id)?
+                .or_else(|| self.find_game(&manifest.game_name).ok());
+            let preview = match &game {
+                Some(g) => Some(self.map_files(g, &files, Some(manifest.clone()))?.0),
+                None => None,
+            };
+            Ok(FilesSource {
+                game_id: game.map(|g| g.id),
+                manifest,
+                preview,
+            })
+        })();
+        let _ = std::fs::remove_dir_all(&staging);
+        result
+    }
+
+    /// 在游戏库中导入存档文件：游戏库中没有这个游戏时新建（未安装），放在 main 分支上；
+    /// 已有时放在一个新分支上（与详情页导入的默认做法相同）。
+    pub fn import_files_auto(
+        &mut self,
+        lock: &RepoLock,
+        src: &Path,
+        comment: Option<String>,
+        dry_run: bool,
+    ) -> Result<FilesAutoReport> {
+        let source = self.inspect_files_source(src)?;
+        let m = &source.manifest;
+        let (game, created_game) = match &source.game_id {
+            Some(id) => (self.find_game(id)?, false),
+            None if dry_run => {
+                return Err(AppError::Invalid(format!(
+                    "游戏库中没有「{}」，导入时会新建",
+                    m.game_name
+                )));
+            }
+            None => {
+                let locations: Vec<(String, LocationKind, FileTag)> = m
+                    .locations
+                    .iter()
+                    .map(|l| (l.path_template.clone(), l.kind, FileTag::Save))
+                    .collect();
+                (self.adopt_game(&m.game_id, &m.game_name, &locations)?, true)
+            }
+        };
+        let place = if self.repo.list_refs(&game.id)?.is_empty() {
+            ImportPlace::NewBranch {
+                name: Some(self.repo.head(&game.id)?.branch),
+                parent: None,
+            }
+        } else {
+            ImportPlace::default()
+        };
+        let report = self.import_files(
+            lock,
+            &game,
+            src,
+            &ImportFilesOptions {
+                place,
+                comment,
+                dry_run,
+            },
+        )?;
+        if created_game {
+            self.cache_head_tree(&game.id)?;
+        }
+        Ok(FilesAutoReport {
+            game_id: game.id.clone(),
+            game_name: game.name.clone(),
+            created_game,
+            report,
+        })
     }
 
     fn import_files_inner(
@@ -1327,7 +1850,7 @@ impl App {
 
     /// 从若干快照出发能到达的全部快照（含自身）。`extra` 中的父子关系优先（尚未写入仓库的历史包快照）；
     /// 本地没有的快照到此为止。
-    fn ancestors(
+    pub(crate) fn ancestors(
         &self,
         starts: &[ObjectId],
         extra: &HashMap<ObjectId, Vec<ObjectId>>,
@@ -1511,11 +2034,38 @@ fn read_entry(
     Ok(buf)
 }
 
+/// 合集包的说明；不是合集包时为 None。
+fn read_collection_manifest(
+    zip: &mut zip::ZipArchive<std::fs::File>,
+    path: &Path,
+) -> Result<Option<CollectionManifest>> {
+    if zip.index_for_name(COLLECTION_MANIFEST).is_none() {
+        return Ok(None);
+    }
+    let bytes = read_entry(zip, COLLECTION_MANIFEST, path)?;
+    let c: CollectionManifest = serde_json::from_slice(&bytes)
+        .map_err(|e| AppError::Invalid(format!("合集包说明无法读取：{e}")))?;
+    if c.format != COLLECTION_FORMAT || c.version != 1 {
+        return Err(AppError::Invalid(format!(
+            "不支持的合集包格式：{} v{}",
+            c.format, c.version
+        )));
+    }
+    if c.games
+        .iter()
+        .any(|e| !e.dir.starts_with("games/") || e.dir.contains(".."))
+    {
+        return Err(AppError::Invalid("合集包说明中的目录无效".into()));
+    }
+    Ok(Some(c))
+}
+
 fn read_bundle_manifest(
     zip: &mut zip::ZipArchive<std::fs::File>,
     path: &Path,
+    prefix: &str,
 ) -> Result<BundleManifest> {
-    let bytes = read_entry(zip, BUNDLE_MANIFEST, path)
+    let bytes = read_entry(zip, &format!("{prefix}{BUNDLE_MANIFEST}"), path)
         .map_err(|_| AppError::Invalid(format!("{} 不是篝火历史包", path.display())))?;
     let m: BundleManifest = serde_json::from_slice(&bytes)
         .map_err(|e| AppError::Invalid(format!("历史包说明无法读取：{e}")))?;
@@ -1533,12 +2083,13 @@ fn read_bundle_snapshots(
     zip: &mut zip::ZipArchive<std::fs::File>,
     path: &Path,
     m: &BundleManifest,
+    prefix: &str,
 ) -> Result<HashMap<ObjectId, Snapshot>> {
     let mut out = HashMap::new();
     for id in &m.snapshots {
         let stored = read_entry(
             zip,
-            &format!("objects/{}/{}", Kind::Snapshot.dir(), id.to_hex()),
+            &format!("{prefix}objects/{}/{}", Kind::Snapshot.dir(), id.to_hex()),
             path,
         )?;
         let raw = zstd::stream::decode_all(&stored[..])
@@ -2019,6 +2570,150 @@ mod tests {
             .import_bundle(&lock, &seg, Some(&gb.id), false)
             .unwrap_err();
         assert!(err.to_string().contains("更早"), "{err}");
+    }
+
+    /// 合集包：一次导出多个游戏；导入选中的游戏，本地没有的游戏加入游戏库（未安装）。
+    #[test]
+    fn collection_export_and_import_creates_missing_games() {
+        let mut a = Env::new();
+        a.write("a.sav", b"v1");
+        let g1 = a.add_game("One");
+        backup(&mut a, &g1, "one");
+        let g2 = a.add_game("Two");
+        backup(&mut a, &g2, "two");
+        let g3 = a.add_game("Empty");
+        let out = a.dir.path().join("all.bonfire");
+        let r = a
+            .app
+            .export_collection(&[g1.clone(), g2.clone(), g3], &out)
+            .unwrap();
+        assert_eq!(
+            (r.games.len(), r.skipped.clone()),
+            (2, vec!["Empty".to_string()])
+        );
+        // A 自己再看：两个游戏都已有，内容相同。
+        let p = a.app.inspect_archive(&out).unwrap();
+        assert!(p.collection);
+        assert!(
+            p.games
+                .iter()
+                .all(|g| g.preview.local_game && g.preview.new_snapshots == 0)
+        );
+        // 在游戏详情中选中合集包：取对应的游戏。
+        assert_eq!(
+            a.app.inspect_bundle(&out, Some(&g2.id)).unwrap().game_name,
+            "Two"
+        );
+
+        let mut b = Env::new();
+        let p = b.app.inspect_archive(&out).unwrap();
+        assert!(p.games.iter().all(|g| g.preview.create_game));
+        let key = p
+            .games
+            .iter()
+            .find(|g| g.preview.game_name == "One")
+            .unwrap()
+            .key
+            .clone();
+        let lock = b.app.repo.lock().unwrap();
+        let items = b
+            .app
+            .import_archive(&lock, &out, &[ArchivePick { key, target: None }], false)
+            .unwrap();
+        assert_eq!(items.len(), 1);
+        let rep = items[0].report.as_ref().unwrap();
+        assert!(rep.created_game && rep.imported_snapshots == 1, "{items:?}");
+        let g = b.app.find_game(&g1.id).unwrap();
+        assert_eq!(g.name, "One");
+        assert!(b.app.find_game(&g2.id).is_err());
+        let view = b.app.history_view(&g).unwrap();
+        assert_eq!((view.nodes.len(), view.branch.as_str()), (1, "main"));
+        assert!(b.app.fsck(false).unwrap().ok());
+        // 另一台电脑上的绝对路径在这里也存在（同一台测试机），可直接使用。
+        assert!(b.app.locations(&g.id).unwrap().iter().all(|l| l.confirmed));
+        assert!(!b.app.game_row(&g, false).unwrap().installed);
+        // 磁盘上已有相同的存档（同一台测试机）：已是最新。
+        assert_eq!(
+            b.app.game_row(&g, false).unwrap().state,
+            crate::GameState::UpToDate
+        );
+
+        // 全部导入：One 已存在（相同），Two 新建。
+        let items = b.app.import_archive(&lock, &out, &[], false).unwrap();
+        assert!(items.iter().all(|i| i.error.is_none()), "{items:?}");
+        assert!(b.app.find_game(&g2.id).is_ok());
+        drop(b.dir);
+    }
+
+    /// 在游戏库中导入别人分享的存档文件：本地没有这个游戏时新建并放在 main 上。
+    #[test]
+    fn import_files_auto_creates_game_from_manifest() {
+        let mut a = Env::new();
+        a.write("slot1/a.sav", b"one");
+        let g = a.add_game("Shared");
+        backup(&mut a, &g, "x");
+        let zip = a.dir.path().join("share.zip");
+        a.app
+            .export_files(&g, Some("HEAD"), &zip, ExportFormat::Zip)
+            .unwrap();
+
+        let mut b = Env::new();
+        let src = b.app.inspect_files_source(&zip).unwrap();
+        assert_eq!(
+            (src.game_id.as_deref(), src.manifest.game_name.as_str()),
+            (None, "Shared")
+        );
+        let lock = b.app.repo.lock().unwrap();
+        let r = b.app.import_files_auto(&lock, &zip, None, false).unwrap();
+        assert!(r.created_game && r.report.snapshot.is_some());
+        assert_eq!(r.report.branch.as_deref(), Some("main"));
+        let gb = b.app.find_game(&g.id).unwrap();
+        assert_eq!(b.app.history_view(&gb).unwrap().nodes.len(), 1);
+        assert!(b.app.fsck(false).unwrap().ok());
+        // 再导入一次：内容相同，不重复生成。
+        let r = b.app.import_files_auto(&lock, &zip, None, false).unwrap();
+        assert!(!r.created_game && r.report.preview.identical.is_some());
+
+        // 没有导出说明的文件夹：无法判断游戏。
+        let plain = b.dir.path().join("plain");
+        std::fs::create_dir_all(&plain).unwrap();
+        std::fs::write(plain.join("a.sav"), b"x").unwrap();
+        assert!(b.app.inspect_files_source(&plain).is_err());
+    }
+
+    #[test]
+    fn adopted_game_leaves_install_dependent_locations_unresolved() {
+        let mut env = Env::new();
+        let g = env
+            .app
+            .adopt_game(
+                "steam-123",
+                "Remote Game",
+                &[
+                    ("<base>/save".into(), LocationKind::Glob, FileTag::Save),
+                    (
+                        "<winAppData>/Remote/*.sav".into(),
+                        LocationKind::Glob,
+                        FileTag::Save,
+                    ),
+                ],
+            )
+            .unwrap();
+        assert_eq!(
+            (g.platform.as_str(), g.app_id.as_deref()),
+            ("steam", Some("123"))
+        );
+        let locs = env.app.locations(&g.id).unwrap();
+        assert!(locs[0].resolved_path.is_empty() && !locs[0].confirmed);
+        assert!(locs[1].confirmed && locs[1].resolved_path.ends_with("Remote/*.sav"));
+        let err = env.app.disk_path(&g.id, "0/a.sav").unwrap_err();
+        assert!(err.to_string().contains("未安装"), "{err}");
+        assert!(env.app.disk_path(&g.id, "1/a.sav").is_ok());
+        let row = env.app.game_row(&g, false).unwrap();
+        assert_eq!(
+            (row.installed, row.unresolved, row.unconfirmed),
+            (false, 1, 0)
+        );
     }
 
     #[test]

@@ -386,6 +386,45 @@ stdout_contains = ["共 1 个快照，其中 0 个本地没有", "与本地相�
 in_docs = true
 
 [[case]]
+id = "bundle-export-collection"
+title = { zh-CN = "把全部游戏导出为合集包", en = "Export all games as a collection" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["bundle", "export", "--all", "-o", "{tmp}/all.bonfire"]
+expect_exit = 0
+stdout_contains = ["已导出 1 个游戏", "空洞骑士", "1 个快照"]
+in_docs = true
+
+[[case]]
+id = "bundle-export-collection-scope"
+title = { zh-CN = "合集包只能导出全部分支", en = "Collections export all branches only" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["bundle", "export", "--all", "--branch", "main", "-o", "{tmp}/all.bonfire"]
+expect_exit = 2
+stderr_contains = ["全部分支"]
+
+[[case]]
+id = "bundle-import-new-game"
+title = { zh-CN = "导入游戏库中没有的游戏", en = "Import a game missing from the library" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["bundle", "export", "--all", "-o", "{tmp}/all.bonfire"], ["game", "rm", "空洞骑士", "-y"]]
+args = ["bundle", "import", "{tmp}/all.bonfire"]
+expect_exit = 0
+stdout_contains = ["合集包", "已加入"]
+expect_files = { "slot1.sav" = "level 1" }
+in_docs = true
+
+[[case]]
+id = "bundle-import-only-missing"
+title = { zh-CN = "合集包中没有指定的游戏", en = "Game not in the collection" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["bundle", "export", "--all", "-o", "{tmp}/all.bonfire"]]
+args = ["bundle", "import", "{tmp}/all.bonfire", "--only", "nope"]
+expect_exit = 2
+stderr_contains = ["合集包中没有「nope」"]
+
+[[case]]
 id = "bundle-import-not-bundle"
 title = { zh-CN = "不是历史包", en = "Not a bundle" }
 args = ["bundle", "import", "{inputs}/saves/basic/slot1.sav"]
@@ -523,6 +562,64 @@ pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
 args = ["branch", "空洞骑士", "二周目"]
 expect_exit = 4
 stderr_contains = ["还没有快照"]
+
+[[case]]
+id = "branch-delete"
+title = { zh-CN = "删除分支", en = "Delete a branch" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["branch", "空洞骑士", "二周目"]]
+args = ["branch", "空洞骑士", "-d", "二周目", "-y"]
+expect_exit = 0
+stdout_contains = ["已删除分支 二周目，以及只属于它的 0 个快照"]
+expect_files = { "slot1.sav" = "level 1" }
+in_docs = true
+
+[[case]]
+id = "branch-delete-missing"
+title = { zh-CN = "删除不存在的分支", en = "Delete a missing branch" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["branch", "空洞骑士", "-d", "nope", "-y"]
+expect_exit = 2
+stderr_contains = ["找不到分支「nope」"]
+
+[[case]]
+id = "tag-delete"
+title = { zh-CN = "删除标签（快照保留）", en = "Delete a tag (the snapshot stays)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["tag", "空洞骑士", "Boss 前"]]
+args = ["tag", "空洞骑士", "-d", "Boss 前"]
+expect_exit = 0
+stdout_contains = ["已删除标签 Boss 前"]
+
+[[case]]
+id = "rm-snapshot"
+title = { zh-CN = "删除快照", en = "Delete a snapshot" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["rm", "空洞骑士", "HEAD", "-y"]
+expect_exit = 0
+stdout_contains = ["已删除快照", "分支 main 没有快照了"]
+expect_files = { "slot1.sav" = "level 1" }
+in_docs = true
+
+[[case]]
+id = "rm-snapshot-dry-run"
+title = { zh-CN = "预览删除快照", en = "Preview deleting a snapshot" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["rm", "空洞骑士", "HEAD", "--dry-run"]
+expect_exit = 0
+stdout_contains = ["预览"]
+
+[[case]]
+id = "rm-tagged-snapshot"
+title = { zh-CN = "带标签的快照不能删除", en = "Tagged snapshots are protected" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["tag", "空洞骑士", "boss"]]
+args = ["rm", "空洞骑士", "HEAD", "-y"]
+expect_exit = 2
+stderr_contains = ["标签「boss」"]
 
 # ---------- profile ----------
 

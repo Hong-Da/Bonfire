@@ -50,6 +50,14 @@ export function mockApi() {
     importBundle: vi.fn(),
     inspectFiles: vi.fn(),
     importFiles: vi.fn(),
+    exportCollection: vi.fn(),
+    inspectArchive: vi.fn(),
+    importArchive: vi.fn(),
+    inspectFilesSource: vi.fn(),
+    importFilesAuto: vi.fn(),
+    deleteBranch: vi.fn(),
+    deleteTag: vi.fn(),
+    deleteSnapshot: vi.fn(),
     onLibraryRow: vi.fn().mockResolvedValue(() => {}),
     onLibraryPhase: vi.fn().mockResolvedValue(() => {}),
     onBackupProgress: vi.fn().mockResolvedValue(() => {}),
@@ -80,6 +88,8 @@ export function row(over: Partial<GameRow> = {}): GameRow {
     cloudSave: false,
     playtimeMin: 2520,
     unconfirmed: 0,
+    installed: true,
+    unresolved: 0,
     ...over,
   };
 }

@@ -50,6 +50,10 @@ export interface GameRow {
   cloudSave: boolean;
   playtimeMin: number | null;
   unconfirmed: number;
+  /** 从别处导入、本机还没有安装的游戏为 false。 */
+  installed: boolean;
+  /** 本机还不能确定路径的存档位置数。 */
+  unresolved: number;
 }
 
 export type FileStatus = "added" | "modified" | "deleted" | "unchanged";
@@ -306,6 +310,8 @@ export interface BundlePreview {
   gameId: string;
   gameName: string;
   localGame: boolean;
+  /** 导入时会把这个游戏加入游戏库（未安装）。 */
+  createGame: boolean;
   createdAt: string;
   host: string;
   nodes: BundleNode[];
@@ -319,6 +325,59 @@ export interface BundleImportReport {
   preview: BundlePreview;
   importedSnapshots: number;
   objects: number;
+  createdGame: boolean;
+}
+
+export interface CollectionEntry {
+  gameId: string;
+  gameName: string;
+  dir: string;
+  snapshots: number;
+}
+
+export interface CollectionReport {
+  dest: string;
+  bytes: number;
+  games: CollectionEntry[];
+  objects: number;
+  skipped: string[];
+}
+
+/** 历史包或合集包；`key` 是包内目录（单个游戏的历史包为空）。 */
+export interface ArchivePreview {
+  collection: boolean;
+  createdAt: string;
+  host: string;
+  games: { key: string; preview: BundlePreview }[];
+}
+
+export interface ArchiveImportItem {
+  key: string;
+  gameId: string;
+  gameName: string;
+  report: BundleImportReport | null;
+  error: string | null;
+}
+
+export interface FilesSource {
+  manifest: ExportManifest;
+  gameId: string | null;
+  preview: FilesPreview | null;
+}
+
+export interface FilesAutoReport {
+  gameId: string;
+  gameName: string;
+  createdGame: boolean;
+  report: ImportFilesReport;
+}
+
+export interface DeleteReport {
+  removed: string[];
+  rewritten: number;
+  branchesDeleted: string[];
+  headBranch: string | null;
+  dryRun: boolean;
 }
 
 export interface ExportManifest {

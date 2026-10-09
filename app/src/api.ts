@@ -1,6 +1,12 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  ArchiveImportItem,
+  ArchivePreview,
+  CollectionReport,
+  DeleteReport,
+  FilesAutoReport,
+  FilesSource,
   BundleImportReport,
   BundlePreview,
   BundleReport,
@@ -108,6 +114,14 @@ export const api = {
   importBundle: (path: string, gameId: string | null) => invoke<BundleImportReport>("import_bundle", { path, gameId }),
   inspectFiles: (gameId: string, src: string) => invoke<FilesPreview>("inspect_files", { gameId, src }),
   importFiles: (gameId: string, src: string, place: ImportPlace, comment: string | null) => invoke<ImportFilesReport>("import_files", { gameId, src, place, comment }),
+  exportCollection: (gameIds: string[], dest: string) => invoke<CollectionReport>("export_collection", { gameIds, dest }),
+  inspectArchive: (path: string) => invoke<ArchivePreview>("inspect_archive", { path }),
+  importArchive: (path: string, picks: { key: string; target: string | null }[]) => invoke<ArchiveImportItem[]>("import_archive", { path, picks }),
+  inspectFilesSource: (src: string) => invoke<FilesSource>("inspect_files_source", { src }),
+  importFilesAuto: (src: string, comment: string | null) => invoke<FilesAutoReport>("import_files_auto", { src, comment }),
+  deleteBranch: (gameId: string, name: string, dryRun: boolean) => invoke<DeleteReport>("delete_branch", { gameId, name, dryRun }),
+  deleteTag: (gameId: string, name: string) => invoke<void>("delete_tag", { gameId, name }),
+  deleteSnapshot: (gameId: string, snapshot: string, dryRun: boolean) => invoke<DeleteReport>("delete_snapshot", { gameId, snapshot, dryRun }),
 
   onLibraryRow: (cb: (row: GameRow) => void): Promise<UnlistenFn> => listen<GameRow>("library-row", (e) => cb(e.payload)),
   onLibraryPhase: (cb: (p: Phase) => void): Promise<UnlistenFn> => listen<Phase>("library-phase", (e) => cb(e.payload)),

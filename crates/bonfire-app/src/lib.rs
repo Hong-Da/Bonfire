@@ -14,6 +14,7 @@ pub mod logging;
 pub mod metadata;
 pub mod paths;
 pub mod process;
+pub mod prune;
 pub mod restore;
 pub mod transfer;
 pub mod util;

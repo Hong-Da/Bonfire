@@ -9,7 +9,8 @@ use bonfire_app::core::scan::FileStatus;
 use bonfire_app::history::DiffStatus;
 use bonfire_app::restore::{Action, RestoreOptions, RestoreReport};
 use bonfire_app::transfer::{
-    BundleScope, ExportFormat, ImportFilesOptions, ImportPlace, RefAction,
+    ArchivePick, BundleImportReport, BundleScope, ExportFormat, ImportFilesOptions, ImportPlace,
+    RefAction,
 };
 use bonfire_app::util::human_bytes;
 use bonfire_app::{App, AppError, GameState, Locale, NewGame, tf};
@@ -185,14 +186,39 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
         }
         Cmd::Branch {
             game,
+            delete: Some(name),
+            dry_run,
+            ..
+        } => delete_branch(app, &game, &name, dry_run, out),
+        Cmd::Branch {
+            game,
             name,
             snapshot,
+            ..
         } => refs(app, &game, RefKind::Branch, name, snapshot, out),
+        Cmd::Tag {
+            game,
+            delete: Some(name),
+            ..
+        } => {
+            let g = app.find_game(&game)?;
+            let lock = app.repo.lock()?;
+            app.delete_tag(&lock, &g, &name)?;
+            out.emit(json!({ "deleted": format!("tags/{name}") }));
+            out.line(out.tf("cli.out.tag_deleted", &[("name", &name)]));
+            Ok(())
+        }
         Cmd::Tag {
             game,
             name,
             snapshot,
+            ..
         } => refs(app, &game, RefKind::Tag, name, snapshot, out),
+        Cmd::Rm {
+            game,
+            snapshot,
+            dry_run,
+        } => delete_snapshot(app, &game, &snapshot, dry_run, out),
         Cmd::Profile { cmd } => profile(app, cmd, out),
         Cmd::Export {
             game,
@@ -948,13 +974,54 @@ fn import(app: &mut App, key: &str, src: &Path, opts: ImportFilesOptions, out: &
 fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
     match cmd {
         BundleCmd::Export {
-            game,
+            games,
+            all,
             out_file,
             branches,
             from,
             to,
         } => {
-            let g = app.find_game(&game)?;
+            // 多个游戏（或 --all）导出为合集包，每个游戏全部分支。
+            if all || games.len() > 1 {
+                if !branches.is_empty() || to.is_some() {
+                    return Err(AppError::Invalid(
+                        out.t("cli.error.collection_scope").into(),
+                    ));
+                }
+                let list = if all {
+                    app.games()?
+                } else {
+                    games
+                        .iter()
+                        .map(|k| app.find_game(k))
+                        .collect::<Result<Vec<_>>>()?
+                };
+                let r = app.export_collection(&list, &out_file)?;
+                out.emit(serde_json::to_value(&r).unwrap());
+                out.line(out.tf(
+                    "cli.out.collection_exported",
+                    &[
+                        ("games", &r.games.len()),
+                        ("bytes", &human_bytes(r.bytes)),
+                        ("dest", &r.dest.display()),
+                    ],
+                ));
+                for e in &r.games {
+                    out.line(format!(
+                        "  {:<28} {}",
+                        e.game_name,
+                        out.tf("cli.out.snapshots_n", &[("n", &e.snapshots)])
+                    ));
+                }
+                if !r.skipped.is_empty() {
+                    out.line(out.tf(
+                        "cli.out.collection_skipped",
+                        &[("games", &r.skipped.join("、"))],
+                    ));
+                }
+                return Ok(());
+            }
+            let g = app.find_game(&games[0])?;
             let scope = match (to, branches.is_empty()) {
                 (Some(to), _) => BundleScope::Range { from, to },
                 (None, false) => BundleScope::Branches { names: branches },
@@ -985,60 +1052,188 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
         BundleCmd::Import {
             file,
             game,
+            only,
             dry_run,
         } => {
             let lock = app.repo.lock()?;
-            let r = app.import_bundle(&lock, &file, game.as_deref(), dry_run)?;
-            out.emit(serde_json::to_value(&r).unwrap());
-            let p = &r.preview;
+            let preview = app.inspect_archive(&file)?;
+            if !preview.collection && only.is_empty() {
+                let r = app.import_bundle(&lock, &file, game.as_deref(), dry_run)?;
+                out.emit(serde_json::to_value(&r).unwrap());
+                print_bundle_import(&r, dry_run, out);
+                return Ok(());
+            }
+            // 合集包：导入全部或 --only 指定的游戏（按游戏 ID 或名称）。
+            let mut picks = Vec::new();
+            for key in &only {
+                let lower = key.to_lowercase();
+                let hit = preview
+                    .games
+                    .iter()
+                    .find(|g| {
+                        g.preview.game_id == *key || g.preview.game_name.to_lowercase() == lower
+                    })
+                    .ok_or_else(|| {
+                        AppError::Invalid(out.tf("cli.error.not_in_collection", &[("game", key)]))
+                    })?;
+                picks.push(ArchivePick {
+                    key: hit.key.clone(),
+                    target: None,
+                });
+            }
+            let items = app.import_archive(&lock, &file, &picks, dry_run)?;
+            out.emit(serde_json::to_value(&items).unwrap());
             out.line(out.tf(
-                "cli.out.bundle_info",
+                "cli.out.collection_info",
                 &[
-                    ("game", &p.game_name),
-                    ("host", &p.host),
-                    ("time", &p.created_at),
-                    ("total", &p.nodes.len()),
-                    ("new", &p.new_snapshots),
+                    ("host", &preview.host),
+                    ("time", &preview.created_at),
+                    ("games", &preview.games.len()),
                 ],
             ));
-            for x in &p.refs {
-                let kind = if x.kind == RefKind::Tag {
-                    out.t("cli.ref.tag")
-                } else {
-                    out.t("cli.ref.branch")
-                };
-                let action = match x.action {
-                    RefAction::Create => out.t("cli.bundle.create").to_string(),
-                    RefAction::Same => out.t("cli.bundle.same").to_string(),
-                    RefAction::FastForward => out.t("cli.bundle.fast_forward").to_string(),
-                    RefAction::Contained => out.t("cli.bundle.contained").to_string(),
-                    RefAction::Diverged => out.tf(
-                        "cli.bundle.diverged",
-                        &[
-                            ("name", &x.new_name.clone().unwrap_or_default()),
-                            (
-                                "fork",
-                                &x.fork_point
-                                    .map(|f| f.short(12))
-                                    .unwrap_or_else(|| "-".into()),
-                            ),
-                        ],
-                    ),
-                    RefAction::TagConflict => out.t("cli.bundle.tag_conflict").to_string(),
-                };
-                out.line(format!("  {kind} {:<20} {action}", x.name));
+            let mut failed = 0;
+            for item in &items {
+                out.line(String::new());
+                match (&item.report, &item.error) {
+                    (Some(r), _) => print_bundle_import(r, dry_run, out),
+                    (None, Some(e)) => {
+                        failed += 1;
+                        out.line(out.tf(
+                            "cli.out.collection_failed",
+                            &[("game", &item.game_name), ("error", e)],
+                        ));
+                    }
+                    _ => {}
+                }
             }
-            if p.location_mismatch {
-                out.line(out.t("cli.out.bundle_locations"));
-            }
-            if dry_run {
-                out.line(out.t("cli.out.dry_run"));
-            } else {
-                out.line(out.tf("cli.out.bundle_imported", &[("n", &r.imported_snapshots)]));
+            if failed > 0 {
+                return Err(AppError::Invalid(
+                    out.tf("cli.error.collection_failed", &[("n", &failed)]),
+                ));
             }
             Ok(())
         }
     }
+}
+
+fn print_bundle_import(r: &BundleImportReport, dry_run: bool, out: &Out) {
+    let p = &r.preview;
+    out.line(out.tf(
+        "cli.out.bundle_info",
+        &[
+            ("game", &p.game_name),
+            ("host", &p.host),
+            ("time", &p.created_at),
+            ("total", &p.nodes.len()),
+            ("new", &p.new_snapshots),
+        ],
+    ));
+    for x in &p.refs {
+        let kind = if x.kind == RefKind::Tag {
+            out.t("cli.ref.tag")
+        } else {
+            out.t("cli.ref.branch")
+        };
+        let action = match x.action {
+            RefAction::Create => out.t("cli.bundle.create").to_string(),
+            RefAction::Same => out.t("cli.bundle.same").to_string(),
+            RefAction::FastForward => out.t("cli.bundle.fast_forward").to_string(),
+            RefAction::Contained => out.t("cli.bundle.contained").to_string(),
+            RefAction::Diverged => out.tf(
+                "cli.bundle.diverged",
+                &[
+                    ("name", &x.new_name.clone().unwrap_or_default()),
+                    (
+                        "fork",
+                        &x.fork_point
+                            .map(|f| f.short(12))
+                            .unwrap_or_else(|| "-".into()),
+                    ),
+                ],
+            ),
+            RefAction::TagConflict => out.t("cli.bundle.tag_conflict").to_string(),
+        };
+        out.line(format!("  {kind} {:<20} {action}", x.name));
+    }
+    if p.location_mismatch {
+        out.line(out.t("cli.out.bundle_locations"));
+    }
+    if r.created_game {
+        out.line(out.tf("cli.out.bundle_new_game", &[("game", &p.game_name)]));
+    }
+    if dry_run {
+        out.line(out.t("cli.out.dry_run"));
+    } else {
+        out.line(out.tf("cli.out.bundle_imported", &[("n", &r.imported_snapshots)]));
+    }
+}
+
+fn delete_branch(app: &mut App, key: &str, name: &str, dry_run: bool, out: &Out) -> Result<()> {
+    let g = app.find_game(key)?;
+    let lock = app.repo.lock()?;
+    let plan = app.delete_branch(&lock, &g, name, true)?;
+    if !dry_run
+        && !out.confirm(out.tf(
+            "cli.confirm.delete_branch",
+            &[("name", &name), ("n", &plan.removed.len())],
+        ))?
+    {
+        out.line(out.t("cli.out.cancelled"));
+        return Ok(());
+    }
+    let r = if dry_run {
+        plan
+    } else {
+        app.delete_branch(&lock, &g, name, false)?
+    };
+    out.emit(serde_json::to_value(&r).unwrap());
+    out.line(out.tf(
+        "cli.out.branch_deleted",
+        &[("name", &name), ("n", &r.removed.len())],
+    ));
+    if let Some(b) = &r.head_branch {
+        out.line(out.tf("cli.out.head_switched", &[("name", b)]));
+    }
+    if dry_run {
+        out.line(out.t("cli.out.dry_run"));
+    }
+    Ok(())
+}
+
+fn delete_snapshot(app: &mut App, key: &str, spec: &str, dry_run: bool, out: &Out) -> Result<()> {
+    let g = app.find_game(key)?;
+    let lock = app.repo.lock()?;
+    let plan = app.delete_snapshot(&lock, &g, spec, true)?;
+    let id = plan.removed[0].short(12);
+    if !dry_run
+        && !out.confirm(out.tf(
+            "cli.confirm.delete_snapshot",
+            &[("id", &id), ("n", &plan.rewritten)],
+        ))?
+    {
+        out.line(out.t("cli.out.cancelled"));
+        return Ok(());
+    }
+    let r = if dry_run {
+        plan
+    } else {
+        app.delete_snapshot(&lock, &g, spec, false)?
+    };
+    out.emit(serde_json::to_value(&r).unwrap());
+    out.line(out.tf(
+        "cli.out.snapshot_deleted",
+        &[("id", &id), ("n", &r.rewritten)],
+    ));
+    for b in &r.branches_deleted {
+        out.line(out.tf("cli.out.branch_emptied", &[("name", b)]));
+    }
+    if let Some(b) = &r.head_branch {
+        out.line(out.tf("cli.out.head_switched", &[("name", b)]));
+    }
+    if dry_run {
+        out.line(out.t("cli.out.dry_run"));
+    }
+    Ok(())
 }
 
 fn undo(app: &mut App, key: &str, out: &Out) -> Result<()> {

@@ -554,6 +554,22 @@ impl Index {
         Ok(rows)
     }
 
+    /// 删除快照记录（快照对象已被删除时）。
+    pub fn delete_snapshots(&mut self, ids: &[ObjectId]) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        for id in ids {
+            let h = id.to_string();
+            tx.execute("DELETE FROM snapshots WHERE hash = ?1", [&h])?;
+            tx.execute("DELETE FROM snapshots_fts WHERE hash = ?1", [&h])?;
+            tx.execute(
+                "DELETE FROM snapshot_parents WHERE snapshot_hash = ?1",
+                [&h],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     /// 以某快照为父的快照（用于历史图）。
     pub fn children(&self, id: &ObjectId) -> Result<Vec<ObjectId>> {
         let mut st = self.conn.prepare("SELECT snapshot_hash FROM snapshot_parents WHERE parent_hash = ?1 ORDER BY snapshot_hash")?;

@@ -24,7 +24,7 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 37 项，更新于 2026-10-09 11:30。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 42 项，更新于 2026-10-09 15:30。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">全局</a><a href="#s-1">M1 核心库</a><a href="#s-2">M2 存档发现</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">用户修改</a><a href="#s-5">缺陷修复</a></nav>
 <section id="s-0"><h2>全局<small>1 项</small></h2>
       <article id="G-1">
@@ -176,7 +176,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">等待用户本机安装验收</li><li class="chosen">自动化测试 + 真实窗口截图检查后视为通过；安装、卸载、升级由用户事后复核 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>为避免改动用户系统，未在本机执行静默安装；界面在临时仓库中用真实扫描数据逐页截图检查（游戏库、详情时间线、设置、暗色主题、备份与恢复弹窗）。安装包：target/release/bundle/nsis/Bonfire_0.1.0_x64-setup.exe。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-4"><h2>用户修改<small>11 项</small></h2>
+      </article></section><section id="s-4"><h2>用户修改<small>15 项</small></h2>
       <article id="U-1">
         <header><code>U-1</code><h3>数据存放位置（配置、仓库、日志、缓存）</h3><span class="status">用户指定</span></header>
         <ul><li class="">配置在 %APPDATA%/Bonfire，仓库、日志、缓存在 %LOCALAPPDATA%/Bonfire（原默认）</li><li class="chosen">全部放在项目（程序）目录下的 data：data/config.toml、data/repo、data/logs、data/cache、data/webview <b>✓ 采用</b></li></ul>
@@ -242,11 +242,41 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">原样：小圆圈 + 浅色底</li><li class="chosen">该快照整行高亮、左侧余烬色竖条、加粗备注并带实心“内容相同”标签；分支图自动滚动到它；提示框带“在图中定位”按钮 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>用户反馈“怎么标出的不明显”。</p><p class="impact"><span>影响</span>Timeline 新增标记 same 与 focus 参数；选中的父快照 / 分支末端显示“已选”标签。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-5"><h2>缺陷修复<small>1 项</small></h2>
+      </article>
+      <article id="U-7a">
+        <header><code>U-7a</code><h3>检查更新没有交互反馈</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">保持（快速完成时不显示进度，避免闪烁）</li><li class="chosen">点击后按钮图标立即转动；完成后右下角提示“检查完成：N 个游戏有更新 / 都没有新的变化”；文字与进度条仍只在较慢时出现 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈“游戏库点击检查更新没有交互反馈”；此前为修复闪烁把 0.4 秒内完成的进度全部隐藏了。</p><p class="impact"><span>影响</span>只改界面；截图 docs/acceptance/collection-delete/check-toast.png。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7c">
+        <header><code>U-7c</code><h3>删除分支、删除快照怎么做？</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">只删分支指针，快照留在历史中</li><li class="chosen">删除分支时一并删除只属于它的快照；删除快照时后面的快照改接到它的上一个快照上（文档 6.6 的“压掉”），带标签的快照受保护；删除前预览影响并确认，不能撤销 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈“当前没有办法删除分支或者删除快照”。只删指针时快照仍显示在分支图中，用户看不到删除效果。</p><p class="impact"><span>影响</span>CLI：branch -d、tag -d、rm；界面：快照“更多操作”。空间在 GC（M4-4）时释放。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7d">
+        <header><code>U-7d</code><h3>一键导出导入多个游戏</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">每个游戏一个 .bonfire 文件放在一个文件夹</li><li class="chosen">一个合集包（.bonfire，内含 collection.json 与每个游戏的完整历史包）：导出所选或全部游戏，导入时勾选其中的游戏 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求“所有游戏一起导出导入、指定一些游戏导出导入”；单个文件便于拷贝。</p><p class="impact"><span>影响</span>游戏库工具栏“导入 / 导出”菜单；CLI bundle export --all / 多个游戏，bundle import --only。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7e">
+        <header><code>U-7e</code><h3>导入未安装游戏的存档</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">要求先在游戏库中加入游戏</li><li class="chosen">游戏库中没有时自动加入并标为“未安装”：本机能确定的存档位置照常使用，需要安装目录的位置等装好并扫描后确定，之前恢复会提示 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求“可以导入未安装游戏的存档”。</p><p class="impact"><span>影响</span>历史包、合集包、带说明的存档 zip / 文件夹都支持；扫描到游戏后按模板对上原位置序号。</p>
+        <footer>2026-10-09</footer>
+      </article></section><section id="s-5"><h2>缺陷修复<small>2 项</small></h2>
       <article id="U-6c">
         <header><code>U-6c</code><h3>“打开存档位置”打开的是用户目录而不是存档目录</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>资源管理器不认识正斜杠路径（存档位置记录为 C:/Users/...），会忽略参数并打开默认目录；另外不含通配符的目录型位置被当成通配位置，打开了上一级。</p><p class="impact"><span>影响</span>open_path 打开前统一转为反斜杠（安装目录、导出位置同样受益）；不含通配符的位置直接打开该目录。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7b">
+        <header><code>U-7b</code><h3>发现页“新发现”文字没有居中</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>状态标签作为网格项被拉伸成整列宽，文字靠左。</p><p class="impact"><span>影响</span>标签在列中居中（justify-self: center）。</p>
         <footer>2026-10-09</footer>
       </article></section>
 </div></body></html>
