@@ -6,11 +6,13 @@ pub mod error;
 pub mod fault;
 pub mod id;
 pub mod object;
+pub mod refs;
 pub mod repo;
 pub mod store;
 
 pub use error::{CoreError, Result};
 pub use id::ObjectId;
 pub use object::{Blob, FileTag, Kind, Snapshot, SnapshotStats, Tree, TreeEntry, Trigger};
+pub use refs::{Head, Note, RefKind, RefName, ReflogEntry};
 pub use repo::{Repo, RepoConfig, RepoLock};
 pub use store::WriteStats;

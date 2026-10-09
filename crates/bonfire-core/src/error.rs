@@ -21,6 +21,22 @@ pub enum CoreError {
     NotFound { kind: Kind, id: ObjectId },
     #[error("{kind}对象 {id} 已损坏：{reason}")]
     Corrupt { kind: Kind, id: ObjectId, reason: String },
+    #[error("名称无效「{name}」：{reason}")]
+    InvalidName { name: String, reason: &'static str },
+    #[error("找不到引用「{0}」")]
+    RefNotFound(String),
+    #[error("「{0}」已存在")]
+    RefExists(String),
+    #[error("引用「{name}」有歧义，可能是：{candidates}")]
+    AmbiguousRef { name: String, candidates: String },
+    #[error("引用 {0} 已被其他操作修改，请重试")]
+    RefConflict(String),
+    #[error("{0} 没有更早的快照")]
+    NoParent(String),
+    #[error("游戏 {0} 还没有快照")]
+    NoSnapshots(String),
+    #[error("{path} 格式错误：{reason}")]
+    BadFile { path: PathBuf, reason: String },
 }
 
 impl CoreError {
