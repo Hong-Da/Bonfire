@@ -22,6 +22,20 @@ disabled_platforms = []
 # 存档安全保护：本机备份的快照（以电脑名区分）及包含它们的分支不能删除
 protect_local = true
 
+[shots]
+# 是否备份游戏截图（Steam 截图、Windows 游戏栏截图、为游戏指定的截图文件夹）；每个游戏可单独关闭
+enabled = true
+# Windows 游戏栏 / Xbox 应用的“捕获”文件夹；不写时读取系统设置中的实际位置
+# captures_dir = 'D:\Videos\Captures'
+# 定时收集截图：off（只随备份收集）/ daily / weekly / hours；在托盘中运行时执行
+schedule = "off"
+# 每天 / 每周收集的时刻
+at = "21:00"
+# 每周收集的星期：1 = 周一 … 7 = 周日
+weekday = 7
+# schedule = "hours" 时每隔几小时收集（1–168）
+every_hours = 6
+
 [metadata]
 # 是否联网获取游戏名称、封面等信息；只发送游戏 ID 或名称，不上传存档
 online = true

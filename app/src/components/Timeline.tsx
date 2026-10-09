@@ -7,7 +7,7 @@ import type { SnapshotNode } from "../types";
 /** 选择用的标记：在导出、导入对话框中标出范围内、新增、选中或与导入内容相同的快照。 */
 export type Mark = "in" | "out" | "new" | "pick" | "same";
 export type TimelineNode = Pick<SnapshotNode, "id" | "parents" | "createdAt" | "trigger" | "comment" | "files"> & Partial<Pick<SnapshotNode, "refs" | "playtimeMin">>;
-import { Flame } from "./ui";
+import { Flame, Icon } from "./ui";
 
 export const ROW_H = 68;
 const COL_W = 20;
@@ -31,6 +31,7 @@ export default function Timeline({
   label,
   focus,
   focusKey,
+  shots,
 }: {
   nodes: TimelineNode[];
   head: string | null;
@@ -45,6 +46,8 @@ export default function Timeline({
   focus?: string | null;
   /** 改变它可以再次滚动到 `focus`。 */
   focusKey?: number;
+  /** 每个快照之前拍的截图数（详情页）。 */
+  shots?: Map<string, number>;
 }) {
   const { t, i18n } = useTranslation();
   const ROW = compact ? 52 : ROW_H;
@@ -132,6 +135,11 @@ export default function Timeline({
                 <span>{shortId(n.id)}</span>
                 <span>{t("ui.history.files", { n: n.files })}</span>
                 {!compact && n.playtimeMin != null && <span>{t("ui.history.playedAt", { h: hours(n.playtimeMin) })}</span>}
+                {!!shots?.get(n.id) && (
+                  <span className="shot-badge" title={t("ui.shots.badge", { n: shots.get(n.id) })}>
+                    <Icon name="camera" size={12} /> {shots.get(n.id)}
+                  </span>
+                )}
               </span>
             </div>
           </div>

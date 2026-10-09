@@ -4,7 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
-use bonfire_core::index::{GameRecord, LocationKind, LocationRecord, ReindexStats};
+use bonfire_core::index::{GameRecord, LocationKind, LocationRecord, ReindexStats, ShotSettings};
 use bonfire_core::scan::{RootKind, ScanRoot, glob_base};
 use bonfire_core::{FileTag, Index, ObjectId, Repo, RepoLock};
 use serde::{Deserialize, Serialize};
@@ -42,6 +42,13 @@ struct GameEntry {
     record: GameRecord,
     #[serde(default)]
     location: Vec<LocationRecord>,
+    /// 截图设置（是否收集、手动添加的截图文件夹）。
+    #[serde(default, skip_serializing_if = "is_default_shots")]
+    shots: ShotSettings,
+}
+
+fn is_default_shots(s: &ShotSettings) -> bool {
+    *s == ShotSettings::default()
 }
 
 /// 添加游戏的参数。
@@ -98,6 +105,7 @@ impl App {
                 .is_empty();
             if has_history {
                 let stats = bonfire_core::index::reindex(&app.repo, &mut app.index)?;
+                app.reindex_albums()?;
                 tracing::info!(restored, ?stats, "索引数据库不存在，已从仓库重建");
             }
         }
@@ -319,7 +327,9 @@ impl App {
         if self.index.games()?.is_empty() {
             self.restore_games_file()?;
         }
-        Ok(bonfire_core::index::reindex(&self.repo, &mut self.index)?)
+        let stats = bonfire_core::index::reindex(&self.repo, &mut self.index)?;
+        self.reindex_albums()?;
+        Ok(stats)
     }
 
     fn games_file(&self) -> PathBuf {
@@ -330,9 +340,11 @@ impl App {
         let mut file = GamesFile { game: Vec::new() };
         for g in self.index.games()? {
             let location = self.index.locations(&g.id)?;
+            let shots = self.shot_settings_of(&g.id)?;
             file.game.push(GameEntry {
                 record: g,
                 location,
+                shots,
             });
         }
         let text = format!(
@@ -359,6 +371,10 @@ impl App {
             self.index.upsert_game(&entry.record)?;
             self.index
                 .set_locations(&entry.record.id, &entry.location)?;
+            if entry.shots != ShotSettings::default() {
+                self.index
+                    .save_shot_settings(&entry.record.id, &entry.shots)?;
+            }
         }
         Ok(file.game.len())
     }

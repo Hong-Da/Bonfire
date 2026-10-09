@@ -14,6 +14,7 @@ use bonfire_app::core::refs::RefKind;
 use bonfire_app::library::{GameRow, HistoryView, SearchHit};
 use bonfire_app::prune::DeleteReport;
 use bonfire_app::restore::{RestoreOptions, RestorePlan, RestoreReport};
+use bonfire_app::shots::{AlbumView, ShotExportReport, ShotSyncReport};
 use bonfire_app::transfer::{
     ArchiveImportItem, ArchivePick, ArchivePreview, BundleImportReport, BundlePreview,
     BundleReport, BundleScope, CollectionReport, ExportFormat, ExportReport, FilesAutoReport,
@@ -385,6 +386,8 @@ pub struct BackupItemResult {
     ok: bool,
     result: Option<BackupResult>,
     error: Option<CmdError2>,
+    /// 顺带收集的新截图数。
+    shots: usize,
 }
 
 /// CmdError 的可克隆版本（事件负载需要 Clone）。
@@ -432,15 +435,28 @@ pub async fn run_backup(
                 },
                 ..Default::default()
             };
-            let r = app
-                .find_game(&item.game_id)
-                .and_then(|g| app.backup(&lock, &g, &opts));
+            // 备份时顺带收集新截图（失败只记日志，不影响备份结果）。
+            let (r, shots) = match app.find_game(&item.game_id) {
+                Ok(g) => {
+                    let r = app.backup(&lock, &g, &opts);
+                    let shots = match app.sync_shots(&lock, &g) {
+                        Ok(s) => s.added,
+                        Err(e) => {
+                            tracing::warn!(game = %g.id, "收集截图失败：{e}");
+                            0
+                        }
+                    };
+                    (r, shots)
+                }
+                Err(e) => (Err(e), 0),
+            };
             let res = match r {
                 Ok(r) => BackupItemResult {
                     game_id: item.game_id,
                     ok: true,
                     result: Some(r),
                     error: None,
+                    shots,
                 },
                 Err(e) => {
                     let e = CmdError::from(e);
@@ -452,6 +468,7 @@ pub async fn run_backup(
                             kind: e.kind,
                             message: e.message,
                         }),
+                        shots,
                     }
                 }
             };
@@ -920,10 +937,11 @@ pub async fn export_bundle(
     game_id: String,
     scope: BundleScope,
     dest: PathBuf,
+    include_shots: bool,
 ) -> CmdResult<BundleReport> {
     with_app(h, move |app, _| {
         let g = find(app, &game_id)?;
-        Ok(app.export_bundle(&g, &scope, &dest)?)
+        Ok(app.export_bundle(&g, &scope, &dest, include_shots)?)
     })
     .await
 }
@@ -992,13 +1010,14 @@ pub async fn export_collection(
     h: AppHandle,
     game_ids: Vec<String>,
     dest: PathBuf,
+    include_shots: bool,
 ) -> CmdResult<CollectionReport> {
     with_app(h, move |app, _| {
         let games = game_ids
             .iter()
             .map(|id| find(app, id))
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(app.export_collection(&games, &dest)?)
+        Ok(app.export_collection(&games, &dest, include_shots)?)
     })
     .await
 }
@@ -1037,6 +1056,153 @@ pub async fn import_files_auto(
         Ok(app.import_files_auto(&lock, &src, comment, false)?)
     })
     .await
+}
+
+// ---------- 截图相册 ----------
+
+fn blob_ids(blobs: &[String]) -> CmdResult<Vec<bonfire_app::core::ObjectId>> {
+    blobs
+        .iter()
+        .map(|b| {
+            b.parse()
+                .map_err(|_| CmdError::from(AppError::Invalid(format!("无效的截图 ID：{b}"))))
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub async fn album(h: AppHandle, game_id: String) -> CmdResult<AlbumView> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.album(&g)?)
+    })
+    .await
+}
+
+/// 收集新截图；不指定游戏时收集全部游戏。
+#[tauri::command]
+pub async fn sync_shots(h: AppHandle, game_id: Option<String>) -> CmdResult<Vec<ShotSyncReport>> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(match game_id {
+            Some(id) => {
+                let g = find(app, &id)?;
+                vec![app.sync_shots(&lock, &g)?]
+            }
+            None => app.sync_all_shots(&lock)?,
+        })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn shot_thumb(h: AppHandle, game_id: String, blob: String) -> CmdResult<PathBuf> {
+    with_app(h, move |app, _| {
+        let id = blob_ids(&[blob])?[0];
+        Ok(app.shot_thumb(&game_id, &id)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn shot_image(h: AppHandle, game_id: String, blob: String) -> CmdResult<PathBuf> {
+    with_app(h, move |app, _| {
+        let id = blob_ids(&[blob])?[0];
+        Ok(app.shot_image(&game_id, &id)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn delete_shots(h: AppHandle, game_id: String, blobs: Vec<String>) -> CmdResult<usize> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let ids = blob_ids(&blobs)?;
+        let lock = app.repo.lock()?;
+        Ok(app.delete_shots(&lock, &g, &ids)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn export_shots(
+    h: AppHandle,
+    game_id: String,
+    blobs: Vec<String>,
+    dest: PathBuf,
+    format: ExportFormat,
+) -> CmdResult<ShotExportReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let ids = blob_ids(&blobs)?;
+        Ok(app.export_shots(&g, &ids, &dest, format)?)
+    })
+    .await
+}
+
+/// 游戏的截图开关：`enabled` 为空时跟随全局设置。
+#[tauri::command]
+pub async fn set_shots_enabled(
+    h: AppHandle,
+    game_id: String,
+    enabled: Option<bool>,
+) -> CmdResult<()> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.set_shots_enabled(&g, enabled)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn add_shot_dir(h: AppHandle, game_id: String, dir: PathBuf) -> CmdResult<String> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.add_shot_dir(&g, &dir)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn remove_shot_dir(h: AppHandle, game_id: String, dir: String) -> CmdResult<bool> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.remove_shot_dir(&g, &dir)?)
+    })
+    .await
+}
+
+/// “捕获”文件夹的实际位置（设置页显示）。
+#[tauri::command]
+pub async fn captures_dir(h: AppHandle) -> CmdResult<Option<PathBuf>> {
+    with_app(h, move |app, _| Ok(app.captures_dir())).await
+}
+
+/// 定时收集截图：每分钟检查一次是否到期；仓库正被其他操作（如命令行）使用时跳过本次。
+pub fn start_shot_scheduler(h: AppHandle) {
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+            let shared = h.state::<Shared>();
+            let added = {
+                let mut guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
+                let Some(app) = guard.as_mut() else { continue };
+                if !app.shots_sync_due() {
+                    continue;
+                }
+                let Ok(lock) = app.repo.lock() else { continue };
+                match app.sync_all_shots(&lock) {
+                    Ok(r) => r.iter().map(|x| x.added).sum::<usize>(),
+                    Err(e) => {
+                        tracing::warn!("定时收集截图失败：{e}");
+                        continue;
+                    }
+                }
+            };
+            tracing::info!(added, "定时收集截图完成");
+            let _ = h.emit("shots-synced", added);
+        }
+    });
 }
 
 #[cfg(test)]

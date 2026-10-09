@@ -35,6 +35,19 @@ export default function App() {
       .finally(() => setReady(true));
   }, []);
 
+  // 定时收集截图完成时提示。
+  useEffect(() => {
+    const off = api.onShotsSynced((n) => {
+      if (n > 0) {
+        toast("success", t("ui.shots.scheduled", { n }));
+        void loadLibrary(false);
+      }
+    });
+    return () => {
+      void off.then((f) => f());
+    };
+  }, []);
+
   // 托盘菜单“检查更新”：回到游戏库并检查。
   useEffect(() => {
     const off = api.onTrayCheck(() => {

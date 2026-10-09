@@ -24,8 +24,8 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 47 项，更新于 2026-10-09 16:18。需要改动的项请在对话中告诉 Claude（附编号）。</p>
-<nav><a href="#s-0">全局</a><a href="#s-1">M1 核心库</a><a href="#s-2">M2 存档发现</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">用户修改</a><a href="#s-5">缺陷修复</a></nav>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 48 项，更新于 2026-10-09 16:51。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<nav><a href="#s-0">全局</a><a href="#s-1">M1 核心库</a><a href="#s-2">M2 存档发现</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">用户修改</a><a href="#s-5">缺陷修复</a><a href="#s-6">开发</a></nav>
 <section id="s-0"><h2>全局<small>1 项</small></h2>
       <article id="G-1">
         <header><code>G-1</code><h3>后续开发中的待确认事项如何处理？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
@@ -307,6 +307,12 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <header><code>U-7g</code><h3>导入的未安装游戏在本机找不到存档位置时显示“有更新（已删除）”，备份会生成缺少这些文件的快照</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>导入后变更检测缓存设为导入的当前快照，而本机不能确定路径的位置扫描不到文件，被当成删除。</p><p class="impact"><span>影响</span>本机不能确定路径的位置不参与变更检测；备份时沿用上一个快照中这些位置的文件。</p>
+        <footer>2026-10-09</footer>
+      </article></section><section id="s-6"><h2>开发<small>1 项</small></h2>
+      <article id="U-5-impl">
+        <header><code>U-5-impl</code><h3>截图备份（U-5）实现中的取舍</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">按方案实现</li><li class="chosen">按方案实现；以下几点为实现细节：原图沿用文件对象写入（不重新编码，zstd 对图片收益很小）；Steam 截图按文件名取拍摄时间，不解析 screenshots.vdf；截图与快照的对应为“拍摄之后最早的快照（任何分支）”；定时收集的默认值为关闭（只随备份收集）；缩略图按需生成 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>方案 S1–S6 已确认；这些是方案没有细到的地方，取最简单且不影响效果的做法。</p><p class="impact"><span>影响</span>新增 REQ-014（已完成）。相册的文件对象需作为 M4-4 GC 的根（已写入里程碑说明）。</p>
         <footer>2026-10-09</footer>
       </article></section>
 </div></body></html>

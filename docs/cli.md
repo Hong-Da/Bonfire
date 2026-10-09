@@ -36,8 +36,14 @@
 | `bonfire export <game> [<ref>] (--zip <文件> \| --folder <目录>)` | 导出存档文件：省略 `<ref>` 时导出当前磁盘上的存档；每个存档位置一个子文件夹，附 `bonfire-export.json`；`--folder` 在目录中新建文件夹；拒绝导出到存档位置或仓库中 |
 | `bonfire import <game> <zip或文件夹> [--branch <名称>] [--parent <ref>] [--onto <分支>] [-m <备注>] [--dry-run]` | 导入存档文件为新快照（触发方式“导入”），**不写入存档目录**；默认新分支、独立起点，`--parent` 从某个快照分出，`--onto` 接在分支之后；内容与已有快照相同时不重复生成 |
 | `bonfire bundle export <game> -o <文件.bonfire> [--branch <分支>]... [--from <ref>] [--to <ref>]` | 导出历史包：默认全部分支与标签；`--branch` 指定分支；`--from`/`--to` 导出一段历史（含两端，导入方需已有更早的快照） |
-| `bonfire bundle export (<game> <game>... \| --all) -o <文件.bonfire>` | 导出合集包：多个游戏（或游戏库中全部游戏）的全部分支放在一个文件里；还没有快照的游戏跳过 |
+| `bonfire bundle export (<game> <game>... \| --all) -o <文件.bonfire>` | 导出合集包：多个游戏（或游戏库中全部游戏）的全部分支放在一个文件里；还没有快照的游戏跳过。历史包与合集包加 `--shots` 时同时导出截图相册（默认不包含），导入时加入本地相册 |
 | `bonfire bundle import <文件> [--game <game>] [--only <game>]... [--dry-run]` | 导入历史包或合集包：按快照 ID 判断每个分支与本地的关系——新建、相同、后续更新（快进）、本地已包含、分叉（另建 `<分支>-<来源电脑>`，不覆盖本地）；不移动当前快照，不写入存档目录；自定义游戏在不同电脑上 ID 不同时用 `--game` 指定。合集包默认导入全部游戏，`--only` 只导入指定的（ID 或名称）；某个游戏失败不影响其他游戏（退出码 2）。游戏库中没有的游戏自动加入并标为“未安装”：能在本机确定的存档位置照常使用，需要安装目录的位置等装好游戏、扫描后确定（之前恢复会报错） |
+| `bonfire shots list <game>` | 列出游戏已备份的截图（ID、拍摄时间、来源、大小、原文件名）与磁盘上还没收集的数量 |
+| `bonfire shots sync [<game>...]` | 收集新截图（省略游戏时收集全部游戏）；每次 `backup` 后也会自动收集。来源：Steam 截图、Windows 游戏栏“捕获”文件夹（按文件名中的标题对应）、`game shots-dir` 添加的文件夹；**只读取，不写入截图目录**；内容相同的不重复收集，磁盘上删掉的截图备份中仍保留 |
+| `bonfire shots export <game> -o <zip或目录> [--folder] [--id <ID>]... [--since YYYY-MM-DD] [--snapshot <ref>]` | 导出截图（默认全部）为 zip，或 `--folder` 在目录中新建文件夹；`--snapshot` 只导出这个快照之前拍的（拍摄后最早的快照即它） |
+| `bonfire shots rm <game> <ID>...` | 从相册中删除截图（需确认；ID 前缀至少 6 位）；只删备份，不动磁盘上的原图 |
+| `bonfire shots set <game> on\|off\|auto` | 这个游戏收集 / 不收集截图 / 跟随全局设置（`shots.enabled`） |
+| `bonfire game shots-dir add\|rm <game> <文件夹>` | 为游戏添加或移除截图文件夹（游戏自带截图、其他截图工具）；不能是仓库或数据目录；移除后已收集的截图保留 |
 | `bonfire fsck [--deep]` | 校验仓库；`--deep` 还原每个文件并校验哈希 |
 | `bonfire reindex` | 从仓库重建索引数据库 |
 
@@ -361,6 +367,38 @@ bonfire info "Hollow Knight"
 
 ```bat
 bonfire rules info
+```
+
+退出码：0
+
+### 为游戏添加截图文件夹
+
+```bat
+bonfire game shots-dir add 空洞骑士 tests/inputs/shots
+```
+
+退出码：0
+
+### 收集新截图
+
+```bat
+bonfire shots sync
+```
+
+退出码：0
+
+### 列出已备份的截图
+
+```bat
+bonfire shots list 空洞骑士
+```
+
+退出码：0
+
+### 导出截图为 zip
+
+```bat
+bonfire shots export 空洞骑士 -o D:/Temp/shots.zip
 ```
 
 退出码：0

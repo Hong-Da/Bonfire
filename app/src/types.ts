@@ -22,8 +22,59 @@ export interface AppInfo {
 export interface Config {
   general: { language?: string; theme: Theme; repo?: string; close_to_tray: boolean };
   backup: { include_config_files: boolean; size_warning_gb: number; disabled_platforms: string[]; protect_local: boolean };
+  shots: ShotsConfig;
   metadata: { online: boolean; igdb_client_id: string; igdb_client_secret: string; steamgriddb_api_key: string };
   log: { level: string; keep_days: number };
+}
+
+export type ShotSchedule = "off" | "daily" | "weekly" | "hours";
+
+export interface ShotsConfig {
+  enabled: boolean;
+  captures_dir?: string;
+  schedule: ShotSchedule;
+  /** `HH:MM` */
+  at: string;
+  /** 1 = 周一 … 7 = 周日 */
+  weekday: number;
+  every_hours: number;
+}
+
+/** 相册中的一张截图。 */
+export interface ShotRecord {
+  gameId: string;
+  blob: string;
+  takenAt: string;
+  source: "steam" | "capture" | "folder" | "import";
+  originalPath: string;
+  size: number;
+  width?: number;
+  height?: number;
+  addedAt: string;
+}
+
+export interface AlbumView {
+  shots: ShotRecord[];
+  enabled: boolean;
+  followsGlobal: boolean;
+  globalEnabled: boolean;
+  dirs: string[];
+  pending: number;
+  bytes: number;
+  sources: string[];
+}
+
+export interface ShotSyncReport {
+  gameId: string;
+  added: number;
+  bytes: number;
+  disabled: boolean;
+}
+
+export interface ShotExportReport {
+  dest: string;
+  files: number;
+  bytes: number;
 }
 
 export interface ChangeSummary {
@@ -58,6 +109,10 @@ export interface GameRow {
   installed: boolean;
   /** 本机还不能确定路径的存档位置数。 */
   unresolved: number;
+  /** 相册中的截图数。 */
+  shots: number;
+  /** 磁盘上还没有收集的新截图数。 */
+  newShots: number;
 }
 
 export type FileStatus = "added" | "modified" | "deleted" | "unchanged";
@@ -176,6 +231,8 @@ export interface BackupItemResult {
   ok: boolean;
   result: BackupResult | null;
   error: CmdError | null;
+  /** 顺带收集的新截图数。 */
+  shots: number;
 }
 
 export interface SearchHit {
@@ -287,6 +344,7 @@ export interface BundleReport {
   bytes: number;
   refs: BundleRef[];
   prerequisites: number;
+  shots: number;
 }
 
 export type RefAction = "create" | "same" | "fast-forward" | "contained" | "diverged" | "tag-conflict";
@@ -323,6 +381,9 @@ export interface BundlePreview {
   missing: string[];
   refs: RefPlan[];
   locationMismatch: boolean;
+  /** 包内的截图数，其中本地相册没有的。 */
+  shots: number;
+  newShots: number;
 }
 
 export interface BundleImportReport {
@@ -330,6 +391,7 @@ export interface BundleImportReport {
   importedSnapshots: number;
   objects: number;
   createdGame: boolean;
+  importedShots: number;
 }
 
 export interface CollectionEntry {

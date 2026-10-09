@@ -484,3 +484,76 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
   .hero { grid-template-columns: 1fr; }
   .hero-cover { display: none; }
 }
+
+/* ---------- 截图相册 ---------- */
+
+/* 详情页“存档 / 截图”切换 */
+.page-tabs { display: flex; gap: 2px; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.page-tabs button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border: 0; background: none; cursor: pointer;
+  color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; font: 600 14px var(--font-sign);
+}
+.page-tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ember); }
+.new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ember); }
+
+.shots { flex: 1; display: grid; grid-template-columns: 260px 1fr; min-height: 0; }
+.shots-side { padding: 18px 20px; border-right: 1px solid var(--line); background: var(--surface); overflow: auto; display: grid; align-content: start; gap: 8px; }
+.shots-side h2 { margin: 0; font: 600 17px var(--font-sign); }
+.shots-side p { margin: 0; }
+.shots-side h3 { margin: 12px 0 0; font: 600 13px var(--font-sign); color: var(--muted); }
+.shots-side .field { width: 100%; }
+.field-label { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.shot-sources { margin: 0; padding-left: 18px; font-size: 13px; }
+.shot-dirs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.shot-dirs li { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.shot-dirs .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shots-main { overflow: auto; padding: 0 20px 32px; min-height: 0; }
+.shots-bar {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px;
+  padding: 12px 0; background: var(--smoke);
+}
+.shots-bar .grow { flex: 1; }
+.shot-day h3 { margin: 14px 0 8px; font: 600 14px var(--font-sign); color: var(--muted); }
+.shot-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+.shot-grid li { position: relative; border-radius: 8px; overflow: hidden; border: 2px solid transparent; background: var(--surface); }
+.shot-grid li.on { border-color: var(--ember); }
+.shot-open { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.shot-thumb { display: block; aspect-ratio: 16 / 9; background: color-mix(in srgb, var(--muted) 12%, var(--surface)); }
+.shot-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.shot-pick { position: absolute; top: 6px; left: 6px; accent-color: var(--ember); width: 18px; height: 18px; }
+.shot-grid li:not(.on):not(:hover) .shot-pick { opacity: 0.55; }
+.shot-time {
+  position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: 6px; font-size: 11px;
+  color: #fff; background: rgba(17, 22, 28, 0.6);
+}
+
+/* 时间线与快照详情中的截图 */
+.shot-badge { display: inline-flex; align-items: center; gap: 3px; color: var(--ember); }
+.shot-new { display: flex; align-items: center; gap: 4px; color: var(--ember); }
+.snap-shots { margin: 16px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--smoke); }
+.snap-shots-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.snap-shots-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.snap-shots-strip .shot-open { border-radius: 6px; overflow: hidden; }
+.include-shots { margin: 8px 0; }
+
+/* 大图 */
+.lightbox { position: fixed; inset: 0; z-index: 20; display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; background: rgba(10, 12, 15, 0.86); }
+.lightbox figure { margin: 0; height: 100vh; box-sizing: border-box; display: grid; grid-template-rows: minmax(0, 1fr) auto; padding: 24px 0 16px; }
+.lb-image { min-height: 0; height: 100%; display: grid; place-items: center; overflow: hidden; }
+.lb-image img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5); }
+.lightbox figcaption { margin-top: 12px; padding: 12px 16px; border-radius: 10px; background: var(--surface); color: var(--ink); display: grid; gap: 8px; max-width: 880px; width: 100%; justify-self: center; }
+.lb-meta { display: flex; justify-content: space-between; gap: 12px; }
+.lightbox dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 13px; }
+.lightbox dt { color: var(--muted); }
+.lightbox dd { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lightbox .actions { display: flex; gap: 8px; align-items: center; }
+.lightbox .actions .grow { flex: 1; }
+.lb-nav { height: 64px; border: 0; background: none; color: #fff; font-size: 40px; cursor: pointer; opacity: 0.8; }
+.lb-nav:disabled { opacity: 0.2; cursor: default; }
+button.link { padding: 0; border: 0; background: none; color: var(--ember); cursor: pointer; text-align: left; font: inherit; }
+button.link:hover { text-decoration: underline; }
+
+@media (max-width: 900px) {
+  .shots { grid-template-columns: 1fr; }
+  .shots-side { border-right: 0; border-bottom: 1px solid var(--line); }
+}

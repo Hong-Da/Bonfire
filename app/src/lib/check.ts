@@ -8,5 +8,7 @@ export async function checkAndReport(): Promise<void> {
   await s.loadLibrary(false);
   const rows = Object.values(useStore.getState().rows);
   const n = rows.filter((r) => r.state === "has-changes").length;
-  s.toast("success", n > 0 ? i18n.t("ui.library.checkedChanges", { n }) : i18n.t("ui.library.checkedNone", { total: rows.length }));
+  const shots = rows.reduce((sum, r) => sum + (r.newShots ?? 0), 0);
+  const text = n > 0 ? i18n.t("ui.library.checkedChanges", { n }) : i18n.t("ui.library.checkedNone", { total: rows.length });
+  s.toast("success", shots > 0 ? text + i18n.t("ui.library.checkedShots", { n: shots }) : text);
 }

@@ -10,6 +10,7 @@ pub mod paths;
 pub mod platforms;
 pub mod registry;
 pub mod resolve;
+pub mod shots;
 pub mod vdf;
 
 pub use manifest::{ManifestPaths, RuleIndex};

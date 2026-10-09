@@ -19,6 +19,8 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
   const [picked, setPicked] = useState<Set<string>>(() => new Set(initial.filter((id) => exportable.some((r) => r.id === id))));
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [withShots, setWithShots] = useState(false);
+  const shotCount = chosenShots(rows, picked);
   const chosen = exportable.filter((r) => picked.has(r.id));
   const snapshots = chosen.reduce((n, r) => n + r.snapshots, 0);
 
@@ -39,6 +41,7 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
       const r = await api.exportCollection(
         chosen.map((x) => x.id),
         dest,
+        withShots,
       );
       setDone(r.dest);
       store.toast("success", t("ui.collection.exported", { n: r.games.length, size: bytes(r.bytes) }));
@@ -86,6 +89,12 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
           {t("ui.library.selectAll")}
         </label>
       </div>
+      {shotCount > 0 && (
+        <label className="radio include-shots">
+          <input type="checkbox" checked={withShots} onChange={(e) => setWithShots(e.target.checked)} /> {t("ui.transfer.includeShots")}
+          <span className="muted num">{t("ui.shots.badge", { n: shotCount })}</span>
+        </label>
+      )}
       <ul className="pick-list">
         {rows.map((r) => {
           const disabled = r.snapshots === 0;
@@ -108,12 +117,17 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
   );
 }
 
+/** 选中游戏的截图总数。 */
+function chosenShots(rows: GameRow[], picked: Set<string>): number {
+  return rows.filter((r) => picked.has(r.id) && r.snapshots > 0).reduce((n, r) => n + (r.shots ?? 0), 0);
+}
+
 type Loaded = { kind: "archive"; path: string; preview: ArchivePreview } | { kind: "files"; path: string; source: FilesSource };
 
 /** 合集包中的游戏能否导入、导入后有没有变化。 */
 function importable(p: BundlePreview): boolean {
   if (p.missing.length > 0) return false;
-  return p.createGame || p.newSnapshots > 0 || p.refs.some((r) => r.action === "create" || r.action === "fast-forward" || r.action === "diverged");
+  return p.createGame || p.newSnapshots > 0 || (p.newShots ?? 0) > 0 || p.refs.some((r) => r.action === "create" || r.action === "fast-forward" || r.action === "diverged");
 }
 
 /**

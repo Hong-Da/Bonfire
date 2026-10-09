@@ -60,8 +60,8 @@ bonfire/
 │   └── config.example.toml     应用配置示例（实际配置在 %APPDATA%\Bonfire\）
 ├── crates/
 │   ├── bonfire-core/           引擎·版本存储：对象库、refs、索引、变更检测、fsck、GC
-│   ├── bonfire-discovery/      引擎·存档发现：平台适配器、规则库、游戏信息提供者
-│   ├── bonfire-app/            应用服务层：扫描/备份/恢复/历史/清理服务、配置、日志、i18n
+│   ├── bonfire-discovery/      引擎·存档发现：平台适配器、规则库、游戏信息提供者、截图来源
+│   ├── bonfire-app/            应用服务层：扫描/备份/恢复/历史/清理、导出导入、截图相册、配置、日志、i18n
 │   └── bonfire-cli/            命令行 bonfire
 ├── app/                        桌面应用（Tauri 2）
 │   ├── package.json            前端依赖（pnpm）

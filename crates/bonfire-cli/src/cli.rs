@@ -197,11 +197,61 @@ pub enum Cmd {
         #[command(subcommand)]
         cmd: BundleCmd,
     },
+    Shots {
+        #[command(subcommand)]
+        cmd: ShotsCmd,
+    },
     Fsck {
         #[arg(long)]
         deep: bool,
     },
     Reindex,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ShotSwitch {
+    On,
+    Off,
+    Auto,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ShotsCmd {
+    List {
+        game: String,
+    },
+    Sync {
+        games: Vec<String>,
+    },
+    Export {
+        game: String,
+        #[arg(short = 'o', long = "out", value_name = "PATH")]
+        out_file: PathBuf,
+        #[arg(long)]
+        folder: bool,
+        #[arg(long = "id", value_name = "ID")]
+        ids: Vec<String>,
+        #[arg(long, value_name = "DATE")]
+        since: Option<String>,
+        #[arg(long, value_name = "SNAPSHOT")]
+        snapshot: Option<String>,
+    },
+    Rm {
+        game: String,
+        #[arg(required = true)]
+        ids: Vec<String>,
+    },
+    Set {
+        game: String,
+        #[arg(value_enum)]
+        value: ShotSwitch,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ShotsDirCmd {
+    Add { game: String, dir: PathBuf },
+    Rm { game: String, dir: String },
 }
 
 #[derive(Debug, Subcommand)]
@@ -219,6 +269,8 @@ pub enum BundleCmd {
         from: Option<String>,
         #[arg(long, value_name = "SNAPSHOT")]
         to: Option<String>,
+        #[arg(long)]
+        shots: bool,
     },
     Import {
         file: PathBuf,
@@ -264,6 +316,10 @@ pub enum GameCmd {
     },
     Confirm {
         game: String,
+    },
+    ShotsDir {
+        #[command(subcommand)]
+        cmd: ShotsDirCmd,
     },
 }
 

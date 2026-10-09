@@ -88,6 +88,7 @@ export default function BackupDialog({ rows, onClose }: { rows: GameRow[]; onClo
                   <div className={r.ok ? "" : "callout error"}>{text}</div>
                   {r.result?.result === "created" && r.result.newBranch && <div className="muted">{t("ui.backup.newBranch", { branch: r.result.newBranch })}</div>}
                   {r.result?.result === "created" && r.result.warnings.map((w) => <div key={w} className="callout warn">{w}</div>)}
+                  {r.shots > 0 && <div className="muted">{t("ui.shots.backupCollected", { n: r.shots })}</div>}
                 </div>
               </li>
             );

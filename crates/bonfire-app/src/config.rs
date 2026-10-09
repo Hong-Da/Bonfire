@@ -47,6 +47,7 @@ pub enum Theme {
 pub struct Config {
     pub general: General,
     pub backup: Backup,
+    pub shots: Shots,
     pub metadata: Metadata,
     pub log: Log,
 }
@@ -98,6 +99,60 @@ impl Default for Backup {
             disabled_platforms: Vec::new(),
             protect_local: true,
         }
+    }
+}
+
+/// 定时收集截图的频率。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ShotSchedule {
+    /// 只随备份收集。
+    #[default]
+    Off,
+    Daily,
+    Weekly,
+    /// 每隔若干小时。
+    Hours,
+}
+
+/// 截图备份（截图备份方案 S1–S3）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Shots {
+    /// 是否收集截图；每个游戏可单独开关。
+    pub enabled: bool,
+    /// Windows 游戏栏 / Xbox 应用的“捕获”文件夹；为空时读取系统设置中的实际位置。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub captures_dir: Option<PathBuf>,
+    /// 定时收集（程序在托盘中运行时执行）；无论是否开启，每次备份都会顺带收集。
+    pub schedule: ShotSchedule,
+    /// 每天 / 每周收集的时刻 `HH:MM`。
+    pub at: String,
+    /// 每周收集的星期：1 = 周一 … 7 = 周日。
+    pub weekday: u8,
+    /// 每隔几小时收集（1–168）。
+    pub every_hours: u32,
+}
+
+impl Default for Shots {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            captures_dir: None,
+            schedule: ShotSchedule::Off,
+            at: "21:00".into(),
+            weekday: 7,
+            every_hours: 6,
+        }
+    }
+}
+
+impl Shots {
+    /// `at` 解析为（时, 分）。
+    pub fn at_hm(&self) -> Option<(i8, i8)> {
+        let (h, m) = self.at.trim().split_once(':')?;
+        let (h, m): (i8, i8) = (h.parse().ok()?, m.parse().ok()?);
+        ((0..24).contains(&h) && (0..60).contains(&m)).then_some((h, m))
     }
 }
 
@@ -198,6 +253,24 @@ impl Config {
                 message: format!("{}（范围 1–365）", self.log.keep_days),
             });
         }
+        if self.shots.at_hm().is_none() {
+            return Err(ConfigError::Invalid {
+                key: "shots.at",
+                message: format!("{}（格式为 HH:MM，如 21:00）", self.shots.at),
+            });
+        }
+        if !(1..=7).contains(&self.shots.weekday) {
+            return Err(ConfigError::Invalid {
+                key: "shots.weekday",
+                message: format!("{}（1 = 周一 … 7 = 周日）", self.shots.weekday),
+            });
+        }
+        if !(1..=168).contains(&self.shots.every_hours) {
+            return Err(ConfigError::Invalid {
+                key: "shots.every_hours",
+                message: format!("{}（范围 1–168）", self.shots.every_hours),
+            });
+        }
         let gb = self.backup.size_warning_gb;
         if gb.is_nan() || gb <= 0.0 {
             return Err(ConfigError::Invalid {
@@ -259,6 +332,20 @@ disabled_platforms = []
 # 存档安全保护：本机备份的快照（以电脑名区分）及包含它们的分支不能删除
 protect_local = {protect}
 
+[shots]
+# 是否备份游戏截图（Steam 截图、Windows 游戏栏截图、为游戏指定的截图文件夹）；每个游戏可单独关闭
+enabled = {shots}
+# Windows 游戏栏 / Xbox 应用的“捕获”文件夹；不写时读取系统设置中的实际位置
+# captures_dir = 'D:\Videos\Captures'
+# 定时收集截图：off（只随备份收集）/ daily / weekly / hours；在托盘中运行时执行
+schedule = "{schedule}"
+# 每天 / 每周收集的时刻
+at = "{at}"
+# 每周收集的星期：1 = 周一 … 7 = 周日
+weekday = {weekday}
+# schedule = "hours" 时每隔几小时收集（1–168）
+every_hours = {hours}
+
 [metadata]
 # 是否联网获取游戏名称、封面等信息；只发送游戏 ID 或名称，不上传存档
 online = {online}
@@ -276,6 +363,11 @@ keep_days = {keep}
             theme = "auto",
             tray = d.general.close_to_tray,
             protect = d.backup.protect_local,
+            shots = d.shots.enabled,
+            schedule = "off",
+            at = d.shots.at,
+            weekday = d.shots.weekday,
+            hours = d.shots.every_hours,
             include = d.backup.include_config_files,
             size = d.backup.size_warning_gb,
             online = d.metadata.online,

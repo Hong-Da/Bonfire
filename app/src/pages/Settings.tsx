@@ -5,6 +5,7 @@ import { api, errorMessage } from "../api";
 import { LANGUAGES, setLanguage } from "../i18n";
 import { bytes } from "../lib/format";
 import { useStore } from "../store";
+import { Icon } from "../components/ui";
 import { applyTheme } from "../theme";
 import type { Config, FsckReport, GameRecord, Theme } from "../types";
 
@@ -20,6 +21,7 @@ export default function Settings() {
   const [fsck, setFsck] = useState<FsckReport | null>(null);
   const [ignored, setIgnored] = useState<GameRecord[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [captures, setCaptures] = useState<string | null>(null);
 
   useEffect(() => {
     api.getSettings().then((c) => {
@@ -28,6 +30,7 @@ export default function Settings() {
     });
     api.rulesInfo().then(setRules).catch(() => setRules(null));
     api.ignoredGames().then(setIgnored).catch(() => setIgnored([]));
+    api.capturesDir().then(setCaptures).catch(() => setCaptures(null));
   }, []);
 
   if (!cfg) return <div className="empty">{t("ui.loading")}</div>;
@@ -161,6 +164,84 @@ export default function Settings() {
                 <span>GB</span>
               </div>
             </div>
+          </section>
+
+          <section>
+            <h2>{t("ui.settings.shots")}</h2>
+            <div className="row">
+              <label>{t("ui.settings.shotsEnabled")}</label>
+              <label style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                <input type="checkbox" className="check" checked={cfg.shots.enabled} onChange={(e) => update((c) => (c.shots.enabled = e.target.checked))} />
+                {t("ui.settings.shotsEnabledHint")}
+              </label>
+            </div>
+            <div className="row">
+              <label htmlFor="captures">{t("ui.settings.capturesDir")}</label>
+              <div className="inline">
+                <input
+                  id="captures"
+                  className="field"
+                  style={{ flex: 1 }}
+                  value={cfg.shots.captures_dir ?? ""}
+                  placeholder={captures ?? ""}
+                  onChange={(e) => update((c) => (c.shots.captures_dir = e.target.value || undefined))}
+                />
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    const r = await open({ directory: true, multiple: false, title: t("ui.settings.capturesDir") });
+                    if (typeof r === "string") update((c) => (c.shots.captures_dir = r));
+                  }}
+                >
+                  {t("ui.settings.browse")}
+                </button>
+              </div>
+            </div>
+            <p className="hint">{t("ui.settings.capturesDirHint", { dir: captures ?? "—" })}</p>
+            <div className="row">
+              <label htmlFor="schedule">{t("ui.settings.schedule")}</label>
+              <div className="inline">
+                <select id="schedule" className="field" value={cfg.shots.schedule} onChange={(e) => update((c) => (c.shots.schedule = e.target.value as typeof c.shots.schedule))}>
+                  {(["off", "daily", "weekly", "hours"] as const).map((v) => (
+                    <option key={v} value={v}>
+                      {t(`ui.settings.schedule.${v}`)}
+                    </option>
+                  ))}
+                </select>
+                {cfg.shots.schedule === "weekly" && (
+                  <select className="field" value={cfg.shots.weekday} onChange={(e) => update((c) => (c.shots.weekday = Number(e.target.value)))} aria-label={t("ui.settings.schedule.weekly")}>
+                    {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                      <option key={d} value={d}>
+                        {t(`ui.weekday.${d}`)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {(cfg.shots.schedule === "daily" || cfg.shots.schedule === "weekly") && (
+                  <input className="field num" type="time" value={cfg.shots.at} onChange={(e) => update((c) => (c.shots.at = e.target.value))} aria-label={t("ui.settings.at")} />
+                )}
+                {cfg.shots.schedule === "hours" && (
+                  <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input className="field num" type="number" min={1} max={168} style={{ width: 80 }} value={cfg.shots.every_hours} onChange={(e) => update((c) => (c.shots.every_hours = Number(e.target.value)))} />
+                    {t("ui.settings.everyHours", { n: cfg.shots.every_hours })}
+                  </label>
+                )}
+              </div>
+            </div>
+            <p className="hint">{t("ui.settings.scheduleHint")}</p>
+            <button
+              className="btn"
+              disabled={busy === "shots" || !saved?.shots.enabled}
+              onClick={() =>
+                run("shots", async () => {
+                  const r = await api.syncShots(null);
+                  const n = r.reduce((s, x) => s + x.added, 0);
+                  store.toast("success", n > 0 ? t("ui.shots.synced", { n }) : t("ui.shots.syncedNone"));
+                })
+              }
+            >
+              <Icon name="camera" /> {t("ui.settings.syncAll")}
+            </button>
           </section>
 
           <section>

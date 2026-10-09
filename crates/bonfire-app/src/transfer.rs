@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use bonfire_core::index::{GameRecord, LocationKind, LocationRecord};
+use bonfire_core::index::{GameRecord, LocationKind, LocationRecord, ShotRecord};
 use bonfire_core::object::{FileTag, Kind, Snapshot, SnapshotStats, Tree, TreeEntry, Trigger};
 use bonfire_core::refs::{RefKind, RefName};
 use bonfire_core::scan::{self, glob_base};
@@ -137,6 +137,9 @@ pub struct BundleManifest {
     #[serde(default)]
     pub notes: BTreeMap<ObjectId, String>,
     pub locations: Vec<BundleLocation>,
+    /// 一并导出的截图相册（导出时勾选“包含截图”才有）。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shots: Vec<ShotRecord>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -149,6 +152,8 @@ pub struct BundleReport {
     pub bytes: u64,
     pub refs: Vec<BundleRef>,
     pub prerequisites: usize,
+    /// 一并导出的截图数。
+    pub shots: usize,
 }
 
 /// 导入历史包时，包内一个分支或标签与本地的关系。
@@ -218,6 +223,9 @@ pub struct BundlePreview {
     pub refs: Vec<RefPlan>,
     /// 包内的存档位置与本地不同（来自另一种安装方式或另一台电脑的自定义路径）。
     pub location_mismatch: bool,
+    /// 包内的截图数，其中本地相册没有的。
+    pub shots: usize,
+    pub new_shots: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -228,6 +236,8 @@ pub struct BundleImportReport {
     pub objects: usize,
     /// 新加入游戏库的游戏（本地原来没有）。
     pub created_game: bool,
+    /// 加入相册的截图数。
+    pub imported_shots: usize,
 }
 
 /// 合集包中的一个游戏。
@@ -583,7 +593,7 @@ impl App {
     }
 
     /// 导出目标不能在任何游戏的存档目录或仓库中（导出绝不写入存档目录）。
-    fn check_export_target(&self, target: &Path) -> Result<()> {
+    pub(crate) fn check_export_target(&self, target: &Path) -> Result<()> {
         let t = path_key(target);
         let inside = |base: &Path| {
             let b = path_key(base);
@@ -617,14 +627,15 @@ impl App {
 
     // ---------- 历史包 ----------
 
-    /// 导出历史包。
+    /// 导出历史包；`include_shots` 时一并导出截图相册。
     pub fn export_bundle(
         &self,
         game: &GameRecord,
         scope: &BundleScope,
         dest: &Path,
+        include_shots: bool,
     ) -> Result<BundleReport> {
-        let plan = self.plan_bundle(game, scope)?;
+        let plan = self.plan_bundle(game, scope, include_shots)?;
         self.check_export_target(dest)?;
         let tmp = with_suffix(dest, ".bonfire-tmp");
         let result = (|| -> Result<()> {
@@ -647,11 +658,17 @@ impl App {
             bytes,
             refs: plan.manifest.refs.clone(),
             prerequisites: plan.manifest.prerequisites.len(),
+            shots: plan.manifest.shots.len(),
         })
     }
 
     /// 导出多个游戏的全部历史到一个合集包。还没有快照的游戏跳过。
-    pub fn export_collection(&self, games: &[GameRecord], dest: &Path) -> Result<CollectionReport> {
+    pub fn export_collection(
+        &self,
+        games: &[GameRecord],
+        dest: &Path,
+        include_shots: bool,
+    ) -> Result<CollectionReport> {
         if games.is_empty() {
             return Err(AppError::Invalid("请至少选择一个游戏".into()));
         }
@@ -662,7 +679,7 @@ impl App {
                 skipped.push(g.name.clone());
                 continue;
             }
-            plans.push(self.plan_bundle(g, &BundleScope::All)?);
+            plans.push(self.plan_bundle(g, &BundleScope::All, include_shots)?);
         }
         if plans.is_empty() {
             return Err(AppError::Invalid("选中的游戏都还没有快照".into()));
@@ -716,7 +733,12 @@ impl App {
     }
 
     /// 历史包的内容：说明与要打包的对象。
-    fn plan_bundle(&self, game: &GameRecord, scope: &BundleScope) -> Result<BundlePlan> {
+    fn plan_bundle(
+        &self,
+        game: &GameRecord,
+        scope: &BundleScope,
+        include_shots: bool,
+    ) -> Result<BundlePlan> {
         let all_refs = self.repo.list_refs(&game.id)?;
         let (included, mut refs) = match scope {
             BundleScope::All => {
@@ -849,6 +871,16 @@ impl App {
                 }
             }
         }
+        let shots = if include_shots {
+            self.index.shots_of(&game.id)?
+        } else {
+            Vec::new()
+        };
+        for sh in &shots {
+            if seen.insert((Kind::Blob, sh.blob)) {
+                blobs.push(sh.blob);
+            }
+        }
         let mut chunks = Vec::new();
         for b in &blobs {
             for c in self.repo.get_blob(b)?.chunks {
@@ -883,6 +915,7 @@ impl App {
                     tag: Some(l.tag),
                 })
                 .collect(),
+            shots,
         };
         Ok(BundlePlan {
             manifest,
@@ -1147,6 +1180,15 @@ impl App {
             .collect();
         nodes.reverse();
         let create_game = local_game.is_none();
+        let local_shots: HashSet<ObjectId> = match &local_game {
+            Some(g) => self
+                .index
+                .shots_of(&g.id)?
+                .into_iter()
+                .map(|s| s.blob)
+                .collect(),
+            None => HashSet::new(),
+        };
         let location_mismatch = match &local_game {
             Some(g) => {
                 let local: Vec<String> = self
@@ -1178,6 +1220,12 @@ impl App {
             missing,
             refs,
             location_mismatch,
+            shots: m.shots.len(),
+            new_shots: m
+                .shots
+                .iter()
+                .filter(|s| !local_shots.contains(&s.blob))
+                .count(),
         })
     }
 
@@ -1221,6 +1269,7 @@ impl App {
                 imported_snapshots: preview.new_snapshots,
                 objects: 0,
                 created_game: preview.create_game,
+                imported_shots: preview.new_shots,
                 preview,
             });
         }
@@ -1370,11 +1419,27 @@ impl App {
         if created_game {
             self.cache_head_tree(&game)?;
         }
+        // 截图相册：内容已作为文件对象导入，按本地游戏登记。
+        let mut imported_shots = 0;
+        for sh in &manifest.shots {
+            if self.repo.has(Kind::Blob, &sh.blob)
+                && self.index.add_shot(&ShotRecord {
+                    game_id: game.clone(),
+                    ..sh.clone()
+                })?
+            {
+                imported_shots += 1;
+            }
+        }
+        if imported_shots > 0 {
+            self.save_album(&game)?;
+        }
         Ok(BundleImportReport {
             preview,
             imported_snapshots: imported,
             objects: written,
             created_game,
+            imported_shots,
         })
     }
 
@@ -2172,7 +2237,7 @@ fn sanitize_ref(s: &str) -> String {
     }
 }
 
-fn path_key(p: &Path) -> String {
+pub(crate) fn path_key(p: &Path) -> String {
     let abs = std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
     abs.to_string_lossy()
         .replace('\\', "/")
@@ -2180,14 +2245,14 @@ fn path_key(p: &Path) -> String {
         .to_lowercase()
 }
 
-fn with_suffix(p: &Path, suffix: &str) -> PathBuf {
+pub(crate) fn with_suffix(p: &Path, suffix: &str) -> PathBuf {
     let mut name = p.file_name().map(|n| n.to_os_string()).unwrap_or_default();
     name.push(suffix);
     p.with_file_name(name)
 }
 
 /// `dir` 下一个尚不存在的子路径：`name`、`name (2)`……
-fn unique_child(dir: &Path, name: &str) -> PathBuf {
+pub(crate) fn unique_child(dir: &Path, name: &str) -> PathBuf {
     let mut p = dir.join(name);
     let mut i = 2;
     while p.exists() {
@@ -2208,7 +2273,7 @@ fn safe_join(root: &Path, rel: &str) -> Result<PathBuf> {
     Ok(p)
 }
 
-fn replace_file(tmp: &Path, dest: &Path) -> Result<()> {
+pub(crate) fn replace_file(tmp: &Path, dest: &Path) -> Result<()> {
     if let Some(dir) = dest.parent()
         && !dir.as_os_str().is_empty()
     {
@@ -2220,12 +2285,12 @@ fn replace_file(tmp: &Path, dest: &Path) -> Result<()> {
     })
 }
 
-fn zip_err(path: &Path, e: zip::result::ZipError) -> AppError {
+pub(crate) fn zip_err(path: &Path, e: zip::result::ZipError) -> AppError {
     AppError::io(path, std::io::Error::other(e))
 }
 
 /// zip 中的文件时间：快照时间（导出快照时）或当前时间。
-fn zip_time(rfc3339: Option<&str>) -> zip::DateTime {
+pub(crate) fn zip_time(rfc3339: Option<&str>) -> zip::DateTime {
     let t = rfc3339
         .and_then(|s| s.parse::<jiff::Timestamp>().ok())
         .map(|ts| ts.to_zoned(jiff::tz::TimeZone::system()))
@@ -2432,7 +2497,10 @@ mod tests {
         let g = a.add_game("Game");
         let s1 = backup(&mut a, &g, "v1");
         let out = a.dir.path().join("all.bonfire");
-        let r = a.app.export_bundle(&g, &BundleScope::All, &out).unwrap();
+        let r = a
+            .app
+            .export_bundle(&g, &BundleScope::All, &out, false)
+            .unwrap();
         assert_eq!((r.snapshots, r.prerequisites), (1, 0));
 
         let mut b = Env::new();
@@ -2474,6 +2542,7 @@ mod tests {
                     to: "main".into(),
                 },
                 &seg,
+                false,
             )
             .unwrap();
         assert_eq!((r.snapshots, r.prerequisites), (1, 1));
@@ -2504,7 +2573,9 @@ mod tests {
         b.write("a.sav", b"b3");
         let b3 = backup(&mut b, &gb, "b3");
         let all = a.dir.path().join("all2.bonfire");
-        a.app.export_bundle(&g, &BundleScope::All, &all).unwrap();
+        a.app
+            .export_bundle(&g, &BundleScope::All, &all, false)
+            .unwrap();
         let lock = b.app.repo.lock().unwrap();
         let p = b.app.inspect_bundle(&all, Some(&gb.id)).unwrap();
         let main = p.refs.iter().find(|r| r.name == "main").unwrap();
@@ -2556,6 +2627,7 @@ mod tests {
                     to: s2.to_string(),
                 },
                 &seg,
+                false,
             )
             .unwrap();
 
@@ -2585,7 +2657,7 @@ mod tests {
         let out = a.dir.path().join("all.bonfire");
         let r = a
             .app
-            .export_collection(&[g1.clone(), g2.clone(), g3], &out)
+            .export_collection(&[g1.clone(), g2.clone(), g3], &out, false)
             .unwrap();
         assert_eq!(
             (r.games.len(), r.skipped.clone()),
@@ -2690,7 +2762,9 @@ mod tests {
         backup(&mut a, &g, "x");
         let out = tempfile::tempdir().unwrap();
         let file = out.path().join("g.bonfire");
-        a.app.export_bundle(&g, &BundleScope::All, &file).unwrap();
+        a.app
+            .export_bundle(&g, &BundleScope::All, &file, false)
+            .unwrap();
         drop(a); // 原电脑上的存档目录不复存在
 
         let mut b = Env::new();
@@ -2770,6 +2844,66 @@ mod tests {
             (row.installed, row.unresolved, row.unconfirmed),
             (false, 1, 0)
         );
+    }
+
+    /// 勾选“包含截图”时，截图相册随历史包导出，导入后加入本地相册。
+    #[test]
+    fn bundle_can_carry_the_screenshot_album() {
+        let mut a = Env::new();
+        a.write("a.sav", b"v1");
+        let g = a.add_game("Shots");
+        backup(&mut a, &g, "x");
+        let shots = a.dir.path().join("shots");
+        std::fs::create_dir_all(&shots).unwrap();
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::RgbImage::from_pixel(8, 8, image::Rgb([1, 2, 3]))
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+        std::fs::write(shots.join("one.png"), png.get_ref()).unwrap();
+        a.app.add_shot_dir(&g, &shots).unwrap();
+        let lock = a.app.repo.lock().unwrap();
+        assert_eq!(a.app.sync_shots(&lock, &g).unwrap().added, 1);
+        drop(lock);
+        let out = tempfile::tempdir().unwrap();
+        let without = out.path().join("no.bonfire");
+        let with = out.path().join("yes.bonfire");
+        assert_eq!(
+            a.app
+                .export_bundle(&g, &BundleScope::All, &without, false)
+                .unwrap()
+                .shots,
+            0
+        );
+        assert_eq!(
+            a.app
+                .export_bundle(&g, &BundleScope::All, &with, true)
+                .unwrap()
+                .shots,
+            1
+        );
+
+        let mut b = Env::new();
+        assert_eq!(b.app.inspect_bundle(&without, None).unwrap().shots, 0);
+        let p = b.app.inspect_bundle(&with, None).unwrap();
+        assert_eq!((p.shots, p.new_shots), (1, 1));
+        let lock = b.app.repo.lock().unwrap();
+        let r = b.app.import_bundle(&lock, &with, None, false).unwrap();
+        assert_eq!(r.imported_shots, 1);
+        let gb = b.app.find_game(&g.id).unwrap();
+        let album = b.app.album(&gb).unwrap();
+        assert_eq!(album.shots.len(), 1);
+        assert!(
+            b.app
+                .shot_thumb(&gb.id, &album.shots[0].blob)
+                .unwrap()
+                .is_file()
+        );
+        // 再导入一次：相册中已有。
+        assert_eq!(b.app.inspect_bundle(&with, None).unwrap().new_shots, 0);
+        // 重建索引后仍在。
+        b.app.reindex(&lock).unwrap();
+        assert_eq!(b.app.album(&gb).unwrap().shots.len(), 1);
+        drop(a);
     }
 
     #[test]

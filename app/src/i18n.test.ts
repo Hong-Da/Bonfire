@@ -16,6 +16,9 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.scan.phase.": ["rules", "discovering", "idle"],
   "ui.scan.filter.": ["new", "managed", "ignored", "all"],
   "ui.scan.state.": ["new", "managed", "ignored"],
+  "ui.shots.source.": ["steam", "capture", "folder", "import"],
+  "ui.settings.schedule.": ["off", "daily", "weekly", "hours"],
+  "ui.weekday.": ["1", "2", "3", "4", "5", "6", "7"],
 };
 
 function sources(dir: string): string[] {

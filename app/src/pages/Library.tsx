@@ -256,6 +256,11 @@ function GameLine({ row, lang, selected, onToggle, onOpen }: { row: GameRow; lan
         <StatusBadge row={row} />
         {row.state === "has-changes" && <div className="meta num">{t("ui.library.changedFiles", { n: changed, size: bytes(row.summary.changedBytes) })}</div>}
         {row.detached && <div className="meta">{t("ui.library.detached")}</div>}
+        {row.newShots > 0 && (
+          <div className="meta shot-new">
+            <Icon name="camera" size={12} /> {t("ui.shots.newInLibrary", { n: row.newShots })}
+          </div>
+        )}
       </div>
       <div className="meta col-backup">
         {row.lastBackupAt ? (

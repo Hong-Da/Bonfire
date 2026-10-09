@@ -912,3 +912,109 @@ root = "bad-rules"
 args = ["rules", "info"]
 expect_exit = 2
 stderr_contains = ["规则库格式错误"]
+
+# ---------- 截图相册 ----------
+
+[[case]]
+id = "shots-dir-add"
+title = { zh-CN = "为游戏添加截图文件夹", en = "Add a screenshot folder" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"]
+expect_exit = 0
+stdout_contains = ["已为「空洞骑士」添加截图文件夹"]
+in_docs = true
+
+[[case]]
+id = "shots-dir-add-missing"
+title = { zh-CN = "截图文件夹不存在", en = "Screenshot folder does not exist" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["game", "shots-dir", "add", "空洞骑士", "{tmp}/no-such-dir"]
+expect_exit = 4
+
+[[case]]
+id = "shots-sync"
+title = { zh-CN = "收集新截图", en = "Collect new screenshots" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"]]
+args = ["shots", "sync"]
+expect_exit = 0
+stdout_contains = ["空洞骑士：新收集 2 张", "共收集 2 张新截图"]
+in_docs = true
+
+[[case]]
+id = "shots-sync-unknown-game"
+title = { zh-CN = "收集截图：游戏不存在", en = "Collect screenshots: unknown game" }
+args = ["shots", "sync", "不存在的游戏"]
+expect_exit = 4
+
+[[case]]
+id = "shots-list"
+title = { zh-CN = "列出已备份的截图", en = "List backed-up screenshots" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"]]
+args = ["shots", "list", "空洞骑士"]
+expect_exit = 0
+stdout_contains = ["已备份 2 张截图", "feaa61b128a7", "Hollow Knight 2026_10_9 21_05_00.png"]
+in_docs = true
+
+[[case]]
+id = "shots-list-unknown-game"
+title = { zh-CN = "列出截图：游戏不存在", en = "List screenshots: unknown game" }
+args = ["shots", "list", "不存在的游戏"]
+expect_exit = 4
+
+[[case]]
+id = "shots-export"
+title = { zh-CN = "导出截图为 zip", en = "Export screenshots as zip" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"]]
+args = ["shots", "export", "空洞骑士", "-o", "{tmp}/shots.zip"]
+expect_exit = 0
+stdout_contains = ["已导出 2 张截图", "shots.zip"]
+in_docs = true
+
+[[case]]
+id = "shots-export-empty"
+title = { zh-CN = "没有可导出的截图", en = "Nothing to export" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["shots", "export", "空洞骑士", "-o", "{tmp}/shots.zip"]
+expect_exit = 2
+stderr_contains = ["没有要导出的截图"]
+
+[[case]]
+id = "shots-rm"
+title = { zh-CN = "从相册中删除截图", en = "Delete a screenshot from the album" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"]]
+args = ["shots", "rm", "空洞骑士", "feaa61", "-y"]
+expect_exit = 0
+stdout_contains = ["已从相册中删除 1 张截图"]
+
+[[case]]
+id = "shots-rm-short-id"
+title = { zh-CN = "截图 ID 太短", en = "Screenshot ID too short" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["shots", "rm", "空洞骑士", "fe", "-y"]
+expect_exit = 2
+stderr_contains = ["至少 6 位"]
+
+[[case]]
+id = "shots-set-off"
+title = { zh-CN = "这个游戏不收集截图", en = "Stop collecting screenshots for a game" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["shots", "set", "空洞骑士", "off"]
+expect_exit = 0
+stdout_contains = ["不收集截图"]
+
+[[case]]
+id = "shots-set-bad-value"
+title = { zh-CN = "开关取值无效", en = "Invalid switch value" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["shots", "set", "空洞骑士", "maybe"]
+expect_exit = 2

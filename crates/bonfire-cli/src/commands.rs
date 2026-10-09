@@ -18,7 +18,9 @@ use serde_json::{Value, json};
 
 use std::path::{Path, PathBuf};
 
-use crate::cli::{BundleCmd, Cmd, GameCmd, OutputFormat, ProfileCmd, RulesCmd};
+use crate::cli::{
+    BundleCmd, Cmd, GameCmd, OutputFormat, ProfileCmd, RulesCmd, ShotSwitch, ShotsCmd, ShotsDirCmd,
+};
 
 type Result<T> = std::result::Result<T, AppError>;
 
@@ -255,6 +257,7 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
             )
         }
         Cmd::Bundle { cmd } => bundle(app, cmd, out),
+        Cmd::Shots { cmd } => shots(app, cmd, out),
         Cmd::Fsck { deep } => fsck(app, deep, out),
         Cmd::Reindex => {
             let lock = app.repo.lock()?;
@@ -329,6 +332,7 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
                 out.line(out.tf("cli.out.game_ignored", &[("name", &g.name)]));
             }
         }
+        GameCmd::ShotsDir { cmd } => shots_dir(app, cmd, out)?,
         GameCmd::Confirm { game } => {
             let lock = app.repo.lock()?;
             let (g, n) = app.confirm_locations(&lock, &game)?;
@@ -765,6 +769,19 @@ fn backup(
                 let mut v = serde_json::to_value(&r).unwrap();
                 v["game"] = json!(g.id);
                 v["name"] = json!(g.name);
+                // 备份时顺带收集新截图（失败只提示，不影响备份结果）。
+                match app.sync_shots(&lock, g) {
+                    Ok(s) => {
+                        if s.added > 0 {
+                            out.line(out.tf(
+                                "cli.out.shots_collected",
+                                &[("n", &s.added), ("size", &human_bytes(s.bytes))],
+                            ));
+                        }
+                        v["shots"] = json!(s.added);
+                    }
+                    Err(e) => out.line(out.tf("cli.out.warning", &[("msg", &e)])),
+                }
                 results.push(v);
             }
             Err(e) => {
@@ -980,6 +997,7 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
             branches,
             from,
             to,
+            shots,
         } => {
             // 多个游戏（或 --all）导出为合集包，每个游戏全部分支。
             if all || games.len() > 1 {
@@ -996,7 +1014,7 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
                         .map(|k| app.find_game(k))
                         .collect::<Result<Vec<_>>>()?
                 };
-                let r = app.export_collection(&list, &out_file)?;
+                let r = app.export_collection(&list, &out_file, shots)?;
                 out.emit(serde_json::to_value(&r).unwrap());
                 out.line(out.tf(
                     "cli.out.collection_exported",
@@ -1027,7 +1045,7 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
                 (None, false) => BundleScope::Branches { names: branches },
                 (None, true) => BundleScope::All,
             };
-            let r = app.export_bundle(&g, &scope, &out_file)?;
+            let r = app.export_bundle(&g, &scope, &out_file, shots)?;
             out.emit(serde_json::to_value(&r).unwrap());
             let refs: Vec<String> = r
                 .refs
@@ -1165,6 +1183,9 @@ fn print_bundle_import(r: &BundleImportReport, dry_run: bool, out: &Out) {
         out.line(out.t("cli.out.dry_run"));
     } else {
         out.line(out.tf("cli.out.bundle_imported", &[("n", &r.imported_snapshots)]));
+        if r.imported_shots > 0 {
+            out.line(out.tf("cli.out.bundle_shots", &[("n", &r.imported_shots)]));
+        }
     }
 }
 
@@ -1380,4 +1401,183 @@ fn fsck(app: &App, deep: bool, out: &Out) -> Result<()> {
     } else {
         Err(AppError::RepoDamaged(r.errors.len()))
     }
+}
+
+fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
+    match cmd {
+        ShotsCmd::List { game } => {
+            let g = app.find_game(&game)?;
+            let album = app.album(&g)?;
+            out.emit(serde_json::to_value(&album).unwrap());
+            out.line(out.tf(
+                "cli.out.shots_summary",
+                &[
+                    ("game", &g.name),
+                    ("n", &album.shots.len()),
+                    ("size", &human_bytes(album.bytes)),
+                    ("pending", &album.pending),
+                ],
+            ));
+            if !album.enabled {
+                out.line(out.t("cli.out.shots_disabled"));
+            }
+            for s in &album.shots {
+                let name = Path::new(&s.original_path)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                out.line(format!(
+                    "{}  {}  {:<8} {:>9}  {name}",
+                    s.blob.short(12),
+                    s.taken_at
+                        .get(..16)
+                        .unwrap_or(&s.taken_at)
+                        .replace('T', " "),
+                    out.t(&format!("cli.shot_source.{}", s.source)),
+                    human_bytes(s.size)
+                ));
+            }
+            Ok(())
+        }
+        ShotsCmd::Sync { games } => {
+            let lock = app.repo.lock()?;
+            let reports = if games.is_empty() {
+                app.sync_all_shots(&lock)?
+            } else {
+                let mut v = Vec::new();
+                for k in &games {
+                    let g = app.find_game(k)?;
+                    v.push(app.sync_shots(&lock, &g)?);
+                }
+                v
+            };
+            out.emit(serde_json::to_value(&reports).unwrap());
+            let total: usize = reports.iter().map(|r| r.added).sum();
+            for r in reports.iter().filter(|r| r.added > 0) {
+                let name = app
+                    .find_game(&r.game_id)
+                    .map(|g| g.name)
+                    .unwrap_or_default();
+                out.line(out.tf(
+                    "cli.out.shots_synced_game",
+                    &[
+                        ("game", &name),
+                        ("n", &r.added),
+                        ("size", &human_bytes(r.bytes)),
+                    ],
+                ));
+            }
+            out.line(out.tf("cli.out.shots_synced", &[("n", &total)]));
+            Ok(())
+        }
+        ShotsCmd::Export {
+            game,
+            out_file,
+            folder,
+            ids,
+            since,
+            snapshot,
+        } => {
+            let g = app.find_game(&game)?;
+            let mut chosen = app.resolve_shots(&g, &ids)?;
+            if since.is_some() || snapshot.is_some() {
+                let all = app.album(&g)?.shots;
+                let map = app.shot_snapshots(&g)?;
+                let snap = match &snapshot {
+                    Some(s) => Some(app.repo.resolve(&g.id, s)?),
+                    None => None,
+                };
+                let filtered: Vec<_> = all
+                    .iter()
+                    .filter(|s| since.as_deref().is_none_or(|d| s.taken_at.as_str() >= d))
+                    .filter(|s| {
+                        snap.is_none_or(|id| map.get(&s.blob).copied().flatten() == Some(id))
+                    })
+                    .filter(|s| chosen.is_empty() || chosen.contains(&s.blob))
+                    .map(|s| s.blob)
+                    .collect();
+                if filtered.is_empty() {
+                    return Err(AppError::Invalid(out.t("cli.error.no_shots_match").into()));
+                }
+                chosen = filtered;
+            }
+            let format = if folder {
+                ExportFormat::Folder
+            } else {
+                ExportFormat::Zip
+            };
+            let r = app.export_shots(&g, &chosen, &out_file, format)?;
+            out.emit(serde_json::to_value(&r).unwrap());
+            out.line(out.tf(
+                "cli.out.shots_exported",
+                &[
+                    ("n", &r.files),
+                    ("size", &human_bytes(r.bytes)),
+                    ("dest", &r.dest.display()),
+                ],
+            ));
+            Ok(())
+        }
+        ShotsCmd::Rm { game, ids } => {
+            let g = app.find_game(&game)?;
+            let blobs = app.resolve_shots(&g, &ids)?;
+            if !out.confirm(out.tf(
+                "cli.confirm.shots_rm",
+                &[("n", &blobs.len()), ("game", &g.name)],
+            ))? {
+                out.line(out.t("cli.out.cancelled"));
+                return Ok(());
+            }
+            let lock = app.repo.lock()?;
+            let n = app.delete_shots(&lock, &g, &blobs)?;
+            out.emit(json!({ "deleted": n }));
+            out.line(out.tf("cli.out.shots_deleted", &[("n", &n)]));
+            Ok(())
+        }
+        ShotsCmd::Set { game, value } => {
+            let g = app.find_game(&game)?;
+            let v = match value {
+                ShotSwitch::On => Some(true),
+                ShotSwitch::Off => Some(false),
+                ShotSwitch::Auto => None,
+            };
+            app.set_shots_enabled(&g, v)?;
+            let on = app.shots_enabled(&g)?;
+            out.emit(json!({ "game": g.id, "setting": v, "enabled": on }));
+            out.line(out.tf(
+                if on {
+                    "cli.out.shots_on"
+                } else {
+                    "cli.out.shots_off"
+                },
+                &[("game", &g.name)],
+            ));
+            Ok(())
+        }
+    }
+}
+
+pub(crate) fn shots_dir(app: &mut App, cmd: ShotsDirCmd, out: &Out) -> Result<()> {
+    match cmd {
+        ShotsDirCmd::Add { game, dir } => {
+            let g = app.find_game(&game)?;
+            let d = app.add_shot_dir(&g, &dir)?;
+            out.emit(json!({ "game": g.id, "dir": d }));
+            out.line(out.tf("cli.out.shots_dir_added", &[("game", &g.name), ("dir", &d)]));
+        }
+        ShotsDirCmd::Rm { game, dir } => {
+            let g = app.find_game(&game)?;
+            if !app.remove_shot_dir(&g, &dir)? {
+                return Err(AppError::Invalid(
+                    out.tf("cli.error.no_shots_dir", &[("dir", &dir)]),
+                ));
+            }
+            out.emit(json!({ "game": g.id, "removed": dir }));
+            out.line(out.tf(
+                "cli.out.shots_dir_removed",
+                &[("game", &g.name), ("dir", &dir)],
+            ));
+        }
+    }
+    Ok(())
 }

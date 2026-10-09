@@ -34,6 +34,8 @@ function bundle(over: Partial<BundlePreview>): BundlePreview {
     missing: [],
     refs: [],
     locationMismatch: false,
+    shots: 0,
+    newShots: 0,
     ...over,
   };
 }
@@ -90,7 +92,7 @@ describe("导出多个游戏", () => {
     expect(within(cup).getByRole("checkbox")).toBeDisabled();
     expect(screen.getByText("已选 1 个游戏，共 2 个快照")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /选择位置并导出/ }));
-    await waitFor(() => expect(api.exportCollection).toHaveBeenCalledWith(["steam-367520"], "D:/out/all.bonfire"));
+    await waitFor(() => expect(api.exportCollection).toHaveBeenCalledWith(["steam-367520"], "D:/out/all.bonfire", false));
     expect(await screen.findByRole("button", { name: /在资源管理器中显示/ })).toBeInTheDocument();
   });
 });

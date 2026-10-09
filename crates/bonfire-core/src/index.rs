@@ -15,7 +15,8 @@ use crate::refs::RefName;
 use crate::{ObjectId, Repo};
 
 /// 数据库结构版本（PRAGMA user_version）。
-const SCHEMA_VERSION: i32 = 2;
+/// 3：截图相册（screenshots、shot_settings）。
+const SCHEMA_VERSION: i32 = 3;
 
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS games (
@@ -110,6 +111,24 @@ CREATE TABLE IF NOT EXISTS game_metadata (
     field_sources_json TEXT NOT NULL DEFAULT '{}',
     locked_fields_json TEXT NOT NULL DEFAULT '[]',
     fetched_at TEXT
+);
+CREATE TABLE IF NOT EXISTS screenshots (
+    game_id TEXT NOT NULL,
+    blob TEXT NOT NULL,
+    taken_at TEXT NOT NULL,
+    source TEXT NOT NULL,
+    original_path TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    width INTEGER,
+    height INTEGER,
+    added_at TEXT NOT NULL,
+    PRIMARY KEY (game_id, blob)
+);
+CREATE INDEX IF NOT EXISTS screenshots_taken ON screenshots(game_id, taken_at);
+CREATE TABLE IF NOT EXISTS shot_settings (
+    game_id TEXT PRIMARY KEY,
+    enabled INTEGER,
+    dirs_json TEXT NOT NULL DEFAULT '[]'
 );
 "#;
 
@@ -249,6 +268,36 @@ pub struct OperationRow {
 
 pub struct Index {
     conn: Connection,
+}
+
+/// 相册中的一张截图（文档：截图备份方案）。内容是普通文件对象 `blob`，同一游戏内按内容去重。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShotRecord {
+    pub game_id: String,
+    pub blob: ObjectId,
+    /// 拍摄时间（RFC 3339，含时区）。
+    pub taken_at: String,
+    /// `steam` / `capture` / `folder` / `import`
+    pub source: String,
+    /// 收集时的原始路径（只用于显示、导出时的文件名与跳过已收集的文件）。
+    pub original_path: String,
+    pub size: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<u32>,
+    pub added_at: String,
+}
+
+/// 游戏的截图设置：是否收集（`None` 跟随全局设置）与手动添加的截图文件夹。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShotSettings {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dirs: Vec<String>,
 }
 
 fn now_rfc3339() -> String {
@@ -567,6 +616,103 @@ impl Index {
             )?;
         }
         tx.commit()?;
+        Ok(())
+    }
+
+    // ---------- 截图相册 ----------
+
+    fn shot_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<ShotRecord> {
+        Ok(ShotRecord {
+            game_id: r.get(0)?,
+            blob: parse_id(r.get(1)?)?,
+            taken_at: r.get(2)?,
+            source: r.get(3)?,
+            original_path: r.get(4)?,
+            size: r.get::<_, i64>(5)? as u64,
+            width: r.get::<_, Option<i64>>(6)?.map(|v| v as u32),
+            height: r.get::<_, Option<i64>>(7)?.map(|v| v as u32),
+            added_at: r.get(8)?,
+        })
+    }
+
+    /// 记录截图；同一游戏中内容相同的已存在时不记录，返回 false。
+    pub fn add_shot(&self, s: &ShotRecord) -> Result<bool> {
+        let n = self.conn.execute(
+            "INSERT OR IGNORE INTO screenshots (game_id, blob, taken_at, source, original_path, size, width, height, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![s.game_id, s.blob.to_string(), s.taken_at, s.source, s.original_path, s.size as i64,
+                    s.width.map(i64::from), s.height.map(i64::from), s.added_at],
+        )?;
+        Ok(n > 0)
+    }
+
+    /// 游戏的全部截图，最新拍摄的在前。
+    pub fn shots_of(&self, game_id: &str) -> Result<Vec<ShotRecord>> {
+        let mut st = self.conn.prepare(
+            "SELECT game_id, blob, taken_at, source, original_path, size, width, height, added_at
+             FROM screenshots WHERE game_id = ?1 ORDER BY taken_at DESC, blob",
+        )?;
+        let rows = st
+            .query_map([game_id], Self::shot_from_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+
+    pub fn delete_shots(&self, game_id: &str, blobs: &[ObjectId]) -> Result<usize> {
+        let mut n = 0;
+        for b in blobs {
+            n += self.conn.execute(
+                "DELETE FROM screenshots WHERE game_id = ?1 AND blob = ?2",
+                params![game_id, b.to_string()],
+            )?;
+        }
+        Ok(n)
+    }
+
+    /// 用相册文件的内容整体替换游戏的截图记录（重建索引时）。
+    pub fn replace_shots(&mut self, game_id: &str, shots: &[ShotRecord]) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        tx.execute("DELETE FROM screenshots WHERE game_id = ?1", [game_id])?;
+        for s in shots {
+            tx.execute(
+                "INSERT OR IGNORE INTO screenshots (game_id, blob, taken_at, source, original_path, size, width, height, added_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![game_id, s.blob.to_string(), s.taken_at, s.source, s.original_path, s.size as i64,
+                        s.width.map(i64::from), s.height.map(i64::from), s.added_at],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn shot_settings(&self, game_id: &str) -> Result<ShotSettings> {
+        let row: Option<(Option<bool>, String)> = self
+            .conn
+            .query_row(
+                "SELECT enabled, dirs_json FROM shot_settings WHERE game_id = ?1",
+                [game_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        Ok(match row {
+            Some((enabled, dirs)) => ShotSettings {
+                enabled,
+                dirs: serde_json::from_str(&dirs).unwrap_or_default(),
+            },
+            None => ShotSettings::default(),
+        })
+    }
+
+    pub fn save_shot_settings(&self, game_id: &str, s: &ShotSettings) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO shot_settings (game_id, enabled, dirs_json) VALUES (?1, ?2, ?3)
+             ON CONFLICT(game_id) DO UPDATE SET enabled = ?2, dirs_json = ?3",
+            params![
+                game_id,
+                s.enabled,
+                serde_json::to_string(&s.dirs).expect("可以序列化")
+            ],
+        )?;
         Ok(())
     }
 

@@ -7,11 +7,13 @@ import { Icon, Menu, StatusBadge, displayName } from "../components/ui";
 import { bytes, dateTime, displayPath, hours, relative, shortId } from "../lib/format";
 import { layout } from "../lib/timeline";
 import { useStore } from "../store";
-import type { DiffEntry, HistoryView, LocationRecord, MetadataView, SnapshotNode, TreeEntry } from "../types";
+import type { DiffEntry, HistoryView, LocationRecord, MetadataView, ShotRecord, SnapshotNode, TreeEntry } from "../types";
 import BackupDialog, { MAX_COMMENT } from "./BackupDialog";
 import ExportDialog, { type ExportKind } from "./ExportDialog";
 import ImportDialog from "./ImportDialog";
 import RestoreDialog from "./RestoreDialog";
+import ShotsPanel, { ShotThumb } from "./ShotsPanel";
+import { fileName, shotCounts, shotSnapshots } from "../lib/shots";
 
 type Compare = "disk" | "parent";
 type Tab = "changes" | "files";
@@ -34,6 +36,8 @@ export default function GameDetail({ id }: { id: string }) {
   const [exporting, setExporting] = useState<{ kind: ExportKind; snapshot: string | null } | null>(null);
   const [importing, setImporting] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
+  const [page, setPage] = useState<"saves" | "shots">("saves");
+  const [shots, setShots] = useState<ShotRecord[]>([]);
 
   const reload = useCallback(async () => {
     try {
@@ -41,6 +45,7 @@ export default function GameDetail({ id }: { id: string }) {
       setHist(h);
       setSelected((cur) => (cur && h.nodes.some((n) => n.id === cur) ? cur : (h.head ?? h.nodes[0]?.id ?? null)));
       setMeta(await api.gameInfo(id));
+      setShots(await api.album(id).then((a) => a.shots).catch(() => []));
       const undo = await api.pendingUndo(id);
       store.setUndoable(id, undo?.target ?? null);
     } catch (e) {
@@ -61,6 +66,9 @@ export default function GameDetail({ id }: { id: string }) {
   // 与时间线相同的布局：用来给分支按钮配上对应路线的颜色。
   const graph = useMemo(() => layout(nodes), [nodes]);
   const laneOf = useMemo(() => new Map(graph.rows.map((r) => [r.id, r.col])), [graph]);
+  // 截图与快照的对应：时间线上显示每个快照之前拍的截图数，快照详情中列出这些截图。
+  const shotSnap = useMemo(() => shotSnapshots(hist?.nodes ?? [], shots), [hist, shots]);
+  const shotsBySnap = useMemo(() => shotCounts(shotSnap), [shotSnap]);
 
   const afterChange = async () => {
     await reload();
@@ -114,6 +122,27 @@ export default function GameDetail({ id }: { id: string }) {
           </button>
         </div>
       )}
+      <div className="page-tabs" role="tablist">
+        <button role="tab" aria-selected={page === "saves"} onClick={() => setPage("saves")}>
+          {t("ui.shots.tabSaves")} <span className="chip-count num">{hist.nodes.length}</span>
+        </button>
+        <button role="tab" aria-selected={page === "shots"} onClick={() => setPage("shots")}>
+          <Icon name="camera" size={15} /> {t("ui.shots.tab")} <span className="chip-count num">{shots.length}</span>
+          {row.newShots > 0 && <span className="new-dot" title={t("ui.shots.newInLibrary", { n: row.newShots })} />}
+        </button>
+      </div>
+      {page === "shots" ? (
+        <ShotsPanel
+          gameId={id}
+          gameName={name}
+          nodes={hist.nodes}
+          onChanged={afterChange}
+          onShowSnapshot={(snap) => {
+            setPage("saves");
+            setSelected(snap);
+          }}
+        />
+      ) : (
       <div className="detail">
         <section className="trail">
           <div className="trail-head">
@@ -153,7 +182,7 @@ export default function GameDetail({ id }: { id: string }) {
               </div>
             </div>
           ) : (
-            <Timeline nodes={nodes} head={hist.head} selected={selected} onSelect={setSelected} focus={selected} />
+            <Timeline nodes={nodes} head={hist.head} selected={selected} onSelect={setSelected} focus={selected} shots={shotsBySnap} />
           )}
         </section>
         <section className="files">
@@ -166,12 +195,15 @@ export default function GameDetail({ id }: { id: string }) {
               onRestore={(paths) => setRestore({ target: node.id, paths })}
               onExport={() => setExporting({ kind: "files", snapshot: node.id })}
               onChanged={afterChange}
+              shots={shots.filter((s) => shotSnap.get(s.blob) === node.id)}
+              onShowShots={() => setPage("shots")}
             />
           ) : (
             <p className="muted">{t("ui.history.pick")}</p>
           )}
         </section>
       </div>
+      )}
       {restore && (
         <RestoreDialog
           row={row}
@@ -370,6 +402,8 @@ function SnapshotPanel({
   onRestore,
   onExport,
   onChanged,
+  shots,
+  onShowShots,
 }: {
   gameId: string;
   node: SnapshotNode;
@@ -377,6 +411,9 @@ function SnapshotPanel({
   onRestore: (paths: string[]) => void;
   onExport: () => void;
   onChanged: () => void;
+  /** 这次存档前拍的截图。 */
+  shots: ShotRecord[];
+  onShowShots: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const store = useStore();
@@ -592,6 +629,24 @@ function SnapshotPanel({
             {t("ui.cancel")}
           </button>
         </form>
+      )}
+
+      {shots.length > 0 && (
+        <div className="snap-shots">
+          <div className="snap-shots-head">
+            <span>{t("ui.shots.forSnapshot", { n: shots.length })}</span>
+            <button className="btn ghost small" onClick={onShowShots}>
+              {t("ui.shots.viewAll")}
+            </button>
+          </div>
+          <div className="snap-shots-strip">
+            {shots.slice(0, 6).map((s) => (
+              <button key={s.blob} className="shot-open" onClick={onShowShots} title={fileName(s.originalPath)}>
+                <ShotThumb gameId={gameId} blob={s.blob} alt={fileName(s.originalPath)} />
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       <div className="tabs" role="tablist">

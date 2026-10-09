@@ -45,7 +45,7 @@ describe("导出", () => {
     expect(screen.getByText("包含 2 个快照")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /选择位置并导出/ }));
     await waitFor(() =>
-      expect(api.exportBundle).toHaveBeenCalledWith("steam-367520", { kind: "range", from: "b3:bbbbbbbb", to: "b3:cccccccc" }, "D:/out/hk.bonfire"),
+      expect(api.exportBundle).toHaveBeenCalledWith("steam-367520", { kind: "range", from: "b3:bbbbbbbb", to: "b3:cccccccc" }, "D:/out/hk.bonfire", false),
     );
   });
 });

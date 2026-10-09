@@ -51,6 +51,7 @@ fn main() {
         .setup(move |app| {
             tray::create_main_window(app.handle())?;
             tray::create(app.handle(), locale)?;
+            commands::start_shot_scheduler(app.handle().clone());
             if !first_run {
                 let h = app.handle().clone();
                 let shared = h.state::<Shared>();
@@ -79,6 +80,16 @@ fn main() {
             commands::delete_branch,
             commands::delete_tag,
             commands::delete_snapshot,
+            commands::album,
+            commands::sync_shots,
+            commands::shot_thumb,
+            commands::shot_image,
+            commands::delete_shots,
+            commands::export_shots,
+            commands::set_shots_enabled,
+            commands::add_shot_dir,
+            commands::remove_shot_dir,
+            commands::captures_dir,
             commands::get_settings,
             commands::save_settings,
             commands::load_library,

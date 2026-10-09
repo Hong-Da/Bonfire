@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
@@ -32,6 +32,14 @@ export default function ExportDialog({ hist, gameName, kind: initialKind, snapsh
   const [names, setNames] = useState<Set<string>>(new Set(branches.filter((b) => b.current).map((b) => b.name)));
   const [range, setRange] = useState<{ from: string | null; to: string | null }>({ from: null, to: snapshot ?? hist.head });
   const [busy, setBusy] = useState(false);
+  const [withShots, setWithShots] = useState(false);
+  const [album, setAlbum] = useState<{ n: number; bytes: number } | null>(null);
+  useEffect(() => {
+    api
+      .album(gameId)
+      .then((a) => setAlbum({ n: a.shots.length, bytes: a.bytes }))
+      .catch(() => setAlbum(null));
+  }, [gameId]);
   const [done, setDone] = useState<string | null>(null);
 
   const included = useMemo(() => {
@@ -86,7 +94,7 @@ export default function ExportDialog({ hist, gameName, kind: initialKind, snapsh
         const name = await api.exportDefaultName(gameId, null);
         const dest = await save({ defaultPath: `${name}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
         if (!dest) return;
-        const r = await api.exportBundle(gameId, s, dest);
+        const r = await api.exportBundle(gameId, s, dest, withShots);
         setDone(r.dest);
         store.toast("success", t("ui.transfer.exportedBundle", { n: r.snapshots, size: bytes(r.bytes) }));
       }
@@ -211,6 +219,12 @@ export default function ExportDialog({ hist, gameName, kind: initialKind, snapsh
                 </div>
               )}
               <p className="summary num">{t("ui.transfer.includes", { n: count })}</p>
+              {album && album.n > 0 && (
+                <label className="radio">
+                  <input type="checkbox" checked={withShots} onChange={(e) => setWithShots(e.target.checked)} /> {t("ui.transfer.includeShots")}
+                  <span className="muted num">{t("ui.transfer.includeShotsHint", { n: album.n, size: bytes(album.bytes) })}</span>
+                </label>
+              )}
             </fieldset>
           )}
         </div>

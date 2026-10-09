@@ -134,6 +134,12 @@ fn every_command_has_ok_and_error_cases() {
         "import",
         "bundle export",
         "bundle import",
+        "shots list",
+        "shots sync",
+        "shots export",
+        "shots rm",
+        "shots set",
+        "game shots-dir",
     ];
     let mut missing = Vec::new();
     for cmd in cmds {
