@@ -72,6 +72,11 @@ pub fn t(locale: Locale, key: &str) -> &str {
     key
 }
 
+/// 取文案；没有该键时返回 None（不回退）。
+pub fn lookup(locale: Locale, key: &str) -> Option<&'static str> {
+    locale.table().get(key).map(String::as_str)
+}
+
 /// 取文案并替换 `{名称}` 占位符。
 pub fn tf(locale: Locale, key: &str, args: &[(&str, &dyn std::fmt::Display)]) -> String {
     let mut s = t(locale, key).to_string();

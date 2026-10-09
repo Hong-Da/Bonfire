@@ -33,6 +33,8 @@ pub enum AppError {
     RolledBack(String),
     #[error("{path}: {source}")]
     Io { path: PathBuf, source: std::io::Error },
+    #[error("仓库校验发现 {0} 个问题")]
+    RepoDamaged(usize),
     #[error("{0}")]
     Invalid(String),
 }

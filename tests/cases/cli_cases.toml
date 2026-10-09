@@ -1,6 +1,15 @@
 # CLI 用例：由 tests/cli 执行，in_docs = true 的用例同时生成 docs/cli.md 的示例。
-# 占位符 {inputs} 会替换为 tests/inputs 的绝对路径。
-# 每条用例都在临时的 BONFIRE_HOME 下运行，不读写本机真实配置与仓库。
+#
+# 每条用例在独立的临时目录中运行（BONFIRE_HOME 指向临时目录，语言固定为中文），
+# 不读写本机真实配置、仓库与游戏存档。字段：
+#   fixture       复制 tests/inputs/saves/<名称> 为存档目录 {saves}
+#   pre           先依次执行的命令（必须成功）
+#   edit          执行前写入存档目录的文件（相对路径 → 内容）
+#   remove        执行前删除的文件或目录（用于制造损坏）
+#   expect_files  执行后存档目录中文件的内容
+# 占位符：{inputs} = tests/inputs，{saves} = 存档目录，{tmp} = 临时目录。
+
+# ---------- 基本 ----------
 
 [[case]]
 id = "version-ok"
@@ -15,13 +24,12 @@ id = "help-ok"
 title = { zh-CN = "查看帮助", en = "Show help" }
 args = ["--help"]
 expect_exit = 0
-stdout_contains = ["--output", "--json", "--repo"]
-in_docs = false
+stdout_contains = ["--output", "--json", "--repo", "backup", "restore"]
 
 [[case]]
 id = "unknown-flag"
 title = { zh-CN = "未知参数返回退出码 2", en = "Unknown flag exits with 2" }
-args = ["--no-such-flag"]
+args = ["status", "--no-such-flag"]
 expect_exit = 2
 stderr_contains = ["--no-such-flag"]
 in_docs = true
@@ -29,39 +37,484 @@ in_docs = true
 [[case]]
 id = "config-bad-syntax-json"
 title = { zh-CN = "配置文件格式错误（JSON 输出）", en = "Malformed config file (JSON output)" }
-args = ["--config", "{inputs}/config/bad-syntax.toml", "--json"]
+args = ["--config", "{inputs}/config/bad-syntax.toml", "--json", "status"]
 expect_exit = 3
-expect_stderr_json = { "error.code" = 3 }
+expect_stderr_json = { "error.code" = 3, "error.kind" = "config" }
 in_docs = true
 
 [[case]]
 id = "config-bad-syntax-zh"
 title = { zh-CN = "配置错误提示为中文", en = "Config error in Chinese" }
-args = ["--config", "{inputs}/config/bad-syntax.toml", "--lang", "zh-CN"]
+args = ["--config", "{inputs}/config/bad-syntax.toml", "--lang", "zh-CN", "status"]
 expect_exit = 3
 stderr_contains = ["配置错误", "bad-syntax.toml"]
-in_docs = false
 
 [[case]]
 id = "config-bad-syntax-en"
 title = { zh-CN = "配置错误提示为英文", en = "Config error in English" }
-args = ["--config", "{inputs}/config/bad-syntax.toml", "--lang", "en"]
+args = ["--config", "{inputs}/config/bad-syntax.toml", "--lang", "en", "status"]
 expect_exit = 3
 stderr_contains = ["Configuration error"]
-in_docs = false
 
 [[case]]
 id = "config-bad-value"
 title = { zh-CN = "配置取值无效", en = "Invalid config value" }
-args = ["--config", "{inputs}/config/bad-value.toml", "--output", "json"]
+args = ["--config", "{inputs}/config/bad-value.toml", "--output", "json", "status"]
 expect_exit = 3
 expect_stderr_json = { "error.code" = 3 }
 stderr_contains = ["log.level"]
-in_docs = false
 
 [[case]]
 id = "config-unicode-ok"
 title = { zh-CN = "含中文与重音字符路径的配置可正常读取", en = "Config with non-ASCII paths loads" }
-args = ["--config", "{inputs}/config/zh-paths.toml", "--quiet"]
+args = ["--config", "{inputs}/config/zh-paths.toml", "--repo", "{tmp}/repo", "--quiet", "status"]
 expect_exit = 0
-in_docs = false
+
+# ---------- game ----------
+
+[[case]]
+id = "game-add-ok"
+title = { zh-CN = "添加游戏", en = "Add a game" }
+fixture = "basic"
+args = ["game", "add", "空洞骑士", "--path", "{saves}"]
+expect_exit = 0
+stdout_contains = ["已添加游戏「空洞骑士」", "1 个存档位置"]
+in_docs = true
+
+[[case]]
+id = "game-add-missing-path"
+title = { zh-CN = "存档路径不存在", en = "Save path does not exist" }
+args = ["game", "add", "X", "--path", "{tmp}/nope"]
+expect_exit = 4
+stderr_contains = ["路径不存在"]
+
+[[case]]
+id = "game-list-json"
+title = { zh-CN = "列出游戏（JSON）", en = "List games (JSON)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["game", "list", "--json"]
+expect_exit = 0
+expect_stdout_json = { "0.name" = "空洞骑士", "0.platform" = "custom", "0.locations.0.kind" = "dir" }
+in_docs = true
+
+[[case]]
+id = "game-list-bad-format"
+title = { zh-CN = "无效的输出格式", en = "Invalid output format" }
+args = ["game", "list", "--output", "xml"]
+expect_exit = 2
+stderr_contains = ["xml"]
+
+[[case]]
+id = "game-rm-needs-yes"
+title = { zh-CN = "非交互环境下移除游戏需要 --yes", en = "Removing a game needs --yes when non-interactive" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["game", "rm", "空洞骑士"]
+expect_exit = 2
+stderr_contains = ["--yes"]
+
+[[case]]
+id = "game-rm-ok"
+title = { zh-CN = "移除游戏", en = "Remove a game" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["game", "rm", "空洞骑士", "-y"]
+expect_exit = 0
+stdout_contains = ["已移除游戏「空洞骑士」"]
+
+# ---------- scan / status ----------
+
+[[case]]
+id = "scan-ok"
+title = { zh-CN = "扫描所有游戏", en = "Scan all games" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["scan"]
+expect_exit = 0
+stdout_contains = ["空洞骑士", "未备份"]
+in_docs = true
+
+[[case]]
+id = "scan-bad-repo"
+title = { zh-CN = "仓库格式版本过高", en = "Repository format too new" }
+args = ["--repo", "{inputs}/repo-future", "scan"]
+expect_exit = 3
+stderr_contains = ["升级"]
+
+[[case]]
+id = "status-changes-json"
+title = { zh-CN = "查看单个游戏的变化（JSON）", en = "Changed files of one game (JSON)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+edit = { "slot1.sav" = "level 9" }
+args = ["status", "空洞骑士", "--json"]
+expect_exit = 0
+expect_stdout_json = { "state" = "has-changes", "summary.modified" = 1, "changes.0.path" = "0/slot1.sav", "changes.0.status" = "modified" }
+in_docs = true
+
+[[case]]
+id = "status-force-verify"
+title = { zh-CN = "强制校验", en = "Force verification" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["status", "空洞骑士", "--force-verify"]
+expect_exit = 0
+stdout_contains = ["已是最新"]
+
+[[case]]
+id = "status-unknown-game"
+title = { zh-CN = "游戏不存在", en = "Unknown game" }
+args = ["status", "nope"]
+expect_exit = 4
+stderr_contains = ["找不到游戏「nope」"]
+
+# ---------- backup ----------
+
+[[case]]
+id = "backup-ok"
+title = { zh-CN = "备份并写备注", en = "Back up with a comment" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["backup", "空洞骑士", "-m", "打完螳螂领主"]
+expect_exit = 0
+stdout_contains = ["已创建快照", "打完螳螂领主"]
+in_docs = true
+
+[[case]]
+id = "backup-json"
+title = { zh-CN = "备份（JSON 输出）", en = "Back up (JSON output)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["backup", "空洞骑士", "--tag", "首次", "--json"]
+expect_exit = 0
+expect_stdout_json = { "results.0.result" = "created", "results.0.branch" = "main", "results.0.files" = 3, "results.0.summary.added" = 3 }
+
+[[case]]
+id = "backup-no-changes"
+title = { zh-CN = "没有变化时不生成快照", en = "No snapshot without changes" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["backup", "空洞骑士"]
+expect_exit = 0
+stdout_contains = ["没有变化"]
+
+[[case]]
+id = "backup-all"
+title = { zh-CN = "备份所有有更新的游戏", en = "Back up every changed game" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["backup", "--all"]
+expect_exit = 0
+stdout_contains = ["空洞骑士：已创建快照"]
+in_docs = true
+
+[[case]]
+id = "backup-en"
+title = { zh-CN = "英文输出与自动备注", en = "English output and comment" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["--lang", "en", "backup", "空洞骑士"]
+expect_exit = 0
+stdout_contains = ["created snapshot", "First backup: 3 files"]
+
+[[case]]
+id = "backup-no-target"
+title = { zh-CN = "未指定游戏", en = "No game given" }
+args = ["backup"]
+expect_exit = 2
+stderr_contains = ["--all"]
+
+[[case]]
+id = "backup-bad-tag"
+title = { zh-CN = "无效的标签名", en = "Invalid tag name" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["backup", "空洞骑士", "--tag", "a/b"]
+expect_exit = 2
+stderr_contains = ["名称无效"]
+
+# ---------- log / diff ----------
+
+[[case]]
+id = "log-ok"
+title = { zh-CN = "查看历史", en = "Show history" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士", "-m", "第一章"]]
+edit = { "slot1.sav" = "level 2" }
+args = ["log", "空洞骑士"]
+expect_exit = 0
+stdout_contains = ["第一章", "(heads/main)"]
+in_docs = true
+
+[[case]]
+id = "log-grep"
+title = { zh-CN = "按备注搜索", en = "Search comments" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士", "-m", "打完大树守卫，强化 +5 前"]]
+args = ["log", "空洞骑士", "--grep", "大树守卫", "--json"]
+expect_exit = 0
+expect_stdout_json = { "0.comment" = "打完大树守卫，强化 +5 前", "0.trigger" = "manual" }
+
+[[case]]
+id = "log-unknown-game"
+title = { zh-CN = "游戏不存在", en = "Unknown game" }
+args = ["log", "nope"]
+expect_exit = 4
+
+[[case]]
+id = "diff-disk"
+title = { zh-CN = "快照与当前磁盘比较", en = "Compare a snapshot with the disk" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+edit = { "slot1.sav" = "level 2", "new.sav" = "n" }
+args = ["diff", "空洞骑士", "HEAD"]
+expect_exit = 0
+stdout_contains = ["0/slot1.sav", "0/new.sav"]
+in_docs = true
+
+[[case]]
+id = "diff-snapshots-json"
+title = { zh-CN = "两个快照比较（JSON）", en = "Compare two snapshots (JSON)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["backup", "空洞骑士", "--force"]]
+args = ["diff", "空洞骑士", "HEAD~1", "HEAD", "--json"]
+expect_exit = 0
+stdout_contains = ["[]"]
+
+[[case]]
+id = "diff-bad-ref"
+title = { zh-CN = "引用不存在", en = "Unknown reference" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["diff", "空洞骑士", "nope"]
+expect_exit = 4
+stderr_contains = ["找不到引用「nope」"]
+
+# ---------- restore / undo-restore ----------
+
+[[case]]
+id = "restore-ok"
+title = { zh-CN = "恢复到上一个快照", en = "Restore the previous snapshot" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+edit = { "slot1.sav" = "level 2" }
+args = ["restore", "空洞骑士", "HEAD", "-y"]
+expect_exit = 0
+stdout_contains = ["保护快照", "已恢复到"]
+expect_files = { "slot1.sav" = "level 1" }
+in_docs = true
+
+[[case]]
+id = "restore-dry-run"
+title = { zh-CN = "预览恢复，不写入", en = "Preview a restore" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+edit = { "slot1.sav" = "level 2" }
+args = ["restore", "空洞骑士", "HEAD", "--dry-run"]
+expect_exit = 0
+stdout_contains = ["将覆盖 1 个", "预览"]
+expect_files = { "slot1.sav" = "level 2" }
+in_docs = true
+
+[[case]]
+id = "restore-partial"
+title = { zh-CN = "只恢复部分文件", en = "Restore some files" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+edit = { "slot1.sav" = "level 2", "options.ini" = "fov=110" }
+args = ["restore", "空洞骑士", "HEAD", "--path", "*.sav", "-y"]
+expect_exit = 0
+expect_files = { "slot1.sav" = "level 1", "options.ini" = "fov=110" }
+
+[[case]]
+id = "restore-needs-yes"
+title = { zh-CN = "非交互环境下恢复需要 --yes", en = "Restore needs --yes when non-interactive" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["restore", "空洞骑士", "HEAD"]
+expect_exit = 2
+stderr_contains = ["--yes"]
+
+[[case]]
+id = "restore-no-parent"
+title = { zh-CN = "没有更早的快照", en = "No earlier snapshot" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["restore", "空洞骑士", "HEAD~5", "-y"]
+expect_exit = 4
+
+[[case]]
+id = "undo-restore-nothing"
+title = { zh-CN = "没有可撤销的恢复", en = "Nothing to undo" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["undo-restore", "空洞骑士", "-y"]
+expect_exit = 4
+stderr_contains = ["没有可撤销的恢复"]
+
+[[case]]
+id = "undo-after-restore"
+title = { zh-CN = "恢复后撤销，回到恢复前的内容", en = "Undo brings back the pre-restore content" }
+fixture = "basic"
+pre = [
+    ["game", "add", "空洞骑士", "--path", "{saves}"],
+    ["backup", "空洞骑士", "-m", "v1"],
+    ["backup", "空洞骑士", "--force", "-m", "v1 again"],
+    ["restore", "空洞骑士", "HEAD~1", "-y"],
+]
+args = ["undo-restore", "空洞骑士", "-y"]
+expect_exit = 0
+stdout_contains = ["已撤销恢复"]
+expect_files = { "slot1.sav" = "level 1" }
+in_docs = true
+
+# ---------- comment / branch / tag ----------
+
+[[case]]
+id = "comment-ok"
+title = { zh-CN = "修改备注", en = "Edit a comment" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["comment", "空洞骑士", "HEAD", "-m", "白宫之前"]
+expect_exit = 0
+stdout_contains = ["已修改"]
+in_docs = true
+
+[[case]]
+id = "comment-missing-message"
+title = { zh-CN = "缺少 -m", en = "Missing -m" }
+args = ["comment", "空洞骑士", "HEAD"]
+expect_exit = 2
+
+[[case]]
+id = "tag-ok"
+title = { zh-CN = "打标签", en = "Create a tag" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["tag", "空洞骑士", "Boss 前"]
+expect_exit = 0
+stdout_contains = ["tags/Boss 前"]
+in_docs = true
+
+[[case]]
+id = "tag-duplicate"
+title = { zh-CN = "标签已存在", en = "Tag already exists" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["tag", "空洞骑士", "x"]]
+args = ["tag", "空洞骑士", "X"]
+expect_exit = 2
+stderr_contains = ["已存在"]
+
+[[case]]
+id = "branch-list"
+title = { zh-CN = "列出分支与标签", en = "List branches and tags" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["branch", "空洞骑士", "二周目"]]
+args = ["branch", "空洞骑士"]
+expect_exit = 0
+stdout_contains = ["* heads/main", "heads/二周目"]
+
+[[case]]
+id = "branch-no-snapshots"
+title = { zh-CN = "还没有快照时不能建分支", en = "No branch before the first snapshot" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["branch", "空洞骑士", "二周目"]
+expect_exit = 4
+stderr_contains = ["还没有快照"]
+
+# ---------- profile ----------
+
+[[case]]
+id = "profile-save-ok"
+title = { zh-CN = "保存备份方案", en = "Save a profile" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["profile", "save", "周末", "空洞骑士", "-m", "周末存档"]
+expect_exit = 0
+stdout_contains = ["已保存备份方案「周末」"]
+in_docs = true
+
+[[case]]
+id = "profile-list-json"
+title = { zh-CN = "列出备份方案（JSON）", en = "List profiles (JSON)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["profile", "save", "周末", "空洞骑士"]]
+args = ["profile", "list", "--json"]
+expect_exit = 0
+expect_stdout_json = { "0.name" = "周末" }
+
+[[case]]
+id = "profile-backup"
+title = { zh-CN = "按方案备份，使用方案的默认备注", en = "Back up a profile with its default comment" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["profile", "save", "周末", "空洞骑士", "-m", "周末存档"]]
+args = ["backup", "--profile", "周末"]
+expect_exit = 0
+stdout_contains = ["周末存档"]
+
+[[case]]
+id = "profile-list-extra-arg"
+title = { zh-CN = "多余的参数", en = "Unexpected argument" }
+args = ["profile", "list", "extra"]
+expect_exit = 2
+
+[[case]]
+id = "profile-save-unknown-game"
+title = { zh-CN = "方案中的游戏不存在", en = "Unknown game in profile" }
+args = ["profile", "save", "x", "nope"]
+expect_exit = 4
+
+[[case]]
+id = "profile-rm-missing"
+title = { zh-CN = "删除不存在的方案", en = "Delete a missing profile" }
+args = ["profile", "rm", "nope"]
+expect_exit = 4
+stderr_contains = ["找不到备份方案"]
+
+[[case]]
+id = "profile-rm-ok"
+title = { zh-CN = "删除方案", en = "Delete a profile" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["profile", "save", "周末", "空洞骑士"]]
+args = ["profile", "rm", "周末"]
+expect_exit = 0
+
+# ---------- fsck / reindex ----------
+
+[[case]]
+id = "fsck-ok"
+title = { zh-CN = "校验仓库", en = "Verify the repository" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["fsck", "--deep"]
+expect_exit = 0
+stdout_contains = ["仓库完好", "1 个快照"]
+in_docs = true
+
+[[case]]
+id = "fsck-damaged"
+title = { zh-CN = "仓库损坏（分块丢失）", en = "Damaged repository (chunks lost)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+remove = ["{tmp}/home/repo/objects/chunks"]
+args = ["fsck", "--json"]
+expect_exit = 1
+expect_stdout_json = { "ok" = false }
+
+[[case]]
+id = "reindex-ok"
+title = { zh-CN = "重建索引", en = "Rebuild the index" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["reindex"]
+expect_exit = 0
+stdout_contains = ["1 个快照"]
+in_docs = true
+
+[[case]]
+id = "reindex-bad-repo"
+title = { zh-CN = "仓库格式版本过高", en = "Repository format too new" }
+args = ["--repo", "{inputs}/repo-future", "reindex"]
+expect_exit = 3

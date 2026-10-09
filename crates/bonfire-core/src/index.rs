@@ -95,6 +95,7 @@ CREATE INDEX IF NOT EXISTS operations_game ON operations(game_id, id);
 "#;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GameRecord {
     pub id: String,
     pub name: String,
@@ -139,6 +140,7 @@ impl LocationKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LocationRecord {
     pub path_template: String,
     pub resolved_path: String,
@@ -162,6 +164,7 @@ pub struct IndexEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SnapshotRow {
     pub id: ObjectId,
     pub game_id: String,
@@ -174,6 +177,7 @@ pub struct SnapshotRow {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Profile {
     pub name: String,
     pub game_ids: Vec<String>,
@@ -181,6 +185,7 @@ pub struct Profile {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OperationRow {
     pub id: i64,
     pub kind: String,
@@ -548,6 +553,7 @@ pub(crate) fn tag_str(t: FileTag) -> &'static str {
 
 /// 重建统计。
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReindexStats {
     pub snapshots: u64,
     pub refs: u64,

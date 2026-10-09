@@ -11,6 +11,10 @@ name = "cli"
 path = "cli/main.rs"
 
 [[test]]
+name = "crash"
+path = "cli/crash.rs"
+
+[[test]]
 name = "docs"
 path = "docs/main.rs"
 

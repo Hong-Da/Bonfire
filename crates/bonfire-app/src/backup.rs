@@ -75,7 +75,7 @@ impl Default for BackupOptions {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "result", rename_all = "kebab-case")]
+#[serde(tag = "result", rename_all = "kebab-case", rename_all_fields = "camelCase")]
 pub enum BackupResult {
     Created {
         snapshot: ObjectId,
@@ -98,7 +98,11 @@ pub enum BackupResult {
 impl App {
     /// 当前磁盘与上次快照的对比。
     pub fn status(&self, game: &GameRecord) -> Result<GameStatus> {
-        let (disk, changes) = self.detect(game, false)?;
+        self.status_with(game, false)
+    }
+
+    fn status_with(&self, game: &GameRecord, force_verify: bool) -> Result<GameStatus> {
+        let (disk, changes) = self.detect(game, force_verify)?;
         let head = self.repo.head(&game.id)?;
         let head_snap = self.repo.head_snapshot(&game.id)?;
         let summary = ChangeSummary::of(&changes);
@@ -119,6 +123,11 @@ impl App {
             total_bytes: disk.iter().map(|f| f.size).sum(),
             last_modified_ns: disk.iter().map(|f| f.mtime_ns).max(),
         })
+    }
+
+    /// 与 [`App::status`] 相同，但忽略文件元数据、重新计算所有哈希（强制校验）。
+    pub fn status_verified(&self, game: &GameRecord) -> Result<GameStatus> {
+        self.status_with(game, true)
     }
 
     pub(crate) fn detect(&self, game: &GameRecord, force_verify: bool) -> Result<(Vec<DiskFile>, Vec<FileChange>)> {

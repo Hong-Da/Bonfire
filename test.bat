@@ -41,7 +41,7 @@ set "OUT=tests\output\%CAT%.log"
 echo.
 echo ==== %CAT% ====
 if "%CAT%"=="unit" cargo test --workspace --exclude bonfire-tests >"%OUT%" 2>&1
-if "%CAT%"=="cli" cargo test -p bonfire-tests --test cli >"%OUT%" 2>&1
+if "%CAT%"=="cli" cargo test -p bonfire-tests --test cli --test crash >"%OUT%" 2>&1
 if "%CAT%"=="docs" cargo test -p bonfire-tests --test docs >"%OUT%" 2>&1
 if "%CAT%"=="ui" call pnpm --dir app test >"%OUT%" 2>&1
 set "RC=%ERRORLEVEL%"

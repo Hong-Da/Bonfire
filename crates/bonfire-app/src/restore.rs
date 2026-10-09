@@ -46,6 +46,7 @@ pub enum Action {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PlannedFile {
     pub path: String,
     pub disk: PathBuf,
@@ -56,6 +57,7 @@ pub struct PlannedFile {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RestorePlan {
     pub target: ObjectId,
     pub files: Vec<PlannedFile>,
@@ -73,6 +75,7 @@ impl RestorePlan {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RestoreReport {
     pub plan: RestorePlan,
     /// 恢复前自动生成的保护快照。

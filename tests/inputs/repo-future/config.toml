@@ -1,0 +1,7 @@
+format_version = 99
+compression = "zstd"
+zstd_level = 3
+chunk_threshold = 1048576
+chunk_min = 262144
+chunk_avg = 1048576
+chunk_max = 4194304

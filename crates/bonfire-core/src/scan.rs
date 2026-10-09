@@ -54,6 +54,7 @@ pub enum FileStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileChange {
     pub path: String,
     pub status: FileStatus,
@@ -164,6 +165,7 @@ pub fn detect(disk: &[DiskFile], index: &HashMap<String, IndexEntry>, force_veri
 
 /// 变化汇总。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChangeSummary {
     pub added: u64,
     pub modified: u64,
