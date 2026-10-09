@@ -72,6 +72,15 @@ pub fn t(locale: Locale, key: &str) -> &str {
     key
 }
 
+/// 取文案并替换 `{名称}` 占位符。
+pub fn tf(locale: Locale, key: &str, args: &[(&str, &dyn std::fmt::Display)]) -> String {
+    let mut s = t(locale, key).to_string();
+    for (name, value) in args {
+        s = s.replace(&format!("{{{name}}}"), &value.to_string());
+    }
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -96,6 +105,12 @@ mod tests {
         assert_eq!(t(Locale::ZhCn, "app.name"), "篝火");
         assert_eq!(t(Locale::En, "app.name"), "Bonfire");
         assert_eq!(t(Locale::En, "no.such.key"), "no.such.key");
+    }
+
+    #[test]
+    fn placeholders() {
+        assert_eq!(tf(Locale::ZhCn, "backup.auto.added", &[("n", &3)]), "新增 3 个文件");
+        assert_eq!(tf(Locale::En, "backup.auto.added", &[("n", &3)]), "added 3 files");
     }
 
     #[test]

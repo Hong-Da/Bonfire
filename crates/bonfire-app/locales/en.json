@@ -9,5 +9,13 @@
   "ui.theme.light": "Light",
   "ui.theme.dark": "Dark",
   "ui.language": "Language",
-  "ui.placeholder": "The core library is under development; the UI arrives in M3."
+  "ui.placeholder": "The core library is under development; the UI arrives in M3.",
+  "backup.auto.first": "First backup: {files} files, {size}",
+  "backup.auto.added": "added {n} files",
+  "backup.auto.modified": "modified {n} files",
+  "backup.auto.deleted": "deleted {n} files",
+  "backup.auto.sep": ", ",
+  "backup.auto.bytes": "+{size}",
+  "backup.auto.forced": "Manual snapshot (no file changes)",
+  "restore.auto.protect": "Auto-protection before restoring to {target}"
 }

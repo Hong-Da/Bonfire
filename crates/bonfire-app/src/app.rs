@@ -1,0 +1,215 @@
+//! 应用上下文：打开仓库与索引，管理游戏及其存档位置。
+//!
+//! 游戏配置同时备份到仓库根目录的 `games.toml`（文档 §7），索引数据库丢失时据此恢复。
+
+use std::path::{Path, PathBuf};
+
+use bonfire_core::index::{GameRecord, LocationKind, LocationRecord, ReindexStats};
+use bonfire_core::scan::ScanRoot;
+use bonfire_core::{FileTag, Index, ObjectId, Repo, RepoLock};
+use serde::{Deserialize, Serialize};
+
+use crate::error::{AppError, Result};
+use crate::{AppPaths, Config, Locale};
+
+pub const GAMES_FILE: &str = "games.toml";
+
+pub struct App {
+    pub paths: AppPaths,
+    pub config: Config,
+    pub locale: Locale,
+    pub repo: Repo,
+    pub index: Index,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GamesFile {
+    #[serde(default)]
+    game: Vec<GameEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GameEntry {
+    #[serde(flatten)]
+    record: GameRecord,
+    #[serde(default)]
+    location: Vec<LocationRecord>,
+}
+
+/// 添加游戏的参数。
+#[derive(Debug, Clone, Default)]
+pub struct NewGame {
+    pub name: String,
+    pub save_paths: Vec<PathBuf>,
+    pub config_paths: Vec<PathBuf>,
+    pub install_dir: Option<PathBuf>,
+}
+
+impl App {
+    /// 打开（必要时初始化）仓库与索引。索引是新建的时，从 `games.toml` 恢复游戏并从对象库重建索引。
+    pub fn open(paths: AppPaths, config: Config, locale: Locale, repo_dir: &Path) -> Result<Self> {
+        let fresh_db = !repo_dir.join("bonfire.db").exists();
+        let repo = Repo::init(repo_dir)?;
+        let index = Index::open_repo(&repo)?;
+        let mut app = Self { paths, config, locale, repo, index };
+        if fresh_db {
+            let restored = app.restore_games_file()?;
+            let has_history = !app.repo.list_objects(bonfire_core::Kind::Snapshot)?.is_empty();
+            if has_history {
+                let stats = bonfire_core::index::reindex(&app.repo, &mut app.index)?;
+                tracing::info!(restored, ?stats, "索引数据库不存在，已从仓库重建");
+            }
+        }
+        Ok(app)
+    }
+
+    /// 按 ID 或名称（不区分大小写）查找游戏。
+    pub fn find_game(&self, key: &str) -> Result<GameRecord> {
+        if let Some(g) = self.index.game(key)? {
+            return Ok(g);
+        }
+        let lower = key.to_lowercase();
+        let matches: Vec<GameRecord> = self.index.games()?.into_iter().filter(|g| g.name.to_lowercase() == lower).collect();
+        match matches.len() {
+            0 => Err(AppError::GameNotFound(key.to_string())),
+            1 => Ok(matches.into_iter().next().unwrap()),
+            _ => Err(AppError::AmbiguousGame { name: key.to_string(), candidates: matches.iter().map(|g| g.id.as_str()).collect::<Vec<_>>().join("、") }),
+        }
+    }
+
+    pub fn games(&self) -> Result<Vec<GameRecord>> {
+        Ok(self.index.games()?)
+    }
+
+    /// 手动添加游戏：路径必须存在，文件或目录均可。
+    pub fn add_game(&mut self, _lock: &RepoLock, new: &NewGame) -> Result<GameRecord> {
+        let name = new.name.trim();
+        if name.is_empty() {
+            return Err(AppError::Invalid("游戏名称不能为空".into()));
+        }
+        if new.save_paths.is_empty() && new.config_paths.is_empty() {
+            return Err(AppError::NoLocations(name.to_string()));
+        }
+        let mut locations = Vec::new();
+        for (paths, tag) in [(&new.save_paths, FileTag::Save), (&new.config_paths, FileTag::Config)] {
+            for p in paths {
+                let abs = absolute(p)?;
+                let kind = if abs.is_file() { LocationKind::File } else { LocationKind::Dir };
+                let s = abs.to_string_lossy().into_owned();
+                locations.push(LocationRecord { path_template: s.clone(), resolved_path: s, kind, tag, source: "user".into(), confirmed: true });
+            }
+        }
+        let seed = format!("{name}\0{}\0{}", bonfire_core::scan::now_ns(), std::process::id());
+        let id = format!("custom-{}", ObjectId::of(seed.as_bytes()).short(12));
+        let record = GameRecord {
+            id,
+            name: name.to_string(),
+            platform: "custom".into(),
+            app_id: None,
+            install_dir: new.install_dir.as_deref().map(absolute).transpose()?.map(|p| p.to_string_lossy().into_owned()),
+            enabled: true,
+            include_config: None,
+            custom_rule_json: None,
+        };
+        self.index.upsert_game(&record)?;
+        self.index.set_locations(&record.id, &locations)?;
+        self.save_games_file()?;
+        Ok(record)
+    }
+
+    /// 移除游戏配置。历史快照保留在仓库中，重新添加同名游戏不会自动关联。
+    pub fn remove_game(&mut self, _lock: &RepoLock, key: &str) -> Result<GameRecord> {
+        let g = self.find_game(key)?;
+        self.index.delete_game(&g.id)?;
+        self.save_games_file()?;
+        Ok(g)
+    }
+
+    pub fn locations(&self, game_id: &str) -> Result<Vec<LocationRecord>> {
+        Ok(self.index.locations(game_id)?)
+    }
+
+    /// 扫描用的存档位置。按游戏或全局设置决定是否包含配置文件；注册表位置在 M2 实现。
+    pub fn scan_roots(&self, game: &GameRecord) -> Result<Vec<ScanRoot>> {
+        let include_config = game.include_config.unwrap_or(self.config.backup.include_config_files);
+        Ok(self
+            .locations(&game.id)?
+            .into_iter()
+            .enumerate()
+            .filter(|(_, l)| l.kind != LocationKind::Registry && (l.tag == FileTag::Save || include_config))
+            .map(|(ord, l)| ScanRoot { ord, path: PathBuf::from(&l.resolved_path), is_file: l.kind == LocationKind::File, tag: l.tag })
+            .collect())
+    }
+
+    /// 清单路径（`<序号>/<相对路径>`）对应的磁盘路径。
+    pub fn disk_path(&self, game_id: &str, tree_path: &str) -> Result<PathBuf> {
+        let locations = self.locations(game_id)?;
+        let (ord, rel) = tree_path.split_once('/').ok_or_else(|| AppError::Invalid(format!("无效的清单路径 {tree_path}")))?;
+        let loc = ord
+            .parse::<usize>()
+            .ok()
+            .and_then(|i| locations.get(i))
+            .ok_or_else(|| AppError::Invalid(format!("清单路径 {tree_path} 对应的存档位置不存在")))?;
+        let base = PathBuf::from(&loc.resolved_path);
+        if loc.kind == LocationKind::File {
+            return Ok(base);
+        }
+        let mut p = base;
+        for part in rel.split('/') {
+            if part.is_empty() || part == "." || part == ".." {
+                return Err(AppError::Invalid(format!("清单路径 {tree_path} 含非法片段")));
+            }
+            p.push(part);
+        }
+        Ok(p)
+    }
+
+    /// 从对象库重建索引，并在游戏表为空时从 `games.toml` 恢复游戏。
+    pub fn reindex(&mut self, _lock: &RepoLock) -> Result<ReindexStats> {
+        if self.index.games()?.is_empty() {
+            self.restore_games_file()?;
+        }
+        Ok(bonfire_core::index::reindex(&self.repo, &mut self.index)?)
+    }
+
+    fn games_file(&self) -> PathBuf {
+        self.repo.root().join(GAMES_FILE)
+    }
+
+    fn save_games_file(&self) -> Result<()> {
+        let mut file = GamesFile { game: Vec::new() };
+        for g in self.index.games()? {
+            let location = self.index.locations(&g.id)?;
+            file.game.push(GameEntry { record: g, location });
+        }
+        let text = format!("# 篝火 Bonfire 游戏配置备份（自动生成，索引数据库丢失时用于恢复）\n\n{}", toml::to_string_pretty(&file).expect("游戏配置序列化不会失败"));
+        let path = self.games_file();
+        let tmp = path.with_extension("toml.tmp");
+        std::fs::write(&tmp, text).map_err(|e| AppError::io(&tmp, e))?;
+        std::fs::rename(&tmp, &path).map_err(|e| AppError::io(&path, e))
+    }
+
+    /// 从 `games.toml` 恢复游戏，返回恢复的数量。
+    fn restore_games_file(&mut self) -> Result<usize> {
+        let path = self.games_file();
+        let text = match std::fs::read_to_string(&path) {
+            Ok(t) => t,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+            Err(e) => return Err(AppError::io(path, e)),
+        };
+        let file: GamesFile = toml::from_str(&text).map_err(|e| AppError::Invalid(format!("{} 格式错误：{e}", path.display())))?;
+        for entry in &file.game {
+            self.index.upsert_game(&entry.record)?;
+            self.index.set_locations(&entry.record.id, &entry.location)?;
+        }
+        Ok(file.game.len())
+    }
+}
+
+fn absolute(p: &Path) -> Result<PathBuf> {
+    if !p.exists() {
+        return Err(AppError::PathNotFound(p.to_path_buf()));
+    }
+    let abs = std::path::absolute(p).map_err(|e| AppError::io(p, e))?;
+    Ok(abs)
+}

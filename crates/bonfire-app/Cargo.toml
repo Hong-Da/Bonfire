@@ -17,6 +17,9 @@ tracing-subscriber.workspace = true
 tracing-appender.workspace = true
 dirs.workspace = true
 sys-locale.workspace = true
+jiff.workspace = true
+globset.workspace = true
+sysinfo.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

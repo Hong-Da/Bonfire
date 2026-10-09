@@ -9,5 +9,13 @@
   "ui.theme.light": "明亮",
   "ui.theme.dark": "暗色",
   "ui.language": "语言",
-  "ui.placeholder": "核心库开发中，界面将在 M3 提供。"
+  "ui.placeholder": "核心库开发中，界面将在 M3 提供。",
+  "backup.auto.first": "首次备份：{files} 个文件，{size}",
+  "backup.auto.added": "新增 {n} 个文件",
+  "backup.auto.modified": "修改 {n} 个文件",
+  "backup.auto.deleted": "删除 {n} 个文件",
+  "backup.auto.sep": "，",
+  "backup.auto.bytes": "+{size}",
+  "backup.auto.forced": "手动快照（文件无变化）",
+  "restore.auto.protect": "恢复到 {target} 前的自动保护"
 }
