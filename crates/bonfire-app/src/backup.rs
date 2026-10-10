@@ -28,6 +28,8 @@ pub enum GameState {
     /// 有新增、修改或删除的文件。
     HasChanges,
     UpToDate,
+    /// 只管理截图：不备份、不检查存档。
+    ShotsOnly,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -112,9 +114,23 @@ impl App {
     }
 
     fn status_with(&self, game: &GameRecord, force_verify: bool) -> Result<GameStatus> {
-        let (disk, changes) = self.detect(game, force_verify)?;
         let head = self.repo.head(&game.id)?;
         let head_snap = self.repo.head_snapshot(&game.id)?;
+        if self.is_shots_only(&game.id)? {
+            return Ok(GameStatus {
+                game: game.clone(),
+                state: GameState::ShotsOnly,
+                summary: ChangeSummary::default(),
+                changes: Vec::new(),
+                head: head_snap,
+                branch: head.branch,
+                detached: head.detached.is_some(),
+                files: 0,
+                total_bytes: 0,
+                last_modified_ns: None,
+            });
+        }
+        let (disk, changes) = self.detect(game, force_verify)?;
         let summary = ChangeSummary::of(&changes);
         let state = match head_snap {
             None => GameState::NeverBackedUp,
@@ -177,6 +193,12 @@ impl App {
         }
         if let Some(tag) = &opts.tag {
             validate_ref_name(tag)?;
+        }
+        if self.is_shots_only(&game.id)? {
+            return Err(AppError::Invalid(format!(
+                "「{}」只管理截图，不备份存档",
+                game.name
+            )));
         }
         let (disk, changes) = self.detect(game, false)?;
         let summary = ChangeSummary::of(&changes);

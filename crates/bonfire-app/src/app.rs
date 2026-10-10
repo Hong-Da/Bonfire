@@ -105,9 +105,14 @@ impl App {
                 .is_empty();
             if has_history {
                 let stats = bonfire_core::index::reindex(&app.repo, &mut app.index)?;
-                app.reindex_albums()?;
                 tracing::info!(restored, ?stats, "索引数据库不存在，已从仓库重建");
             }
+            // 只管理截图的游戏没有快照，相册也要恢复。
+            app.reindex_albums()?;
+        }
+        // 早期版本存放在对象库中的截图迁移为普通文件（失败不影响打开）。
+        if let Err(e) = app.migrate_shot_files() {
+            tracing::warn!("迁移截图失败：{e}");
         }
         Ok(app)
     }

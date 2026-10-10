@@ -48,6 +48,7 @@ pub struct Config {
     pub general: General,
     pub backup: Backup,
     pub shots: Shots,
+    pub auto_backup: AutoBackup,
     pub metadata: Metadata,
     pub log: Log,
 }
@@ -102,7 +103,7 @@ impl Default for Backup {
     }
 }
 
-/// 定时收集截图的频率。
+/// 定时任务（定时备份、定时收集截图）的频率。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ShotSchedule {
@@ -150,9 +151,48 @@ impl Default for Shots {
 impl Shots {
     /// `at` 解析为（时, 分）。
     pub fn at_hm(&self) -> Option<(i8, i8)> {
-        let (h, m) = self.at.trim().split_once(':')?;
-        let (h, m): (i8, i8) = (h.parse().ok()?, m.parse().ok()?);
-        ((0..24).contains(&h) && (0..60).contains(&m)).then_some((h, m))
+        parse_hm(&self.at)
+    }
+}
+
+/// `HH:MM` 解析为（时, 分）。
+pub fn parse_hm(s: &str) -> Option<(i8, i8)> {
+    let (h, m) = s.trim().split_once(':')?;
+    let (h, m): (i8, i8) = (h.parse().ok()?, m.parse().ok()?);
+    ((0..24).contains(&h) && (0..60).contains(&m)).then_some((h, m))
+}
+
+/// 自动备份（U-9c）：程序运行（含托盘中）时执行，只备份有变化、已经备份过的游戏。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AutoBackup {
+    /// 定时备份：off / daily / weekly / hours。
+    pub schedule: ShotSchedule,
+    /// 每天 / 每周备份的时刻 `HH:MM`。
+    pub at: String,
+    /// 每周备份的星期：1 = 周一 … 7 = 周日。
+    pub weekday: u8,
+    /// 每隔几小时备份（1–168）。
+    pub every_hours: u32,
+    /// 存档变化后自动备份。
+    pub on_change: bool,
+    /// 检查存档变化的间隔（分钟，1–120）。
+    pub check_minutes: u32,
+    /// 存档停止写入多少分钟后才备份（0–60），避免备份到写了一半的存档。
+    pub quiet_minutes: u32,
+}
+
+impl Default for AutoBackup {
+    fn default() -> Self {
+        Self {
+            schedule: ShotSchedule::Off,
+            at: "21:00".into(),
+            weekday: 7,
+            every_hours: 6,
+            on_change: false,
+            check_minutes: 5,
+            quiet_minutes: 2,
+        }
     }
 }
 
@@ -271,6 +311,37 @@ impl Config {
                 message: format!("{}（范围 1–168）", self.shots.every_hours),
             });
         }
+        let a = &self.auto_backup;
+        if parse_hm(&a.at).is_none() {
+            return Err(ConfigError::Invalid {
+                key: "auto_backup.at",
+                message: format!("{}（格式为 HH:MM，如 21:00）", a.at),
+            });
+        }
+        if !(1..=7).contains(&a.weekday) {
+            return Err(ConfigError::Invalid {
+                key: "auto_backup.weekday",
+                message: format!("{}（1 = 周一 … 7 = 周日）", a.weekday),
+            });
+        }
+        if !(1..=168).contains(&a.every_hours) {
+            return Err(ConfigError::Invalid {
+                key: "auto_backup.every_hours",
+                message: format!("{}（范围 1–168）", a.every_hours),
+            });
+        }
+        if !(1..=120).contains(&a.check_minutes) {
+            return Err(ConfigError::Invalid {
+                key: "auto_backup.check_minutes",
+                message: format!("{}（范围 1–120）", a.check_minutes),
+            });
+        }
+        if a.quiet_minutes > 60 {
+            return Err(ConfigError::Invalid {
+                key: "auto_backup.quiet_minutes",
+                message: format!("{}（范围 0–60）", a.quiet_minutes),
+            });
+        }
         let gb = self.backup.size_warning_gb;
         if gb.is_nan() || gb <= 0.0 {
             return Err(ConfigError::Invalid {
@@ -346,6 +417,23 @@ weekday = {weekday}
 # schedule = "hours" 时每隔几小时收集（1–168）
 every_hours = {hours}
 
+[auto_backup]
+# 自动备份在篝火运行（含托盘中）时执行，只备份有变化、已经手动备份过的游戏，同时收集截图。
+# 定时备份：off / daily / weekly / hours
+schedule = "off"
+# 每天 / 每周备份的时刻
+at = "{a_at}"
+# 每周备份的星期：1 = 周一 … 7 = 周日
+weekday = {a_weekday}
+# schedule = "hours" 时每隔几小时备份（1–168）
+every_hours = {a_hours}
+# 存档变化后自动备份（游戏存档后自动备份）
+on_change = {a_change}
+# 检查存档变化的间隔（分钟，1–120）
+check_minutes = {a_check}
+# 存档停止写入多少分钟后才备份（0–60），避免备份到写了一半的存档
+quiet_minutes = {a_quiet}
+
 [metadata]
 # 是否联网获取游戏名称、封面等信息；只发送游戏 ID 或名称，不上传存档
 online = {online}
@@ -368,6 +456,12 @@ keep_days = {keep}
             at = d.shots.at,
             weekday = d.shots.weekday,
             hours = d.shots.every_hours,
+            a_at = d.auto_backup.at,
+            a_weekday = d.auto_backup.weekday,
+            a_hours = d.auto_backup.every_hours,
+            a_change = d.auto_backup.on_change,
+            a_check = d.auto_backup.check_minutes,
+            a_quiet = d.auto_backup.quiet_minutes,
             include = d.backup.include_config_files,
             size = d.backup.size_warning_gb,
             online = d.metadata.online,

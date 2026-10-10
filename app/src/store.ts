@@ -9,6 +9,8 @@ export interface Toast {
   id: number;
   kind: "info" | "error" | "success";
   text: string;
+  /** 提示中的操作按钮（如“撤销”）。 */
+  action?: { label: string; run: () => void };
 }
 
 interface Store {
@@ -43,7 +45,7 @@ interface Store {
   setPlatformFilter: (p: string) => void;
   setStateFilter: (s: StateFilter) => void;
   setQuery: (q: string) => void;
-  toast: (kind: Toast["kind"], text: string) => void;
+  toast: (kind: Toast["kind"], text: string, action?: Toast["action"]) => void;
   dismiss: (id: number) => void;
   setUndoable: (gameId: string, target: string | null) => void;
 }
@@ -65,9 +67,9 @@ export function visibleRows(s: Pick<Store, "rows" | "order" | "platformFilter" |
     .filter((r) => !q || r.name.toLowerCase().includes(q) || (r.nameZh ?? "").toLowerCase().includes(q) || r.id.includes(q));
 }
 
-/** 排序：有更新 → 未备份 → 已是最新，同组按名称。 */
+/** 排序：有更新 → 未备份 → 已是最新 → 只管理截图，同组按名称。 */
 function sortIds(rows: Record<string, GameRow>): string[] {
-  const rank: Record<GameState, number> = { "has-changes": 0, "never-backed-up": 1, "up-to-date": 2 };
+  const rank: Record<GameState, number> = { "has-changes": 0, "never-backed-up": 1, "up-to-date": 2, "shots-only": 3 };
   return Object.values(rows)
     .sort((a, b) => rank[a.state] - rank[b.state] || (a.nameZh ?? a.name).localeCompare(b.nameZh ?? b.name))
     .map((r) => r.id);
@@ -168,10 +170,11 @@ export const useStore = create<Store>((set, get) => ({
   setStateFilter: (stateFilter) => set({ stateFilter }),
   setQuery: (query) => set({ query }),
 
-  toast: (kind, text) => {
+  toast: (kind, text, action) => {
     const id = ++toastSeq;
-    set((s) => ({ toasts: [...s.toasts, { id, kind, text }] }));
-    if (kind !== "error") setTimeout(() => get().dismiss(id), 4000);
+    set((s) => ({ toasts: [...s.toasts, { id, kind, text, action }] }));
+    // 带操作的提示多留一会儿，便于点“撤销”。
+    if (kind !== "error") setTimeout(() => get().dismiss(id), action ? 8000 : 4000);
   },
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   setUndoable: (gameId, target) =>

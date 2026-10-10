@@ -205,7 +205,8 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .btn.protect.on { color: var(--moss); border-color: color-mix(in srgb, var(--moss) 45%, var(--line)); }
 .btn.protect.off { color: var(--ember); border: 1px dashed var(--ember); background: var(--ember-soft); }
 @keyframes spin { to { transform: rotate(360deg); } }
-.no-saves { margin: 8px 20px 96px; color: var(--muted); }
+.no-saves { margin: 8px 20px; color: var(--muted); }
+.no-saves:last-child { margin-bottom: 96px; }
 .no-saves summary { cursor: pointer; padding: 6px 0; }
 .no-saves .file-list { margin-top: 6px; }
 
@@ -487,14 +488,36 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 
 /* ---------- 截图相册 ---------- */
 
-/* 详情页“存档 / 截图”切换 */
-.page-tabs { display: flex; gap: 2px; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
-.page-tabs button {
-  display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border: 0; background: none; cursor: pointer;
-  color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; font: 600 14px var(--font-sign);
+/* 详情页“存档 / 截图”切换：两个并列的主要页面，用大号分段按钮 */
+.page-switch {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 260px)); gap: 10px; padding: 12px 20px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
 }
-.page-tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ember); }
-.new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ember); }
+.page-switch button {
+  position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; text-align: left;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--raised); color: var(--muted);
+}
+.page-switch button:hover { border-color: color-mix(in srgb, var(--ember) 40%, var(--line)); color: var(--ink); }
+.page-switch button[aria-selected="true"] {
+  border-color: var(--ember); background: var(--ember-soft); color: var(--ink); box-shadow: inset 0 -3px 0 var(--ember);
+}
+.page-switch button[aria-selected="true"] svg { color: var(--ember); }
+.ps-text { display: grid; line-height: 1.25; }
+.ps-text b { font: 600 16px var(--font-sign); }
+.ps-text small { font-size: 12px; color: var(--muted); }
+.ps-new { margin-left: auto; padding: 2px 8px; border-radius: 10px; font-size: 12px; color: var(--ember-ink); background: var(--ember); }
+
+/* 分段按钮组（全选 / 全不选 / 反选、相册 / 回收站） */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--raised); flex: none; }
+.seg button {
+  display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 12px; border: 0; background: none;
+  color: var(--ink); cursor: pointer; font: inherit; font-size: 13px; white-space: nowrap;
+}
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button:hover:not(:disabled) { background: var(--surface); }
+.seg button:disabled { color: var(--faint); cursor: default; }
+.seg button[aria-selected="true"], .seg button[aria-checked="true"] { background: var(--ember-soft); color: var(--ember); font-weight: 600; }
+.add-mode { margin-bottom: 14px; }
 
 .shots { flex: 1; display: grid; grid-template-columns: 260px 1fr; min-height: 0; }
 .shots-side { padding: 18px 20px; border-right: 1px solid var(--line); background: var(--surface); overflow: auto; display: grid; align-content: start; gap: 8px; }
@@ -509,11 +532,14 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .shot-dirs .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shots-main { overflow: auto; padding: 0 20px 32px; min-height: 0; }
 .shots-bar {
-  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px;
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 12px 0; background: var(--smoke);
 }
+.trash-hint { margin: 0 0 4px; }
 .shots-bar .grow { flex: 1; }
-.shot-day h3 { margin: 14px 0 8px; font: 600 14px var(--font-sign); color: var(--muted); }
+.shot-day h3 { display: flex; align-items: center; gap: 10px; margin: 14px 0 8px; font: 600 14px var(--font-sign); color: var(--muted); }
+.day-pick { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink); }
+.day-pick .check { accent-color: var(--ember); }
 .shot-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
 .shot-grid li { position: relative; border-radius: 8px; overflow: hidden; border: 2px solid transparent; background: var(--surface); }
 .shot-grid li.on { border-color: var(--ember); }
@@ -536,18 +562,28 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .snap-shots-strip .shot-open { border-radius: 6px; overflow: hidden; }
 .include-shots { margin: 8px 0; }
 
-/* 大图 */
-.lightbox { position: fixed; inset: 0; z-index: 20; display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; background: rgba(10, 12, 15, 0.86); }
-.lightbox figure { margin: 0; height: 100vh; box-sizing: border-box; display: grid; grid-template-rows: minmax(0, 1fr) auto; padding: 24px 0 16px; }
+/* 大图：图片尽量占满窗口，底部一行精简信息，详情可展开 */
+.lightbox { position: fixed; inset: 0; z-index: 20; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; background: rgba(8, 10, 13, 0.92); }
+.lightbox figure { margin: 0; height: 100vh; box-sizing: border-box; display: grid; grid-template-rows: minmax(0, 1fr) auto; padding: 12px 0 10px; }
 .lb-image { min-height: 0; height: 100%; display: grid; place-items: center; overflow: hidden; }
-.lb-image img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5); }
-.lightbox figcaption { margin-top: 12px; padding: 12px 16px; border-radius: 10px; background: var(--surface); color: var(--ink); display: grid; gap: 8px; max-width: 880px; width: 100%; justify-self: center; }
-.lb-meta { display: flex; justify-content: space-between; gap: 12px; }
-.lightbox dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 13px; }
-.lightbox dt { color: var(--muted); }
-.lightbox dd { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lightbox .actions { display: flex; gap: 8px; align-items: center; }
-.lightbox .actions .grow { flex: 1; }
+.lb-image img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 2px; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5); }
+.lightbox figcaption { margin-top: 8px; display: grid; gap: 6px; width: 100%; max-width: 1100px; justify-self: center; color: #e8ecf0; }
+.lb-bar { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 4px 6px 4px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); font-size: 13px; }
+.lb-bar .grow { flex: 1; }
+.lb-bar .muted { color: #aab4be; }
+.lb-name { min-width: 0; max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lightbox .btn.ghost { color: #e8ecf0; }
+.lightbox .btn.ghost:hover { background: rgba(255, 255, 255, 0.12); }
+.lightbox .btn.ghost[aria-pressed="true"] { background: rgba(255, 255, 255, 0.16); }
+.lb-info {
+  display: flex; flex-wrap: wrap; gap: 4px 24px; margin: 0; padding: 8px 12px; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06); font-size: 12px;
+}
+.lb-info > div { display: flex; gap: 8px; min-width: 0; }
+.lb-info > div.wide { flex: 1 1 320px; }
+.lb-info dt { color: #aab4be; flex: none; }
+.lb-info dd { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-info button.link { color: #ffb48a; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-nav { height: 64px; border: 0; background: none; color: #fff; font-size: 40px; cursor: pointer; opacity: 0.8; }
 .lb-nav:disabled { opacity: 0.2; cursor: default; }
 button.link { padding: 0; border: 0; background: none; color: var(--ember); cursor: pointer; text-align: left; font: inherit; }
@@ -556,4 +592,39 @@ button.link:hover { text-decoration: underline; }
 @media (max-width: 900px) {
   .shots { grid-template-columns: 1fr; }
   .shots-side { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+
+/* 备份确认：已是最新、将跳过的游戏 */
+.skip-list { margin-top: 14px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; background: var(--surface); }
+.skip-list h3 { margin: 0 0 2px; font: 600 14px var(--font-sign); color: var(--muted); }
+.skip-list p { margin: 0 0 8px; }
+.skip-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.skip-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.skip-list .cover { width: 22px; height: 33px; }
+
+/* 分支图大图 */
+.graph-viewer { position: fixed; inset: 0; z-index: 20; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--smoke); }
+.graph-viewer > header {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 20px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.graph-viewer > header h2 { margin: 0; font: 600 18px var(--font-sign); }
+.graph-viewer > header .grow { flex: 1; }
+.graph-viewer > header .field { width: 220px; }
+.graph-body { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: 0; }
+.graph-scroll { overflow: auto; padding: 12px 20px 40px; }
+.graph-side { overflow: auto; padding: 18px 20px; border-left: 1px solid var(--line); background: var(--surface); display: grid; align-content: start; gap: 10px; }
+.graph-side h3 { margin: 0; font: 600 17px var(--font-sign); }
+.graph-side .snap-comment { margin: 0; }
+.graph-title .grow { flex: 1; }
+.graph-title { align-items: center; }
+
+/* 发现页：有截图、不在游戏库中的游戏 */
+.shot-finds summary { display: flex; align-items: center; gap: 6px; }
+.shot-finds .file-list li { grid-template-columns: auto 1fr auto auto; }
+
+@media (max-width: 900px) {
+  .graph-body { grid-template-columns: 1fr; }
+  .graph-side { border-left: 0; border-top: 1px solid var(--line); }
+  .page-switch { grid-template-columns: 1fr 1fr; }
 }

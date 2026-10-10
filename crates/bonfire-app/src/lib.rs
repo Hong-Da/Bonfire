@@ -3,6 +3,7 @@
 //! CLI 与 Tauri 命令层只调用本 crate，不直接实现业务逻辑。
 
 pub mod app;
+pub mod auto;
 pub mod backup;
 pub mod config;
 pub mod discover;

@@ -49,6 +49,22 @@ export default function App() {
   }, []);
 
   // 托盘菜单“检查更新”：回到游戏库并检查。
+  // 自动备份完成：提示结果并刷新游戏库。
+  useEffect(() => {
+    const off = api.onAutoBackup((r) => {
+      const created = r.items.filter((x) => x.snapshot).length;
+      const failed = r.items.filter((x) => x.error);
+      const shots = r.items.reduce((n, x) => n + x.shots, 0);
+      if (created > 0) toast("success", t(r.kind === "scheduled" ? "ui.auto.doneScheduled" : "ui.auto.doneChange", { n: created, names: r.items.filter((x) => x.snapshot).map((x) => x.name).join("、") }));
+      if (failed.length > 0) toast("error", t("ui.auto.failed", { names: failed.map((x) => x.name).join("、"), msg: failed[0].error ?? "" }));
+      if (created === 0 && failed.length === 0 && shots > 0) toast("success", t("ui.shots.scheduled", { n: shots }));
+      void loadLibrary(false);
+    });
+    return () => {
+      void off.then((f) => f());
+    };
+  }, []);
+
   useEffect(() => {
     const off = api.onTrayCheck(() => {
       if (useStore.getState().info?.firstRun) return;

@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
 import { Cover, Icon, displayName } from "../components/ui";
 import { bytes, hours } from "../lib/format";
 import { useStore } from "../store";
-import type { DiscoveredGame, FoundState } from "../types";
+import type { DiscoveredGame, FoundState, ShotCandidate } from "../types";
 
 type Filter = "all" | FoundState;
 const FILTERS: Filter[] = ["new", "managed", "ignored", "all"];
@@ -217,6 +217,7 @@ export default function ScanPage() {
                 <p className="hint">{t("ui.scan.withoutSavesHint")}</p>
               </details>
             )}
+            <ShotFinds key={scanning ? "scanning" : "done"} />
           </>
         )}
       </div>
@@ -276,5 +277,56 @@ function FoundLine({ game, lang, picked, onToggle }: { game: DiscoveredGame; lan
       </div>
       <span className={`tag found-${game.state}`}>{t(`ui.scan.state.${game.state}`)}</span>
     </li>
+  );
+}
+
+/**
+ * 有截图、但不在游戏库中的游戏（Steam 截图按 AppID，游戏栏截图按窗口标题），
+ * 可以加入为“只管理截图”的游戏：不备份存档，只收集截图。
+ */
+function ShotFinds() {
+  const { t } = useTranslation();
+  const store = useStore();
+  const [list, setList] = useState<ShotCandidate[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  useEffect(() => {
+    api.shotCandidates().then(setList).catch(() => setList([]));
+  }, []);
+  if (!list || list.length === 0) return null;
+  const add = async (c: ShotCandidate) => {
+    setBusy(c.key);
+    try {
+      const g = await api.addShotsGame(c.key, c.name, []);
+      await store.refreshRow(g.id);
+      store.toast("success", t("ui.scan.shotsAdded", { name: g.name }));
+      setList((l) => (l ?? []).filter((x) => x.key !== c.key));
+    } catch (e) {
+      store.toast("error", errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <details className="no-saves shot-finds" open>
+      <summary>
+        <Icon name="camera" size={14} /> {t("ui.scan.shotFinds", { n: list.length })}
+      </summary>
+      <p className="hint">{t("ui.scan.shotFindsHint")}</p>
+      <ul className="file-list">
+        {list.map((c) => (
+          <li key={c.key}>
+            <span className="tag">{t(`ui.shots.source.${c.source}`)}</span>
+            <span className="path" title={c.dir}>
+              <b>{c.name}</b>
+              {c.appId && <span className="muted num"> · {c.appId}</span>}
+            </span>
+            <span className="muted num">{t("ui.shots.countN", { n: c.count })}</span>
+            <button className="btn small" onClick={() => void add(c)} disabled={busy !== null}>
+              <Icon name="plus" size={14} /> {t("ui.scan.addShotsOnly")}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

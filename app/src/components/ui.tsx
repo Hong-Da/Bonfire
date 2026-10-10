@@ -6,7 +6,7 @@ import type { GameRow } from "../types";
 
 type IconName =
   | "library" | "settings" | "scan" | "backup" | "restore" | "branch" | "tag" | "search" | "folder"
-  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next" | "shield" | "camera";
+  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next" | "shield" | "camera" | "info" | "expand" | "image";
 
 const PATHS: Record<IconName, string> = {
   library: "M4 5h4v14H4zM10 5h4v14h-4zM16.5 5.5l3.8 1-3.6 13.5-3.8-1z",
@@ -33,6 +33,9 @@ const PATHS: Record<IconName, string> = {
   next: "M10 7l5 5-5 5",
   camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
   shield: "M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6zM9 12l2 2 4-4",
+  info: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5",
+  expand: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
+  image: "M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M15 9.5a1.5 1.5 0 1 0 0-.01",
 };
 
 export function Icon({ name, size = 18, label }: { name: IconName; size?: number; label?: string }) {
@@ -43,9 +46,9 @@ export function Icon({ name, size = 18, label }: { name: IconName; size?: number
   );
 }
 
-/** 时间线上的篝火：快照节点。当前所在的快照发光。 */
-export function Flame({ x, y, current, auto }: { x: number; y: number; current?: boolean; auto?: boolean }) {
-  const fill = auto ? "var(--faint)" : "var(--ember)";
+/** 时间线上的篝火：快照节点。当前所在的快照发光；自动生成的快照用所在路线的颜色。 */
+export function Flame({ x, y, current, auto, color }: { x: number; y: number; current?: boolean; auto?: boolean; color?: string }) {
+  const fill = auto ? (color ?? "var(--lane-0)") : "var(--ember)";
   return (
     <g transform={`translate(${x - 7} ${y - 9})`}>
       {current && <circle cx={7} cy={10} r={10} fill="var(--glow)" opacity={0.35} />}
@@ -141,6 +144,17 @@ export function Toasts() {
       {toasts.map((x) => (
         <div key={x.id} className={`toast ${x.kind}`}>
           <span>{x.text}</span>
+          {x.action && (
+            <button
+              className="btn small"
+              onClick={() => {
+                dismiss(x.id);
+                x.action?.run();
+              }}
+            >
+              {x.action.label}
+            </button>
+          )}
           <button className="btn ghost small" onClick={() => dismiss(x.id)} aria-label={t("ui.close")}>
             <Icon name="close" size={14} />
           </button>

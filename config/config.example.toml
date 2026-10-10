@@ -36,6 +36,23 @@ weekday = 7
 # schedule = "hours" 时每隔几小时收集（1–168）
 every_hours = 6
 
+[auto_backup]
+# 自动备份在篝火运行（含托盘中）时执行，只备份有变化、已经手动备份过的游戏，同时收集截图。
+# 定时备份：off / daily / weekly / hours
+schedule = "off"
+# 每天 / 每周备份的时刻
+at = "21:00"
+# 每周备份的星期：1 = 周一 … 7 = 周日
+weekday = 7
+# schedule = "hours" 时每隔几小时备份（1–168）
+every_hours = 6
+# 存档变化后自动备份（游戏存档后自动备份）
+on_change = false
+# 检查存档变化的间隔（分钟，1–120）
+check_minutes = 5
+# 存档停止写入多少分钟后才备份（0–60），避免备份到写了一半的存档
+quiet_minutes = 2
+
 [metadata]
 # 是否联网获取游戏名称、封面等信息；只发送游戏 ID 或名称，不上传存档
 online = true

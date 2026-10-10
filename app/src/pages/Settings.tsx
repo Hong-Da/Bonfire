@@ -3,19 +3,22 @@ import { useTranslation } from "react-i18next";
 import { ask, open } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
 import { LANGUAGES, setLanguage } from "../i18n";
-import { bytes } from "../lib/format";
+import { bytes, dateTime } from "../lib/format";
 import { useStore } from "../store";
 import { Icon } from "../components/ui";
 import { applyTheme } from "../theme";
-import type { Config, FsckReport, GameRecord, Theme } from "../types";
+import type { AutoBackupConfig, AutoStatus, Config, FsckReport, GameRecord, Theme } from "../types";
+
+const DEFAULT_AUTO: AutoBackupConfig = { schedule: "off", at: "21:00", weekday: 7, every_hours: 6, on_change: false, check_minutes: 5, quiet_minutes: 2 };
 
 export const PLATFORMS = ["steam", "epic", "gog"] as const;
 
 /** 设置（文档 9.1）：仓库位置、界面、平台开关、是否备份配置文件、游戏信息来源与 API Key、规则库、维护。 */
 export default function Settings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const store = useStore();
   const [cfg, setCfg] = useState<Config | null>(null);
+  const [auto, setAuto] = useState<AutoStatus | null>(null);
   const [saved, setSaved] = useState<Config | null>(null);
   const [rules, setRules] = useState<{ path: string | null; games: number; userGames: number } | null>(null);
   const [fsck, setFsck] = useState<FsckReport | null>(null);
@@ -25,9 +28,11 @@ export default function Settings() {
 
   useEffect(() => {
     api.getSettings().then((c) => {
-      setCfg(c);
-      setSaved(c);
+      const n = { ...c, auto_backup: c.auto_backup ?? DEFAULT_AUTO };
+      setCfg(n);
+      setSaved(n);
     });
+    api.autoStatus().then(setAuto).catch(() => setAuto(null));
     api.rulesInfo().then(setRules).catch(() => setRules(null));
     api.ignoredGames().then(setIgnored).catch(() => setIgnored([]));
     api.capturesDir().then(setCaptures).catch(() => setCaptures(null));
@@ -164,6 +169,71 @@ export default function Settings() {
                 <span>GB</span>
               </div>
             </div>
+          </section>
+
+          <section>
+            <h2>{t("ui.settings.auto")}</h2>
+            <div className="row">
+              <label htmlFor="auto-schedule">{t("ui.settings.autoSchedule")}</label>
+              <div className="inline">
+                <select id="auto-schedule" className="field" value={cfg.auto_backup.schedule} onChange={(e) => update((c) => (c.auto_backup.schedule = e.target.value as AutoBackupConfig["schedule"]))}>
+                  {(["off", "daily", "weekly", "hours"] as const).map((v) => (
+                    <option key={v} value={v}>
+                      {t(`ui.settings.autoScheduleOpt.${v}`)}
+                    </option>
+                  ))}
+                </select>
+                {cfg.auto_backup.schedule === "weekly" && (
+                  <select className="field" value={cfg.auto_backup.weekday} onChange={(e) => update((c) => (c.auto_backup.weekday = Number(e.target.value)))} aria-label={t("ui.settings.autoWeekday")}>
+                    {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                      <option key={d} value={d}>
+                        {t(`ui.weekday.${d}`)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {(cfg.auto_backup.schedule === "daily" || cfg.auto_backup.schedule === "weekly") && (
+                  <input className="field num" type="time" value={cfg.auto_backup.at} onChange={(e) => update((c) => (c.auto_backup.at = e.target.value))} aria-label={t("ui.settings.autoAt")} />
+                )}
+                {cfg.auto_backup.schedule === "hours" && (
+                  <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input className="field num" type="number" min={1} max={168} style={{ width: 80 }} value={cfg.auto_backup.every_hours} onChange={(e) => update((c) => (c.auto_backup.every_hours = Number(e.target.value)))} aria-label={t("ui.settings.autoEveryHours")} />
+                    {t("ui.settings.autoEveryHoursUnit")}
+                  </label>
+                )}
+              </div>
+            </div>
+            <div className="row">
+              <label>{t("ui.settings.autoChange")}</label>
+              <div>
+                <label style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                  <input type="checkbox" className="check" checked={cfg.auto_backup.on_change} onChange={(e) => update((c) => (c.auto_backup.on_change = e.target.checked))} />
+                  {t("ui.settings.autoChangeHint")}
+                </label>
+                {cfg.auto_backup.on_change && (
+                  <div className="inline" style={{ marginTop: 8 }}>
+                    <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {t("ui.settings.autoCheckEvery")}
+                      <input className="field num" type="number" min={1} max={120} style={{ width: 70 }} value={cfg.auto_backup.check_minutes} onChange={(e) => update((c) => (c.auto_backup.check_minutes = Number(e.target.value)))} aria-label={t("ui.settings.autoCheckEvery")} />
+                      {t("ui.settings.minutes")}
+                    </label>
+                    <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {t("ui.settings.autoQuiet")}
+                      <input className="field num" type="number" min={0} max={60} style={{ width: 70 }} value={cfg.auto_backup.quiet_minutes} onChange={(e) => update((c) => (c.auto_backup.quiet_minutes = Number(e.target.value)))} aria-label={t("ui.settings.autoQuiet")} />
+                      {t("ui.settings.minutes")}
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+            <p className="hint">{t("ui.settings.autoHint")}</p>
+            {(auto?.lastScheduled || auto?.lastCheck) && (
+              <p className="hint num">
+                {auto.lastScheduled && t("ui.settings.autoLastScheduled", { when: dateTime(auto.lastScheduled, i18n.language) })}
+                {auto.lastScheduled && auto.lastCheck && " · "}
+                {auto.lastCheck && t("ui.settings.autoLastCheck", { when: dateTime(auto.lastCheck, i18n.language) })}
+              </p>
+            )}
           </section>
 
           <section>

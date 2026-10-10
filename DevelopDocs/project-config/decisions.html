@@ -24,7 +24,7 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 48 项，更新于 2026-10-09 16:51。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 59 项，更新于 2026-10-09 22:49。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">全局</a><a href="#s-1">M1 核心库</a><a href="#s-2">M2 存档发现</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">用户修改</a><a href="#s-5">缺陷修复</a><a href="#s-6">开发</a></nav>
 <section id="s-0"><h2>全局<small>1 项</small></h2>
       <article id="G-1">
@@ -308,11 +308,77 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>导入后变更检测缓存设为导入的当前快照，而本机不能确定路径的位置扫描不到文件，被当成删除。</p><p class="impact"><span>影响</span>本机不能确定路径的位置不参与变更检测；备份时沿用上一个快照中这些位置的文件。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-6"><h2>开发<small>1 项</small></h2>
+      </article></section><section id="s-6"><h2>开发<small>12 项</small></h2>
       <article id="U-5-impl">
         <header><code>U-5-impl</code><h3>截图备份（U-5）实现中的取舍</h3><span class="status">默认推荐</span></header>
         <ul><li class="">按方案实现</li><li class="chosen">按方案实现；以下几点为实现细节：原图沿用文件对象写入（不重新编码，zstd 对图片收益很小）；Steam 截图按文件名取拍摄时间，不解析 screenshots.vdf；截图与快照的对应为“拍摄之后最早的快照（任何分支）”；定时收集的默认值为关闭（只随备份收集）；缩略图按需生成 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>方案 S1–S6 已确认；这些是方案没有细到的地方，取最简单且不影响效果的做法。</p><p class="impact"><span>影响</span>新增 REQ-014（已完成）。相册的文件对象需作为 M4-4 GC 的根（已写入里程碑说明）。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9a">
+        <header><code>U-9a</code><h3>所选游戏已是最新时还能点“备份所选”</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">备份确认页中标出已是最新的游戏并自动跳过（推荐）</li><li class="">游戏库中直接禁用备份按钮</li><li class="chosen">备份确认页中标出已是最新的游戏并自动跳过（推荐）：确认页把“已是最新”的游戏单独列出、说明将跳过，确认按钮只备份有变化的游戏（显示数量）；全部是最新时按钮不可用并说明原因。只管理截图的游戏在确认页中显示“只收集截图”。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>按用户描述：点击后在下一页提示，备份时自动跳过。</p><p class="impact"><span>影响</span>BackupDialog；状态以最近一次检查为准。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9b">
+        <header><code>U-9b</code><h3>分支颜色不用灰色</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">每条路线都用彩色，只有一条路线时也用第一种颜色（蓝）（推荐）</li><li class="chosen">每条路线都用彩色，只有一条路线时也用第一种颜色（蓝）（推荐）；分支按钮上的圆点、时间线上的分支名同样着色。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>灰色容易被理解为“禁用 / 已删除”。</p><p class="impact"><span>影响</span>Timeline、详情页分支按钮。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9c">
+        <header><code>U-9c</code><h3>定时备份与自动备份怎么做</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">设置中两项：定时备份（每天 / 每周 / 每隔 N 小时）与“存档变化后自动备份”（推荐）</li><li class="">只做定时备份</li><li class="chosen">设置中新增“自动备份”一节（推荐）：① 定时备份：关闭 / 每天某时刻 / 每周某天某时刻 / 每隔 N 小时，到点备份所有有变化的游戏；② 存档变化后自动备份：每隔 N 分钟（默认 5）检查一次，发现变化且存档已停止写入 2 分钟以上（游戏通常已保存完毕）时备份。两项默认都关闭。篝火在运行（含托盘）时执行；只备份有变化的游戏，同时收集截图；仓库正被使用时推迟到下一次检查；当前不在分支末端的游戏按“新建分支”处理。自动备份的快照标为“定时备份 / 自动备份”，完成后在界面中提示。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>两种需求都覆盖；“变化后备份”相当于游戏存档后自动备份，比按进程判断游戏退出简单可靠（M4 的游戏退出备份仍保留在计划中）。</p><p class="impact"><span>影响</span>config.toml [auto_backup]；快照触发方式新增 auto-change；CLI `backup --auto` 可供计划任务调用。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9d">
+        <header><code>U-9d</code><h3>截图不压缩、保存原始质量；能打开截图存储目录</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">截图原样存为普通文件，放在仓库的 screenshots\&lt;游戏&gt; 目录（推荐）</li><li class="">仍存对象库，只是不压缩</li><li class="chosen">截图原样存为普通文件（推荐）：仓库下 screenshots\&lt;游戏ID&gt;\ 中保存原图（原文件名，重名加序号），不压缩、不重新编码，可以直接在资源管理器中打开；已收集的截图在启动时自动迁移到这里。导出历史包时截图原样放入包中。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>同时满足“原始质量”和“能打开存储目录”；截图本身就是压缩格式，再压缩没有收益。</p><p class="impact"><span>影响</span>相册记录新增 file 字段（数据库版本 4）；截图不再占用对象库，M4 GC 不再需要把相册当作根；仓库体检检查截图文件是否存在。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9e">
+        <header><code>U-9e</code><h3>没有加入游戏库的游戏、只想管理截图的游戏</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">游戏可设为“只管理截图”；发现页列出有截图但不在游戏库中的游戏，可一键加入（推荐）</li><li class="chosen">游戏可设为“只管理截图”（推荐）：不备份、不检查存档，只收集截图，游戏库中显示“只管理截图”；详情页“更多”中切换。发现页新增“有截图的游戏”：列出 Steam 截图与游戏栏截图中找到、但不在游戏库中的游戏，可加入为只管理截图的游戏；手动添加游戏时也可以选择“只管理截图”并指定截图文件夹。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>覆盖用户提到的两种情况，入口在用户已熟悉的发现页与添加游戏对话框中。</p><p class="impact"><span>影响</span>游戏设置新增 shotsOnly；games.toml 保存；CLI `game shots-only on|off`。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9f">
+        <header><code>U-9f</code><h3>打开截图存储目录；网格中显示的是缩略图吗</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">相册侧栏“打开截图文件夹”，大图中“在文件夹中显示”；网格是缩略图，点开是原图（推荐）</li><li class="chosen">相册侧栏增加“打开截图文件夹”（备份中的原图所在目录），大图中可“在文件夹中显示”与“打开原位置”。网格显示的是缩略图（为高分屏提高到 480 像素），点开大图显示原图，并在网格提示中说明。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>回答用户问题并给出入口。</p><p class="impact"><span>影响</span>缩略图缓存按新尺寸重建。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9g">
+        <header><code>U-9g</code><h3>大图查看时详情信息太大</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">底部一行精简信息，详情可展开 / 收起（按 I 键），默认收起（推荐）</li><li class="chosen">底部一行精简信息（推荐）：文件名、拍摄时间、序号与操作按钮在一行，详情（来源、尺寸、原位置、之后的存档）可展开，默认收起，记住上次的选择；图片尽量占满窗口。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>图片优先。</p><p class="impact"><span>影响</span>Lightbox 布局。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9h">
+        <header><code>U-9h</code><h3>截图的全选 / 全不选按钮</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">全选 / 全不选 / 反选 合成一组，每天的标题旁可选择当天全部（推荐）</li><li class="chosen">全选 / 全不选 / 反选合成一组按钮（推荐），每个日期标题旁有复选框选择当天全部；已选数量显示在旁边。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>与游戏库的选择方式一致，并方便按天操作。</p><p class="impact"><span>影响</span>ShotsPanel。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9i">
+        <header><code>U-9i</code><h3>删除的截图怎么办；需要回收站</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">删除先进入回收站，可恢复；在回收站中彻底删除（推荐）</li><li class="chosen">删除先进入相册回收站（推荐）：回收站中的截图可恢复、可彻底删除、可清空；不自动清空。回收站中和彻底删除的截图都不会被再次收集（磁盘上的原图仍在也不会重复提示）；磁盘上删掉的截图，备份中照常保留。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>删除可以反悔；之前删除后会被当作新截图再次收集，这次一并修正。</p><p class="impact"><span>影响</span>相册记录新增 deletedAt / purged；CLI `shots rm` 默认进回收站，`--purge` 彻底删除，新增 `shots restore`、`shots trash`。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9j">
+        <header><code>U-9j</code><h3>“存档 / 截图”切换不醒目</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">改为页头下方的大号分段切换（图标 + 数量），选中项高亮（推荐）</li><li class="chosen">改为页头下方的大号分段切换（推荐）：图标 + 文字 + 数量，选中项用主色高亮，有新截图时显示数量提示。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>两个页面是并列的主要内容，切换需要一眼看到。</p><p class="impact"><span>影响</span>GameDetail 样式。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9k">
+        <header><code>U-9k</code><h3>打开完整的分支历史大图</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">分支图标题旁“放大查看”，全屏查看分支图并选择快照（推荐）</li><li class="chosen">分支图标题旁增加“放大查看”（推荐）：全屏显示完整分支图（路线更宽、可搜索、可按分支跳转），右侧显示选中快照的摘要，双击或点“查看这个快照”回到详情页并选中它；Esc 关闭。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>分支多时侧栏太窄。</p><p class="impact"><span>影响</span>新组件 GraphViewer。</p>
         <footer>2026-10-09</footer>
       </article></section>
 </div></body></html>

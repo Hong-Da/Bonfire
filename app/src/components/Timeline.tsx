@@ -32,6 +32,8 @@ export default function Timeline({
   focus,
   focusKey,
   shots,
+  wide,
+  onOpen,
 }: {
   nodes: TimelineNode[];
   head: string | null;
@@ -48,12 +50,17 @@ export default function Timeline({
   focusKey?: number;
   /** 每个快照之前拍的截图数（详情页）。 */
   shots?: Map<string, number>;
+  /** 大图查看：路线间距更宽。 */
+  wide?: boolean;
+  /** 双击快照（大图查看中“查看这个快照”）。 */
+  onOpen?: (id: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const ROW = compact ? 52 : ROW_H;
   const g = useMemo(() => layout(nodes), [nodes]);
-  const width = PAD * 2 + (g.columns - 1) * COL_W;
-  const x = (col: number) => PAD + col * COL_W;
+  const colW = wide ? 34 : COL_W;
+  const width = PAD * 2 + (g.columns - 1) * colW;
+  const x = (col: number) => PAD + col * colW;
   const y = (row: number) => row * ROW + ROW / 2;
   const colOf = useMemo(() => new Map(g.rows.map((r) => [r.id, r.col])), [g]);
   const box = useRef<HTMLDivElement>(null);
@@ -69,14 +76,13 @@ export default function Timeline({
     const bendY = y(e.toRow - 1);
     return `M${x(e.fromCol)} ${y(e.fromRow)} V${bendY} C${x(e.fromCol)} ${bendY + ROW * 0.6} ${x(e.toCol)} ${y(e.toRow) - ROW * 0.4} ${x(e.toCol)} ${y(e.toRow)}`;
   });
-  const multi = g.columns > 1;
 
   return (
     <div style={{ position: "relative" }} role="listbox" aria-label={label ?? t("ui.history.timeline")} ref={box}>
       <svg width={width} height={nodes.length * ROW} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }} aria-hidden>
         {paths.map((d, i) => (
-          // 只有一条路线时用中性色；有分叉时每条路线一种颜色，便于分辨分支。
-          <path key={i} d={d} fill="none" stroke={multi ? laneColor(g.edges[i].fromCol) : "var(--line)"} strokeOpacity={multi ? 0.7 : 1} strokeWidth={2.5} strokeLinecap="round" />
+          // 每条路线一种颜色（只有一条路线时也用第一种颜色），便于分辨分支；不用灰色，避免像“已停用”。
+          <path key={i} d={d} fill="none" stroke={laneColor(g.edges[i].fromCol)} strokeOpacity={0.75} strokeWidth={wide ? 3 : 2.5} strokeLinecap="round" />
         ))}
         {g.rows.map((r) => {
           const n = nodes[r.row];
@@ -86,7 +92,7 @@ export default function Timeline({
               {(m === "new" || m === "pick" || m === "same") && (
                 <circle cx={x(r.col)} cy={y(r.row)} r={12} fill="none" stroke={m === "new" ? "var(--moss)" : "var(--ember)"} strokeWidth={m === "same" ? 3 : 2} strokeDasharray={m === "new" ? "3 2" : undefined} />
               )}
-              <Flame x={x(r.col)} y={y(r.row)} current={n.id === head} auto={n.trigger !== "manual"} />
+              <Flame x={x(r.col)} y={y(r.row)} current={n.id === head} auto={n.trigger !== "manual"} color={laneColor(r.col)} />
             </g>
           );
         })}
@@ -106,7 +112,11 @@ export default function Timeline({
             tabIndex={0}
             style={{ height: ROW }}
             onClick={() => onSelect(n.id)}
-            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onSelect(n.id)}
+            onDoubleClick={onOpen ? () => onOpen(n.id) : undefined}
+            onKeyDown={(e) => {
+              if (e.key === " ") onSelect(n.id);
+              else if (e.key === "Enter") (onOpen ?? onSelect)(n.id);
+            }}
           >
             <div style={{ width }} />
             <div className="entry">
@@ -116,7 +126,7 @@ export default function Timeline({
                 </span>
                 {n.id === head && <span className="tag current">{t("ui.history.here")}</span>}
                 {branches.map((b) => (
-                  <span key={b} className="tag branch" style={multi ? { borderColor: laneColor(colOf.get(n.id) ?? 0), color: laneColor(colOf.get(n.id) ?? 0) } : undefined}>
+                  <span key={b} className="tag branch" style={{ borderColor: laneColor(colOf.get(n.id) ?? 0), color: laneColor(colOf.get(n.id) ?? 0) }}>
                     {b}
                   </span>
                 ))}

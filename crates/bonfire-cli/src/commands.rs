@@ -19,7 +19,8 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 use crate::cli::{
-    BundleCmd, Cmd, GameCmd, OutputFormat, ProfileCmd, RulesCmd, ShotSwitch, ShotsCmd, ShotsDirCmd,
+    BundleCmd, Cmd, GameCmd, OnOff, OutputFormat, ProfileCmd, RulesCmd, ShotSwitch, ShotsCmd,
+    ShotsDirCmd,
 };
 
 type Result<T> = std::result::Result<T, AppError>;
@@ -127,9 +128,13 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
             tag,
             force,
             all,
+            auto,
             new_branch,
             move_branch,
         } => {
+            if auto {
+                return auto_backup(app, out);
+            }
             let on_detached = match (new_branch, move_branch) {
                 (Some(n), _) => DetachedChoice::NamedBranch(n),
                 (None, true) => DetachedChoice::MoveCurrent,
@@ -333,6 +338,30 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
             }
         }
         GameCmd::ShotsDir { cmd } => shots_dir(app, cmd, out)?,
+        GameCmd::AddShots { name, steam, dirs } => {
+            let lock = app.repo.lock()?;
+            let key = steam.map(|id| format!("steam:{id}"));
+            let g = app.add_shots_game(&lock, key.as_deref(), &name, &dirs)?;
+            out.emit(game_json(app, &g)?);
+            out.line(out.tf(
+                "cli.out.added_shots_game",
+                &[("name", &g.name), ("id", &g.id)],
+            ));
+        }
+        GameCmd::ShotsOnly { game, value } => {
+            let g = app.find_game(&game)?;
+            let on = value == OnOff::On;
+            app.set_shots_only(&g, on)?;
+            out.emit(json!({ "game": g.id, "shotsOnly": on }));
+            out.line(out.tf(
+                if on {
+                    "cli.out.shots_only_on"
+                } else {
+                    "cli.out.shots_only_off"
+                },
+                &[("game", &g.name)],
+            ));
+        }
         GameCmd::Confirm { game } => {
             let lock = app.repo.lock()?;
             let (g, n) = app.confirm_locations(&lock, &game)?;
@@ -415,6 +444,7 @@ fn state_text(out: &Out, s: &GameStatus) -> String {
         GameState::NeverBackedUp => "cli.state.never-backed-up",
         GameState::HasChanges => "cli.state.has-changes",
         GameState::UpToDate => "cli.state.up-to-date",
+        GameState::ShotsOnly => "cli.state.shots-only",
     };
     let mut text = out.t(key).to_string();
     if s.state == GameState::HasChanges {
@@ -704,7 +734,10 @@ fn backup(
     let targets: Vec<GameRecord> = if all {
         let mut v = Vec::new();
         for g in app.games()?.into_iter().filter(|g| g.enabled) {
-            if app.status(&g)?.state != GameState::UpToDate {
+            if !matches!(
+                app.status(&g)?.state,
+                GameState::UpToDate | GameState::ShotsOnly
+            ) {
                 v.push(g);
             }
         }
@@ -734,6 +767,24 @@ fn backup(
     let mut results = Vec::new();
     let mut first_error = None;
     for g in &targets {
+        // 只管理截图的游戏不备份存档，只收集截图。
+        if app.is_shots_only(&g.id)? {
+            out.line(out.tf("cli.out.backup_shots_only", &[("game", &g.name)]));
+            let added = match app.sync_shots(&lock, g) {
+                Ok(s) => s.added,
+                Err(e) => {
+                    out.line(out.tf("cli.out.warning", &[("msg", &e)]));
+                    0
+                }
+            };
+            if added > 0 {
+                out.line(out.tf("cli.out.shots_collected_n", &[("n", &added)]));
+            }
+            results.push(
+                json!({ "game": g.id, "name": g.name, "result": "shots-only", "shots": added }),
+            );
+            continue;
+        }
         // 单个游戏失败不影响其他游戏（文档 8.1）。
         match app.backup(&lock, g, &opts) {
             Ok(r) => {
@@ -798,6 +849,29 @@ fn backup(
     }
     out.emit(json!({ "results": results }));
     first_error.map_or(Ok(()), Err)
+}
+
+/// `backup --auto`：与桌面程序的定时备份相同，供系统计划任务调用。
+fn auto_backup(app: &mut App, out: &Out) -> Result<()> {
+    let lock = app.repo.lock()?;
+    let r = app.run_auto_backup(&lock, bonfire_app::auto::AutoKind::Scheduled)?;
+    out.emit(serde_json::to_value(&r).unwrap());
+    for i in &r.items {
+        if let Some(id) = &i.snapshot {
+            out.line(out.tf(
+                "cli.out.auto_created",
+                &[("game", &i.name), ("id", &id.short(12))],
+            ));
+        }
+        if let Some(e) = &i.error {
+            out.line(out.tf("cli.out.failed", &[("game", &i.name), ("msg", e)]));
+        }
+        if i.shots > 0 {
+            out.line(out.tf("cli.out.shots_collected_n", &[("n", &i.shots)]));
+        }
+    }
+    out.line(out.tf("cli.out.auto_done", &[("n", &r.created())]));
+    Ok(())
 }
 
 fn log(
@@ -1409,6 +1483,9 @@ fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
             let g = app.find_game(&game)?;
             let album = app.album(&g)?;
             out.emit(serde_json::to_value(&album).unwrap());
+            if album.shots_only {
+                out.line(out.tf("cli.out.shots_only_game", &[("game", &g.name)]));
+            }
             out.line(out.tf(
                 "cli.out.shots_summary",
                 &[
@@ -1421,6 +1498,10 @@ fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
             if !album.enabled {
                 out.line(out.t("cli.out.shots_disabled"));
             }
+            out.line(out.tf(
+                "cli.out.shots_where",
+                &[("dir", &album.dir.display()), ("trash", &album.trash.len())],
+            ));
             for s in &album.shots {
                 let name = Path::new(&s.original_path)
                     .file_name()
@@ -1518,20 +1599,104 @@ fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
             ));
             Ok(())
         }
-        ShotsCmd::Rm { game, ids } => {
+        ShotsCmd::Rm { game, ids, purge } => {
             let g = app.find_game(&game)?;
             let blobs = app.resolve_shots(&g, &ids)?;
-            if !out.confirm(out.tf(
-                "cli.confirm.shots_rm",
-                &[("n", &blobs.len()), ("game", &g.name)],
-            ))? {
+            let key = if purge {
+                "cli.confirm.shots_purge"
+            } else {
+                "cli.confirm.shots_rm"
+            };
+            if !out.confirm(out.tf(key, &[("n", &blobs.len()), ("game", &g.name)]))? {
                 out.line(out.t("cli.out.cancelled"));
                 return Ok(());
             }
             let lock = app.repo.lock()?;
-            let n = app.delete_shots(&lock, &g, &blobs)?;
-            out.emit(json!({ "deleted": n }));
-            out.line(out.tf("cli.out.shots_deleted", &[("n", &n)]));
+            let n = if purge {
+                app.purge_shots(&lock, &g, &blobs)?
+            } else {
+                app.delete_shots(&lock, &g, &blobs)?
+            };
+            out.emit(json!({ "deleted": n, "purged": purge }));
+            out.line(out.tf(
+                if purge {
+                    "cli.out.shots_purged"
+                } else {
+                    "cli.out.shots_deleted"
+                },
+                &[("n", &n)],
+            ));
+            Ok(())
+        }
+        ShotsCmd::Restore { game, ids } => {
+            let g = app.find_game(&game)?;
+            let blobs = app.resolve_shots(&g, &ids)?;
+            let lock = app.repo.lock()?;
+            let n = app.restore_shots(&lock, &g, &blobs)?;
+            out.emit(json!({ "restored": n }));
+            out.line(out.tf("cli.out.shots_restored", &[("n", &n)]));
+            Ok(())
+        }
+        ShotsCmd::Trash { game, empty } => {
+            let g = app.find_game(&game)?;
+            if empty {
+                let n = app.album(&g)?.trash.len();
+                if n > 0
+                    && !out.confirm(out.tf(
+                        "cli.confirm.shots_empty_trash",
+                        &[("n", &n), ("game", &g.name)],
+                    ))?
+                {
+                    out.line(out.t("cli.out.cancelled"));
+                    return Ok(());
+                }
+                let lock = app.repo.lock()?;
+                let n = app.purge_shots(&lock, &g, &[])?;
+                out.emit(json!({ "purged": n }));
+                out.line(out.tf("cli.out.shots_purged", &[("n", &n)]));
+                return Ok(());
+            }
+            let album = app.album(&g)?;
+            out.emit(serde_json::to_value(&album.trash).unwrap());
+            out.line(out.tf(
+                "cli.out.shots_trash",
+                &[
+                    ("game", &g.name),
+                    ("n", &album.trash.len()),
+                    ("size", &human_bytes(album.trash_bytes)),
+                ],
+            ));
+            for s in &album.trash {
+                out.line(format!(
+                    "{}  {}  {}",
+                    s.blob.short(12),
+                    s.taken_at
+                        .get(..16)
+                        .unwrap_or(&s.taken_at)
+                        .replace('T', " "),
+                    Path::new(&s.original_path)
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default()
+                ));
+            }
+            Ok(())
+        }
+        ShotsCmd::Found => {
+            let c = app.shot_candidates()?;
+            out.emit(serde_json::to_value(&c).unwrap());
+            if c.is_empty() {
+                out.line(out.t("cli.out.shots_found_none"));
+            }
+            for x in &c {
+                out.line(format!(
+                    "{:<20} {:<28} {:>4}  {}",
+                    x.key,
+                    x.name,
+                    x.count,
+                    x.dir.display()
+                ));
+            }
             Ok(())
         }
         ShotsCmd::Set { game, value } => {

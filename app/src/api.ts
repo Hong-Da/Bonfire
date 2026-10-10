@@ -2,6 +2,9 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AlbumView,
+  AutoReport,
+  AutoStatus,
+  ShotCandidate,
   ShotExportReport,
   ShotSyncReport,
   ArchiveImportItem,
@@ -128,6 +131,14 @@ export const api = {
   addShotDir: (gameId: string, dir: string) => invoke<string>("add_shot_dir", { gameId, dir }),
   removeShotDir: (gameId: string, dir: string) => invoke<boolean>("remove_shot_dir", { gameId, dir }),
   capturesDir: () => invoke<string | null>("captures_dir"),
+  restoreShots: (gameId: string, blobs: string[]) => invoke<number>("restore_shots", { gameId, blobs }),
+  /** 彻底删除；`blobs` 为空时清空回收站。 */
+  purgeShots: (gameId: string, blobs: string[]) => invoke<number>("purge_shots", { gameId, blobs }),
+  setShotsOnly: (gameId: string, on: boolean) => invoke<void>("set_shots_only", { gameId, on }),
+  shotCandidates: () => invoke<ShotCandidate[]>("shot_candidates"),
+  addShotsGame: (key: string | null, name: string, dirs: string[]) => invoke<GameRecord>("add_shots_game", { key, name, dirs }),
+  autoStatus: () => invoke<AutoStatus>("auto_status"),
+  onAutoBackup: (cb: (r: AutoReport) => void): Promise<UnlistenFn> => listen<AutoReport>("auto-backup", (e) => cb(e.payload)),
   onShotsSynced: (cb: (added: number) => void): Promise<UnlistenFn> => listen<number>("shots-synced", (e) => cb(e.payload)),
   inspectArchive: (path: string) => invoke<ArchivePreview>("inspect_archive", { path }),
   importArchive: (path: string, picks: { key: string; target: string | null }[]) => invoke<ArchiveImportItem[]>("import_archive", { path, picks }),

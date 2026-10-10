@@ -380,6 +380,8 @@ struct BundlePlan {
     chunks: Vec<ObjectId>,
     blobs: Vec<ObjectId>,
     trees: Vec<ObjectId>,
+    /// 要放入包中的截图（本地记录，原图从这里读取）。
+    shots: Vec<ShotRecord>,
 }
 
 impl BundlePlan {
@@ -871,16 +873,16 @@ impl App {
                 }
             }
         }
-        let shots = if include_shots {
-            self.index.shots_of(&game.id)?
+        // 截图：相册中的（不含回收站），原图原样放在包中的 `shots/` 下。
+        let shots: Vec<ShotRecord> = if include_shots {
+            self.index
+                .shots_of(&game.id)?
+                .into_iter()
+                .filter(|s| !s.purged && s.deleted_at.is_none())
+                .collect()
         } else {
             Vec::new()
         };
-        for sh in &shots {
-            if seen.insert((Kind::Blob, sh.blob)) {
-                blobs.push(sh.blob);
-            }
-        }
         let mut chunks = Vec::new();
         for b in &blobs {
             for c in self.repo.get_blob(b)?.chunks {
@@ -915,13 +917,20 @@ impl App {
                     tag: Some(l.tag),
                 })
                 .collect(),
-            shots,
+            shots: shots
+                .iter()
+                .map(|s| ShotRecord {
+                    file: String::new(),
+                    ..s.clone()
+                })
+                .collect(),
         };
         Ok(BundlePlan {
             manifest,
             chunks,
             blobs,
             trees,
+            shots,
         })
     }
 
@@ -958,6 +967,12 @@ impl App {
                 .map_err(|e| zip_err(tmp, e))?;
                 zip.write_all(&bytes).map_err(|e| AppError::io(tmp, e))?;
             }
+        }
+        for sh in &plan.shots {
+            let data = self.shot_bytes(sh)?;
+            zip.start_file(format!("{prefix}{}", shot_entry(sh)), stored)
+                .map_err(|e| zip_err(tmp, e))?;
+            zip.write_all(&data).map_err(|e| AppError::io(tmp, e))?;
         }
         Ok(())
     }
@@ -1419,15 +1434,44 @@ impl App {
         if created_game {
             self.cache_head_tree(&game)?;
         }
-        // 截图相册：内容已作为文件对象导入，按本地游戏登记。
+        // 截图相册：原图在包中的 `shots/` 下（早期的包作为文件对象导入），按本地游戏登记；
+        // 本地已有（含回收站与彻底删除的）不再导入。
         let mut imported_shots = 0;
+        let local: HashSet<ObjectId> = self
+            .index
+            .shots_of(&game)?
+            .into_iter()
+            .map(|s| s.blob)
+            .collect();
         for sh in &manifest.shots {
-            if self.repo.has(Kind::Blob, &sh.blob)
-                && self.index.add_shot(&ShotRecord {
-                    game_id: game.clone(),
-                    ..sh.clone()
-                })?
-            {
+            if local.contains(&sh.blob) {
+                continue;
+            }
+            let entry = format!("{prefix}{}", shot_entry(sh));
+            let data = if names.contains(&entry) {
+                read_entry(&mut zip, &entry, path)?
+            } else if self.repo.has(Kind::Blob, &sh.blob) {
+                let mut buf = Vec::new();
+                self.repo
+                    .read_blob_to(&sh.blob, &mut buf, self.repo.root())?;
+                buf
+            } else {
+                continue;
+            };
+            if ObjectId::of(&data) != sh.blob {
+                return Err(AppError::Invalid(format!(
+                    "历史包中的截图 {} 内容与记录不符",
+                    sh.blob.short(12)
+                )));
+            }
+            let file = self.store_album_file(&game, sh, &data)?;
+            if self.index.add_shot(&ShotRecord {
+                game_id: game.clone(),
+                file,
+                deleted_at: None,
+                purged: false,
+                ..sh.clone()
+            })? {
                 imported_shots += 1;
             }
         }
@@ -2285,6 +2329,16 @@ pub(crate) fn replace_file(tmp: &Path, dest: &Path) -> Result<()> {
     })
 }
 
+/// 历史包中截图原图的位置：`shots/<内容哈希>.<扩展名>`。
+fn shot_entry(s: &ShotRecord) -> String {
+    let ext = Path::new(&s.original_path)
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .filter(|e| e.chars().all(|c| c.is_ascii_alphanumeric()))
+        .unwrap_or_else(|| "img".into());
+    format!("shots/{}.{ext}", s.blob.to_hex())
+}
+
 pub(crate) fn zip_err(path: &Path, e: zip::result::ZipError) -> AppError {
     AppError::io(path, std::io::Error::other(e))
 }
@@ -2892,11 +2946,30 @@ mod tests {
         let gb = b.app.find_game(&g.id).unwrap();
         let album = b.app.album(&gb).unwrap();
         assert_eq!(album.shots.len(), 1);
+        // 原图原样放在包中，导入后存为普通文件。
+        assert_eq!(album.shots[0].file, "one.png");
+        assert_eq!(
+            std::fs::read(album.dir.join("one.png")).unwrap(),
+            png.get_ref().as_slice()
+        );
         assert!(
             b.app
                 .shot_thumb(&gb.id, &album.shots[0].blob)
                 .unwrap()
                 .is_file()
+        );
+        // 回收站中的截图不导出。
+        let lock_a = a.app.repo.lock().unwrap();
+        let blob = a.app.album(&g).unwrap().shots[0].blob;
+        a.app.delete_shots(&lock_a, &g, &[blob]).unwrap();
+        drop(lock_a);
+        let trashed = out.path().join("trash.bonfire");
+        assert_eq!(
+            a.app
+                .export_bundle(&g, &BundleScope::All, &trashed, true)
+                .unwrap()
+                .shots,
+            0
         );
         // 再导入一次：相册中已有。
         assert_eq!(b.app.inspect_bundle(&with, None).unwrap().new_shots, 0);

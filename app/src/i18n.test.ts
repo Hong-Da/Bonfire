@@ -9,15 +9,16 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.file.": ["added", "modified", "deleted", "removed", "unchanged"],
   "ui.library.phase.": ["discovering", "checking", "info", "idle"],
   "ui.platform.": ["steam", "epic", "gog", "custom"],
-  "ui.state.": ["has-changes", "never-backed-up", "up-to-date", "pending"],
+  "ui.state.": ["has-changes", "never-backed-up", "up-to-date", "shots-only", "pending"],
   "ui.theme.": ["auto", "light", "dark"],
-  "ui.trigger.": ["manual", "auto-exit", "auto-timer", "pre-restore", "import"],
+  "ui.trigger.": ["manual", "auto-exit", "auto-timer", "auto-change", "pre-restore", "import"],
   "ui.transfer.action.": ["create", "same", "fast-forward", "contained", "diverged", "tag-conflict"],
   "ui.scan.phase.": ["rules", "discovering", "idle"],
   "ui.scan.filter.": ["new", "managed", "ignored", "all"],
   "ui.scan.state.": ["new", "managed", "ignored"],
   "ui.shots.source.": ["steam", "capture", "folder", "import"],
   "ui.settings.schedule.": ["off", "daily", "weekly", "hours"],
+  "ui.settings.autoScheduleOpt.": ["off", "daily", "weekly", "hours"],
   "ui.weekday.": ["1", "2", "3", "4", "5", "6", "7"],
 };
 

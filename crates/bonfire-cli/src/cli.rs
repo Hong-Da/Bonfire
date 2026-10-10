@@ -100,6 +100,8 @@ pub enum Cmd {
         force: bool,
         #[arg(long, conflicts_with_all = ["games", "profile"])]
         all: bool,
+        #[arg(long, conflicts_with_all = ["games", "profile", "all", "message", "tag", "force"])]
+        auto: bool,
         #[arg(long, value_name = "NAME", conflicts_with = "move_branch")]
         new_branch: Option<String>,
         #[arg(long)]
@@ -240,12 +242,31 @@ pub enum ShotsCmd {
         game: String,
         #[arg(required = true)]
         ids: Vec<String>,
+        #[arg(long)]
+        purge: bool,
+    },
+    Restore {
+        game: String,
+        #[arg(required = true)]
+        ids: Vec<String>,
+    },
+    Trash {
+        game: String,
+        #[arg(long)]
+        empty: bool,
     },
     Set {
         game: String,
         #[arg(value_enum)]
         value: ShotSwitch,
     },
+    Found,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum OnOff {
+    On,
+    Off,
 }
 
 #[derive(Debug, Subcommand)]
@@ -320,6 +341,18 @@ pub enum GameCmd {
     ShotsDir {
         #[command(subcommand)]
         cmd: ShotsDirCmd,
+    },
+    AddShots {
+        name: String,
+        #[arg(long, value_name = "APPID")]
+        steam: Option<String>,
+        #[arg(long = "dir", value_name = "DIR")]
+        dirs: Vec<PathBuf>,
+    },
+    ShotsOnly {
+        game: String,
+        #[arg(value_enum)]
+        value: OnOff,
     },
 }
 

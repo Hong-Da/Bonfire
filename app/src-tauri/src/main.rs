@@ -51,7 +51,7 @@ fn main() {
         .setup(move |app| {
             tray::create_main_window(app.handle())?;
             tray::create(app.handle(), locale)?;
-            commands::start_shot_scheduler(app.handle().clone());
+            commands::start_scheduler(app.handle().clone());
             if !first_run {
                 let h = app.handle().clone();
                 let shared = h.state::<Shared>();
@@ -64,6 +64,12 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            commands::restore_shots,
+            commands::purge_shots,
+            commands::set_shots_only,
+            commands::shot_candidates,
+            commands::add_shots_game,
+            commands::auto_status,
             commands::open_location,
             commands::export_default_name,
             commands::export_files,

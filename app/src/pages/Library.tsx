@@ -243,7 +243,7 @@ function GameLine({ row, lang, selected, onToggle, onOpen }: { row: GameRow; lan
         <strong>{name}</strong>
         <span className="sub">
           <span>{t(`ui.platform.${row.platform}`, { defaultValue: row.platform })}</span>
-          {!row.installed && (
+          {!row.installed && !row.shotsOnly && (
             <span className="tag not-installed" title={t("ui.library.notInstalledHint")}>
               {t("ui.library.notInstalled")}
             </span>
@@ -273,8 +273,17 @@ function GameLine({ row, lang, selected, onToggle, onOpen }: { row: GameRow; lan
         )}
       </div>
       <div className="meta col-size num">
-        <b>{bytes(row.totalBytes)}</b>
-        <div>{t("ui.library.files", { n: row.files })}</div>
+        {row.shotsOnly ? (
+          <>
+            <b>{t("ui.shots.countN", { n: row.shots })}</b>
+            <div>{t("ui.shots.tab")}</div>
+          </>
+        ) : (
+          <>
+            <b>{bytes(row.totalBytes)}</b>
+            <div>{t("ui.library.files", { n: row.files })}</div>
+          </>
+        )}
       </div>
       <button className="btn ghost small open" onClick={onOpen} aria-label={t("ui.library.openHistory", { name })} title={t("ui.library.openHistory", { name })}>
         <Icon name="next" />

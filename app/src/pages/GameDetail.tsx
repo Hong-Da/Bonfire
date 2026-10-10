@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage, imageSrc } from "../api";
 import Timeline, { laneColor } from "../components/Timeline";
+import GraphViewer from "../components/GraphViewer";
 import { Icon, Menu, StatusBadge, displayName } from "../components/ui";
 import { bytes, dateTime, displayPath, hours, relative, shortId } from "../lib/format";
 import { layout } from "../lib/timeline";
@@ -36,7 +37,9 @@ export default function GameDetail({ id }: { id: string }) {
   const [exporting, setExporting] = useState<{ kind: ExportKind; snapshot: string | null } | null>(null);
   const [importing, setImporting] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
-  const [page, setPage] = useState<"saves" | "shots">("saves");
+  // 只管理截图的游戏默认打开截图页。
+  const [page, setPage] = useState<"saves" | "shots">(() => (useStore.getState().rows[id]?.shotsOnly ? "shots" : "saves"));
+  const [bigGraph, setBigGraph] = useState(false);
   const [shots, setShots] = useState<ShotRecord[]>([]);
 
   const reload = useCallback(async () => {
@@ -45,7 +48,7 @@ export default function GameDetail({ id }: { id: string }) {
       setHist(h);
       setSelected((cur) => (cur && h.nodes.some((n) => n.id === cur) ? cur : (h.head ?? h.nodes[0]?.id ?? null)));
       setMeta(await api.gameInfo(id));
-      setShots(await api.album(id).then((a) => a.shots).catch(() => []));
+      setShots(await api.album(id).then((a) => a.shots ?? []).catch(() => []));
       const undo = await api.pendingUndo(id);
       store.setUndoable(id, undo?.target ?? null);
     } catch (e) {
@@ -122,13 +125,21 @@ export default function GameDetail({ id }: { id: string }) {
           </button>
         </div>
       )}
-      <div className="page-tabs" role="tablist">
+      <div className="page-switch" role="tablist" aria-label={t("ui.shots.pageSwitch")}>
         <button role="tab" aria-selected={page === "saves"} onClick={() => setPage("saves")}>
-          {t("ui.shots.tabSaves")} <span className="chip-count num">{hist.nodes.length}</span>
+          <Icon name="backup" size={20} />
+          <span className="ps-text">
+            <b>{t("ui.shots.tabSaves")}</b>
+            <small className="num">{row.shotsOnly ? t("ui.shots.savesOff") : t("ui.history.snapshotsCount", { n: hist.nodes.length })}</small>
+          </span>
         </button>
         <button role="tab" aria-selected={page === "shots"} onClick={() => setPage("shots")}>
-          <Icon name="camera" size={15} /> {t("ui.shots.tab")} <span className="chip-count num">{shots.length}</span>
-          {row.newShots > 0 && <span className="new-dot" title={t("ui.shots.newInLibrary", { n: row.newShots })} />}
+          <Icon name="camera" size={20} />
+          <span className="ps-text">
+            <b>{t("ui.shots.tab")}</b>
+            <small className="num">{t("ui.shots.countN", { n: shots.length })}</small>
+          </span>
+          {row.newShots > 0 && <span className="ps-new num">{t("ui.shots.newInLibrary", { n: row.newShots })}</span>}
         </button>
       </div>
       {page === "shots" ? (
@@ -152,13 +163,19 @@ export default function GameDetail({ id }: { id: string }) {
               <span className="graph-help" tabIndex={0} title={t("ui.history.graphHint")} aria-label={t("ui.history.graphHint")}>
                 ?
               </span>
+              <div className="grow" />
+              {hist.nodes.length > 0 && (
+                <button className="btn ghost small" onClick={() => setBigGraph(true)} title={t("ui.history.bigGraphHint")}>
+                  <Icon name="expand" size={14} /> {t("ui.history.bigGraph")}
+                </button>
+              )}
             </div>
             <div className="ref-chips" role="group" aria-label={t("ui.history.branches")}>
               {branches.map((b) => {
                 const col = laneOf.get(b.target);
                 return (
                   <button key={b.name} className={`ref-chip branch${b.current ? " current" : ""}`} onClick={() => setSelected(b.target)} title={t("ui.history.goBranch", { name: b.name })}>
-                    <i className="lane-dot" style={{ background: graph.columns > 1 && col != null ? laneColor(col) : "var(--faint)" }} />
+                    <i className="lane-dot" style={{ background: laneColor(col ?? 0) }} />
                     {b.name}
                   </button>
                 );
@@ -203,6 +220,21 @@ export default function GameDetail({ id }: { id: string }) {
           )}
         </section>
       </div>
+      )}
+      {bigGraph && (
+        <GraphViewer
+          hist={hist}
+          title={name}
+          initial={selected}
+          shots={shotsBySnap}
+          onClose={() => setBigGraph(false)}
+          onPick={(snap) => {
+            setBigGraph(false);
+            setPage("saves");
+            setQuery("");
+            setSelected(snap);
+          }}
+        />
       )}
       {restore && (
         <RestoreDialog
@@ -290,7 +322,7 @@ function Hero({
         <div className="hero-title">
           <h1>{name}</h1>
           <StatusBadge row={row} />
-          {!row.installed && (
+          {!row.installed && !row.shotsOnly && (
             <span className="tag not-installed" title={t("ui.library.notInstalledHint")}>
               {t("ui.library.notInstalled")}
             </span>
@@ -306,9 +338,26 @@ function Hero({
           <span className="num">{t("ui.history.saveSize", { size: bytes(row.totalBytes), n: row.files })}</span>
         </p>
         <div className="hero-actions">
-          <button className="btn primary" onClick={onBackup}>
-            <Icon name="backup" /> {t("ui.history.backupNow")}
-          </button>
+          {row.shotsOnly ? (
+            <button
+              className="btn primary"
+              onClick={async () => {
+                try {
+                  const [r] = await api.syncShots(gameId);
+                  store.toast("success", r && r.added > 0 ? t("ui.shots.synced", { n: r.added }) : t("ui.shots.syncedNone"));
+                  onChanged();
+                } catch (e) {
+                  onFail(e);
+                }
+              }}
+            >
+              <Icon name="camera" /> {t("ui.shots.sync")}
+            </button>
+          ) : (
+            <button className="btn primary" onClick={onBackup}>
+              <Icon name="backup" /> {t("ui.history.backupNow")}
+            </button>
+          )}
           {folders.length === 1 ? (
             <button className="btn" onClick={() => void openLocation(folders[0].ord)} title={folders[0].l.resolvedPath}>
               <Icon name="folder" /> {t("ui.history.openSaves")}
@@ -354,6 +403,19 @@ function Hero({
             title={t("ui.more")}
             items={[
               { label: t("ui.history.refreshInfo"), onClick: () => void api.refreshInfo(gameId).then(onChanged).catch(onFail) },
+              {
+                label: row.shotsOnly ? t("ui.history.manageSaves") : t("ui.history.shotsOnly"),
+                hint: row.shotsOnly ? t("ui.history.manageSavesHint") : t("ui.history.shotsOnlyHint"),
+                onClick: async () => {
+                  try {
+                    await api.setShotsOnly(gameId, !row.shotsOnly);
+                    store.toast("success", row.shotsOnly ? t("ui.history.manageSavesDone", { name }) : t("ui.history.shotsOnlyDone", { name }));
+                    onChanged();
+                  } catch (e) {
+                    onFail(e);
+                  }
+                },
+              },
               ...(unconfirmed > 0
                 ? [
                     {
@@ -388,7 +450,8 @@ function Hero({
             ]}
           />
         </div>
-        {!row.installed && <p className="hero-note">{t("ui.history.notInstalledNote")}</p>}
+        {row.shotsOnly && <p className="hero-note">{t("ui.history.shotsOnlyNote")}</p>}
+        {!row.installed && !row.shotsOnly && <p className="hero-note">{t("ui.history.notInstalledNote")}</p>}
         {unconfirmed > 0 && <p className="hero-note">{t("ui.history.unconfirmedNote", { n: unconfirmed })}</p>}
       </div>
     </header>

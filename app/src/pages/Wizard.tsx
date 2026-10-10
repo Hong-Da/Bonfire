@@ -12,6 +12,7 @@ export const DEFAULT_CONFIG: Config = {
   general: { theme: "auto", close_to_tray: true },
   backup: { include_config_files: true, size_warning_gb: 2, disabled_platforms: [], protect_local: true },
   shots: { enabled: true, schedule: "off", at: "21:00", weekday: 7, every_hours: 6 },
+  auto_backup: { schedule: "off", at: "21:00", weekday: 7, every_hours: 6, on_change: false, check_minutes: 5, quiet_minutes: 2 },
   metadata: { online: true, igdb_client_id: "", igdb_client_secret: "", steamgriddb_api_key: "" },
   log: { level: "info", keep_days: 14 },
 };

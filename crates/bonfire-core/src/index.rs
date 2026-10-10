@@ -16,7 +16,18 @@ use crate::{ObjectId, Repo};
 
 /// 数据库结构版本（PRAGMA user_version）。
 /// 3：截图相册（screenshots、shot_settings）。
-const SCHEMA_VERSION: i32 = 3;
+/// 4：截图原样存为文件（screenshots.file）、回收站（deleted_at、purged）、只管理截图的游戏（shot_settings.shots_only）。
+const SCHEMA_VERSION: i32 = 4;
+
+/// 版本 4 新增的列（旧数据库中补上）。
+const COLUMNS_V4: &[(&str, &str, &str)] = &[
+    ("screenshots", "file", "TEXT NOT NULL DEFAULT ''"),
+    ("screenshots", "deleted_at", "TEXT"),
+    ("screenshots", "purged", "INTEGER NOT NULL DEFAULT 0"),
+    ("shot_settings", "shots_only", "INTEGER NOT NULL DEFAULT 0"),
+];
+
+const SHOT_COLUMNS: &str = "game_id, blob, taken_at, source, original_path, size, width, height, added_at, file, deleted_at, purged";
 
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS games (
@@ -122,13 +133,17 @@ CREATE TABLE IF NOT EXISTS screenshots (
     width INTEGER,
     height INTEGER,
     added_at TEXT NOT NULL,
+    file TEXT NOT NULL DEFAULT '',
+    deleted_at TEXT,
+    purged INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (game_id, blob)
 );
 CREATE INDEX IF NOT EXISTS screenshots_taken ON screenshots(game_id, taken_at);
 CREATE TABLE IF NOT EXISTS shot_settings (
     game_id TEXT PRIMARY KEY,
     enabled INTEGER,
-    dirs_json TEXT NOT NULL DEFAULT '[]'
+    dirs_json TEXT NOT NULL DEFAULT '[]',
+    shots_only INTEGER NOT NULL DEFAULT 0
 );
 "#;
 
@@ -270,7 +285,8 @@ pub struct Index {
     conn: Connection,
 }
 
-/// 相册中的一张截图（文档：截图备份方案）。内容是普通文件对象 `blob`，同一游戏内按内容去重。
+/// 相册中的一张截图（文档：截图备份方案）。`blob` 是整个文件内容的哈希，同一游戏内按内容去重；
+/// 原图原样保存在仓库的 `screenshots/<游戏>/<file>`。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShotRecord {
@@ -288,9 +304,19 @@ pub struct ShotRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<u32>,
     pub added_at: String,
+    /// 备份中的原图：仓库 `screenshots/<游戏>/` 下的相对路径。
+    /// 为空表示还在对象库中（早期版本），打开仓库时迁移。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub file: String,
+    /// 移入相册回收站的时间。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deleted_at: Option<String>,
+    /// 已彻底删除：只保留记录，避免磁盘上的原图被再次收集。
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub purged: bool,
 }
 
-/// 游戏的截图设置：是否收集（`None` 跟随全局设置）与手动添加的截图文件夹。
+/// 游戏的截图设置：是否收集（`None` 跟随全局设置）、手动添加的截图文件夹、是否只管理截图。
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShotSettings {
@@ -298,6 +324,46 @@ pub struct ShotSettings {
     pub enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dirs: Vec<String>,
+    /// 只管理截图：不备份、不检查存档。
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shots_only: bool,
+}
+
+/// 旧数据库中补上新增的列（已存在时跳过）。
+fn add_column(conn: &Connection, table: &str, col: &str, decl: &str) -> Result<()> {
+    let mut st = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let exists = st
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?
+        .iter()
+        .any(|c| c == col);
+    if !exists {
+        conn.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {col} {decl}"))?;
+    }
+    Ok(())
+}
+
+fn insert_shot(conn: &Connection, game_id: &str, s: &ShotRecord) -> Result<usize> {
+    Ok(conn.execute(
+        &format!(
+            "INSERT OR IGNORE INTO screenshots ({SHOT_COLUMNS})
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"
+        ),
+        params![
+            game_id,
+            s.blob.to_string(),
+            s.taken_at,
+            s.source,
+            s.original_path,
+            s.size as i64,
+            s.width.map(i64::from),
+            s.height.map(i64::from),
+            s.added_at,
+            s.file,
+            s.deleted_at,
+            s.purged
+        ],
+    )?)
 }
 
 fn now_rfc3339() -> String {
@@ -317,6 +383,9 @@ impl Index {
         let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         if version < SCHEMA_VERSION {
             conn.execute_batch(SCHEMA)?;
+            for (table, col, decl) in COLUMNS_V4 {
+                add_column(&conn, table, col, decl)?;
+            }
             conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))?;
         }
         Ok(Self { conn })
@@ -632,26 +701,42 @@ impl Index {
             width: r.get::<_, Option<i64>>(6)?.map(|v| v as u32),
             height: r.get::<_, Option<i64>>(7)?.map(|v| v as u32),
             added_at: r.get(8)?,
+            file: r.get(9)?,
+            deleted_at: r.get(10)?,
+            purged: r.get(11)?,
         })
     }
 
     /// 记录截图；同一游戏中内容相同的已存在时不记录，返回 false。
     pub fn add_shot(&self, s: &ShotRecord) -> Result<bool> {
-        let n = self.conn.execute(
-            "INSERT OR IGNORE INTO screenshots (game_id, blob, taken_at, source, original_path, size, width, height, added_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![s.game_id, s.blob.to_string(), s.taken_at, s.source, s.original_path, s.size as i64,
-                    s.width.map(i64::from), s.height.map(i64::from), s.added_at],
+        Ok(insert_shot(&self.conn, &s.game_id, s)? > 0)
+    }
+
+    /// 更新截图的存放位置与回收站状态。
+    pub fn update_shot(&self, s: &ShotRecord) -> Result<()> {
+        self.conn.execute(
+            "UPDATE screenshots SET file = ?3, deleted_at = ?4, purged = ?5 WHERE game_id = ?1 AND blob = ?2",
+            params![s.game_id, s.blob.to_string(), s.file, s.deleted_at, s.purged],
         )?;
-        Ok(n > 0)
+        Ok(())
+    }
+
+    /// 还没有迁移为文件的截图（早期版本存放在对象库中）。
+    pub fn shots_without_file(&self) -> Result<Vec<ShotRecord>> {
+        let mut st = self.conn.prepare(&format!(
+            "SELECT {SHOT_COLUMNS} FROM screenshots WHERE file = '' AND purged = 0"
+        ))?;
+        let rows = st
+            .query_map([], Self::shot_from_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
     }
 
     /// 游戏的全部截图，最新拍摄的在前。
     pub fn shots_of(&self, game_id: &str) -> Result<Vec<ShotRecord>> {
-        let mut st = self.conn.prepare(
-            "SELECT game_id, blob, taken_at, source, original_path, size, width, height, added_at
-             FROM screenshots WHERE game_id = ?1 ORDER BY taken_at DESC, blob",
-        )?;
+        let mut st = self.conn.prepare(&format!(
+            "SELECT {SHOT_COLUMNS} FROM screenshots WHERE game_id = ?1 ORDER BY taken_at DESC, blob"
+        ))?;
         let rows = st
             .query_map([game_id], Self::shot_from_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -674,30 +759,26 @@ impl Index {
         let tx = self.conn.transaction()?;
         tx.execute("DELETE FROM screenshots WHERE game_id = ?1", [game_id])?;
         for s in shots {
-            tx.execute(
-                "INSERT OR IGNORE INTO screenshots (game_id, blob, taken_at, source, original_path, size, width, height, added_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                params![game_id, s.blob.to_string(), s.taken_at, s.source, s.original_path, s.size as i64,
-                        s.width.map(i64::from), s.height.map(i64::from), s.added_at],
-            )?;
+            insert_shot(&tx, game_id, s)?;
         }
         tx.commit()?;
         Ok(())
     }
 
     pub fn shot_settings(&self, game_id: &str) -> Result<ShotSettings> {
-        let row: Option<(Option<bool>, String)> = self
+        let row: Option<(Option<bool>, String, bool)> = self
             .conn
             .query_row(
-                "SELECT enabled, dirs_json FROM shot_settings WHERE game_id = ?1",
+                "SELECT enabled, dirs_json, shots_only FROM shot_settings WHERE game_id = ?1",
                 [game_id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .optional()?;
         Ok(match row {
-            Some((enabled, dirs)) => ShotSettings {
+            Some((enabled, dirs, shots_only)) => ShotSettings {
                 enabled,
                 dirs: serde_json::from_str(&dirs).unwrap_or_default(),
+                shots_only,
             },
             None => ShotSettings::default(),
         })
@@ -705,12 +786,13 @@ impl Index {
 
     pub fn save_shot_settings(&self, game_id: &str, s: &ShotSettings) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO shot_settings (game_id, enabled, dirs_json) VALUES (?1, ?2, ?3)
-             ON CONFLICT(game_id) DO UPDATE SET enabled = ?2, dirs_json = ?3",
+            "INSERT INTO shot_settings (game_id, enabled, dirs_json, shots_only) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(game_id) DO UPDATE SET enabled = ?2, dirs_json = ?3, shots_only = ?4",
             params![
                 game_id,
                 s.enabled,
-                serde_json::to_string(&s.dirs).expect("可以序列化")
+                serde_json::to_string(&s.dirs).expect("可以序列化"),
+                s.shots_only
             ],
         )?;
         Ok(())

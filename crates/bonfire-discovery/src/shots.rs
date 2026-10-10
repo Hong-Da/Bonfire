@@ -136,6 +136,67 @@ pub fn capture_shots(dir: &Path, names: &[&str]) -> Vec<ShotFile> {
     out
 }
 
+/// Steam 截图中出现的全部 AppID：(AppID, 截图数, 截图文件夹)，多个账号的合并。
+pub fn steam_shot_apps(steam_root: &Path) -> Vec<(String, usize, PathBuf)> {
+    let mut found: std::collections::BTreeMap<String, (usize, PathBuf)> = Default::default();
+    let Ok(users) = std::fs::read_dir(steam_root.join("userdata")) else {
+        return Vec::new();
+    };
+    for u in users.flatten() {
+        let Ok(apps) = std::fs::read_dir(u.path().join("760/remote")) else {
+            continue;
+        };
+        for a in apps.flatten() {
+            let id = a.file_name().to_string_lossy().into_owned();
+            if !id.chars().all(|c| c.is_ascii_digit()) {
+                continue;
+            }
+            let dir = a.path().join("screenshots");
+            let Ok(rd) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            let n = rd.flatten().filter(|e| is_image(&e.path())).count();
+            if n > 0 {
+                let e = found.entry(id).or_insert((0, dir));
+                e.0 += n;
+            }
+        }
+    }
+    found.into_iter().map(|(id, (n, d))| (id, n, d)).collect()
+}
+
+/// 捕获文件夹中与 `names`（游戏库中的游戏名）都不对应的截图，按窗口标题分组：(标题, 截图数)。
+pub fn capture_titles(dir: &Path, names: &[&str]) -> Vec<(String, usize)> {
+    let wanted: Vec<String> = names
+        .iter()
+        .map(|n| normalize(n))
+        .filter(|n| n.chars().count() >= 2)
+        .collect();
+    let mut groups: std::collections::BTreeMap<String, (String, usize)> = Default::default();
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    for e in rd.flatten() {
+        let p = e.path();
+        if !is_image(&p) {
+            continue;
+        }
+        let stem = p
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let Some((title, _)) = parse_capture_name(&stem) else {
+            continue;
+        };
+        let key = normalize(&title);
+        if key.is_empty() || title_matches(&title, &wanted) {
+            continue;
+        }
+        groups.entry(key).or_insert((title, 0)).1 += 1;
+    }
+    groups.into_values().collect()
+}
+
 /// 窗口标题与游戏名是否对应：规整后相同，或标题以游戏名开头（标题可能带副标题、版本号）。
 fn title_matches(title: &str, wanted: &[String]) -> bool {
     let t = normalize(title);
@@ -276,5 +337,16 @@ mod tests {
         touch(&own.join("notes.txt"));
         assert_eq!(folder_shots(&own).len(), 2);
         assert!(folder_shots(&d.path().join("missing")).is_empty());
+
+        // 不在游戏库中的：Steam 按 AppID，游戏栏按标题（与游戏名对应的除外）。
+        let apps: Vec<(String, usize)> = steam_shot_apps(&steam)
+            .into_iter()
+            .map(|(id, n, _)| (id, n))
+            .collect();
+        assert_eq!(apps, [("367520".into(), 2), ("999".into(), 1)]);
+        assert_eq!(
+            capture_titles(&cap, &["Hollow Knight", "空洞骑士"]),
+            [("Minishoot".to_string(), 1)]
+        );
     }
 }

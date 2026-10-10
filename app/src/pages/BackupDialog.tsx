@@ -8,8 +8,11 @@ import type { BackupItemResult, FileChange, GameRow } from "../types";
 
 export const MAX_COMMENT = 500;
 
-/** 备份确认：逐个游戏写备注（留空自动生成），顶部“统一备注”一键填充，可同时打标签（文档 9.1）。 */
-export default function BackupDialog({ rows, onClose }: { rows: GameRow[]; onClose: () => void }) {
+/**
+ * 备份确认：逐个游戏写备注（留空自动生成），顶部“统一备注”一键填充，可同时打标签（文档 9.1）。
+ * 已是最新的游戏单独列出并自动跳过；只管理截图的游戏只收集截图。
+ */
+export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[]; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const store = useStore();
   const [comments, setComments] = useState<Record<string, string>>({});
@@ -20,7 +23,14 @@ export default function BackupDialog({ rows, onClose }: { rows: GameRow[]; onClo
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<BackupItemResult[] | null>(null);
-  const detached = rows.filter((r) => r.detached);
+  // 已是最新的游戏跳过（状态以最近一次检查为准，备份时后端还会再判断一次）。
+  // 打开时分好，备份完成后行状态刷新也不影响结果列表。
+  const [{ skipped, rows }] = useState(() => ({
+    skipped: picked.filter((r) => r.state === "up-to-date"),
+    rows: picked.filter((r) => r.state !== "up-to-date"),
+  }));
+  const saveRows = rows.filter((r) => !r.shotsOnly);
+  const detached = saveRows.filter((r) => r.detached);
   const tooLong = rows.some((r) => [...(comments[r.id] ?? "")].length > MAX_COMMENT);
 
   const fillAll = () => setComments(Object.fromEntries(rows.map((r) => [r.id, unified])));
@@ -61,7 +71,7 @@ export default function BackupDialog({ rows, onClose }: { rows: GameRow[]; onClo
       <button className="btn ghost" onClick={running ? () => api.cancelTask() : onClose}>
         {t("ui.cancel")}
       </button>
-      <button className="btn primary" onClick={start} disabled={running || tooLong || (withTag && !tag.trim())}>
+      <button className="btn primary" onClick={start} disabled={running || rows.length === 0 || tooLong || (withTag && !tag.trim())}>
         {t("ui.backup.confirm", { n: rows.length })}
       </button>
     </>
@@ -76,6 +86,7 @@ export default function BackupDialog({ rows, onClose }: { rows: GameRow[]; onClo
             const name = row ? displayName(row, i18n.language) : r.gameId;
             let text: string;
             if (!r.ok) text = t("ui.backup.failed", { msg: r.error?.message ?? "" });
+            else if (r.shotsOnly) text = r.shots > 0 ? t("ui.backup.shotsOnlyDone", { n: r.shots }) : t("ui.backup.shotsOnlyNone");
             else if (r.result?.result === "created") text = t("ui.backup.created", { comment: r.result.comment, size: bytes(r.result.newBytes) });
             else text = t("ui.backup.noChanges");
             return (
@@ -88,7 +99,7 @@ export default function BackupDialog({ rows, onClose }: { rows: GameRow[]; onClo
                   <div className={r.ok ? "" : "callout error"}>{text}</div>
                   {r.result?.result === "created" && r.result.newBranch && <div className="muted">{t("ui.backup.newBranch", { branch: r.result.newBranch })}</div>}
                   {r.result?.result === "created" && r.result.warnings.map((w) => <div key={w} className="callout warn">{w}</div>)}
-                  {r.shots > 0 && <div className="muted">{t("ui.shots.backupCollected", { n: r.shots })}</div>}
+                  {r.shots > 0 && !r.shotsOnly && <div className="muted">{t("ui.shots.backupCollected", { n: r.shots })}</div>}
                 </div>
               </li>
             );
@@ -96,6 +107,8 @@ export default function BackupDialog({ rows, onClose }: { rows: GameRow[]; onClo
         </ul>
       ) : (
         <>
+          {rows.length === 0 && <div className="callout same"><p>{t("ui.backup.allUpToDate", { n: skipped.length })}</p></div>}
+          {saveRows.length > 1 && (
           <div className="row">
             <label htmlFor="unified">{t("ui.backup.unified")}</label>
             <div className="inline">
@@ -105,6 +118,7 @@ export default function BackupDialog({ rows, onClose }: { rows: GameRow[]; onClo
               </button>
             </div>
           </div>
+          )}
           {detached.length > 0 && (
             <div className="callout warn">
               <p style={{ margin: "0 0 6px" }}>{t("ui.backup.detachedIntro", { names: detached.map((r) => displayName(r, i18n.language)).join("、") })}</p>
@@ -121,6 +135,21 @@ export default function BackupDialog({ rows, onClose }: { rows: GameRow[]; onClo
               <NoteRow key={r.id} row={r} value={comments[r.id] ?? ""} onChange={(v) => setComments((c) => ({ ...c, [r.id]: v }))} />
             ))}
           </ul>
+          {skipped.length > 0 && (
+            <section className="skip-list" aria-label={t("ui.backup.skippedTitle", { n: skipped.length })}>
+              <h3>{t("ui.backup.skippedTitle", { n: skipped.length })}</h3>
+              <p className="hint">{t("ui.backup.skippedHint")}</p>
+              <ul>
+                {skipped.map((r) => (
+                  <li key={r.id}>
+                    <Cover row={r} size="note" />
+                    <span>{displayName(r, i18n.language)}</span>
+                    <span className="tag">{t("ui.backup.upToDate")}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </>
       )}
     </Modal>
@@ -139,6 +168,18 @@ function NoteRow({ row, value, onChange }: { row: GameRow; value: string; onChan
     if (open && files === null) api.gameChanges(row.id).then(setFiles).catch(() => setFiles([]));
   }, [open, files, row.id]);
 
+  if (row.shotsOnly)
+    return (
+      <li className="note-row">
+        <Cover row={row} size="note" />
+        <div>
+          <div className="head">
+            <strong>{name}</strong>
+            <span className="muted">{t("ui.backup.shotsOnlyRow")}</span>
+          </div>
+        </div>
+      </li>
+    );
   return (
     <li className="note-row">
       <Cover row={row} size="note" />

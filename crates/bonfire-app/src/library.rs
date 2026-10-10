@@ -40,8 +40,10 @@ pub struct GameRow {
     pub installed: bool,
     /// 本机还不能确定路径的存档位置数（未安装的游戏需要安装目录的位置）。
     pub unresolved: u64,
-    /// 相册中的截图数。
+    /// 相册中的截图数（不含回收站）。
     pub shots: u64,
+    /// 只管理截图（不备份存档）。
+    pub shots_only: bool,
     /// 磁盘上还没有收集的新截图数。
     pub new_shots: u64,
 }
@@ -145,7 +147,8 @@ impl App {
             unconfirmed,
             installed,
             unresolved,
-            shots: self.index.shots_of(&game.id)?.len() as u64,
+            shots: self.shot_count(&game.id)?,
+            shots_only: st.state == GameState::ShotsOnly,
             // 截图来源读取失败不影响游戏库。
             new_shots: self.pending_shots(game).unwrap_or(0) as u64,
         })

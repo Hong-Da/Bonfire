@@ -139,7 +139,12 @@ fn every_command_has_ok_and_error_cases() {
         "shots export",
         "shots rm",
         "shots set",
+        "shots restore",
+        "shots trash",
+        "shots found",
         "game shots-dir",
+        "game add-shots",
+        "game shots-only",
     ];
     let mut missing = Vec::new();
     for cmd in cmds {

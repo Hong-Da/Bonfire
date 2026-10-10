@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use bonfire_app::auto::{AutoKind, AutoReport};
 use bonfire_app::backup::{BackupOptions, BackupResult, DetachedChoice};
 use bonfire_app::core::index::LocationKind;
 use bonfire_app::core::index::{GameRecord, Profile};
@@ -14,7 +15,7 @@ use bonfire_app::core::refs::RefKind;
 use bonfire_app::library::{GameRow, HistoryView, SearchHit};
 use bonfire_app::prune::DeleteReport;
 use bonfire_app::restore::{RestoreOptions, RestorePlan, RestoreReport};
-use bonfire_app::shots::{AlbumView, ShotExportReport, ShotSyncReport};
+use bonfire_app::shots::{AlbumView, ShotCandidate, ShotExportReport, ShotSyncReport};
 use bonfire_app::transfer::{
     ArchiveImportItem, ArchivePick, ArchivePreview, BundleImportReport, BundlePreview,
     BundleReport, BundleScope, CollectionReport, ExportFormat, ExportReport, FilesAutoReport,
@@ -93,6 +94,11 @@ pub fn open_app(h: &AppHandle, shared: &Shared, config: Config) -> Result<(), Ap
         .allow_directory(&shared.paths.cache_dir, true)
     {
         tracing::warn!("无法开放图片缓存目录：{e}");
+    }
+    // 查看大图时直接读取备份中的截图原图。
+    let shots_dir = app.repo.root().join(bonfire_app::shots::SHOTS_DIR);
+    if let Err(e) = h.asset_protocol_scope().allow_directory(&shots_dir, true) {
+        tracing::warn!("无法开放截图目录：{e}");
     }
     *shared.app.lock().unwrap() = Some(app);
     Ok(())
@@ -388,6 +394,8 @@ pub struct BackupItemResult {
     error: Option<CmdError2>,
     /// 顺带收集的新截图数。
     shots: usize,
+    /// 只管理截图的游戏：没有备份存档，只收集了截图。
+    shots_only: bool,
 }
 
 /// CmdError 的可克隆版本（事件负载需要 Clone）。
@@ -436,9 +444,15 @@ pub async fn run_backup(
                 ..Default::default()
             };
             // 备份时顺带收集新截图（失败只记日志，不影响备份结果）。
+            // 只管理截图的游戏不备份存档，只收集截图。
+            let shots_only = app.is_shots_only(&item.game_id).unwrap_or(false);
             let (r, shots) = match app.find_game(&item.game_id) {
                 Ok(g) => {
-                    let r = app.backup(&lock, &g, &opts);
+                    let r = if shots_only {
+                        Ok(BackupResult::NoChanges)
+                    } else {
+                        app.backup(&lock, &g, &opts)
+                    };
                     let shots = match app.sync_shots(&lock, &g) {
                         Ok(s) => s.added,
                         Err(e) => {
@@ -454,9 +468,10 @@ pub async fn run_backup(
                 Ok(r) => BackupItemResult {
                     game_id: item.game_id,
                     ok: true,
-                    result: Some(r),
+                    result: (!shots_only).then_some(r),
                     error: None,
                     shots,
+                    shots_only,
                 },
                 Err(e) => {
                     let e = CmdError::from(e);
@@ -469,6 +484,7 @@ pub async fn run_backup(
                             message: e.message,
                         }),
                         shots,
+                        shots_only,
                     }
                 }
             };
@@ -1124,6 +1140,80 @@ pub async fn delete_shots(h: AppHandle, game_id: String, blobs: Vec<String>) -> 
     .await
 }
 
+/// 从回收站恢复截图。
+#[tauri::command]
+pub async fn restore_shots(h: AppHandle, game_id: String, blobs: Vec<String>) -> CmdResult<usize> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let ids = blob_ids(&blobs)?;
+        let lock = app.repo.lock()?;
+        Ok(app.restore_shots(&lock, &g, &ids)?)
+    })
+    .await
+}
+
+/// 彻底删除截图；`blobs` 为空时清空回收站。
+#[tauri::command]
+pub async fn purge_shots(h: AppHandle, game_id: String, blobs: Vec<String>) -> CmdResult<usize> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let ids = blob_ids(&blobs)?;
+        let lock = app.repo.lock()?;
+        Ok(app.purge_shots(&lock, &g, &ids)?)
+    })
+    .await
+}
+
+/// 设为只管理截图，或恢复管理存档。
+#[tauri::command]
+pub async fn set_shots_only(h: AppHandle, game_id: String, on: bool) -> CmdResult<()> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.set_shots_only(&g, on)?)
+    })
+    .await
+}
+
+/// 有截图、但还不在游戏库中的游戏（发现页）。
+#[tauri::command]
+pub async fn shot_candidates(h: AppHandle) -> CmdResult<Vec<ShotCandidate>> {
+    with_app(h, move |app, _| Ok(app.shot_candidates()?)).await
+}
+
+/// 加入只管理截图的游戏：`key` 为候选的键（`steam:<AppID>` / `capture:<标题>`），手动添加时为空。
+#[tauri::command]
+pub async fn add_shots_game(
+    h: AppHandle,
+    key: Option<String>,
+    name: String,
+    dirs: Vec<PathBuf>,
+) -> CmdResult<GameRecord> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(app.add_shots_game(&lock, key.as_deref(), &name, &dirs)?)
+    })
+    .await
+}
+
+/// 自动备份的上次执行时间（设置页显示）。
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoStatus {
+    last_scheduled: Option<String>,
+    last_check: Option<String>,
+}
+
+#[tauri::command]
+pub async fn auto_status(h: AppHandle) -> CmdResult<AutoStatus> {
+    with_app(h, move |app, _| {
+        Ok(AutoStatus {
+            last_scheduled: app.last_auto(AutoKind::Scheduled).map(|t| t.to_string()),
+            last_check: app.last_auto(AutoKind::OnChange).map(|t| t.to_string()),
+        })
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn export_shots(
     h: AppHandle,
@@ -1178,12 +1268,33 @@ pub async fn captures_dir(h: AppHandle) -> CmdResult<Option<PathBuf>> {
     with_app(h, move |app, _| Ok(app.captures_dir())).await
 }
 
-/// 定时收集截图：每分钟检查一次是否到期；仓库正被其他操作（如命令行）使用时跳过本次。
-pub fn start_shot_scheduler(h: AppHandle) {
+/// 自动备份与定时收集截图：每分钟检查一次是否到期；仓库正被其他操作（如命令行）使用时推迟到下一次。
+/// 自动备份完成后推送 `auto-backup`（有备份、出错或收集到截图时），定时收集截图后推送 `shots-synced`。
+pub fn start_scheduler(h: AppHandle) {
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(std::time::Duration::from_secs(60));
             let shared = h.state::<Shared>();
+            let report: Option<AutoReport> = {
+                let mut guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
+                let Some(app) = guard.as_mut() else { continue };
+                match app.auto_backup_due(&jiff::Zoned::now()) {
+                    None => None,
+                    Some(kind) => match app.repo.lock() {
+                        Ok(lock) => match app.run_auto_backup(&lock, kind) {
+                            Ok(r) => Some(r),
+                            Err(e) => {
+                                tracing::warn!("自动备份失败：{e}");
+                                None
+                            }
+                        },
+                        Err(_) => None,
+                    },
+                }
+            };
+            if let Some(r) = report.filter(|r| !r.items.is_empty()) {
+                let _ = h.emit("auto-backup", r);
+            }
             let added = {
                 let mut guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
                 let Some(app) = guard.as_mut() else { continue };

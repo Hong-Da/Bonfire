@@ -21,6 +21,7 @@
 | `bonfire status [<game>] [--force-verify]` | 不带游戏时同 `scan`；带游戏时列出变化的文件 |
 | `bonfire backup <game>... [-m <备注>] [--tag <标签>] [--force]` | 备份游戏；备注最多 500 字，省略时自动生成 |
 | `bonfire backup --all` / `--profile <方案>` | 备份所有有更新或未备份的游戏 / 方案中的游戏 |
+| `bonfire backup --auto` | 自动备份：备份所有有变化、已经备份过的游戏（快照标为“定时备份”）并收集截图；与桌面程序的定时备份相同，可供系统计划任务调用。只管理截图的游戏只收集截图 |
 | `bonfire backup <game> --new-branch <名称>` / `--move-branch` | 从旧快照恢复后再备份时：指定新分支名 / 移动当前分支（默认自动新建分支） |
 | `bonfire log <game> [--branch <分支>] [--grep <关键词>] [--limit <n>]` | 快照历史（`*` 为当前状态对应的快照） |
 | `bonfire diff <game> <refA> [<refB>]` | 两个快照的差异；省略 B 时与当前磁盘比较 |
@@ -41,7 +42,12 @@
 | `bonfire shots list <game>` | 列出游戏已备份的截图（ID、拍摄时间、来源、大小、原文件名）与磁盘上还没收集的数量 |
 | `bonfire shots sync [<game>...]` | 收集新截图（省略游戏时收集全部游戏）；每次 `backup` 后也会自动收集。来源：Steam 截图、Windows 游戏栏“捕获”文件夹（按文件名中的标题对应）、`game shots-dir` 添加的文件夹；**只读取，不写入截图目录**；内容相同的不重复收集，磁盘上删掉的截图备份中仍保留 |
 | `bonfire shots export <game> -o <zip或目录> [--folder] [--id <ID>]... [--since YYYY-MM-DD] [--snapshot <ref>]` | 导出截图（默认全部）为 zip，或 `--folder` 在目录中新建文件夹；`--snapshot` 只导出这个快照之前拍的（拍摄后最早的快照即它） |
-| `bonfire shots rm <game> <ID>...` | 从相册中删除截图（需确认；ID 前缀至少 6 位）；只删备份，不动磁盘上的原图 |
+| `bonfire shots rm <game> <ID>... [--purge]` | 把截图移入回收站（需确认；ID 前缀至少 6 位），可用 `shots restore` 恢复；`--purge` 彻底删除。只动备份，不动磁盘上的原图；回收站中和彻底删除的截图都不会再被收集 |
+| `bonfire shots restore <game> <ID>...` | 从回收站恢复截图 |
+| `bonfire shots trash <game> [--empty]` | 列出回收站中的截图；`--empty` 清空回收站（需确认，不能恢复） |
+| `bonfire shots found` | 列出有截图、但不在游戏库中的游戏（Steam 截图按 AppID、游戏栏截图按窗口标题） |
+| `bonfire game add-shots <名称> [--steam <AppID>] [--dir <文件夹>]...` | 加入只管理截图的游戏（不备份存档）；游戏栏截图按名称对应 |
+| `bonfire game shots-only <game> on\|off` | 设为只管理截图（不备份、不检查存档，已有快照保留）/ 恢复管理存档 |
 | `bonfire shots set <game> on\|off\|auto` | 这个游戏收集 / 不收集截图 / 跟随全局设置（`shots.enabled`） |
 | `bonfire game shots-dir add\|rm <game> <文件夹>` | 为游戏添加或移除截图文件夹（游戏自带截图、其他截图工具）；不能是仓库或数据目录；移除后已收集的截图保留 |
 | `bonfire fsck [--deep]` | 校验仓库；`--deep` 还原每个文件并校验哈希 |

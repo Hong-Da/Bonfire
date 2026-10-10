@@ -65,7 +65,7 @@ pub struct MetadataView {
 }
 
 impl App {
-    fn steam_adapter(&self) -> Option<bonfire_discovery::platforms::SteamAdapter> {
+    pub(crate) fn steam_adapter(&self) -> Option<bonfire_discovery::platforms::SteamAdapter> {
         match &self.fake_root {
             Some(root) => {
                 let s = root.join("Steam");

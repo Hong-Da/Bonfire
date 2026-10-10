@@ -986,12 +986,12 @@ stderr_contains = ["没有要导出的截图"]
 
 [[case]]
 id = "shots-rm"
-title = { zh-CN = "从相册中删除截图", en = "Delete a screenshot from the album" }
+title = { zh-CN = "删除截图：移入回收站", en = "Delete a screenshot: move it to the recycle bin" }
 fixture = "basic"
 pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"]]
 args = ["shots", "rm", "空洞骑士", "feaa61", "-y"]
 expect_exit = 0
-stdout_contains = ["已从相册中删除 1 张截图"]
+stdout_contains = ["已把 1 张截图移入回收站"]
 
 [[case]]
 id = "shots-rm-short-id"
@@ -1017,4 +1017,128 @@ title = { zh-CN = "开关取值无效", en = "Invalid switch value" }
 fixture = "basic"
 pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
 args = ["shots", "set", "空洞骑士", "maybe"]
+expect_exit = 2
+
+[[case]]
+id = "shots-rm-purge"
+title = { zh-CN = "彻底删除截图", en = "Delete a screenshot for good" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"]]
+args = ["shots", "rm", "空洞骑士", "feaa61", "--purge", "-y"]
+expect_exit = 0
+stdout_contains = ["已彻底删除 1 张截图"]
+
+[[case]]
+id = "shots-restore"
+title = { zh-CN = "从回收站恢复截图", en = "Restore a screenshot from the recycle bin" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"], ["shots", "rm", "空洞骑士", "feaa61", "-y"]]
+args = ["shots", "restore", "空洞骑士", "feaa61"]
+expect_exit = 0
+stdout_contains = ["已恢复 1 张截图"]
+
+[[case]]
+id = "shots-restore-short-id"
+title = { zh-CN = "恢复截图：ID 太短", en = "Restore a screenshot: ID too short" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["shots", "restore", "空洞骑士", "fe"]
+expect_exit = 2
+stderr_contains = ["至少 6 位"]
+
+[[case]]
+id = "shots-trash"
+title = { zh-CN = "列出回收站中的截图", en = "List the recycle bin" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"], ["shots", "rm", "空洞骑士", "feaa61", "-y"]]
+args = ["shots", "trash", "空洞骑士"]
+expect_exit = 0
+stdout_contains = ["回收站中有 1 张截图", "feaa61"]
+
+[[case]]
+id = "shots-trash-empty"
+title = { zh-CN = "清空回收站", en = "Empty the recycle bin" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"], ["shots", "rm", "空洞骑士", "feaa61", "-y"]]
+args = ["shots", "trash", "空洞骑士", "--empty", "-y"]
+expect_exit = 0
+stdout_contains = ["已彻底删除 1 张截图"]
+
+[[case]]
+id = "shots-trash-unknown-game"
+title = { zh-CN = "回收站：游戏不存在", en = "Recycle bin: unknown game" }
+fixture = "basic"
+args = ["shots", "trash", "不存在的游戏"]
+expect_exit = 4
+
+[[case]]
+id = "shots-found"
+title = { zh-CN = "列出有截图、不在游戏库中的游戏", en = "List games with screenshots outside the library" }
+fixture = "basic"
+args = ["shots", "found"]
+expect_exit = 0
+
+[[case]]
+id = "shots-found-extra-arg"
+title = { zh-CN = "列出有截图的游戏：多余的参数", en = "List games with screenshots: extra argument" }
+fixture = "basic"
+args = ["shots", "found", "多余"]
+expect_exit = 2
+
+[[case]]
+id = "game-add-shots"
+title = { zh-CN = "加入只管理截图的游戏", en = "Add a screenshots-only game" }
+fixture = "basic"
+args = ["game", "add-shots", "Minishoot", "--dir", "{inputs}/shots"]
+expect_exit = 0
+stdout_contains = ["已加入「Minishoot」", "只管理截图"]
+
+[[case]]
+id = "game-add-shots-missing-dir"
+title = { zh-CN = "加入只管理截图的游戏：截图文件夹不存在", en = "Add a screenshots-only game: folder not found" }
+fixture = "basic"
+args = ["game", "add-shots", "Minishoot", "--dir", "{tmp}/no-such-dir"]
+expect_exit = 4
+
+[[case]]
+id = "game-shots-only-on"
+title = { zh-CN = "设为只管理截图后备份时跳过存档", en = "Screenshots-only games skip saves when backing up" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-only", "空洞骑士", "on"]]
+args = ["backup", "空洞骑士"]
+expect_exit = 0
+stdout_contains = ["只管理截图，不备份存档"]
+
+[[case]]
+id = "game-shots-only"
+title = { zh-CN = "设为只管理截图", en = "Manage screenshots only" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["game", "shots-only", "空洞骑士", "on"]
+expect_exit = 0
+stdout_contains = ["改为只管理截图"]
+
+[[case]]
+id = "game-shots-only-bad-value"
+title = { zh-CN = "只管理截图：取值无效", en = "Screenshots only: invalid value" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["game", "shots-only", "空洞骑士", "maybe"]
+expect_exit = 2
+
+[[case]]
+id = "backup-auto"
+title = { zh-CN = "自动备份（供计划任务调用）", en = "Automatic backup (for task schedulers)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["backup", "--auto"]
+expect_exit = 0
+stdout_contains = ["自动备份完成：0 个游戏"]
+
+[[case]]
+id = "backup-auto-with-game"
+title = { zh-CN = "自动备份不能同时指定游戏", en = "Automatic backup can't be combined with games" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["backup", "--auto", "空洞骑士"]
 expect_exit = 2

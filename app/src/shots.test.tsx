@@ -21,7 +21,7 @@ function shot(blob: string, takenAt: string, over: Partial<ShotRecord> = {}): Sh
 }
 
 function album(shots: ShotRecord[], over: Partial<AlbumView> = {}): AlbumView {
-  return { shots, enabled: true, followsGlobal: true, globalEnabled: true, dirs: [], pending: 0, bytes: shots.reduce((n, s) => n + s.size, 0), sources: ["steam"], ...over };
+  return { shots, trash: [], trashBytes: 0, dir: "D:/Repo/screenshots/steam-367520", shotsOnly: false, enabled: true, followsGlobal: true, globalEnabled: true, dirs: [], pending: 0, bytes: shots.reduce((n, s) => n + s.size, 0), sources: ["steam"], ...over };
 }
 
 beforeEach(async () => {
@@ -51,11 +51,12 @@ describe("截图与快照的对应", () => {
 });
 
 describe("截图标签页", () => {
-  it("收集、多选导出与删除，单独关闭这个游戏的截图", async () => {
+  it("收集、多选导出、删除进回收站并可撤销，单独关闭这个游戏的截图", async () => {
     const shots = [shot("b3:s1", "2026-10-07T09:00:00+08:00"), shot("b3:s2", "2026-10-09T11:00:00+08:00")];
     api.album.mockResolvedValue(album(shots, { pending: 3 }));
     api.syncShots.mockResolvedValue([{ gameId: "steam-367520", added: 3, bytes: 100, disabled: false }]);
     api.deleteShots.mockResolvedValue(1);
+    api.restoreShots.mockResolvedValue(1);
     api.exportShots.mockResolvedValue({ dest: "D:/out/s.zip", files: 1, bytes: 2048 });
     dialog.save.mockResolvedValue("D:/out/s.zip");
     const onChanged = vi.fn();
@@ -67,28 +68,76 @@ describe("截图标签页", () => {
     await waitFor(() => expect(api.syncShots).toHaveBeenCalledWith("steam-367520"));
     await waitFor(() => expect(useStore.getState().toasts.map((t) => t.text)).toContain("收集了 3 张新截图"));
 
+    // 打开备份中的原图所在的文件夹。
+    fireEvent.click(screen.getByRole("button", { name: /打开截图文件夹/ }));
+    expect(api.openPath).toHaveBeenCalledWith("D:/Repo/screenshots/steam-367520");
+
     fireEvent.click(screen.getByRole("checkbox", { name: "b3:s2.jpg" }));
     expect(screen.getByText("已选 1 张")).toBeInTheDocument();
+    // 反选：选中另一张。
+    fireEvent.click(screen.getByRole("button", { name: "反选" }));
+    expect(screen.getByRole("checkbox", { name: "b3:s1.jpg" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "b3:s2.jpg" })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "反选" }));
+
     fireEvent.click(screen.getByRole("button", { name: /导出/ }));
     fireEvent.click(screen.getByRole("menuitem", { name: "导出为 zip…" }));
     await waitFor(() => expect(api.exportShots).toHaveBeenCalledWith("steam-367520", ["b3:s2"], "D:/out/s.zip", "zip"));
 
+    // 删除只是移入回收站：不弹确认框，提示中可以撤销。
     fireEvent.click(screen.getByRole("button", { name: /删除/ }));
     await waitFor(() => expect(api.deleteShots).toHaveBeenCalledWith("steam-367520", ["b3:s2"]));
-    expect(dialog.ask.mock.calls[0][0]).toContain("磁盘上的原图不受影响");
+    expect(dialog.ask).not.toHaveBeenCalled();
+    const toast = await waitFor(() => {
+      const x = useStore.getState().toasts.find((t) => t.text === "已把 1 张截图移入回收站");
+      expect(x?.action).toBeTruthy();
+      return x!;
+    });
+    toast.action!.run();
+    await waitFor(() => expect(api.restoreShots).toHaveBeenCalledWith("steam-367520", ["b3:s2"]));
 
     fireEvent.change(screen.getByRole("combobox", { name: "备份截图" }), { target: { value: "off" } });
     await waitFor(() => expect(api.setShotsEnabled).toHaveBeenCalledWith("steam-367520", false));
   });
 
-  it("点开大图，显示之后的存档并可跳到分支图", async () => {
+  it("按天选择，回收站中恢复、彻底删除与清空", async () => {
+    const trashed = shot("b3:t1", "2026-10-06T09:00:00+08:00", { deletedAt: "2026-10-09T10:00:00+08:00" });
+    api.album.mockResolvedValue(album([shot("b3:s1", "2026-10-07T12:00:00Z"), shot("b3:s2", "2026-10-07T12:30:00Z")], { trash: [trashed], trashBytes: 2048 }));
+    api.purgeShots.mockResolvedValue(1);
+    api.restoreShots.mockResolvedValue(1);
+    render(<ShotsPanel gameId="steam-367520" gameName="空洞骑士" nodes={[]} onChanged={() => {}} onShowSnapshot={() => {}} />);
+    fireEvent.click(await screen.findByRole("checkbox", { name: /选择 .* 的全部截图/ }));
+    expect(screen.getByText("已选 2 张")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /回收站/ }));
+    expect(screen.getByText(/回收站中的截图仍占用 2.0 KB/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "b3:t1.jpg" }));
+    fireEvent.click(screen.getByRole("button", { name: /恢复/ }));
+    await waitFor(() => expect(api.restoreShots).toHaveBeenCalledWith("steam-367520", ["b3:t1"]));
+
+    fireEvent.click(screen.getByRole("button", { name: "清空回收站" }));
+    await waitFor(() => expect(api.purgeShots).toHaveBeenCalledWith("steam-367520", []));
+    expect(dialog.ask.mock.calls[0][0]).toContain("不能恢复");
+  });
+
+  it("点开大图：精简信息栏，详情可展开，显示之后的存档并可跳到分支图", async () => {
+    try {
+      localStorage.removeItem("bonfire.shots.info");
+    } catch {
+      // 测试环境没有 localStorage 时忽略。
+    }
     api.album.mockResolvedValue(album([shot("b3:s1", "2026-10-08T11:00:00+08:00")]));
     const onShow = vi.fn();
     render(<ShotsPanel gameId="steam-367520" gameName="空洞骑士" nodes={history().nodes} onChanged={() => {}} onShowSnapshot={onShow} />);
-    fireEvent.click(await screen.findByTitle("b3:s1.jpg"));
+    fireEvent.click(await screen.findByTitle("b3:s1.jpg（缩略图，点击查看原图）"));
     const box = await screen.findByRole("dialog");
     await waitFor(() => expect(within(box).getByRole("img")).toHaveAttribute("src", "asset://C:/cache/full.png"));
+    // 详情默认收起。
+    expect(within(box).queryByText("1920 × 1080 · 2.0 KB")).toBeNull();
+    fireEvent.click(within(box).getByRole("button", { name: /详情/ }));
     expect(within(box).getByText("1920 × 1080 · 2.0 KB")).toBeInTheDocument();
+    fireEvent.click(within(box).getByRole("button", { name: /在文件夹中显示/ }));
+    expect(api.openPath).toHaveBeenCalledWith("C:/cache/full.png");
     fireEvent.click(within(box).getByRole("button", { name: /白宫之前/ }));
     expect(onShow).toHaveBeenCalledWith("b3:cccccccc");
   });

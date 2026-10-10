@@ -99,6 +99,8 @@ pub enum Trigger {
     Manual,
     AutoExit,
     AutoTimer,
+    /// 存档变化后自动备份。
+    AutoChange,
     PreRestore,
     /// 从别人分享或其他电脑导出的存档文件导入。
     Import,

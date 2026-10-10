@@ -1,6 +1,6 @@
 // 与 Rust 端（bonfire-app / Tauri 命令层）JSON 结构一一对应，字段为 camelCase。
 
-export type GameState = "never-backed-up" | "has-changes" | "up-to-date";
+export type GameState = "never-backed-up" | "has-changes" | "up-to-date" | "shots-only";
 export type Theme = "auto" | "light" | "dark";
 
 export interface AppInfo {
@@ -23,6 +23,7 @@ export interface Config {
   general: { language?: string; theme: Theme; repo?: string; close_to_tray: boolean };
   backup: { include_config_files: boolean; size_warning_gb: number; disabled_platforms: string[]; protect_local: boolean };
   shots: ShotsConfig;
+  auto_backup: AutoBackupConfig;
   metadata: { online: boolean; igdb_client_id: string; igdb_client_secret: string; steamgriddb_api_key: string };
   log: { level: string; keep_days: number };
 }
@@ -40,6 +41,39 @@ export interface ShotsConfig {
   every_hours: number;
 }
 
+/** 自动备份：定时备份与存档变化后自动备份。 */
+export interface AutoBackupConfig {
+  schedule: ShotSchedule;
+  at: string;
+  weekday: number;
+  every_hours: number;
+  on_change: boolean;
+  check_minutes: number;
+  quiet_minutes: number;
+}
+
+export interface AutoStatus {
+  lastScheduled: string | null;
+  lastCheck: string | null;
+}
+
+/** 一次自动备份的结果（`auto-backup` 事件）。 */
+export interface AutoReport {
+  kind: "scheduled" | "on-change";
+  items: { gameId: string; name: string; snapshot: string | null; newBranch: string | null; error: string | null; shots: number }[];
+  waiting: number;
+}
+
+/** 有截图、但还不在游戏库中的游戏。 */
+export interface ShotCandidate {
+  key: string;
+  name: string;
+  source: "steam" | "capture";
+  appId: string | null;
+  count: number;
+  dir: string;
+}
+
 /** 相册中的一张截图。 */
 export interface ShotRecord {
   gameId: string;
@@ -51,10 +85,20 @@ export interface ShotRecord {
   width?: number;
   height?: number;
   addedAt: string;
+  /** 备份中的原图（相对游戏截图目录）。 */
+  file?: string;
+  /** 移入回收站的时间。 */
+  deletedAt?: string;
 }
 
 export interface AlbumView {
   shots: ShotRecord[];
+  /** 回收站中的截图。 */
+  trash: ShotRecord[];
+  trashBytes: number;
+  /** 备份中的原图所在的文件夹。 */
+  dir: string;
+  shotsOnly: boolean;
   enabled: boolean;
   followsGlobal: boolean;
   globalEnabled: boolean;
@@ -111,6 +155,8 @@ export interface GameRow {
   unresolved: number;
   /** 相册中的截图数。 */
   shots: number;
+  /** 只管理截图（不备份存档）。 */
+  shotsOnly: boolean;
   /** 磁盘上还没有收集的新截图数。 */
   newShots: number;
 }
@@ -124,7 +170,7 @@ export interface FileChange {
   hash: string | null;
 }
 
-export type Trigger = "manual" | "auto-exit" | "auto-timer" | "pre-restore" | "import";
+export type Trigger = "manual" | "auto-exit" | "auto-timer" | "auto-change" | "pre-restore" | "import";
 
 export interface SnapshotNode {
   id: string;
@@ -233,6 +279,8 @@ export interface BackupItemResult {
   error: CmdError | null;
   /** 顺带收集的新截图数。 */
   shots: number;
+  /** 只管理截图的游戏：只收集了截图。 */
+  shotsOnly: boolean;
 }
 
 export interface SearchHit {
