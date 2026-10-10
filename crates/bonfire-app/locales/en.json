@@ -1065,5 +1065,7 @@
   "ui.remove.confirmDelete": "Remove and delete backups",
   "ui.remove.done": "Removed {n} games",
   "ui.remove.deleted": "; deleted {snapshots} snapshots and {shots} screenshots",
-  "ui.remove.failed": "Couldn't remove \"{name}\": {msg}"
+  "ui.remove.failed": "Couldn't remove \"{name}\": {msg}",
+  "ui.library.selection": "Selection",
+  "ui.library.selectedMenu": "Selected games"
 }

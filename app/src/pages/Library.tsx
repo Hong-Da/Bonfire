@@ -195,15 +195,13 @@ export default function Library() {
 
       {allRows.length > 0 && (
         <div className="actionbar">
-          <button className="btn ghost small" onClick={() => s.selectAll(rows.map((r) => r.id))}>
-            {t("ui.library.selectAll")}
-          </button>
-          <button className="btn ghost small" onClick={() => s.clearSelection()} disabled={selected.length === 0}>
-            {t("ui.library.selectNone")}
-          </button>
-          <button className="btn ghost small" onClick={() => s.invert(rows.map((r) => r.id))}>
-            {t("ui.library.invert")}
-          </button>
+          <div className="seg" role="group" aria-label={t("ui.library.selection")}>
+            <button onClick={() => s.selectAll(rows.map((r) => r.id))}>{t("ui.library.selectAll")}</button>
+            <button onClick={() => s.clearSelection()} disabled={selected.length === 0}>
+              {t("ui.library.selectNone")}
+            </button>
+            <button onClick={() => s.invert(rows.map((r) => r.id))}>{t("ui.library.invert")}</button>
+          </div>
           {profiles.length > 0 && (
             <select className="field" defaultValue="" onChange={(e) => applyProfile(e.target.value)} aria-label={t("ui.library.profiles")}>
               <option value="" disabled>
@@ -217,9 +215,17 @@ export default function Library() {
             </select>
           )}
           {profileName === null ? (
-            <button className="btn ghost small" onClick={() => setProfileName("")} disabled={selected.length === 0}>
-              {t("ui.library.saveProfile")}
-            </button>
+            <Menu
+              icon="more"
+              label={t("ui.library.selectedMenu")}
+              className="btn ghost"
+              items={[
+                { label: t("ui.library.saveProfile"), onClick: () => setProfileName(""), disabled: selected.length === 0 },
+                { label: t("ui.library.exportSelected", { n: selected.length }), onClick: () => setExportIds(selected.map((r) => r.id)), disabled: selected.length === 0 },
+                "divider",
+                { label: t("ui.remove.button", { n: selected.length }), onClick: () => setRemoveOpen(true), disabled: selected.length === 0, danger: true },
+              ]}
+            />
           ) : (
             <form
               className="inline"
@@ -238,9 +244,6 @@ export default function Library() {
               </button>
             </form>
           )}
-          <button className="btn ghost small" onClick={() => setRemoveOpen(true)} disabled={selected.length === 0}>
-            {t("ui.remove.button", { n: selected.length })}
-          </button>
           <div className="grow" style={{ flex: 1 }} />
           <ModeMenu ids={selected.map((r) => r.id)} variant="button" label={t("ui.mode.batch", { n: selected.length })} />
           <AutoSwitch />

@@ -131,7 +131,8 @@ describe("移出游戏库", () => {
     seed(rows());
     api.removeGame.mockResolvedValue({ game: { id: "a" }, snapshots: 0, shots: 0 });
     render(<Library />);
-    fireEvent.click(screen.getByRole("button", { name: "移出游戏库（2）" }));
+    fireEvent.click(screen.getByRole("button", { name: /所选游戏/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "移出游戏库（2）" }));
     const dlg = screen.getByRole("dialog", { name: "移出 2 个游戏" });
     expect(within(dlg).getByText(/磁盘上的游戏存档和截图原图不会被删除/)).toBeInTheDocument();
     const snaps = within(dlg).getByRole("checkbox", { name: /同时删除备份的存档（共 4 个快照）/ });
@@ -149,7 +150,8 @@ describe("移出游戏库", () => {
     useStore.setState({ info: { ...info, protectLocal: false } });
     api.removeGame.mockResolvedValue({ game: { id: "a" }, snapshots: 3, shots: 2 });
     render(<Library />);
-    fireEvent.click(screen.getByRole("button", { name: "移出游戏库（2）" }));
+    fireEvent.click(screen.getByRole("button", { name: /所选游戏/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "移出游戏库（2）" }));
     const dlg = screen.getByRole("dialog", { name: "移出 2 个游戏" });
     fireEvent.click(within(dlg).getByRole("checkbox", { name: /同时删除备份的存档/ }));
     fireEvent.click(within(dlg).getByRole("checkbox", { name: /同时删除备份的截图/ }));

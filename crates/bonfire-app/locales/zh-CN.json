@@ -1065,5 +1065,7 @@
   "ui.remove.confirmDelete": "移出并删除备份",
   "ui.remove.done": "已移出 {n} 个游戏",
   "ui.remove.deleted": "；已删除 {snapshots} 个快照、{shots} 张截图",
-  "ui.remove.failed": "「{name}」移出失败：{msg}"
+  "ui.remove.failed": "「{name}」移出失败：{msg}",
+  "ui.library.selection": "选择",
+  "ui.library.selectedMenu": "所选游戏"
 }
