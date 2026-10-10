@@ -1624,7 +1624,12 @@ fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
             ));
             Ok(())
         }
-        ShotsCmd::Rm { game, ids, purge } => {
+        ShotsCmd::Rm {
+            game,
+            ids,
+            purge,
+            delete_originals,
+        } => {
             let g = app.find_game(&game)?;
             let blobs = app.resolve_shots(&g, &ids)?;
             let key = if purge {
@@ -1632,17 +1637,25 @@ fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
             } else {
                 "cli.confirm.shots_rm"
             };
-            if !out.confirm(out.tf(key, &[("n", &blobs.len()), ("game", &g.name)]))? {
+            let mut text = out.tf(key, &[("n", &blobs.len()), ("game", &g.name)]);
+            if delete_originals {
+                text.push_str(out.t("cli.confirm.shots_delete_originals"));
+            }
+            if !out.confirm(text)? {
                 out.line(out.t("cli.out.cancelled"));
                 return Ok(());
             }
             let lock = app.repo.lock()?;
-            let n = if purge {
-                app.purge_shots(&lock, &g, &blobs)?
+            let (n, report) = if purge {
+                let r = app.purge_shots_with(&lock, &g, &blobs, delete_originals)?;
+                (r.purged, Some(r))
             } else {
-                app.delete_shots(&lock, &g, &blobs)?
+                (app.delete_shots(&lock, &g, &blobs)?, None)
             };
-            out.emit(json!({ "deleted": n, "purged": purge }));
+            out.emit(json!({ "deleted": n, "purged": purge, "originals": report }));
+            if let Some(r) = report.as_ref().filter(|_| delete_originals) {
+                out.line(originals_line(out, r));
+            }
             out.line(out.tf(
                 if purge {
                     "cli.out.shots_purged"
@@ -1662,23 +1675,32 @@ fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
             out.line(out.tf("cli.out.shots_restored", &[("n", &n)]));
             Ok(())
         }
-        ShotsCmd::Trash { game, empty } => {
+        ShotsCmd::Trash {
+            game,
+            empty,
+            delete_originals,
+        } => {
             let g = app.find_game(&game)?;
             if empty {
                 let n = app.album(&g)?.trash.len();
-                if n > 0
-                    && !out.confirm(out.tf(
-                        "cli.confirm.shots_empty_trash",
-                        &[("n", &n), ("game", &g.name)],
-                    ))?
-                {
+                let mut text = out.tf(
+                    "cli.confirm.shots_empty_trash",
+                    &[("n", &n), ("game", &g.name)],
+                );
+                if delete_originals {
+                    text.push_str(out.t("cli.confirm.shots_delete_originals"));
+                }
+                if n > 0 && !out.confirm(text)? {
                     out.line(out.t("cli.out.cancelled"));
                     return Ok(());
                 }
                 let lock = app.repo.lock()?;
-                let n = app.purge_shots(&lock, &g, &[])?;
-                out.emit(json!({ "purged": n }));
-                out.line(out.tf("cli.out.shots_purged", &[("n", &n)]));
+                let r = app.purge_shots_with(&lock, &g, &[], delete_originals)?;
+                out.emit(serde_json::to_value(&r).unwrap());
+                out.line(out.tf("cli.out.shots_purged", &[("n", &r.purged)]));
+                if delete_originals {
+                    out.line(originals_line(out, &r));
+                }
                 return Ok(());
             }
             let album = app.album(&g)?;
@@ -1823,6 +1845,17 @@ fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
             Ok(())
         }
     }
+}
+
+fn originals_line(out: &Out, r: &bonfire_app::shots::PurgeReport) -> String {
+    out.tf(
+        "cli.out.shots_originals",
+        &[
+            ("n", &r.originals_deleted),
+            ("kept", &r.originals_kept),
+            ("failed", &r.originals_failed),
+        ],
+    )
 }
 
 pub(crate) fn shots_dir(app: &mut App, cmd: ShotsDirCmd, out: &Out) -> Result<()> {

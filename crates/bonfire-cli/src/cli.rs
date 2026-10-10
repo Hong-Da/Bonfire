@@ -244,6 +244,8 @@ pub enum ShotsCmd {
         ids: Vec<String>,
         #[arg(long)]
         purge: bool,
+        #[arg(long, requires = "purge")]
+        delete_originals: bool,
     },
     Restore {
         game: String,
@@ -254,6 +256,8 @@ pub enum ShotsCmd {
         game: String,
         #[arg(long)]
         empty: bool,
+        #[arg(long, requires = "empty")]
+        delete_originals: bool,
     },
     Set {
         game: String,

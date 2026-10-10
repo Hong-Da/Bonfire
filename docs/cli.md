@@ -42,9 +42,9 @@
 | `bonfire shots list <game>` | 列出游戏已备份的截图（ID、拍摄时间、来源、大小、原文件名）与磁盘上还没收集的数量 |
 | `bonfire shots sync [<game>...]` | 收集新截图（省略游戏时收集全部游戏）；每次 `backup` 后也会自动收集。来源：Steam 截图、Windows 游戏栏“捕获”文件夹（按文件名中的标题对应）、`game shots-dir` 添加的文件夹；**只读取，不写入截图目录**；内容相同的不重复收集，磁盘上删掉的截图备份中仍保留 |
 | `bonfire shots export <game> -o <zip或目录> [--folder] [--id <ID>]... [--since YYYY-MM-DD] [--snapshot <ref>]` | 导出截图（默认全部）为 zip，或 `--folder` 在目录中新建文件夹；`--snapshot` 只导出这个快照之前拍的（拍摄后最早的快照即它） |
-| `bonfire shots rm <game> <ID>... [--purge]` | 把截图移入回收站（需确认；ID 前缀至少 6 位），可用 `shots restore` 恢复；`--purge` 彻底删除。只动备份，不动磁盘上的原图；回收站中和彻底删除的截图都不会再被收集 |
+| `bonfire shots rm <game> <ID>... [--purge [--delete-originals]]` | 把截图移入回收站（需确认；ID 前缀至少 6 位），可用 `shots restore` 恢复；`--purge` 彻底删除。默认只动备份，不动磁盘上的原图；`--delete-originals` 同时把磁盘上的原图移到系统回收站（只删内容与备份一致的）。回收站中和彻底删除的截图都不会再被收集 |
 | `bonfire shots restore <game> <ID>...` | 从回收站恢复截图 |
-| `bonfire shots trash <game> [--empty]` | 列出回收站中的截图；`--empty` 清空回收站（需确认，不能恢复） |
+| `bonfire shots trash <game> [--empty [--delete-originals]]` | 列出回收站中的截图；`--empty` 清空回收站（需确认，不能恢复）；`--delete-originals` 同时把磁盘上的原图移到系统回收站 |
 | `bonfire shots found` | 列出有截图、但不在游戏库中的游戏（Steam 截图按 AppID、游戏栏截图按窗口标题） |
 | `bonfire shots diff <game>` | 对比截图备份与磁盘上的截图文件夹：两边都有、磁盘上的新截图、被忽略的（在回收站中或已彻底删除，原图还在也不会再收集）、磁盘上已没有的 |
 | `bonfire shots write-back <game> [<id>...] [--to <dir>]` | 把备份中有、磁盘上已没有的截图写回原位置（原文件夹不存在时跳过）或 `--to` 指定的文件夹；只写入不存在的文件，不覆盖（需确认） |

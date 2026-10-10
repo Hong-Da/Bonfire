@@ -1,32 +1,41 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
 import { Icon, displayName } from "../components/ui";
 import { bytes } from "../lib/format";
-import { fileName } from "../lib/shots";
+import { fileName, purgeMessage } from "../lib/shots";
+import { useMarquee } from "../lib/marquee";
+import PurgeDialog from "../components/PurgeDialog";
 import { useStore } from "../store";
-import type { GalleryGame, GalleryView, ShotRecord } from "../types";
+import type { GalleryGame, GalleryView, PurgeReport, ShotRecord } from "../types";
 import { Lightbox, ShotThumb } from "./ShotsPanel";
 
 type Tab = "album" | "trash";
 type Group = "game" | "month" | "day" | "source";
 type Sort = "new" | "old";
+type Look = "small" | "medium" | "large" | "list";
 
 const GROUPS: Group[] = ["game", "month", "day", "source"];
+const LOOKS: Look[] = ["small", "medium", "large", "list"];
 const PREF_KEY = "bonfire.gallery";
 
 interface Prefs {
   group: Group;
   sort: Sort;
+  /** 查看方式：小 / 中 / 大缩略图，或列表。 */
+  look: Look;
 }
 
 function readPrefs(): Prefs {
   try {
     const p = JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}") as Partial<Prefs>;
-    return { group: GROUPS.includes(p.group as Group) ? (p.group as Group) : "game", sort: p.sort === "old" ? "old" : "new" };
+    return {
+      group: GROUPS.includes(p.group as Group) ? (p.group as Group) : "game",
+      sort: p.sort === "old" ? "old" : "new",
+      look: LOOKS.includes(p.look as Look) ? (p.look as Look) : "medium",
+    };
   } catch {
-    return { group: "game", sort: "new" };
+    return { group: "game", sort: "new", look: "medium" };
   }
 }
 
@@ -43,7 +52,8 @@ const keyOf = (s: ShotRecord) => `${s.gameId}/${s.blob}`;
 
 /**
  * 图库：所有游戏的截图集中查看。按游戏 / 月份 / 日期 / 来源自动分组，可筛选游戏与来源、按时间排序；
- * “回收站”中是所有游戏删除的截图，可恢复或彻底删除。分组与排序方式会记住。
+ * “回收站”中是所有游戏删除的截图，可恢复或彻底删除。可选缩略图大小或列表查看，按住鼠标拖动框选；
+ * 分组、排序与查看方式会记住。
  */
 export default function Gallery() {
   const { t, i18n } = useTranslation();
@@ -57,6 +67,9 @@ export default function Gallery() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [viewing, setViewing] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [purgeAsk, setPurgeAsk] = useState<{ text: string; run: (originals: boolean) => void } | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const marquee = useMarquee(scroller, picked, setPicked);
 
   const reload = useCallback(async () => {
     try {
@@ -169,12 +182,19 @@ export default function Gallery() {
     });
 
   const purge = (shots: ShotRecord[], empty: boolean) =>
-    run(async () => {
-      const text = empty ? t("ui.gallery.emptyTrashConfirm", { n: shots.length }) : t("ui.shots.purgeConfirm", { n: shots.length });
-      if (!(await ask(text, { kind: "warning" }))) return;
-      const n = await byGame(shots, api.purgeShots);
-      store.toast("success", t("ui.shots.purged", { n }));
-      await changed();
+    setPurgeAsk({
+      text: empty ? t("ui.gallery.emptyTrashConfirm", { n: shots.length }) : t("ui.shots.purgeConfirm", { n: shots.length }),
+      run: (originals) =>
+        void run(async () => {
+          const reports: PurgeReport[] = [];
+          await byGame(shots, async (g, blobs) => {
+            const r = await api.purgeShots(g, blobs, originals);
+            reports.push(r);
+            return r.purged;
+          });
+          store.toast("success", purgeMessage(t, reports, originals));
+          await changed();
+        }),
     });
 
   const toggle = (k: string) =>
@@ -255,6 +275,13 @@ export default function Gallery() {
             </option>
           ))}
         </select>
+        <div className="seg" role="radiogroup" aria-label={t("ui.gallery.look")}>
+          {LOOKS.map((l) => (
+            <button key={l} role="radio" aria-checked={prefs.look === l} onClick={() => setPref({ look: l })}>
+              {t(`ui.gallery.lookOpt.${l}`)}
+            </button>
+          ))}
+        </div>
         {ordered.length > 0 && (
           <>
             <div className="seg" role="group" aria-label={t("ui.shots.selection")}>
@@ -287,7 +314,8 @@ export default function Gallery() {
         )}
       </div>
 
-      <div className="gallery">
+      <div className={`gallery${marquee.box ? " selecting" : ""}`} ref={scroller} onMouseDown={marquee.onMouseDown}>
+        {marquee.box && <div className="marquee" style={{ left: marquee.box.x, top: marquee.box.y, width: marquee.box.w, height: marquee.box.h }} />}
         {inTrash && data.trash.length > 0 && <p className="hint trash-hint">{t("ui.shots.trashHint", { size: bytes(data.trashBytes) })}</p>}
         {ordered.length === 0 ? (
           <div className="empty">
@@ -330,32 +358,68 @@ export default function Gallery() {
                   )}
                   {gameInfo && !gameInfo.inLibrary && <span className="tag">{t("ui.gallery.removed")}</span>}
                 </h3>
-                <ul className="shot-grid">
-                  {g.shots.map((s) => {
-                    const k = keyOf(s);
-                    const i = ordered.indexOf(s);
-                    const on = picked.has(k);
-                    const name = fileName(s.originalPath);
-                    return (
-                      <li key={k} className={on ? "on" : undefined}>
-                        <button className="shot-open" onClick={() => (inTrash ? toggle(k) : setViewing(i))} title={`${gameName(s.gameId)} · ${name}`}>
-                          <ShotThumb gameId={s.gameId} blob={s.blob} alt={name} />
-                        </button>
-                        <input type="checkbox" className="check shot-pick" checked={on} onChange={() => toggle(k)} aria-label={name} />
-                        <span className="shot-time num">
-                          {prefs.group !== "game" && <span className="shot-game">{gameName(s.gameId)}</span>}
-                          {new Date(s.takenAt).toLocaleString(i18n.language, timeOpts)}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                {prefs.look === "list" ? (
+                  <ul className="shot-list">
+                    {g.shots.map((s) => {
+                      const k = keyOf(s);
+                      const i = ordered.indexOf(s);
+                      const on = picked.has(k);
+                      const name = fileName(s.originalPath);
+                      return (
+                        <li key={k} data-key={k} className={on ? "on" : undefined} onClick={() => toggle(k)}>
+                          <input type="checkbox" className="check" checked={on} onChange={() => toggle(k)} onClick={(e) => e.stopPropagation()} aria-label={name} />
+                          <button
+                            className="shot-open"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (inTrash) toggle(k);
+                              else setViewing(i);
+                            }}
+                            title={name}
+                          >
+                            <ShotThumb gameId={s.gameId} blob={s.blob} alt={name} />
+                          </button>
+                          <span className="sl-name" title={s.originalPath}>
+                            {name}
+                          </span>
+                          <span className="sl-game">{gameName(s.gameId)}</span>
+                          <span className="num muted">{new Date(s.takenAt).toLocaleString(i18n.language, { dateStyle: "medium", timeStyle: "short" })}</span>
+                          <span className="muted">{t(`ui.shots.source.${s.source}`)}</span>
+                          <span className="num muted">{s.width && s.height ? `${s.width}×${s.height}` : ""}</span>
+                          <span className="num muted">{bytes(s.size)}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <ul className={`shot-grid look-${prefs.look}`}>
+                    {g.shots.map((s) => {
+                      const k = keyOf(s);
+                      const i = ordered.indexOf(s);
+                      const on = picked.has(k);
+                      const name = fileName(s.originalPath);
+                      return (
+                        <li key={k} data-key={k} className={on ? "on" : undefined}>
+                          <button className="shot-open" onClick={() => (inTrash ? toggle(k) : setViewing(i))} title={`${gameName(s.gameId)} · ${name}`}>
+                            <ShotThumb gameId={s.gameId} blob={s.blob} alt={name} />
+                          </button>
+                          <input type="checkbox" className="check shot-pick" checked={on} onChange={() => toggle(k)} aria-label={name} />
+                          <span className="shot-time num">
+                            {prefs.group !== "game" && <span className="shot-game">{gameName(s.gameId)}</span>}
+                            {new Date(s.takenAt).toLocaleString(i18n.language, timeOpts)}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </section>
             );
           })
         )}
       </div>
 
+      {purgeAsk && <PurgeDialog text={purgeAsk.text} onConfirm={purgeAsk.run} onClose={() => setPurgeAsk(null)} />}
       {!inTrash && viewing !== null && ordered[viewing] && (
         <Lightbox
           gameId={ordered[viewing].gameId}

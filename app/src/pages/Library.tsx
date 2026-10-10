@@ -23,6 +23,9 @@ export default function Library() {
   const allRows = useMemo(() => s.order.map((id) => s.rows[id]).filter(Boolean), [s.rows, s.order]);
   const platforms = useMemo(() => [...new Set(allRows.map((r) => r.platform))].sort(), [allRows]);
   const selected = allRows.filter((r) => s.selected.has(r.id));
+  // 管理方式与平台合并在一个“筛选”菜单中，按钮上显示当前生效的筛选。
+  const filtered = s.modeFilter !== "all" || s.platformFilter !== "all";
+  const filterText = [s.modeFilter !== "all" ? t(`ui.mode.${s.modeFilter}`) : "", s.platformFilter !== "all" ? t(`ui.platform.${s.platformFilter}`, { defaultValue: s.platformFilter }) : ""].filter(Boolean).join(" · ");
   const [backupOpen, setBackupOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -81,39 +84,47 @@ export default function Library() {
             </button>
           ))}
         </div>
-        <select className="field" value={s.modeFilter} onChange={(e) => s.setModeFilter(e.target.value as ModeFilter)} aria-label={t("ui.mode.filter")}>
-          <option value="all">{t("ui.mode.all", { n: allRows.length })}</option>
-          {MODES.map((m) => (
-            <option key={m} value={m}>
-              {t("ui.mode.option", { mode: t(`ui.mode.${m}`), n: allRows.filter((r) => r.mode === m).length })}
-            </option>
-          ))}
-        </select>
-        {platforms.length > 1 && (
-          <select className="field" value={s.platformFilter} onChange={(e) => s.setPlatformFilter(e.target.value)} aria-label={t("ui.library.filterPlatform")}>
-            <option value="all">{t("ui.library.allPlatforms")}</option>
-            {platforms.map((p) => (
-              <option key={p} value={p}>
-                {t(`ui.platform.${p}`, { defaultValue: p })}
-              </option>
-            ))}
-          </select>
-        )}
+        <Menu
+          icon="filter"
+          className={`btn${filtered ? " filtered" : ""}`}
+          label={filtered ? t("ui.library.filterOn", { what: filterText }) : t("ui.library.filter")}
+          title={t("ui.library.filterHint")}
+          items={[
+            { label: <b className="menu-head">{t("ui.mode.filter")}</b>, onClick: () => {}, disabled: true },
+            { label: t("ui.mode.all", { n: allRows.length }), checked: s.modeFilter === "all", onClick: () => s.setModeFilter("all") },
+            ...MODES.map((m) => ({
+              label: t("ui.mode.option", { mode: t(`ui.mode.${m}`), n: allRows.filter((r) => r.mode === m).length }),
+              checked: s.modeFilter === m,
+              onClick: () => s.setModeFilter(m as ModeFilter),
+            })),
+            ...(platforms.length > 1
+              ? [
+                  "divider" as const,
+                  { label: <b className="menu-head">{t("ui.library.filterPlatform")}</b>, onClick: () => {}, disabled: true },
+                  { label: t("ui.library.allPlatforms"), checked: s.platformFilter === "all", onClick: () => s.setPlatformFilter("all") },
+                  ...platforms.map((p) => ({
+                    label: t(`ui.platform.${p}`, { defaultValue: p }),
+                    checked: s.platformFilter === p,
+                    onClick: () => s.setPlatformFilter(p),
+                  })),
+                ]
+              : []),
+          ]}
+        />
         <div className="grow" />
         <input className="field" type="search" placeholder={t("ui.library.search")} value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label={t("ui.library.search")} />
         <Menu
-          icon="import"
-          label={t("ui.library.transfer")}
+          icon="plus"
+          label={t("ui.library.addMenu")}
           align="right"
           items={[
+            { label: t("ui.library.add"), onClick: () => setAddOpen(true) },
             { label: t("ui.library.importSaves"), onClick: () => setImportOpen(true) },
+            "divider",
             { label: t("ui.library.exportSelected", { n: selected.length }), onClick: () => setExportIds(selected.map((r) => r.id)), disabled: selected.length === 0 },
             { label: t("ui.library.exportAll", { n: allRows.length }), onClick: () => setExportIds(allRows.map((r) => r.id)), disabled: allRows.length === 0 },
           ]}
         />
-        <button className="btn" onClick={() => setAddOpen(true)}>
-          <Icon name="plus" /> {t("ui.library.add")}
-        </button>
       </div>
       <div className="progress-line" aria-hidden>
         <span style={{ width: busy ? `${Math.max(pct, 8)}%` : "0%" }} />

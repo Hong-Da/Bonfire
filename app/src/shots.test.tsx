@@ -103,7 +103,7 @@ describe("截图标签页", () => {
   it("按天选择，回收站中恢复、彻底删除与清空", async () => {
     const trashed = shot("b3:t1", "2026-10-06T09:00:00+08:00", { deletedAt: "2026-10-09T10:00:00+08:00" });
     api.album.mockResolvedValue(album([shot("b3:s1", "2026-10-07T12:00:00Z"), shot("b3:s2", "2026-10-07T12:30:00Z")], { trash: [trashed], trashBytes: 2048 }));
-    api.purgeShots.mockResolvedValue(1);
+    api.purgeShots.mockResolvedValue({ purged: 1, originalsDeleted: 1, originalsKept: 0, originalsFailed: 0 });
     api.restoreShots.mockResolvedValue(1);
     render(<ShotsPanel gameId="steam-367520" gameName="空洞骑士" nodes={[]} onChanged={() => {}} onShowSnapshot={() => {}} />);
     fireEvent.click(await screen.findByRole("checkbox", { name: /选择 .* 的全部截图/ }));
@@ -115,9 +115,13 @@ describe("截图标签页", () => {
     fireEvent.click(screen.getByRole("button", { name: /恢复/ }));
     await waitFor(() => expect(api.restoreShots).toHaveBeenCalledWith("steam-367520", ["b3:t1"]));
 
+    // 彻底删除时可选同时删除磁盘上的原图。
     fireEvent.click(screen.getByRole("button", { name: "清空回收站" }));
-    await waitFor(() => expect(api.purgeShots).toHaveBeenCalledWith("steam-367520", []));
-    expect(dialog.ask.mock.calls[0][0]).toContain("不能恢复");
+    const confirm = screen.getByRole("dialog", { name: "彻底删除截图" });
+    expect(within(confirm).getByText(/不能恢复/)).toBeInTheDocument();
+    fireEvent.click(within(confirm).getByRole("checkbox", { name: /同时删除磁盘上的原图/ }));
+    fireEvent.click(within(confirm).getByRole("button", { name: "彻底删除，并删除磁盘上的原图" }));
+    await waitFor(() => expect(api.purgeShots).toHaveBeenCalledWith("steam-367520", [], true));
   });
 
   it("点开大图：精简信息栏，详情可展开，显示之后的存档并可跳到分支图", async () => {

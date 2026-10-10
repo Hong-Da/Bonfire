@@ -6,7 +6,7 @@ import type { GameRow } from "../types";
 
 export type IconName =
   | "library" | "settings" | "scan" | "backup" | "restore" | "branch" | "tag" | "search" | "folder"
-  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next" | "shield" | "camera" | "info" | "expand" | "image" | "clock" | "stack" | "gallery";
+  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next" | "shield" | "camera" | "info" | "expand" | "image" | "clock" | "stack" | "gallery" | "filter";
 
 const PATHS: Record<IconName, string> = {
   library: "M4 5h4v14H4zM10 5h4v14h-4zM16.5 5.5l3.8 1-3.6 13.5-3.8-1z",
@@ -39,6 +39,7 @@ const PATHS: Record<IconName, string> = {
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
   stack: "M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4",
   gallery: "M3 7h4v4H3zM10 7h4v4h-4zM17 7h4v4h-4zM3 14h4v4H3zM10 14h4v4h-4zM17 14h4v4h-4z",
+  filter: "M4 5h16l-6 7.5V18l-4 2v-7.5z",
 };
 
 export function Icon({ name, size = 18, label }: { name: IconName; size?: number; label?: string }) {

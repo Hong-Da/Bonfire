@@ -1,4 +1,4 @@
-import type { ShotRecord } from "../types";
+import type { PurgeReport, ShotRecord } from "../types";
 
 /**
  * 截图与存档快照的对应（与后端 `shot_snapshots` 相同）：拍摄之后最早的一个快照，
@@ -47,4 +47,12 @@ export function groupByDay(shots: ShotRecord[]): { day: string; shots: ShotRecor
 /** 原路径中的文件名。 */
 export function fileName(path: string): string {
   return path.split(/[/\\]/).pop() ?? path;
+}
+
+/** 彻底删除后的提示：删除数量，选了同时删除原图时再说明原图的处理结果。 */
+export function purgeMessage(t: (k: string, o?: Record<string, unknown>) => string, reports: PurgeReport[], originals: boolean): string {
+  const sum = (f: (r: PurgeReport) => number) => reports.reduce((n, r) => n + f(r), 0);
+  let text = t("ui.shots.purged", { n: sum((r) => r.purged) });
+  if (originals) text += t("ui.purge.originalsDone", { n: sum((r) => r.originalsDeleted), kept: sum((r) => r.originalsKept), failed: sum((r) => r.originalsFailed) });
+  return text;
 }

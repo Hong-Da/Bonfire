@@ -1,12 +1,13 @@
 //! 截图备份（截图备份方案 S1–S6，U-9）：每个游戏一个“相册”，与存档快照分开。
 //!
 //! - 来源：Steam 截图（按 AppID）、Windows 游戏栏 / Xbox 应用的“捕获”文件夹（按文件名中的标题）、
-//!   为游戏手动添加的截图文件夹。来源目录只读，绝不写入。
+//!   为游戏手动添加的截图文件夹。收集时来源目录只读。
 //! - 原图原样（不压缩、不重新编码）存放在仓库的 `screenshots/<游戏>/`，可以直接在资源管理器中打开；
 //!   同一游戏内按内容哈希去重。索引表 `screenshots` 加速查询，仓库中的 `albums/<游戏>.jsonl`
 //!   是相册记录的事实来源，重建索引时据此恢复。
 //! - 只增不减：磁盘上删掉的截图，备份中仍保留。在相册中删除先进入回收站（`screenshots/<游戏>/.trash/`），
-//!   可恢复；彻底删除后只留下记录，磁盘上的原图不会被再次收集。
+//!   可恢复；彻底删除后只留下记录，磁盘上的原图不会被再次收集。彻底删除时用户可选同时删除磁盘上的原图
+//!   （移到系统回收站，只删内容与备份一致的），这是除“写回”外唯一改动来源文件夹的操作。
 //! - 收集时机：每次备份时顺带收集；另可按天 / 周 / 小时定时收集（[`shots_due`]）。
 //! - 游戏可设为“只管理截图”：不备份、不检查存档。
 //! - 缩略图放在缓存目录 `shots/<游戏>/`，可随时重建。
@@ -84,6 +85,19 @@ pub struct AlbumView {
     pub dir: PathBuf,
     /// 只管理截图（不备份存档）。
     pub shots_only: bool,
+}
+
+/// 彻底删除截图的结果。
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PurgeReport {
+    pub purged: usize,
+    /// 同时删除的磁盘上的原图数（移到系统回收站）。
+    pub originals_deleted: usize,
+    /// 磁盘上的原图内容已变，未删除。
+    pub originals_kept: usize,
+    /// 删除失败（被占用等）。
+    pub originals_failed: usize,
 }
 
 /// 有截图、但还不在游戏库中的游戏（发现页“有截图的游戏”）。
@@ -524,12 +538,25 @@ impl App {
     /// 磁盘上的原图不会再被收集。返回删除的数量。
     pub fn purge_shots(
         &mut self,
-        _lock: &RepoLock,
+        lock: &RepoLock,
         game: &GameRecord,
         blobs: &[ObjectId],
     ) -> Result<usize> {
+        Ok(self.purge_shots_with(lock, game, blobs, false)?.purged)
+    }
+
+    /// 彻底删除截图；`originals` 时同时删除磁盘上的原图（U-11）：
+    /// 只删除内容与备份一致的原图（内容变了的保留），移到系统回收站（伪造根目录下直接删除）。
+    pub fn purge_shots_with(
+        &mut self,
+        _lock: &RepoLock,
+        game: &GameRecord,
+        blobs: &[ObjectId],
+        originals: bool,
+    ) -> Result<PurgeReport> {
         let wanted: HashSet<&ObjectId> = blobs.iter().collect();
         let now = now_local_rfc3339();
+        let mut report = PurgeReport::default();
         let mut n = 0;
         for mut s in self.index.shots_of(&game.id)? {
             let pick = if blobs.is_empty() {
@@ -548,6 +575,9 @@ impl App {
                 }
             }
             let _ = std::fs::remove_file(self.shot_thumb_path(&game.id, &s.blob));
+            if originals {
+                self.remove_original(&s, &mut report);
+            }
             s.file = String::new();
             s.purged = true;
             s.deleted_at.get_or_insert(now.clone());
@@ -557,7 +587,39 @@ impl App {
         if n > 0 {
             self.save_album(&game.id)?;
         }
-        Ok(n)
+        report.purged = n;
+        if report.originals_deleted > 0 {
+            tracing::info!(game = %game.id, n = report.originals_deleted, "已删除磁盘上的截图原图");
+        }
+        Ok(report)
+    }
+
+    /// 删除磁盘上的截图原图：不存在时跳过；内容与备份不一致时保留；移到系统回收站。
+    fn remove_original(&self, s: &ShotRecord, report: &mut PurgeReport) {
+        let p = PathBuf::from(&s.original_path);
+        if !p.is_file() {
+            return;
+        }
+        let same = std::fs::read(&p)
+            .map(|d| ObjectId::of(&d) == s.blob)
+            .unwrap_or(false);
+        if !same {
+            report.originals_kept += 1;
+            return;
+        }
+        // 开发与测试（伪造根目录）时直接删除，不往真实的系统回收站里放东西。
+        let r = if self.fake_root.is_some() {
+            std::fs::remove_file(&p).map_err(|e| e.to_string())
+        } else {
+            trash::delete(&p).map_err(|e| e.to_string())
+        };
+        match r {
+            Ok(()) => report.originals_deleted += 1,
+            Err(e) => {
+                tracing::warn!(path = %p.display(), "删除截图原图失败：{e}");
+                report.originals_failed += 1;
+            }
+        }
     }
 
     /// 按前缀（≥ 6 位）找到相册（含回收站）中的截图。
@@ -1420,6 +1482,33 @@ mod tests {
         let album = env.app.album(&g).unwrap();
         assert_eq!((album.shots.len(), album.trash.len()), (2, 0));
         assert_eq!(env.app.pending_shots(&g).unwrap(), 0);
+    }
+
+    #[test]
+    fn purge_can_also_delete_originals_on_disk() {
+        let mut env = Env::new();
+        let g = steam_game(&mut env);
+        let lock = env.app.repo.lock().unwrap();
+        env.app.sync_shots(&lock, &g).unwrap();
+        let shots = env.app.album(&g).unwrap().shots;
+        let (a, b) = (shots[0].clone(), shots[1].clone());
+        // b 的原图内容被改过：不删除。
+        std::fs::write(&b.original_path, b"edited").unwrap();
+        let r = env
+            .app
+            .purge_shots_with(&lock, &g, &[a.blob, b.blob], true)
+            .unwrap();
+        assert_eq!((r.purged, r.originals_deleted, r.originals_kept), (2, 1, 1));
+        assert!(!Path::new(&a.original_path).exists());
+        assert_eq!(std::fs::read(&b.original_path).unwrap(), b"edited");
+        // 不选时磁盘上的原图保留。
+        let c = env.app.album(&g).unwrap().shots[0].clone();
+        let r = env
+            .app
+            .purge_shots_with(&lock, &g, &[c.blob], false)
+            .unwrap();
+        assert_eq!((r.purged, r.originals_deleted), (1, 0));
+        assert!(Path::new(&c.original_path).exists());
     }
 
     #[test]

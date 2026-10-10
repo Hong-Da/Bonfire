@@ -1219,3 +1219,11 @@ title = { zh-CN = "重新收集截图：游戏不存在", en = "Collect screensh
 fixture = "basic"
 args = ["shots", "recollect", "不存在的游戏"]
 expect_exit = 4
+
+[[case]]
+id = "shots-rm-delete-originals-needs-purge"
+title = { zh-CN = "删除截图：--delete-originals 需要 --purge", en = "Remove screenshots: --delete-originals requires --purge" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["shots", "rm", "空洞骑士", "feaa61", "--delete-originals"]
+expect_exit = 2

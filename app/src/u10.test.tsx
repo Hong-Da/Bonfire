@@ -67,12 +67,14 @@ describe("游戏库：管理方式", () => {
   it("按管理方式筛选，数量正确", () => {
     seed(rows());
     render(<Library />);
-    const filter = screen.getByRole("combobox", { name: "按管理方式筛选" });
-    expect(within(filter).getByRole("option", { name: "只管理截图（1）" })).toBeInTheDocument();
-    fireEvent.change(filter, { target: { value: "shots" } });
+    // 管理方式与平台合并在一个“筛选”菜单中。
+    fireEvent.click(screen.getByRole("button", { name: "按管理方式与平台筛选" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "只管理截图（1）" }));
     expect(screen.getByText("Gamma")).toBeInTheDocument();
     expect(screen.queryByText("Alpha")).toBeNull();
-    fireEvent.change(filter, { target: { value: "saves" } });
+    expect(screen.getByRole("button", { name: "按管理方式与平台筛选" })).toHaveTextContent("筛选：只管理截图");
+    fireEvent.click(screen.getByRole("button", { name: "按管理方式与平台筛选" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "只管理存档（1）" }));
     expect(screen.getByText("Beta")).toBeInTheDocument();
     expect(screen.queryByText("Gamma")).toBeNull();
   });
@@ -145,7 +147,7 @@ describe("图库", () => {
   it("跨游戏删除按游戏分批，回收站可恢复与清空", async () => {
     api.gallery.mockResolvedValue(view());
     api.deleteShots.mockResolvedValue(1);
-    api.purgeShots.mockResolvedValue(1);
+    api.purgeShots.mockResolvedValue({ purged: 1, originalsDeleted: 0, originalsKept: 0, originalsFailed: 0 });
     render(<Gallery />);
     await screen.findByText(/3 张截图/);
     fireEvent.click(screen.getByRole("button", { name: "全选" }));
@@ -157,8 +159,48 @@ describe("图库", () => {
     fireEvent.click(screen.getByRole("tab", { name: /回收站/ }));
     expect(screen.getByText(/不会被再次收集/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "清空回收站" }));
-    await waitFor(() => expect(api.purgeShots).toHaveBeenCalledWith("g2", ["b3:444444"]));
-    expect(dialog.ask.mock.calls[0][0]).toContain("清空所有游戏的回收站（1 张截图）");
+    const confirm = screen.getByRole("dialog", { name: "彻底删除截图" });
+    expect(within(confirm).getByText(/清空所有游戏的回收站（1 张截图）/)).toBeInTheDocument();
+    fireEvent.click(within(confirm).getByRole("button", { name: "彻底删除" }));
+    await waitFor(() => expect(api.purgeShots).toHaveBeenCalledWith("g2", ["b3:444444"], false));
+  });
+});
+
+describe("图库：查看方式与框选", () => {
+  it("切换为列表查看并记住；按住鼠标拖动框选，按住 Ctrl 加选", async () => {
+    api.gallery.mockResolvedValue({
+      games: [{ id: "g1", name: "Hollow Knight", nameZh: null, platform: "steam", inLibrary: true, mode: "both" }],
+      shots: [shot("g1", "b3:111111", "2026-10-09T21:00:00+08:00"), shot("g1", "b3:222222", "2026-10-08T21:00:00+08:00"), shot("g1", "b3:333333", "2026-10-07T21:00:00+08:00")],
+      trash: [],
+      bytes: 3000,
+      trashBytes: 0,
+      dir: "D:/Repo/screenshots",
+    });
+    const { container } = render(<Gallery />);
+    await screen.findByText(/3 张截图/);
+    fireEvent.click(screen.getByRole("radio", { name: "列表" }));
+    expect(container.querySelector(".shot-list")).not.toBeNull();
+    expect(localStorage.getItem("bonfire.gallery")).toContain("list");
+    fireEvent.click(screen.getByRole("radio", { name: "大图" }));
+    expect(container.querySelector(".shot-grid.look-large")).not.toBeNull();
+
+    // jsdom 没有布局：给每张截图一个位置（纵向排列，每张高 100）。
+    const scroller = container.querySelector(".gallery") as HTMLElement;
+    scroller.getBoundingClientRect = () => ({ left: 0, top: 0, right: 800, bottom: 600, width: 800, height: 600, x: 0, y: 0, toJSON: () => ({}) });
+    Object.defineProperty(scroller, "clientWidth", { value: 780 });
+    container.querySelectorAll<HTMLElement>("[data-key]").forEach((el, i) => {
+      el.getBoundingClientRect = () => ({ left: 10, top: 10 + i * 100, right: 200, bottom: 100 + i * 100, width: 190, height: 90, x: 10, y: 10 + i * 100, toJSON: () => ({}) });
+    });
+    fireEvent.mouseDown(scroller, { button: 0, clientX: 5, clientY: 5 });
+    fireEvent.mouseMove(window, { clientX: 300, clientY: 150 });
+    fireEvent.mouseUp(window);
+    expect(screen.getByText("已选 2 张")).toBeInTheDocument();
+    // 按住 Ctrl 再框选第三张：加到已有的选择上。
+    fireEvent.mouseDown(scroller, { button: 0, clientX: 5, clientY: 230, ctrlKey: true });
+    fireEvent.mouseMove(window, { clientX: 300, clientY: 260 });
+    fireEvent.mouseUp(window);
+    expect(screen.getByText("已选 3 张")).toBeInTheDocument();
+    localStorage.removeItem("bonfire.gallery");
   });
 });
 

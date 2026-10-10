@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use bonfire_core::fault;
 use bonfire_core::index::{GameRecord, IndexEntry};
-use bonfire_core::refs::{Head, RefKind, RefName};
+use bonfire_core::refs::{Head, RefKind};
 use bonfire_core::scan::{self, hash_file};
 use bonfire_core::{ObjectId, RepoLock, Tree, TreeEntry, Trigger};
 use globset::{Glob, GlobSet, GlobSetBuilder};

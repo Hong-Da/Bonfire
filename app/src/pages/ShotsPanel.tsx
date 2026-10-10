@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ask, open, save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage, imageSrc } from "../api";
 import { Icon, Menu } from "../components/ui";
 import { bytes, dateTime, firstLine } from "../lib/format";
-import { fileName, groupByDay, shotSnapshots } from "../lib/shots";
+import { fileName, groupByDay, purgeMessage, shotSnapshots } from "../lib/shots";
+import PurgeDialog from "../components/PurgeDialog";
 import { useStore } from "../store";
 import type { AlbumView, ExportFormat, ShotRecord, SnapshotNode } from "../types";
 import ShotDiffDialog from "./ShotDiffDialog";
@@ -77,6 +78,7 @@ export default function ShotsPanel({
   const [viewing, setViewing] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [diffOpen, setDiffOpen] = useState(false);
+  const [purgeAsk, setPurgeAsk] = useState<{ text: string; run: (originals: boolean) => void } | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -152,15 +154,19 @@ export default function ShotsPanel({
       await changed();
     });
 
-  const purge = (blobs: string[]) =>
-    run(async () => {
-      const n = blobs.length || (album?.trash.length ?? 0);
-      const text = blobs.length ? t("ui.shots.purgeConfirm", { n }) : t("ui.shots.emptyTrashConfirm", { n });
-      if (!(await ask(text, { kind: "warning" }))) return;
-      const done = await api.purgeShots(gameId, blobs);
-      store.toast("success", t("ui.shots.purged", { n: done }));
-      await changed();
+  // 彻底删除：先确认，并可选同时删除磁盘上的原图。
+  const purge = (blobs: string[]) => {
+    const n = blobs.length || (album?.trash.length ?? 0);
+    setPurgeAsk({
+      text: blobs.length ? t("ui.shots.purgeConfirm", { n }) : t("ui.shots.emptyTrashConfirm", { n }),
+      run: (originals) =>
+        void run(async () => {
+          const r = await api.purgeShots(gameId, blobs, originals);
+          store.toast("success", purgeMessage(t, [r], originals));
+          await changed();
+        }),
     });
+  };
 
   const setEnabled = (v: string) =>
     run(async () => {
@@ -381,6 +387,7 @@ export default function ShotsPanel({
         )}
       </section>
 
+      {purgeAsk && <PurgeDialog text={purgeAsk.text} onConfirm={purgeAsk.run} onClose={() => setPurgeAsk(null)} />}
       {diffOpen && (
         <ShotDiffDialog
           gameId={gameId}

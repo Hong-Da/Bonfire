@@ -6,6 +6,7 @@ import type {
   AutoStatus,
   GalleryView,
   ManageMode,
+  PurgeReport,
   ShotDiff,
   WriteBackReport,
   ShotCandidate,
@@ -137,7 +138,7 @@ export const api = {
   capturesDir: () => invoke<string | null>("captures_dir"),
   restoreShots: (gameId: string, blobs: string[]) => invoke<number>("restore_shots", { gameId, blobs }),
   /** 彻底删除；`blobs` 为空时清空回收站。 */
-  purgeShots: (gameId: string, blobs: string[]) => invoke<number>("purge_shots", { gameId, blobs }),
+  purgeShots: (gameId: string, blobs: string[], originals = false) => invoke<PurgeReport>("purge_shots", { gameId, blobs, originals }),
   setShotsOnly: (gameId: string, on: boolean) => invoke<void>("set_shots_only", { gameId, on }),
   shotCandidates: () => invoke<ShotCandidate[]>("shot_candidates"),
   addShotsGame: (key: string | null, name: string, dirs: string[]) => invoke<GameRecord>("add_shots_game", { key, name, dirs }),

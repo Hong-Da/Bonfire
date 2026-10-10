@@ -16,7 +16,9 @@ use bonfire_app::gallery::{GalleryView, ShotDiff, WriteBackReport};
 use bonfire_app::library::{GameRow, HistoryView, SearchHit};
 use bonfire_app::prune::DeleteReport;
 use bonfire_app::restore::{RestoreOptions, RestorePlan, RestoreReport};
-use bonfire_app::shots::{AlbumView, ManageMode, ShotCandidate, ShotExportReport, ShotSyncReport};
+use bonfire_app::shots::{
+    AlbumView, ManageMode, PurgeReport, ShotCandidate, ShotExportReport, ShotSyncReport,
+};
 use bonfire_app::transfer::{
     ArchiveImportItem, ArchivePick, ArchivePreview, BundleImportReport, BundlePreview,
     BundleReport, BundleScope, CollectionReport, ExportFormat, ExportReport, FilesAutoReport,
@@ -1157,14 +1159,19 @@ pub async fn restore_shots(h: AppHandle, game_id: String, blobs: Vec<String>) ->
     .await
 }
 
-/// 彻底删除截图；`blobs` 为空时清空回收站。
+/// 彻底删除截图；`blobs` 为空时清空回收站；`originals` 时同时删除磁盘上的原图（移到系统回收站）。
 #[tauri::command]
-pub async fn purge_shots(h: AppHandle, game_id: String, blobs: Vec<String>) -> CmdResult<usize> {
+pub async fn purge_shots(
+    h: AppHandle,
+    game_id: String,
+    blobs: Vec<String>,
+    originals: bool,
+) -> CmdResult<PurgeReport> {
     with_app(h, move |app, _| {
         let g = find(app, &game_id)?;
         let ids = blob_ids(&blobs)?;
         let lock = app.repo.lock()?;
-        Ok(app.purge_shots(&lock, &g, &ids)?)
+        Ok(app.purge_shots_with(&lock, &g, &ids, originals)?)
     })
     .await
 }

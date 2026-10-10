@@ -99,6 +99,14 @@ export interface ShotDiff {
   synced: number;
 }
 
+/** 彻底删除截图的结果。 */
+export interface PurgeReport {
+  purged: number;
+  originalsDeleted: number;
+  originalsKept: number;
+  originalsFailed: number;
+}
+
 export interface WriteBackReport {
   written: number;
   bytes: number;

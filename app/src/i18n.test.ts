@@ -22,6 +22,7 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.weekday.": ["1", "2", "3", "4", "5", "6", "7"],
   "ui.mode.": ["both", "saves", "shots", "bothHint", "savesHint", "shotsHint"],
   "ui.gallery.group.": ["game", "month", "day", "source"],
+  "ui.gallery.lookOpt.": ["small", "medium", "large", "list"],
 };
 
 function sources(dir: string): string[] {

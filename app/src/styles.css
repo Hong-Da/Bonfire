@@ -701,3 +701,31 @@ button.link:hover { text-decoration: underline; }
 @media (max-width: 720px) {
   .diff-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- U-11：图库查看方式、框选、彻底删除时删除原图 ---------- */
+.gallery { position: relative; user-select: none; }
+.gallery.selecting .shot-open { cursor: crosshair; }
+.marquee { position: absolute; z-index: 3; pointer-events: none; border: 1px solid var(--ember); background: color-mix(in srgb, var(--ember) 14%, transparent); border-radius: 2px; }
+.shot-grid.look-small { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.shot-grid.look-small .shot-time { display: none; }
+.shot-grid.look-large { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.shot-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.shot-list li {
+  display: grid; grid-template-columns: 22px 96px minmax(0, 2fr) minmax(0, 1.2fr) 150px 90px 90px 70px; align-items: center; gap: 12px;
+  padding: 4px 8px; border-radius: 6px; border: 1px solid transparent; font-size: 13px;
+}
+.shot-list li:hover { background: var(--surface); }
+.shot-list li.on { border-color: var(--ember); background: color-mix(in srgb, var(--ember) 6%, var(--surface)); }
+.shot-list .shot-open { border-radius: 4px; overflow: hidden; }
+.shot-list .check { accent-color: var(--ember); }
+.sl-name, .sl-game { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-game { color: var(--muted); }
+.purge-originals { display: flex; align-items: flex-start; gap: 10px; margin-top: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.purge-originals span { display: grid; gap: 2px; }
+.purge-originals small { color: var(--muted); font-size: 12px; }
+@media (max-width: 900px) {
+  .shot-list li { grid-template-columns: 22px 72px minmax(0, 1fr) 130px; }
+  .shot-list li > span:nth-of-type(n + 3) { display: none; }
+}
+/* 游戏库“筛选”按钮：有筛选生效时用余烬色描边 */
+.btn.filtered { color: var(--ember); border-color: var(--ember); background: var(--ember-soft); }

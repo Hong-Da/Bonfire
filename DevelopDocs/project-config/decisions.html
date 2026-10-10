@@ -24,9 +24,33 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 70 项，更新于 2026-10-10 10:12。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 74 项，更新于 2026-10-10 10:36。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>22 项</small></h2>
+<section id="s-0"><h2>开发<small>26 项</small></h2>
+      <article id="U-11d">
+        <header><code>U-11d</code><h3>简化游戏库工具栏</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">管理方式与平台合并为“筛选”菜单；“导入 / 导出”与“添加游戏”合并为“添加”菜单；保留状态标签与搜索（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈工具栏按钮太多。</p><p class="impact"><span>影响</span>工具栏从两行变为一行。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-11c">
+        <header><code>U-11c</code><h3>图库查看方式</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">小图 / 中图 / 大图 / 列表，记在本机（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈。</p><p class="impact"><span>影响</span>列表显示文件名、游戏、拍摄时间、来源、尺寸、大小。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-11b">
+        <header><code>U-11b</code><h3>图库按住鼠标框选</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">拖出矩形选中相交的截图，Ctrl / Shift 加选，拖到边缘自动滚动（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈。</p><p class="impact"><span>影响</span>拖动超过 5 像素才算框选，松开后不会打开大图。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-11a">
+        <header><code>U-11a</code><h3>彻底删除截图时是否同时删除磁盘上的原图</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">确认框中提供“同时删除磁盘上的原图”，默认不选；选中时移到 Windows 回收站，只删内容与备份一致的（推荐） <b>✓ 采用</b></li><li class="">直接永久删除磁盘上的原图</li><li class="">不提供，只删除备份</li></ul>
+        <p class="reason"><span>理由</span>用户要求可选；移到系统回收站可以找回，内容校验避免误删被改动过的同名文件。</p><p class="impact"><span>影响</span>新增依赖 trash crate；CLI 新增 --delete-originals。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-10k">
         <header><code>U-10k</code><h3>复杂分支图示例与无人值守的界面检查</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">在隔离环境用伪造存档造 3 条分支、4 个标签的示例并截图；启动页面可由地址指定（推荐） <b>✓ 采用</b></li></ul>
