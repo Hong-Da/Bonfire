@@ -7,6 +7,7 @@ import { useStore } from "../store";
 import type { DiscoveredGame, FoundState, ManageMode, ShotCandidate } from "../types";
 import { MODES, MODE_ICON } from "../components/ModeMenu";
 import { firstBackup, readFirstBackupPref, writeFirstBackupPref } from "../lib/firstBackup";
+import { fuzzyMatch } from "../lib/search";
 
 type Filter = "all" | FoundState;
 const FILTERS: Filter[] = ["new", "managed", "ignored", "all"];
@@ -39,7 +40,7 @@ export default function ScanPage() {
       .filter((g) => filter === "all" || g.state === filter)
       .filter((g) => platform === "all" || g.platform === platform)
       .filter((g) => source === "all" || (source === "rules") === !!g.rule)
-      .filter((g) => !q || g.name.toLowerCase().includes(q) || (g.nameZh ?? "").toLowerCase().includes(q) || g.id.includes(q));
+      .filter((g) => !q || g.id.includes(q) || fuzzyMatch(q, [g.name, g.nameZh]));
   }, [games, filter, platform, source, query]);
   const visiblePicked = visible.filter((g) => picked.has(g.id)).length;
   const filtered = platform !== "all" || source !== "all" || query.trim() !== "";

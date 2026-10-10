@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { api, errorMessage } from "./api";
 import type { AppInfo, GameRow, GameState, ManageMode, Phase, ScanReport } from "./types";
+import { fuzzyMatch } from "./lib/search";
 
 export type View = { name: "library" } | { name: "gallery" } | { name: "scan" } | { name: "game"; id: string } | { name: "settings" };
 export type StateFilter = "all" | GameState;
@@ -76,7 +77,8 @@ export function visibleRows(s: Pick<Store, "rows" | "order" | "platformFilter" |
     .filter((r) => s.platformFilter === "all" || r.platform === s.platformFilter)
     .filter((r) => s.stateFilter === "all" || r.state === s.stateFilter)
     .filter((r) => !s.modeFilter || s.modeFilter === "all" || r.mode === s.modeFilter)
-    .filter((r) => !q || r.name.toLowerCase().includes(q) || (r.nameZh ?? "").toLowerCase().includes(q) || r.id.includes(q));
+    // 模糊搜索：中文名、英文名、拼音（首字母）、按顺序出现的字母；游戏 ID 按包含匹配。
+    .filter((r) => !q || r.id.includes(q) || fuzzyMatch(q, [r.name, r.nameZh]));
 }
 
 /** 排序：有更新 → 未备份 → 已是最新 → 只管理截图，同组按名称。 */

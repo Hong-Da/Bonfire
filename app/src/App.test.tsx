@@ -62,13 +62,17 @@ describe("游戏库", () => {
     fireEvent.click(screen.getByRole("button", { name: /^已是最新\s*1$/ }));
     expect(screen.queryByText("空洞骑士")).not.toBeInTheDocument();
     expect(screen.getByText("Cuphead")).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("searchbox", { name: "搜索游戏" }), { target: { value: "nothing" } });
+    fireEvent.change(screen.getByRole("searchbox", { name: /搜索游戏/ }), { target: { value: "nothing" } });
     fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
     expect(screen.getByText("空洞骑士")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^全部\s*3$/ }));
-    fireEvent.change(screen.getByRole("searchbox", { name: "搜索游戏" }), { target: { value: "cele" } });
+    fireEvent.change(screen.getByRole("searchbox", { name: /搜索游戏/ }), { target: { value: "cele" } });
     expect(screen.getByText("Celeste")).toBeInTheDocument();
     expect(screen.queryByText("Cuphead")).not.toBeInTheDocument();
+    // 模糊搜索：拼音首字母找到中文名。
+    fireEvent.change(screen.getByRole("searchbox", { name: /搜索游戏/ }), { target: { value: "kdqs" } });
+    expect(screen.getByText("空洞骑士")).toBeInTheDocument();
+    expect(screen.queryByText("Celeste")).not.toBeInTheDocument();
   });
 
   it("备份确认：统一备注填到所有游戏，逐个提交", async () => {

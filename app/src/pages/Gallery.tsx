@@ -11,6 +11,7 @@ import type { GalleryGame, GalleryView, PurgeReport, ShotRecord } from "../types
 import { Lightbox, ShotThumb } from "./ShotsPanel";
 import { save } from "@tauri-apps/plugin-dialog";
 import { CollectionImportDialog } from "./CollectionDialogs";
+import { fuzzyMatch } from "../lib/search";
 
 type Tab = "album" | "trash";
 type Group = "game" | "month" | "day" | "source";
@@ -106,10 +107,11 @@ export default function Gallery() {
     const l = all
       .filter((s) => game === "all" || s.gameId === game)
       .filter((s) => source === "all" || s.source === source)
-      .filter((s) => !q || fileName(s.originalPath).toLowerCase().includes(q) || gameName(s.gameId).toLowerCase().includes(q));
+      // 文件名按包含匹配；游戏名模糊匹配（中文名、英文名、拼音）。
+      .filter((s) => !q || fileName(s.originalPath).toLowerCase().includes(q) || fuzzyMatch(q, [games.get(s.gameId)?.name, games.get(s.gameId)?.nameZh, s.gameId]));
     const dir = prefs.sort === "new" ? -1 : 1;
     return [...l].sort((a, b) => dir * a.takenAt.localeCompare(b.takenAt));
-  }, [all, game, source, q, prefs.sort, gameName]);
+  }, [all, game, source, q, prefs.sort, games]);
 
   // 按选定方式分组：组的顺序跟随排序（最新在前时，最近有截图的游戏排在前面）。
   const groups = useMemo(() => {

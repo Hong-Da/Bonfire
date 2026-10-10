@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bytes, displayPath, firstLine, hours, relative, shortId } from "./format";
 import { layout } from "./timeline";
+import { fuzzyMatch } from "./search";
 
 describe("format", () => {
   it("大小与 Rust 端一致", () => {
@@ -80,5 +81,29 @@ describe("历史段", () => {
     expect([...ancestors(nodes, ["c", "d"])].sort()).toEqual(["a", "b", "c", "d"]);
     expect([...rangeOf(nodes, "b", "c")].sort()).toEqual(["b", "c"]);
     expect([...rangeOf(nodes, null, "d")].sort()).toEqual(["a", "b", "d"]);
+  });
+});
+
+describe("模糊搜索", () => {
+  const hk = ["Hollow Knight", "空洞骑士"];
+  it("中文名、英文名，不区分大小写，忽略空格、标点与重音", () => {
+    expect(fuzzyMatch("空洞", hk)).toBe(true);
+    expect(fuzzyMatch("hollow", hk)).toBe(true);
+    expect(fuzzyMatch("HOLLOWKNIGHT", hk)).toBe(true);
+    expect(fuzzyMatch("hollow-knight", hk)).toBe(true);
+    expect(fuzzyMatch("pokemon", ["Pokémon Legends: Arceus"])).toBe(true);
+  });
+  it("拼音、拼音首字母，字母按顺序出现", () => {
+    expect(fuzzyMatch("kongdong", hk)).toBe(true);
+    expect(fuzzyMatch("kdqs", hk)).toBe(true);
+    expect(fuzzyMatch("hk", hk)).toBe(true);
+    expect(fuzzyMatch("hknt", hk)).toBe(true);
+  });
+  it("多个关键词都要命中；不相关的不命中", () => {
+    expect(fuzzyMatch("hollow 骑士", hk)).toBe(true);
+    expect(fuzzyMatch("hollow 星露", hk)).toBe(false);
+    expect(fuzzyMatch("celeste", hk)).toBe(false);
+    expect(fuzzyMatch("骑空", hk)).toBe(false);
+    expect(fuzzyMatch("", hk)).toBe(true);
   });
 });
