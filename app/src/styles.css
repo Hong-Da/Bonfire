@@ -729,3 +729,10 @@ button.link:hover { text-decoration: underline; }
 }
 /* 游戏库“筛选”按钮：有筛选生效时用余烬色描边 */
 .btn.filtered { color: var(--ember); border-color: var(--ember); background: var(--ember-soft); }
+
+/* 图库工具栏只占一行；查看方式为图标按钮；下拉菜单过长时滚动 */
+.gallery-toolbar { flex-wrap: nowrap; }
+.gallery-toolbar input[type="search"] { flex: 0 1 200px; min-width: 100px; }
+.icon-seg button { display: inline-grid; place-items: center; padding: 5px 8px; }
+.btn.icon-only { padding-left: 8px; padding-right: 8px; }
+.menu-list { max-height: min(70vh, 520px); overflow: auto; }

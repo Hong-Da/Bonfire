@@ -136,11 +136,16 @@ describe("图库", () => {
     expect(await screen.findByText("3 张截图，2.9 KB，来自 2 个游戏")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "选择「空洞骑士」中的全部截图" })).toBeInTheDocument();
     expect(screen.getAllByText("已移出游戏库").length).toBeGreaterThan(0);
-    fireEvent.change(screen.getByRole("combobox", { name: /分组/ }), { target: { value: "month" } });
+    // 分组、排序与筛选都在一个“整理”菜单中，工具栏只占一行。
+    const arrange = () => screen.getByRole("button", { name: "分组、排序与按来源 / 游戏筛选" });
+    fireEvent.click(arrange());
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "按月份" }));
     expect(screen.getByRole("checkbox", { name: /2026年10月/ })).toBeInTheDocument();
     expect(localStorage.getItem("bonfire.gallery")).toContain("month");
-    fireEvent.change(screen.getByRole("combobox", { name: "按来源筛选" }), { target: { value: "capture" } });
+    fireEvent.click(arrange());
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Windows 游戏栏截图" }));
     expect(screen.getAllByRole("checkbox", { name: /^b3|\.jpg$/ })).toHaveLength(1);
+    expect(arrange()).toHaveTextContent("筛选：Windows 游戏栏截图");
     localStorage.removeItem("bonfire.gallery");
   });
 

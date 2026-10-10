@@ -24,9 +24,21 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 74 项，更新于 2026-10-10 10:36。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 76 项，更新于 2026-10-10 17:48。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>26 项</small></h2>
+<section id="s-0"><h2>开发<small>28 项</small></h2>
+      <article id="U-12b">
+        <header><code>U-12b</code><h3>图库工具栏一行显示</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">分组 / 排序 / 筛选合并为“整理”菜单，查看方式改为图标，选择与操作移到底部操作栏（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈图库与回收站工具栏两行显示，查看方式要改为图标。</p><p class="impact"><span>影响</span>与游戏库的布局一致：顶部筛选，底部选择与操作。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-12a">
+        <header><code>U-12a</code><h3>手动备份时游戏正在运行</h3><span class="status">用户指定</span></header>
+        <ul><li class="chosen">提醒“建议存档后或退出游戏后再备份”，不阻止备份（推荐） <b>✓ 采用</b></li><li class="">阻止备份，要求先退出游戏</li><li class="">不提醒</li></ul>
+        <p class="reason"><span>理由</span>用户要求；游戏开着时备份通常可用，但存档由多个文件组成时可能备份到不配套的存档。</p><p class="impact"><span>影响</span>按游戏安装目录检测进程；没有安装目录的游戏无法检测。桌面备份确认页与 CLI backup 都会提示；自动备份不提示。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-11d">
         <header><code>U-11d</code><h3>简化游戏库工具栏</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">管理方式与平台合并为“筛选”菜单；“导入 / 导出”与“添加游戏”合并为“添加”菜单；保留状态标签与搜索（推荐） <b>✓ 采用</b></li></ul>

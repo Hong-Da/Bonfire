@@ -6,7 +6,7 @@ import type { GameRow } from "../types";
 
 export type IconName =
   | "library" | "settings" | "scan" | "backup" | "restore" | "branch" | "tag" | "search" | "folder"
-  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next" | "shield" | "camera" | "info" | "expand" | "image" | "clock" | "stack" | "gallery" | "filter";
+  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next" | "shield" | "camera" | "info" | "expand" | "image" | "clock" | "stack" | "gallery" | "filter" | "grid3" | "grid2" | "square" | "list";
 
 const PATHS: Record<IconName, string> = {
   library: "M4 5h4v14H4zM10 5h4v14h-4zM16.5 5.5l3.8 1-3.6 13.5-3.8-1z",
@@ -40,6 +40,10 @@ const PATHS: Record<IconName, string> = {
   stack: "M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4",
   gallery: "M3 7h4v4H3zM10 7h4v4h-4zM17 7h4v4h-4zM3 14h4v4H3zM10 14h4v4h-4zM17 14h4v4h-4z",
   filter: "M4 5h16l-6 7.5V18l-4 2v-7.5z",
+  grid3: "M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4zM16 16h4v4h-4z",
+  grid2: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+  square: "M4 5h16v14H4z",
+  list: "M4 6h2M9 6h11M4 12h2M9 12h11M4 18h2M9 18h11",
 };
 
 export function Icon({ name, size = 18, label }: { name: IconName; size?: number; label?: string }) {

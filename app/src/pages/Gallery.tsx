@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
-import { Icon, displayName } from "../components/ui";
+import { Icon, Menu, displayName, type IconName } from "../components/ui";
 import { bytes } from "../lib/format";
 import { fileName, purgeMessage } from "../lib/shots";
 import { useMarquee } from "../lib/marquee";
@@ -17,6 +17,7 @@ type Look = "small" | "medium" | "large" | "list";
 
 const GROUPS: Group[] = ["game", "month", "day", "source"];
 const LOOKS: Look[] = ["small", "medium", "large", "list"];
+const LOOK_ICON: Record<Look, IconName> = { small: "grid3", medium: "grid2", large: "square", list: "list" };
 const PREF_KEY = "bonfire.gallery";
 
 interface Prefs {
@@ -218,13 +219,15 @@ export default function Gallery() {
   if (!data) return <div className="empty">{t("ui.loading")}</div>;
   const inTrash = tab === "trash";
   const gameList: GalleryGame[] = [...data.games].filter((g) => all.some((s) => s.gameId === g.id)).sort((a, b) => displayName(a, i18n.language).localeCompare(displayName(b, i18n.language)));
+  // 来源与游戏筛选生效时，“整理”按钮显示筛选内容。
+  const narrowed = game !== "all" || source !== "all";
+  const narrowText = [game !== "all" ? gameName(game) : "", source !== "all" ? t(`ui.shots.source.${source}`) : ""].filter(Boolean).join(" · ");
   const timeOpts: Intl.DateTimeFormatOptions = prefs.group === "day" ? { hour: "2-digit", minute: "2-digit" } : { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" };
 
   return (
     <>
-      <div className="toolbar">
+      <div className="toolbar gallery-toolbar">
         <h1>{t("ui.nav.gallery")}</h1>
-        <span className="muted num">{t("ui.gallery.summary", { n: data.shots.length, size: bytes(data.bytes), games: data.games.filter((g) => data.shots.some((s) => s.gameId === g.id)).length })}</span>
         <div className="seg" role="tablist" aria-label={t("ui.nav.gallery")}>
           <button role="tab" aria-selected={!inTrash} onClick={() => switchTab("album")}>
             <Icon name="image" size={14} /> {t("ui.shots.viewAlbum")} <span className="chip-count num">{data.shots.length}</span>
@@ -233,85 +236,49 @@ export default function Gallery() {
             <Icon name="trash" size={14} /> {t("ui.shots.viewTrash")} <span className="chip-count num">{data.trash.length}</span>
           </button>
         </div>
-        <div className="grow" />
-        <input className="field" type="search" placeholder={t("ui.gallery.search")} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t("ui.gallery.search")} />
-        <button className="btn" onClick={() => void api.openPath(data.dir).catch((e) => store.toast("error", errorMessage(e)))} title={data.dir}>
-          <Icon name="folder" /> {t("ui.shots.openDir")}
-        </button>
-      </div>
-
-      <div className="gallery-bar">
-        <label className="inline">
-          {t("ui.gallery.groupBy")}
-          <select className="field" value={prefs.group} onChange={(e) => setPref({ group: e.target.value as Group })}>
-            {GROUPS.map((g) => (
-              <option key={g} value={g}>
-                {t(`ui.gallery.group.${g}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="inline">
-          {t("ui.gallery.sort")}
-          <select className="field" value={prefs.sort} onChange={(e) => setPref({ sort: e.target.value as Sort })}>
-            <option value="new">{t("ui.gallery.sortNew")}</option>
-            <option value="old">{t("ui.gallery.sortOld")}</option>
-          </select>
-        </label>
-        <select className="field" value={game} onChange={(e) => setGame(e.target.value)} aria-label={t("ui.gallery.filterGame")}>
-          <option value="all">{t("ui.gallery.allGames")}</option>
-          {gameList.map((g) => (
-            <option key={g.id} value={g.id}>
-              {displayName(g, i18n.language)}
-              {g.inLibrary ? "" : ` (${t("ui.gallery.removed")})`} · {all.filter((s) => s.gameId === g.id).length}
-            </option>
-          ))}
-        </select>
-        <select className="field" value={source} onChange={(e) => setSource(e.target.value)} aria-label={t("ui.gallery.filterSource")}>
-          <option value="all">{t("ui.gallery.allSources")}</option>
-          {sources.map((s) => (
-            <option key={s} value={s}>
-              {t(`ui.shots.source.${s}`)}
-            </option>
-          ))}
-        </select>
-        <div className="seg" role="radiogroup" aria-label={t("ui.gallery.look")}>
+        <Menu
+          icon="filter"
+          className={`btn${narrowed ? " filtered" : ""}`}
+          label={narrowed ? t("ui.library.filterOn", { what: narrowText }) : t("ui.gallery.arrange")}
+          title={t("ui.gallery.arrangeHint")}
+          items={[
+            { label: <b className="menu-head">{t("ui.gallery.groupBy")}</b>, onClick: () => {}, disabled: true },
+            ...GROUPS.map((g) => ({ label: t(`ui.gallery.group.${g}`), checked: prefs.group === g, onClick: () => setPref({ group: g }) })),
+            "divider" as const,
+            { label: <b className="menu-head">{t("ui.gallery.sort")}</b>, onClick: () => {}, disabled: true },
+            { label: t("ui.gallery.sortNew"), checked: prefs.sort === "new", onClick: () => setPref({ sort: "new" }) },
+            { label: t("ui.gallery.sortOld"), checked: prefs.sort === "old", onClick: () => setPref({ sort: "old" }) },
+            "divider" as const,
+            { label: <b className="menu-head">{t("ui.gallery.filterSource")}</b>, onClick: () => {}, disabled: true },
+            { label: t("ui.gallery.allSources"), checked: source === "all", onClick: () => setSource("all") },
+            ...sources.map((x) => ({ label: t(`ui.shots.source.${x}`), checked: source === x, onClick: () => setSource(x) })),
+            "divider" as const,
+            { label: <b className="menu-head">{t("ui.gallery.filterGame")}</b>, onClick: () => {}, disabled: true },
+            { label: t("ui.gallery.allGames"), checked: game === "all", onClick: () => setGame("all") },
+            ...gameList.map((g) => ({
+              label: `${displayName(g, i18n.language)}${g.inLibrary ? "" : `（${t("ui.gallery.removed")}）`} · ${all.filter((x) => x.gameId === g.id).length}`,
+              checked: game === g.id,
+              onClick: () => setGame(g.id),
+            })),
+          ]}
+        />
+        <div className="seg icon-seg" role="radiogroup" aria-label={t("ui.gallery.look")}>
           {LOOKS.map((l) => (
-            <button key={l} role="radio" aria-checked={prefs.look === l} onClick={() => setPref({ look: l })}>
-              {t(`ui.gallery.lookOpt.${l}`)}
+            <button key={l} role="radio" aria-checked={prefs.look === l} onClick={() => setPref({ look: l })} aria-label={t(`ui.gallery.lookOpt.${l}`)} title={t(`ui.gallery.lookOpt.${l}`)}>
+              <Icon name={LOOK_ICON[l]} size={16} />
             </button>
           ))}
         </div>
-        {ordered.length > 0 && (
-          <>
-            <div className="seg" role="group" aria-label={t("ui.shots.selection")}>
-              <button onClick={() => setPicked(new Set(ordered.map(keyOf)))}>{t("ui.shots.selectAll")}</button>
-              <button onClick={() => setPicked(new Set())} disabled={sel.length === 0}>
-                {t("ui.shots.selectNone")}
-              </button>
-              <button onClick={() => setPicked(new Set(ordered.filter((s) => !picked.has(keyOf(s))).map(keyOf)))}>{t("ui.shots.invert")}</button>
-            </div>
-            <span className="count num">{t("ui.shots.selected", { n: sel.length })}</span>
-          </>
-        )}
         <div className="grow" />
-        {inTrash ? (
-          <>
-            <button className="btn" onClick={() => void restore(sel)} disabled={busy || sel.length === 0}>
-              <Icon name="undo" /> {t("ui.shots.restore")}
-            </button>
-            <button className="btn" onClick={() => void purge(sel, false)} disabled={busy || sel.length === 0}>
-              {t("ui.shots.purge")}
-            </button>
-            <button className="btn ghost" onClick={() => void purge(data.trash, true)} disabled={busy || data.trash.length === 0}>
-              {t("ui.shots.emptyTrash")}
-            </button>
-          </>
-        ) : (
-          <button className="btn" onClick={() => void remove(sel)} disabled={busy || sel.length === 0}>
-            <Icon name="trash" /> {t("ui.shots.delete")}
-          </button>
-        )}
+        <input className="field" type="search" placeholder={t("ui.gallery.search")} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t("ui.gallery.search")} />
+        <button
+          className="btn icon-only"
+          onClick={() => void api.openPath(data.dir).catch((e) => store.toast("error", errorMessage(e)))}
+          title={`${t("ui.shots.openDir")}：${data.dir}`}
+          aria-label={t("ui.shots.openDir")}
+        >
+          <Icon name="folder" />
+        </button>
       </div>
 
       <div className={`gallery${marquee.box ? " selecting" : ""}`} ref={scroller} onMouseDown={marquee.onMouseDown}>
@@ -419,6 +386,41 @@ export default function Gallery() {
         )}
       </div>
 
+      <div className="actionbar">
+        <span className="muted num">
+          {inTrash
+            ? t("ui.gallery.trashSummary", { n: data.trash.length, size: bytes(data.trashBytes) })
+            : t("ui.gallery.summary", { n: data.shots.length, size: bytes(data.bytes), games: data.games.filter((g) => data.shots.some((s) => s.gameId === g.id)).length })}
+        </span>
+        {ordered.length > 0 && (
+          <div className="seg" role="group" aria-label={t("ui.shots.selection")}>
+            <button onClick={() => setPicked(new Set(ordered.map(keyOf)))}>{t("ui.shots.selectAll")}</button>
+            <button onClick={() => setPicked(new Set())} disabled={sel.length === 0}>
+              {t("ui.shots.selectNone")}
+            </button>
+            <button onClick={() => setPicked(new Set(ordered.filter((s) => !picked.has(keyOf(s))).map(keyOf)))}>{t("ui.shots.invert")}</button>
+          </div>
+        )}
+        <div className="grow" style={{ flex: 1 }} />
+        <span className="count num">{t("ui.shots.selected", { n: sel.length })}</span>
+        {inTrash ? (
+          <>
+            <button className="btn" onClick={() => void restore(sel)} disabled={busy || sel.length === 0}>
+              <Icon name="undo" /> {t("ui.shots.restore")}
+            </button>
+            <button className="btn" onClick={() => void purge(sel, false)} disabled={busy || sel.length === 0}>
+              {t("ui.shots.purge")}
+            </button>
+            <button className="btn ghost" onClick={() => void purge(data.trash, true)} disabled={busy || data.trash.length === 0}>
+              {t("ui.shots.emptyTrash")}
+            </button>
+          </>
+        ) : (
+          <button className="btn" onClick={() => void remove(sel)} disabled={busy || sel.length === 0}>
+            <Icon name="trash" /> {t("ui.shots.delete")}
+          </button>
+        )}
+      </div>
       {purgeAsk && <PurgeDialog text={purgeAsk.text} onConfirm={purgeAsk.run} onClose={() => setPurgeAsk(null)} />}
       {!inTrash && viewing !== null && ordered[viewing] && (
         <Lightbox

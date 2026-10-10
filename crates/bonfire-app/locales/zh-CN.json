@@ -1025,5 +1025,8 @@
   "ui.library.filterHint": "按管理方式与平台筛选",
   "ui.library.addMenu": "添加",
   "ui.backup.gameRunning": "正在运行：{names}。可以照常备份，但建议在游戏中存档后、或退出游戏后再备份——游戏正在写存档时，备份到的可能是不配套的存档。",
-  "cli.out.backup_game_running": "提示：「{game}」正在运行（{procs}）。照常备份，但建议在游戏中存档后或退出游戏后再备份"
+  "cli.out.backup_game_running": "提示：「{game}」正在运行（{procs}）。照常备份，但建议在游戏中存档后或退出游戏后再备份",
+  "ui.gallery.arrange": "整理",
+  "ui.gallery.arrangeHint": "分组、排序与按来源 / 游戏筛选",
+  "ui.gallery.trashSummary": "回收站中 {n} 张截图，{size}"
 }
