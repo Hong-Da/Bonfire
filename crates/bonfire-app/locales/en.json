@@ -1023,5 +1023,7 @@
   "ui.library.filter": "Filter",
   "ui.library.filterOn": "Filter: {what}",
   "ui.library.filterHint": "Filter by management and platform",
-  "ui.library.addMenu": "Add"
+  "ui.library.addMenu": "Add",
+  "ui.backup.gameRunning": "Running: {names}. You can back up now, but it's best to save in the game or quit it first; if the game is writing its save, the backup may get files that don't match.",
+  "cli.out.backup_game_running": "Note: \"{game}\" is running ({procs}). Backing up anyway, but it's best to save in the game or quit it first"
 }

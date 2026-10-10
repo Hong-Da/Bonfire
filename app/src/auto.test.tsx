@@ -56,6 +56,19 @@ describe("备份确认", () => {
     expect(await screen.findByText("只管理截图：收集了 2 张新截图")).toBeInTheDocument();
   });
 
+  it("游戏正在运行时提醒，但不阻止备份", async () => {
+    const r = row();
+    seed([r]);
+    api.runningGames.mockResolvedValue([{ gameId: r.id, processes: ["hollow_knight.exe"] }]);
+    api.runBackup.mockResolvedValue([]);
+    render(<BackupDialog rows={[r]} onClose={() => {}} />);
+    expect(await screen.findByText(/正在运行：空洞骑士（hollow_knight.exe）/)).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: "备份 1 个游戏" });
+    expect(btn).toBeEnabled();
+    fireEvent.click(btn);
+    await waitFor(() => expect(api.runBackup).toHaveBeenCalled());
+  });
+
   it("全部已是最新时不能备份并说明原因", () => {
     const latest = row({ state: "up-to-date" });
     seed([latest]);

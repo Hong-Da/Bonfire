@@ -1302,6 +1302,26 @@ pub async fn close_window(h: AppHandle, tray: bool, remember: bool) -> CmdResult
     Ok(())
 }
 
+/// 正在运行的游戏（按安装目录检测），备份前提醒用，不阻止备份。
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunningGame {
+    game_id: String,
+    processes: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn running_games(h: AppHandle, game_ids: Vec<String>) -> CmdResult<Vec<RunningGame>> {
+    with_app(h, move |app, _| {
+        Ok(app
+            .running_games(&game_ids)?
+            .into_iter()
+            .map(|(game_id, processes)| RunningGame { game_id, processes })
+            .collect())
+    })
+    .await
+}
+
 /// 自动备份的上次执行时间（设置页显示）。
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

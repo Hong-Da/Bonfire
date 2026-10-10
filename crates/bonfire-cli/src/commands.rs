@@ -781,6 +781,16 @@ fn backup(
         return Ok(());
     }
 
+    // 游戏正在运行时只提醒，不阻止备份（U-12）。
+    let ids: Vec<String> = targets.iter().map(|g| g.id.clone()).collect();
+    for (id, procs) in app.running_games(&ids).unwrap_or_default() {
+        if let Some(g) = targets.iter().find(|g| g.id == id) {
+            out.line(out.tf(
+                "cli.out.backup_game_running",
+                &[("game", &g.name), ("procs", &procs.join("、"))],
+            ));
+        }
+    }
     let lock = app.repo.lock()?;
     let opts = BackupOptions {
         comment,

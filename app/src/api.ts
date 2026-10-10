@@ -148,6 +148,7 @@ export const api = {
   shotDiff: (gameId: string) => invoke<ShotDiff>("shot_diff", { gameId }),
   writeBackShots: (gameId: string, blobs: string[], dest: string | null) => invoke<WriteBackReport>("write_back_shots", { gameId, blobs, dest }),
   recollectShots: (gameId: string, paths: string[]) => invoke<number>("recollect_shots", { gameId, paths }),
+  runningGames: (gameIds: string[]) => invoke<{ gameId: string; processes: string[] }[]>("running_games", { gameIds }),
   closeWindow: (tray: boolean, remember: boolean) => invoke<void>("close_window", { tray, remember }),
   onCloseRequested: (cb: () => void): Promise<UnlistenFn> => listen("close-requested", () => cb()),
   onAutoBackup: (cb: (r: AutoReport) => void): Promise<UnlistenFn> => listen<AutoReport>("auto-backup", (e) => cb(e.payload)),

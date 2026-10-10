@@ -30,6 +30,15 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
     rows: picked.filter((r) => r.state !== "up-to-date"),
   }));
   const saveRows = rows.filter((r) => !r.shotsOnly);
+  // 游戏正在运行时只提醒，不阻止备份（U-12）。
+  const [runningGames, setRunningGames] = useState<{ gameId: string; processes: string[] }[]>([]);
+  useEffect(() => {
+    if (saveRows.length === 0) return;
+    api
+      .runningGames(saveRows.map((r) => r.id))
+      .then(setRunningGames)
+      .catch(() => setRunningGames([]));
+  }, []);
   const detached = saveRows.filter((r) => r.detached);
   const tooLong = rows.some((r) => [...(comments[r.id] ?? "")].length > MAX_COMMENT);
 
@@ -118,6 +127,20 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
               </button>
             </div>
           </div>
+          )}
+          {runningGames.length > 0 && (
+            <div className="callout warn" role="note">
+              <p style={{ margin: 0 }}>
+                {t("ui.backup.gameRunning", {
+                  names: runningGames
+                    .map((g) => {
+                      const r = rows.find((x) => x.id === g.gameId);
+                      return `${r ? displayName(r, i18n.language) : g.gameId}（${g.processes.join("、")}）`;
+                    })
+                    .join("、"),
+                })}
+              </p>
+            </div>
           )}
           {detached.length > 0 && (
             <div className="callout warn">

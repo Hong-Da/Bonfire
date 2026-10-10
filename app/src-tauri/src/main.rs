@@ -79,6 +79,7 @@ fn main() {
             commands::write_back_shots,
             commands::recollect_shots,
             commands::close_window,
+            commands::running_games,
             commands::open_location,
             commands::export_default_name,
             commands::export_files,
