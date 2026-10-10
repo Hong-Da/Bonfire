@@ -310,7 +310,11 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
                 &[("name", &g.name), ("id", &g.id), ("n", &n)],
             ));
         }
-        GameCmd::Include { games, all_new } => {
+        GameCmd::Include {
+            games,
+            all_new,
+            mode,
+        } => {
             if games.is_empty() && !all_new {
                 return Err(AppError::Invalid(
                     out.t("cli.error.include_what").to_string(),
@@ -318,6 +322,12 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
             }
             let lock = app.repo.lock()?;
             let added = app.include_games(&lock, &games, all_new)?;
+            // 按选择的管理方式加入（默认存档和截图）。
+            if mode != ModeArg::Both {
+                for g in &added {
+                    app.set_manage_mode(g, mode_of(mode))?;
+                }
+            }
             // 加入后补全游戏信息（失败不影响）。
             for g in &added {
                 let _ = app.refresh_metadata(g, false);
@@ -366,12 +376,7 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
         GameCmd::Mode { game, mode } => {
             let g = app.find_game(&game)?;
             if let Some(m) = mode {
-                let m = match m {
-                    ModeArg::Both => ManageMode::Both,
-                    ModeArg::Saves => ManageMode::Saves,
-                    ModeArg::Shots => ManageMode::Shots,
-                };
-                app.set_manage_mode(&g, m)?;
+                app.set_manage_mode(&g, mode_of(m))?;
             }
             let m = app.manage_mode(&g)?;
             out.emit(json!({ "game": g.id, "mode": m }));
@@ -1854,6 +1859,14 @@ fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
             ));
             Ok(())
         }
+    }
+}
+
+fn mode_of(m: ModeArg) -> ManageMode {
+    match m {
+        ModeArg::Both => ManageMode::Both,
+        ModeArg::Saves => ManageMode::Saves,
+        ModeArg::Shots => ManageMode::Shots,
     }
 }
 

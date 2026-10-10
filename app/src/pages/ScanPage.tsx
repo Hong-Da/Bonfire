@@ -4,7 +4,8 @@ import { api, errorMessage } from "../api";
 import { Cover, Icon, displayName } from "../components/ui";
 import { bytes, hours } from "../lib/format";
 import { useStore } from "../store";
-import type { DiscoveredGame, FoundState, ShotCandidate } from "../types";
+import type { DiscoveredGame, FoundState, ManageMode, ShotCandidate } from "../types";
+import { MODES, MODE_ICON } from "../components/ModeMenu";
 
 type Filter = "all" | FoundState;
 const FILTERS: Filter[] = ["new", "managed", "ignored", "all"];
@@ -64,18 +65,22 @@ export default function ScanPage() {
       return n;
     });
 
+  const [includeMode, setIncludeMode] = useState<ManageMode>("both");
   const act = async (kind: "include" | "ignore") => {
     const targets = pickedGames.filter((g) => (kind === "include" ? g.state !== "managed" : g.state !== "ignored"));
     if (targets.length === 0) return;
     setBusy(true);
     try {
       const ids = targets.map((g) => g.id);
-      if (kind === "include") await api.includeGames(ids);
-      else await api.ignoreGames(ids);
+      if (kind === "include") {
+        await api.includeGames(ids);
+        // 按选择的管理方式加入（默认“存档和截图”，不需要另外设置）。
+        if (includeMode !== "both") await api.setManageMode(ids, includeMode);
+      } else await api.ignoreGames(ids);
       const state: FoundState = kind === "include" ? "managed" : "ignored";
       useStore.setState((s) => ({ scan: s.scan && { ...s.scan, games: s.scan.games.map((g) => (ids.includes(g.id) ? { ...g, state } : g)) } }));
       setPicked(new Set());
-      store.toast("success", t(kind === "include" ? "ui.scan.included" : "ui.scan.ignored", { n: ids.length }));
+      store.toast("success", kind === "include" ? t("ui.scan.includedAs", { n: ids.length, mode: t(`ui.mode.${includeMode}`) }) : t("ui.scan.ignored", { n: ids.length }));
       // 加入后在游戏库中检测状态并联网补全游戏信息。
       if (kind === "include" || targets.some((g) => g.state === "managed")) void store.loadLibrary(true);
     } catch (e) {
@@ -238,6 +243,13 @@ export default function ScanPage() {
           <button className="btn" onClick={() => void act("ignore")} disabled={busy || !canIgnore}>
             {t("ui.scan.ignore")}
           </button>
+          <div className="seg include-mode" role="radiogroup" aria-label={t("ui.scan.includeMode")} title={t("ui.scan.includeModeHint")}>
+            {MODES.map((m) => (
+              <button key={m} role="radio" aria-checked={includeMode === m} onClick={() => setIncludeMode(m)} title={t(`ui.mode.${m}Hint`)}>
+                <Icon name={MODE_ICON[m]} size={14} /> {t(`ui.mode.${m}`)}
+              </button>
+            ))}
+          </div>
           <button className="btn primary" onClick={() => void act("include")} disabled={busy || !canInclude}>
             <Icon name="plus" /> {t("ui.scan.include")}
           </button>

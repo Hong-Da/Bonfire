@@ -12,7 +12,7 @@
 | `bonfire game add <名称> --path <目录或文件>... [--config-path <路径>]... [--install-dir <目录>]` | 手动添加游戏；`--install-dir` 用于恢复前检测游戏是否在运行 |
 | `bonfire game list [--all]` | 列出游戏；`--all` 包括已忽略的 |
 | `bonfire game rm <game>` | 移出游戏库（需确认）：手动添加的删除配置，扫描发现的改为忽略；历史快照都保留 |
-| `bonfire game include <game>...` / `--all-new` | 把扫描发现的游戏加入游戏库；`--all-new` 加入全部新发现的游戏 |
+| `bonfire game include <game>...` / `--all-new` `[--mode both\|saves\|shots]` | 把扫描发现的游戏加入游戏库；`--all-new` 加入全部新发现的游戏；`--mode` 加入后的管理方式（默认存档和截图） |
 | `bonfire game ignore <game>...` | 忽略扫描发现的游戏，之后扫描不再作为新发现提示（已在库中的会移出） |
 | `bonfire game confirm <game>` | 确认启发式找到的存档位置（写入自定义规则 `custom-rules.yaml`） |
 | `bonfire scan [--platform steam\|epic\|gog] [--no-discover] [--no-metadata] [--force-verify]` | 发现游戏：扫描本机平台，列出有存档的游戏（新发现 / 已在库中 / 已忽略），**不会自动加入游戏库**；已在库中的游戏更新存档位置并获取游戏信息；最后检测游戏库中所有游戏的状态 |

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
 import { useStore } from "../store";
 import type { ManageMode } from "../types";
@@ -13,6 +14,20 @@ export function useSetMode() {
   const store = useStore();
   return async (ids: string[], mode: ManageMode, name?: string): Promise<boolean> => {
     if (ids.length === 0) return false;
+    // 批量切换先确认：说明改成什么、影响什么（已有的快照、截图与磁盘上的存档都不受影响）。
+    if (ids.length > 1) {
+      const rows = useStore.getState().rows;
+      const same = ids.filter((id) => rows[id]?.mode === mode).length;
+      const text = [
+        t("ui.mode.batchConfirm", { n: ids.length, mode: t(`ui.mode.${mode}`) }),
+        t(`ui.mode.${mode}Hint`),
+        same > 0 ? t("ui.mode.batchSame", { n: same }) : "",
+        t("ui.mode.batchSafe"),
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      if (!(await ask(text, { title: t("ui.mode.batchTitle"), kind: "info" }))) return false;
+    }
     try {
       await api.setManageMode(ids, mode);
       await Promise.all(ids.map((id) => store.refreshRow(id)));

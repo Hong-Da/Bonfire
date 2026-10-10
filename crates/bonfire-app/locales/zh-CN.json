@@ -1028,5 +1028,13 @@
   "cli.out.backup_game_running": "提示：「{game}」正在运行（{procs}）。照常备份，但建议在游戏中存档后或退出游戏后再备份",
   "ui.gallery.arrange": "整理",
   "ui.gallery.arrangeHint": "分组、排序与按来源 / 游戏筛选",
-  "ui.gallery.trashSummary": "回收站中 {n} 张截图，{size}"
+  "ui.gallery.trashSummary": "回收站中 {n} 张截图，{size}",
+  "ui.scan.includeMode": "加入后管理",
+  "ui.scan.includeModeHint": "选择加入的游戏管理存档、截图还是两者，之后可以在游戏库中随时切换",
+  "ui.scan.includedAs": "已加入 {n} 个游戏（{mode}）",
+  "cli.arg.game.include.mode": "加入后的管理方式：both 存档和截图（默认）/ saves 只管理存档 / shots 只管理截图",
+  "ui.mode.batchTitle": "批量切换管理方式",
+  "ui.mode.batchConfirm": "把所选的 {n} 个游戏改为“{mode}”？",
+  "ui.mode.batchSame": "其中 {n} 个已经是这种方式，不会变化。",
+  "ui.mode.batchSafe": "已有的快照、截图和磁盘上的存档都不受影响，之后可以随时改回来。"
 }

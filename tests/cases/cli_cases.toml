@@ -1227,3 +1227,20 @@ fixture = "basic"
 pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
 args = ["shots", "rm", "空洞骑士", "feaa61", "--delete-originals"]
 expect_exit = 2
+
+[[case]]
+id = "game-include-mode"
+title = { zh-CN = "加入游戏库时只管理截图", en = "Add a discovered game as screenshots only" }
+root = "steam-basic"
+pre = [["scan"], ["game", "include", "Hollow Knight", "--mode", "shots"]]
+args = ["game", "mode", "Hollow Knight"]
+expect_exit = 0
+stdout_contains = ["管理方式：只管理截图"]
+
+[[case]]
+id = "game-include-bad-mode"
+title = { zh-CN = "加入游戏库：管理方式无效", en = "Add a discovered game: invalid mode" }
+root = "steam-basic"
+pre = [["scan"]]
+args = ["game", "include", "Hollow Knight", "--mode", "all"]
+expect_exit = 2

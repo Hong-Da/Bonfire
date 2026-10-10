@@ -1028,5 +1028,13 @@
   "cli.out.backup_game_running": "Note: \"{game}\" is running ({procs}). Backing up anyway, but it's best to save in the game or quit it first",
   "ui.gallery.arrange": "Arrange",
   "ui.gallery.arrangeHint": "Group, sort and filter by source or game",
-  "ui.gallery.trashSummary": "{n} screenshots in the recycle bin, {size}"
+  "ui.gallery.trashSummary": "{n} screenshots in the recycle bin, {size}",
+  "ui.scan.includeMode": "Manage as",
+  "ui.scan.includeModeHint": "Choose whether the added games manage saves, screenshots or both; you can change it any time in the library",
+  "ui.scan.includedAs": "Added {n} games ({mode})",
+  "cli.arg.game.include.mode": "How the added games are managed: both (default) / saves / shots",
+  "ui.mode.batchTitle": "Change management for several games",
+  "ui.mode.batchConfirm": "Change the {n} selected games to \"{mode}\"?",
+  "ui.mode.batchSame": "{n} of them already use it and won't change.",
+  "ui.mode.batchSafe": "Existing snapshots, screenshots and save files on disk are not affected; you can change it back any time."
 }

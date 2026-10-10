@@ -736,3 +736,5 @@ button.link:hover { text-decoration: underline; }
 .icon-seg button { display: inline-grid; place-items: center; padding: 5px 8px; }
 .btn.icon-only { padding-left: 8px; padding-right: 8px; }
 .menu-list { max-height: min(70vh, 520px); overflow: auto; }
+/* 发现页：加入时选择管理方式 */
+.include-mode button { display: inline-flex; align-items: center; gap: 5px; }

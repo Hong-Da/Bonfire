@@ -346,6 +346,8 @@ pub enum GameCmd {
         games: Vec<String>,
         #[arg(long, conflicts_with = "games")]
         all_new: bool,
+        #[arg(long, value_enum, default_value = "both")]
+        mode: ModeArg,
     },
     Ignore {
         #[arg(required = true)]

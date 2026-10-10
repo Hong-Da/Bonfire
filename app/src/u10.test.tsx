@@ -90,8 +90,19 @@ describe("游戏库：管理方式", () => {
 
     // 默认勾选了 Alpha 与 Gamma（不是“已是最新”）。
     fireEvent.click(screen.getByRole("button", { name: /管理方式（2）/ }));
+    // 批量切换先确认；取消时不改动。
+    dialog.ask.mockResolvedValueOnce(false);
     fireEvent.click(screen.getByRole("menuitem", { name: /只管理存档/ }));
-    await waitFor(() => expect(api.setManageMode).toHaveBeenCalledWith(["a", "c"], "saves"));
+    await waitFor(() => expect(dialog.ask).toHaveBeenCalled());
+    const [text, opts] = dialog.ask.mock.calls[0];
+    expect(text).toContain("把所选的 2 个游戏改为“只管理存档”？");
+    expect(text).toContain("磁盘上的存档都不受影响");
+    expect(opts.title).toBe("批量切换管理方式");
+    expect(api.setManageMode).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: /管理方式（2）/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /只管理截图/ }));
+    await waitFor(() => expect(api.setManageMode).toHaveBeenCalledWith(["a", "c"], "shots"));
+    expect(dialog.ask.mock.calls[1][0]).toContain("其中 1 个已经是这种方式");
   });
 
   it("自动备份快捷开关：显示状态并一键设置", async () => {

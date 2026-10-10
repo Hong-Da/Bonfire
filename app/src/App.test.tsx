@@ -267,9 +267,14 @@ describe("发现游戏", () => {
     expect(screen.getByText("已安装但没找到存档的游戏（1）")).toBeInTheDocument();
     expect(screen.getByText("本机还没有存档")).toBeInTheDocument();
 
+    // 加入时选择管理方式：默认“存档和截图”，这里改为只管理截图。
     fireEvent.click(screen.getByRole("checkbox", { name: "选择 空洞骑士" }));
+    expect(screen.getByRole("radio", { name: /存档和截图/ })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("radio", { name: /只管理截图/ }));
     fireEvent.click(screen.getByRole("button", { name: /加入游戏库/ }));
     await waitFor(() => expect(api.includeGames).toHaveBeenCalledWith(["steam-1"]));
+    await waitFor(() => expect(api.setManageMode).toHaveBeenCalledWith(["steam-1"], "shots"));
+    expect(useStore.getState().toasts.map((x) => x.text)).toContain("已加入 1 个游戏（只管理截图）");
     expect(api.loadLibrary).toHaveBeenCalledWith(true);
     await waitFor(() => expect(screen.queryByText("空洞骑士")).not.toBeInTheDocument());
 
