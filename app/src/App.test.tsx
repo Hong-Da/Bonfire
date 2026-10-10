@@ -59,13 +59,16 @@ describe("游戏库", () => {
     expect(screen.getByText("已选 2 个")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "选择 空洞骑士" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "选择 Cuphead" })).not.toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: /^已是最新\s*1$/ }));
+    // 状态筛选在“筛选”菜单中。
+    fireEvent.click(screen.getByRole("button", { name: "按状态、管理方式与平台筛选" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "已是最新（1）" }));
     expect(screen.queryByText("空洞骑士")).not.toBeInTheDocument();
     expect(screen.getByText("Cuphead")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("searchbox", { name: /搜索游戏/ }), { target: { value: "nothing" } });
     fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
     expect(screen.getByText("空洞骑士")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /^全部\s*3$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "按状态、管理方式与平台筛选" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "全部（3）" }));
     fireEvent.change(screen.getByRole("searchbox", { name: /搜索游戏/ }), { target: { value: "cele" } });
     expect(screen.getByText("Celeste")).toBeInTheDocument();
     expect(screen.queryByText("Cuphead")).not.toBeInTheDocument();

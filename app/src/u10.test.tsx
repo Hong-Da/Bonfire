@@ -68,12 +68,12 @@ describe("游戏库：管理方式", () => {
     seed(rows());
     render(<Library />);
     // 管理方式与平台合并在一个“筛选”菜单中。
-    fireEvent.click(screen.getByRole("button", { name: "按管理方式与平台筛选" }));
+    fireEvent.click(screen.getByRole("button", { name: "按状态、管理方式与平台筛选" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "只管理截图（1）" }));
     expect(screen.getByText("Gamma")).toBeInTheDocument();
     expect(screen.queryByText("Alpha")).toBeNull();
-    expect(screen.getByRole("button", { name: "按管理方式与平台筛选" })).toHaveTextContent("筛选：只管理截图");
-    fireEvent.click(screen.getByRole("button", { name: "按管理方式与平台筛选" }));
+    expect(screen.getByRole("button", { name: "按状态、管理方式与平台筛选" })).toHaveTextContent("筛选：只管理截图");
+    fireEvent.click(screen.getByRole("button", { name: "按状态、管理方式与平台筛选" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "只管理存档（1）" }));
     expect(screen.getByText("Beta")).toBeInTheDocument();
     expect(screen.queryByText("Gamma")).toBeNull();
@@ -89,7 +89,7 @@ describe("游戏库：管理方式", () => {
     await waitFor(() => expect(useStore.getState().toasts.map((t) => t.text)).toContain("「Beta」改为存档和截图"));
 
     // 默认勾选了 Alpha 与 Gamma（不是“已是最新”）。
-    fireEvent.click(screen.getByRole("button", { name: /管理方式（2）/ }));
+    fireEvent.click(screen.getByRole("button", { name: /所选游戏/ }));
     // 批量切换先确认；取消时不改动。
     dialog.ask.mockResolvedValueOnce(false);
     fireEvent.click(screen.getByRole("menuitem", { name: /只管理存档/ }));
@@ -99,7 +99,7 @@ describe("游戏库：管理方式", () => {
     expect(text).toContain("磁盘上的存档都不受影响");
     expect(opts.title).toBe("批量切换管理方式");
     expect(api.setManageMode).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: /管理方式（2）/ }));
+    fireEvent.click(screen.getByRole("button", { name: /所选游戏/ }));
     fireEvent.click(screen.getByRole("menuitem", { name: /只管理截图/ }));
     await waitFor(() => expect(api.setManageMode).toHaveBeenCalledWith(["a", "c"], "shots"));
     expect(dialog.ask.mock.calls[1][0]).toContain("其中 1 个已经是这种方式");

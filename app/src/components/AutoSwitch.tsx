@@ -54,7 +54,7 @@ export default function AutoSwitch() {
     <Menu
       className={`btn protect auto-switch ${on ? "on" : "off"}`}
       icon="clock"
-      label={autoSummary(t, a)}
+      label={<span className="bar-label">{autoSummary(t, a)}</span>}
       title={t("ui.auto.quick.tip")}
       align="right"
       items={[

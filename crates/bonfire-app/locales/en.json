@@ -206,7 +206,7 @@
   "ui.library.filterPlatform": "Filter by platform",
   "ui.library.all": "All",
   "ui.library.allPlatforms": "All platforms",
-  "ui.library.search": "Search games (any name or pinyin)",
+  "ui.library.search": "Search games",
   "ui.library.add": "Add game",
   "ui.library.emptyTitle": "No games yet",
   "ui.library.emptyBody": "Scan Steam, Epic and GOG on the Discover page and pick the games to manage. Add emulators or indie games by hand.",
@@ -1022,7 +1022,7 @@
   "ui.gallery.lookOpt.list": "List",
   "ui.library.filter": "Filter",
   "ui.library.filterOn": "Filter: {what}",
-  "ui.library.filterHint": "Filter by management and platform",
+  "ui.library.filterHint": "Filter by state, management and platform",
   "ui.library.addMenu": "Add / Import",
   "ui.backup.gameRunning": "Running: {names}. You can back up now, but it's best to save in the game or quit it first; if the game is writing its save, the backup may get files that don't match.",
   "cli.out.backup_game_running": "Note: \"{game}\" is running ({procs}). Backing up anyway, but it's best to save in the game or quit it first",
@@ -1102,5 +1102,6 @@
   "ui.library.profileDelete": "Delete profile \"{name}\"",
   "ui.library.profileDeleteConfirm": "Delete backup profile \"{name}\"? Only the profile is removed; games and backups are not affected.",
   "ui.library.profileDeleted": "Deleted profile \"{name}\"",
-  "ui.library.exportMenu": "Export"
+  "ui.library.exportMenu": "Export",
+  "ui.mode.batchHead": "Manage the selected games as"
 }

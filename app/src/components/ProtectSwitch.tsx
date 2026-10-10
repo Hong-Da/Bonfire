@@ -36,7 +36,7 @@ export default function ProtectSwitch() {
   const tip = on ? t("ui.library.protectTipOn", { host }) : t("ui.library.protectTipOff");
   return (
     <button className={`btn protect ${on ? "on" : "off"}`} onClick={() => void toggle()} disabled={busy} title={tip} aria-label={tip} aria-pressed={on}>
-      <Icon name="shield" /> {on ? t("ui.library.protectOn") : t("ui.library.protectOff")}
+      <Icon name="shield" /> <span className="bar-label">{on ? t("ui.library.protectOn") : t("ui.library.protectOff")}</span>
     </button>
   );
 }

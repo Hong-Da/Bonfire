@@ -24,9 +24,15 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 85 项，更新于 2026-10-10 18:50。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 86 项，更新于 2026-10-10 19:45。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>36 项</small></h2>
+<section id="s-0"><h2>开发<small>37 项</small></h2>
+      <article id="U-19a">
+        <header><code>U-19a</code><h3>游戏库上方状态标签合并、下方操作栏保持一行</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">状态（全部 / 有更新 / 未备份 / 已是最新）并入“筛选”菜单；批量管理方式并入“所选游戏”菜单；较窄时“自动备份”“保护”只显示图标（推荐） <b>✓ 采用</b></li><li class="">保留状态标签，操作栏允许换行</li></ul>
+        <p class="reason"><span>理由</span>用户要求下方保持一行、上方状态标签合并。</p><p class="impact"><span>影响</span>筛选生效时按钮显示内容（如“筛选：有更新 · Steam”）；搜索框提示缩短为“搜索游戏或拼音”。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-18a">
         <header><code>U-18a</code><h3>搜索游戏支持模糊搜索（中文名、英文名）</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">中文名、英文名都可搜；不区分大小写，忽略空格、标点与重音；支持拼音与拼音首字母；字母按顺序出现即命中；多个关键词需全部命中（推荐） <b>✓ 采用</b></li><li class="">只做包含匹配</li></ul>

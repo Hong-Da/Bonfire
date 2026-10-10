@@ -206,7 +206,7 @@
   "ui.library.filterPlatform": "按平台筛选",
   "ui.library.all": "全部",
   "ui.library.allPlatforms": "全部平台",
-  "ui.library.search": "搜索游戏（中文、英文或拼音）",
+  "ui.library.search": "搜索游戏或拼音",
   "ui.library.add": "添加游戏",
   "ui.library.emptyTitle": "还没有游戏",
   "ui.library.emptyBody": "在“发现”页扫描本机的 Steam、Epic、GOG 游戏，选择要管理的加入进来；模拟器或独立游戏可以手动添加。",
@@ -1022,7 +1022,7 @@
   "ui.gallery.lookOpt.list": "列表",
   "ui.library.filter": "筛选",
   "ui.library.filterOn": "筛选：{what}",
-  "ui.library.filterHint": "按管理方式与平台筛选",
+  "ui.library.filterHint": "按状态、管理方式与平台筛选",
   "ui.library.addMenu": "添加 / 导入",
   "ui.backup.gameRunning": "正在运行：{names}。可以照常备份，但建议在游戏中存档后、或退出游戏后再备份——游戏正在写存档时，备份到的可能是不配套的存档。",
   "cli.out.backup_game_running": "提示：「{game}」正在运行（{procs}）。照常备份，但建议在游戏中存档后或退出游戏后再备份",
@@ -1102,5 +1102,6 @@
   "ui.library.profileDelete": "删除方案「{name}」",
   "ui.library.profileDeleteConfirm": "删除备份方案「{name}」？只删除方案，不影响游戏和备份。",
   "ui.library.profileDeleted": "已删除方案「{name}」",
-  "ui.library.exportMenu": "导出"
+  "ui.library.exportMenu": "导出",
+  "ui.mode.batchHead": "把所选游戏的管理方式改为"
 }

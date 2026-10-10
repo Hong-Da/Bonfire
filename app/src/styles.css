@@ -212,8 +212,12 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 
 /* 底部的备份操作条：有勾选时出现 */
 .actionbar {
-  position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 8px;
-  padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--line);
+  position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
+  padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--line); container-type: inline-size;
+}
+/* 操作栏始终一行：窗口较窄时“自动备份”“保护”只显示图标（悬停仍有完整说明） */
+@container (max-width: 1080px) {
+  .actionbar .bar-label { display: none; }
 }
 /* 操作栏中的按钮与文字不被挤压（以前窗口较窄时“已选 0 个”被挤成竖排）；放不下时整体换到第二行 */
 .actionbar > * { flex-shrink: 0; white-space: nowrap; }

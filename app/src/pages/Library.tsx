@@ -12,7 +12,7 @@ import AddGameDialog from "./AddGameDialog";
 import { CollectionExportDialog, CollectionImportDialog } from "./CollectionDialogs";
 import ProtectSwitch from "../components/ProtectSwitch";
 import AutoSwitch from "../components/AutoSwitch";
-import ModeMenu, { MODES } from "../components/ModeMenu";
+import ModeMenu, { MODES, MODE_ICON, useSetMode } from "../components/ModeMenu";
 import RemoveDialog from "../components/RemoveDialog";
 import { ask } from "@tauri-apps/plugin-dialog";
 
@@ -26,8 +26,15 @@ export default function Library() {
   const platforms = useMemo(() => [...new Set(allRows.map((r) => r.platform))].sort(), [allRows]);
   const selected = allRows.filter((r) => s.selected.has(r.id));
   // 管理方式与平台合并在一个“筛选”菜单中，按钮上显示当前生效的筛选。
-  const filtered = s.modeFilter !== "all" || s.platformFilter !== "all";
-  const filterText = [s.modeFilter !== "all" ? t(`ui.mode.${s.modeFilter}`) : "", s.platformFilter !== "all" ? t(`ui.platform.${s.platformFilter}`, { defaultValue: s.platformFilter }) : ""].filter(Boolean).join(" · ");
+  // 状态、管理方式与平台合并在一个“筛选”菜单中，按钮上显示当前生效的筛选。
+  const filtered = s.stateFilter !== "all" || s.modeFilter !== "all" || s.platformFilter !== "all";
+  const filterText = [
+    s.stateFilter !== "all" ? t(`ui.state.${s.stateFilter}`) : "",
+    s.modeFilter !== "all" ? t(`ui.mode.${s.modeFilter}`) : "",
+    s.platformFilter !== "all" ? t(`ui.platform.${s.platformFilter}`, { defaultValue: s.platformFilter }) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const [backupOpen, setBackupOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -35,6 +42,7 @@ export default function Library() {
   const [exportIds, setExportIds] = useState<string[] | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
+  const setMode = useSetMode();
 
   useEffect(() => {
     api.profiles().then(setProfiles).catch(() => setProfiles([]));
@@ -107,20 +115,19 @@ export default function Library() {
             {t("ui.cancel")}
           </button>
         )}
-        <div className="chips" role="group" aria-label={t("ui.library.filterState")}>
-          {STATES.map((st) => (
-            <button key={st} className="chip" aria-pressed={s.stateFilter === st} onClick={() => s.setStateFilter(st)}>
-              {t(st === "all" ? "ui.library.all" : `ui.state.${st}`)}
-              <span className="num chip-count">{st === "all" ? allRows.length : allRows.filter((r) => r.state === st).length}</span>
-            </button>
-          ))}
-        </div>
         <Menu
           icon="filter"
           className={`btn${filtered ? " filtered" : ""}`}
           label={filtered ? t("ui.library.filterOn", { what: filterText }) : t("ui.library.filter")}
           title={t("ui.library.filterHint")}
           items={[
+            { label: <b className="menu-head">{t("ui.library.filterState")}</b>, onClick: () => {}, disabled: true },
+            ...STATES.map((st) => ({
+              label: t("ui.mode.option", { mode: t(st === "all" ? "ui.library.all" : `ui.state.${st}`), n: st === "all" ? allRows.length : allRows.filter((r) => r.state === st).length }),
+              checked: s.stateFilter === st,
+              onClick: () => s.setStateFilter(st),
+            })),
+            "divider" as const,
             { label: <b className="menu-head">{t("ui.mode.filter")}</b>, onClick: () => {}, disabled: true },
             { label: t("ui.mode.all", { n: allRows.length }), checked: s.modeFilter === "all", onClick: () => s.setModeFilter("all") },
             ...MODES.map((m) => ({
@@ -272,6 +279,19 @@ export default function Library() {
               items={[
                 { label: t("ui.library.exportSelected", { n: selected.length }), onClick: () => setExportIds(selected.map((r) => r.id)), disabled: selected.length === 0 },
                 "divider",
+                { label: <b className="menu-head">{t("ui.mode.batchHead")}</b>, onClick: () => {}, disabled: true },
+                ...MODES.map((m) => ({
+                  label: (
+                    <span className="mode-item">
+                      <b>
+                        <Icon name={MODE_ICON[m]} size={14} /> {t(`ui.mode.${m}`)}
+                      </b>
+                    </span>
+                  ),
+                  onClick: () => void setMode(selected.map((r) => r.id), m),
+                  disabled: selected.length === 0,
+                })),
+                "divider",
                 { label: t("ui.remove.button", { n: selected.length }), onClick: () => setRemoveOpen(true), disabled: selected.length === 0, danger: true },
               ]}
             />
@@ -294,7 +314,6 @@ export default function Library() {
             </form>
           )}
           <div className="grow" style={{ flex: 1 }} />
-          <ModeMenu ids={selected.map((r) => r.id)} variant="button" label={t("ui.mode.batch", { n: selected.length })} />
           <AutoSwitch />
           <ProtectSwitch />
           <span className="count num">{t("ui.library.selected", { n: selected.length })}</span>
