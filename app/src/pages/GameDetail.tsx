@@ -17,6 +17,7 @@ import ShotsPanel, { ShotThumb } from "./ShotsPanel";
 import { fileName, shotCounts, shotSnapshots } from "../lib/shots";
 import ModeMenu from "../components/ModeMenu";
 import RemoveDialog from "../components/RemoveDialog";
+import { CollectionExportDialog } from "./CollectionDialogs";
 
 type Compare = "disk" | "parent";
 type Tab = "changes" | "files";
@@ -317,6 +318,7 @@ function Hero({
 
   const openLocation = (ord: number) => api.openLocation(gameId, ord).catch(onFail);
   const [removeOpen, setRemoveOpen] = useState(false);
+  const [packageOpen, setPackageOpen] = useState(false);
 
   return (
     <header className="hero" style={hero ? { ["--hero" as string]: `url("${hero}")` } : undefined}>
@@ -393,6 +395,7 @@ function Hero({
             items={[
               { label: t("ui.transfer.exportCurrent"), onClick: () => onExport("files", null) },
               { label: t("ui.transfer.exportSnapshot"), onClick: () => onExport("files", hist.head), disabled: hist.nodes.length === 0 },
+              { label: t("ui.package.exportOne"), onClick: () => setPackageOpen(true), disabled: hist.nodes.length === 0 && row.shots === 0 },
               { label: t("ui.transfer.exportBundle"), onClick: () => onExport("bundle", null), disabled: hist.nodes.length === 0 },
             ]}
           />
@@ -431,6 +434,7 @@ function Hero({
             ]}
           />
         </div>
+        {packageOpen && <CollectionExportDialog rows={[row]} initial={[row.id]} onClose={() => setPackageOpen(false)} />}
         {removeOpen && <RemoveDialog rows={[row]} onClose={() => setRemoveOpen(false)} onDone={() => store.go({ name: "library" })} />}
         {row.shotsOnly && <p className="hero-note">{t("ui.history.shotsOnlyNote")}</p>}
         {!row.installed && !row.shotsOnly && <p className="hero-note">{t("ui.history.notInstalledNote")}</p>}

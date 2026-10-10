@@ -9,6 +9,9 @@
 //!
 //! - **合集包**（也是 `.bonfire`）：多个游戏的历史包放在一个文件里（`collection.json` + `games/<序号>/…`），
 //!   用于一次导出、导入全部或选定的游戏。
+//! - **统一的篝火包**（U-16）：游戏库、详情页与图库的导出都用合集包格式，一个或多个游戏，每个游戏可以只有存档、
+//!   只有截图或两者都有（`bundle.json` 中没有快照时只含截图）。导入时按游戏选择导入存档、截图或两者；
+//!   截图合并到相册（已有的跳过），可选把新导入的截图写到本机这个游戏的截图文件夹。
 //! - 导入时游戏库中没有的游戏（如这台电脑上没有安装）自动加入游戏库，标为“未安装”：
 //!   能在本机确定的存档位置照常使用，需要安装目录的位置等装好游戏、扫描后再确定。
 //!
@@ -140,6 +143,9 @@ pub struct BundleManifest {
     /// 一并导出的截图相册（导出时勾选“包含截图”才有）。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub shots: Vec<ShotRecord>,
+    /// 导出方这个游戏只管理截图：导入为新游戏时同样设为只管理截图。
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shots_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -238,6 +244,9 @@ pub struct BundleImportReport {
     pub created_game: bool,
     /// 加入相册的截图数。
     pub imported_shots: usize,
+    /// 加入相册的截图（用于把新导入的截图写到磁盘）。
+    #[serde(default)]
+    pub new_shot_ids: Vec<ObjectId>,
 }
 
 /// 合集包中的一个游戏。
@@ -249,6 +258,9 @@ pub struct CollectionEntry {
     /// 包内的目录，如 `games/0/`。
     pub dir: String,
     pub snapshots: usize,
+    /// 包内的截图数（早期的包没有这一项）。
+    #[serde(default)]
+    pub shots: usize,
 }
 
 /// `collection.json`。
@@ -291,13 +303,54 @@ pub struct ArchivePreview {
     pub games: Vec<ArchiveGame>,
 }
 
-/// 导入合集包时选中的游戏：`key` 为包内目录，`target` 为导入到的本地游戏（省略时按游戏 ID 对应或新建）。
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// 导入合集包时选中的游戏：`key` 为包内目录，`target` 为导入到的本地游戏（省略时按游戏 ID 对应或新建）；
+/// `saves` / `shots` 选择导入存档历史、截图（默认都导入）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArchivePick {
     pub key: String,
     #[serde(default)]
     pub target: Option<String>,
+    #[serde(default = "yes")]
+    pub saves: bool,
+    #[serde(default = "yes")]
+    pub shots: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl ArchivePick {
+    /// 导入这个游戏的全部内容。
+    pub fn all(key: impl Into<String>) -> Self {
+        ArchivePick {
+            key: key.into(),
+            target: None,
+            saves: true,
+            shots: true,
+        }
+    }
+}
+
+/// 导出篝火包的内容（U-16）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageOptions {
+    /// 导出存档历史（全部分支与标签）。
+    pub saves: bool,
+    /// 导出截图相册（不含回收站）。
+    pub shots: bool,
+    /// 只导出这些截图（按游戏）；没有列出的游戏导出全部截图。
+    #[serde(default)]
+    pub shot_ids: HashMap<String, Vec<ObjectId>>,
+}
+
+/// 历史包中包含哪些截图。
+enum ShotSel<'a> {
+    None,
+    All,
+    Only(&'a HashSet<ObjectId>),
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -637,7 +690,12 @@ impl App {
         dest: &Path,
         include_shots: bool,
     ) -> Result<BundleReport> {
-        let plan = self.plan_bundle(game, scope, include_shots)?;
+        let shots = if include_shots {
+            ShotSel::All
+        } else {
+            ShotSel::None
+        };
+        let plan = self.plan_bundle(game, Some(scope), shots)?;
         self.check_export_target(dest)?;
         let tmp = with_suffix(dest, ".bonfire-tmp");
         let result = (|| -> Result<()> {
@@ -664,27 +722,67 @@ impl App {
         })
     }
 
-    /// 导出多个游戏的全部历史到一个合集包。还没有快照的游戏跳过。
+    /// 导出多个游戏的全部历史到一个合集包。还没有快照的游戏跳过（勾选截图时只有截图的游戏也导出）。
     pub fn export_collection(
         &self,
         games: &[GameRecord],
         dest: &Path,
         include_shots: bool,
     ) -> Result<CollectionReport> {
+        self.export_package(
+            games,
+            dest,
+            &PackageOptions {
+                saves: true,
+                shots: include_shots,
+                shot_ids: HashMap::new(),
+            },
+        )
+    }
+
+    /// 导出篝火包（U-16）：一个或多个游戏的存档历史和 / 或截图。没有可导出内容的游戏跳过。
+    pub fn export_package(
+        &self,
+        games: &[GameRecord],
+        dest: &Path,
+        opts: &PackageOptions,
+    ) -> Result<CollectionReport> {
         if games.is_empty() {
             return Err(AppError::Invalid("请至少选择一个游戏".into()));
         }
+        if !opts.saves && !opts.shots {
+            return Err(AppError::Invalid("请至少选择导出存档或截图".into()));
+        }
+        let filters: HashMap<&str, HashSet<ObjectId>> = opts
+            .shot_ids
+            .iter()
+            .map(|(g, ids)| (g.as_str(), ids.iter().copied().collect()))
+            .collect();
         let mut plans = Vec::new();
         let mut skipped = Vec::new();
         for g in games {
-            if self.repo.list_refs(&g.id)?.is_empty() {
+            let saves = opts.saves && !self.repo.list_refs(&g.id)?.is_empty();
+            let shots = match (opts.shots, filters.get(g.id.as_str())) {
+                (false, _) => ShotSel::None,
+                (true, Some(only)) => ShotSel::Only(only),
+                (true, None) => ShotSel::All,
+            };
+            let plan = self.plan_bundle(g, saves.then_some(&BundleScope::All), shots)?;
+            if plan.manifest.snapshots.is_empty() && plan.manifest.shots.is_empty() {
                 skipped.push(g.name.clone());
                 continue;
             }
-            plans.push(self.plan_bundle(g, &BundleScope::All, include_shots)?);
+            plans.push(plan);
         }
         if plans.is_empty() {
-            return Err(AppError::Invalid("选中的游戏都还没有快照".into()));
+            return Err(AppError::Invalid(
+                if opts.saves && !opts.shots {
+                    "选中的游戏都还没有快照"
+                } else {
+                    "选中的游戏没有可导出的存档或截图"
+                }
+                .into(),
+            ));
         }
         let entries: Vec<CollectionEntry> = plans
             .iter()
@@ -694,6 +792,7 @@ impl App {
                 game_name: p.manifest.game_name.clone(),
                 dir: format!("games/{i}/"),
                 snapshots: p.manifest.snapshots.len(),
+                shots: p.manifest.shots.len(),
             })
             .collect();
         let manifest = CollectionManifest {
@@ -734,90 +833,95 @@ impl App {
         })
     }
 
-    /// 历史包的内容：说明与要打包的对象。
+    /// 历史包的内容：说明与要打包的对象。`scope` 为空时不含存档历史（只导出截图）。
     fn plan_bundle(
         &self,
         game: &GameRecord,
-        scope: &BundleScope,
-        include_shots: bool,
+        scope: Option<&BundleScope>,
+        shot_sel: ShotSel,
     ) -> Result<BundlePlan> {
         let all_refs = self.repo.list_refs(&game.id)?;
         let (included, mut refs) = match scope {
-            BundleScope::All => {
-                let tips: Vec<ObjectId> = all_refs.iter().map(|(_, id)| *id).collect();
-                let refs = all_refs
-                    .iter()
-                    .filter(|(r, _)| r.kind == RefKind::Branch)
-                    .map(|(r, id)| BundleRef {
-                        kind: r.kind,
-                        name: r.name.clone(),
-                        target: *id,
-                    })
-                    .collect();
-                (self.ancestors(&tips, &HashMap::new()), refs)
-            }
-            BundleScope::Branches { names } => {
-                if names.is_empty() {
-                    return Err(AppError::Invalid("请至少选择一个分支".into()));
-                }
-                let mut refs = Vec::new();
-                for n in names {
-                    let id = self
-                        .repo
-                        .read_ref(&game.id, &RefName::branch(n))?
-                        .ok_or_else(|| AppError::Invalid(format!("找不到分支「{n}」")))?;
-                    refs.push(BundleRef {
-                        kind: RefKind::Branch,
-                        name: n.clone(),
-                        target: id,
-                    });
-                }
-                let tips: Vec<ObjectId> = refs.iter().map(|r| r.target).collect();
-                (self.ancestors(&tips, &HashMap::new()), refs)
-            }
-            BundleScope::Range { from, to } => {
-                let to_id = self.repo.resolve(&game.id, to)?;
-                let mut set = self.ancestors(&[to_id], &HashMap::new());
-                if let Some(from) = from {
-                    let from_id = self.repo.resolve(&game.id, from)?;
-                    if !set.contains(&from_id) {
-                        return Err(AppError::Invalid(format!(
-                            "起点 {from} 不在终点 {to} 之前的历史中"
-                        )));
-                    }
-                    let parents = self.repo.get_snapshot(&from_id)?.parents;
-                    let before = self.ancestors(&parents, &HashMap::new());
-                    set.retain(|id| !before.contains(id));
-                }
-                // 段的终点所在的分支：终点是分支最新快照时用该分支，否则用包含终点的分支名（导入方可快进到终点）。
-                let mut name = all_refs
-                    .iter()
-                    .find(|(r, id)| r.kind == RefKind::Branch && *id == to_id)
-                    .map(|(r, _)| r.name.clone());
-                if name.is_none() {
-                    let head = self.repo.head(&game.id)?;
-                    let mut branches: Vec<&(RefName, ObjectId)> = all_refs
+            None => (HashSet::new(), Vec::new()),
+            Some(scope) => match scope {
+                BundleScope::All => {
+                    let tips: Vec<ObjectId> = all_refs.iter().map(|(_, id)| *id).collect();
+                    let refs = all_refs
                         .iter()
                         .filter(|(r, _)| r.kind == RefKind::Branch)
+                        .map(|(r, id)| BundleRef {
+                            kind: r.kind,
+                            name: r.name.clone(),
+                            target: *id,
+                        })
                         .collect();
-                    branches.sort_by_key(|(r, _)| r.name != head.branch);
-                    name = branches
-                        .into_iter()
-                        .find(|(_, tip)| self.ancestors(&[*tip], &HashMap::new()).contains(&to_id))
-                        .map(|(r, _)| r.name.clone());
+                    (self.ancestors(&tips, &HashMap::new()), refs)
                 }
-                let name = name.unwrap_or_else(|| format!("segment-{}", &to_id.to_hex()[..8]));
-                (
-                    set,
-                    vec![BundleRef {
-                        kind: RefKind::Branch,
-                        name,
-                        target: to_id,
-                    }],
-                )
-            }
+                BundleScope::Branches { names } => {
+                    if names.is_empty() {
+                        return Err(AppError::Invalid("请至少选择一个分支".into()));
+                    }
+                    let mut refs = Vec::new();
+                    for n in names {
+                        let id = self
+                            .repo
+                            .read_ref(&game.id, &RefName::branch(n))?
+                            .ok_or_else(|| AppError::Invalid(format!("找不到分支「{n}」")))?;
+                        refs.push(BundleRef {
+                            kind: RefKind::Branch,
+                            name: n.clone(),
+                            target: id,
+                        });
+                    }
+                    let tips: Vec<ObjectId> = refs.iter().map(|r| r.target).collect();
+                    (self.ancestors(&tips, &HashMap::new()), refs)
+                }
+                BundleScope::Range { from, to } => {
+                    let to_id = self.repo.resolve(&game.id, to)?;
+                    let mut set = self.ancestors(&[to_id], &HashMap::new());
+                    if let Some(from) = from {
+                        let from_id = self.repo.resolve(&game.id, from)?;
+                        if !set.contains(&from_id) {
+                            return Err(AppError::Invalid(format!(
+                                "起点 {from} 不在终点 {to} 之前的历史中"
+                            )));
+                        }
+                        let parents = self.repo.get_snapshot(&from_id)?.parents;
+                        let before = self.ancestors(&parents, &HashMap::new());
+                        set.retain(|id| !before.contains(id));
+                    }
+                    // 段的终点所在的分支：终点是分支最新快照时用该分支，否则用包含终点的分支名（导入方可快进到终点）。
+                    let mut name = all_refs
+                        .iter()
+                        .find(|(r, id)| r.kind == RefKind::Branch && *id == to_id)
+                        .map(|(r, _)| r.name.clone());
+                    if name.is_none() {
+                        let head = self.repo.head(&game.id)?;
+                        let mut branches: Vec<&(RefName, ObjectId)> = all_refs
+                            .iter()
+                            .filter(|(r, _)| r.kind == RefKind::Branch)
+                            .collect();
+                        branches.sort_by_key(|(r, _)| r.name != head.branch);
+                        name = branches
+                            .into_iter()
+                            .find(|(_, tip)| {
+                                self.ancestors(&[*tip], &HashMap::new()).contains(&to_id)
+                            })
+                            .map(|(r, _)| r.name.clone());
+                    }
+                    let name = name.unwrap_or_else(|| format!("segment-{}", &to_id.to_hex()[..8]));
+                    (
+                        set,
+                        vec![BundleRef {
+                            kind: RefKind::Branch,
+                            name,
+                            target: to_id,
+                        }],
+                    )
+                }
+            },
         };
-        if included.is_empty() {
+        if scope.is_some() && included.is_empty() {
             return Err(AppError::Invalid(format!(
                 "游戏「{}」还没有快照",
                 game.name
@@ -874,14 +978,18 @@ impl App {
             }
         }
         // 截图：相册中的（不含回收站），原图原样放在包中的 `shots/` 下。
-        let shots: Vec<ShotRecord> = if include_shots {
-            self.index
+        let shots: Vec<ShotRecord> = match shot_sel {
+            ShotSel::None => Vec::new(),
+            ShotSel::All | ShotSel::Only(_) => self
+                .index
                 .shots_of(&game.id)?
                 .into_iter()
                 .filter(|s| !s.purged && s.deleted_at.is_none())
-                .collect()
-        } else {
-            Vec::new()
+                .filter(|s| match &shot_sel {
+                    ShotSel::Only(ids) => ids.contains(&s.blob),
+                    _ => true,
+                })
+                .collect(),
         };
         let mut chunks = Vec::new();
         for b in &blobs {
@@ -924,6 +1032,7 @@ impl App {
                     ..s.clone()
                 })
                 .collect(),
+            shots_only: self.is_shots_only(&game.id)?,
         };
         Ok(BundlePlan {
             manifest,
@@ -1062,10 +1171,7 @@ impl App {
             preview
                 .games
                 .iter()
-                .map(|g| ArchivePick {
-                    key: g.key.clone(),
-                    target: None,
-                })
+                .map(|g| ArchivePick::all(g.key.clone()))
                 .collect()
         } else {
             picks.to_vec()
@@ -1077,8 +1183,14 @@ impl App {
                 .iter()
                 .find(|g| g.key == pick.key)
                 .ok_or_else(|| AppError::Invalid(format!("包内没有 {}", pick.key)))?;
-            let result =
-                self.import_bundle_at(lock, path, &pick.key, pick.target.as_deref(), dry_run);
+            let result = self.import_bundle_at(
+                lock,
+                path,
+                &pick.key,
+                pick.target.as_deref(),
+                dry_run,
+                (pick.saves, pick.shots),
+            );
             out.push(ArchiveImportItem {
                 key: pick.key.clone(),
                 game_id: game.preview.game_id.clone(),
@@ -1257,9 +1369,10 @@ impl App {
             let mut zip = open_zip(path)?;
             self.prefix_for(&mut zip, path, target)?
         };
-        self.import_bundle_at(lock, path, &prefix, target, dry_run)
+        self.import_bundle_at(lock, path, &prefix, target, dry_run, (true, true))
     }
 
+    /// `parts` 为（导入存档历史，导入截图）。
     fn import_bundle_at(
         &mut self,
         lock: &RepoLock,
@@ -1267,9 +1380,22 @@ impl App {
         prefix: &str,
         target: Option<&str>,
         dry_run: bool,
+        parts: (bool, bool),
     ) -> Result<BundleImportReport> {
+        let (with_saves, with_shots) = parts;
+        if !with_saves && !with_shots {
+            return Err(AppError::Invalid("请至少选择导入存档或截图".into()));
+        }
         let mut zip = open_zip(path)?;
-        let manifest = read_bundle_manifest(&mut zip, path, prefix)?;
+        let mut manifest = read_bundle_manifest(&mut zip, path, prefix)?;
+        if !with_saves {
+            manifest.refs.clear();
+            manifest.snapshots.clear();
+            manifest.prerequisites.clear();
+        }
+        if !with_shots {
+            manifest.shots.clear();
+        }
         let snaps = read_bundle_snapshots(&mut zip, path, &manifest, prefix)?;
         let mut preview = self.preview_bundle(&manifest, &snaps, target)?;
         if !preview.missing.is_empty() {
@@ -1285,6 +1411,7 @@ impl App {
                 objects: 0,
                 created_game: preview.create_game,
                 imported_shots: preview.new_shots,
+                new_shot_ids: Vec::new(),
                 preview,
             });
         }
@@ -1302,6 +1429,9 @@ impl App {
                 })
                 .collect();
             let g = self.adopt_game(&manifest.game_id, &manifest.game_name, &locations)?;
+            if manifest.shots_only {
+                self.set_manage_mode(&g, crate::shots::ManageMode::Shots)?;
+            }
             preview = self.preview_bundle(&manifest, &snaps, Some(&g.id))?;
         } else if let Ok(mut g) = self.find_game(&preview.game_id)
             && !g.enabled
@@ -1319,7 +1449,13 @@ impl App {
             .collect();
         let mut written = 0;
         let mut new_blobs = Vec::new();
-        for kind in [Kind::Chunk, Kind::Blob, Kind::Tree, Kind::Snapshot] {
+        // 不导入存档历史时跳过全部对象。
+        let kinds: &[Kind] = if with_saves {
+            &[Kind::Chunk, Kind::Blob, Kind::Tree, Kind::Snapshot]
+        } else {
+            &[]
+        };
+        for &kind in kinds {
             let dir = format!("{prefix}objects/{}/", kind.dir());
             for name in names.iter().filter(|n| n.starts_with(&dir)) {
                 let id: ObjectId = name[dir.len()..]
@@ -1437,6 +1573,7 @@ impl App {
         // 截图相册：原图在包中的 `shots/` 下（早期的包作为文件对象导入），按本地游戏登记；
         // 本地已有（含回收站与彻底删除的）不再导入。
         let mut imported_shots = 0;
+        let mut new_shot_ids = Vec::new();
         let local: HashSet<ObjectId> = self
             .index
             .shots_of(&game)?
@@ -1473,6 +1610,7 @@ impl App {
                 ..sh.clone()
             })? {
                 imported_shots += 1;
+                new_shot_ids.push(sh.blob);
             }
         }
         if imported_shots > 0 {
@@ -1484,6 +1622,7 @@ impl App {
             objects: written,
             created_game,
             imported_shots,
+            new_shot_ids,
         })
     }
 
@@ -2744,7 +2883,7 @@ mod tests {
         let lock = b.app.repo.lock().unwrap();
         let items = b
             .app
-            .import_archive(&lock, &out, &[ArchivePick { key, target: None }], false)
+            .import_archive(&lock, &out, &[ArchivePick::all(key)], false)
             .unwrap();
         assert_eq!(items.len(), 1);
         let rep = items[0].report.as_ref().unwrap();

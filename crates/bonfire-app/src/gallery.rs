@@ -147,13 +147,13 @@ impl App {
     pub fn shot_diff(&self, game: &GameRecord) -> Result<ShotDiff> {
         let records = self.index.shots_of(&game.id)?;
         let on_disk = self.shot_files(game)?;
-        let disk_keys: HashSet<(String, u64)> = on_disk
-            .iter()
-            .map(|f| (f.path.to_string_lossy().into_owned(), f.size))
-            .collect();
+        // 路径按规范化后比较（大小写、斜杠方向不同的同一文件算同一个）。
+        let key = |p: &Path| crate::transfer::path_key(p);
+        let disk_keys: HashSet<(String, u64)> =
+            on_disk.iter().map(|f| (key(&f.path), f.size)).collect();
         let by_key: HashMap<(String, u64), &ShotRecord> = records
             .iter()
-            .map(|s| ((s.original_path.clone(), s.size), s))
+            .map(|s| ((key(Path::new(&s.original_path)), s.size), s))
             .collect();
         let active: HashSet<ObjectId> = records
             .iter()
@@ -171,8 +171,7 @@ impl App {
             synced: 0,
         };
         for f in &on_disk {
-            let key = (f.path.to_string_lossy().into_owned(), f.size);
-            match by_key.get(&key) {
+            match by_key.get(&(key(&f.path), f.size)) {
                 Some(s) if s.purged || s.deleted_at.is_some() => diff.ignored.push(IgnoredShot {
                     path: f.path.clone(),
                     size: f.size,
@@ -201,7 +200,7 @@ impl App {
             if s.purged || s.deleted_at.is_some() {
                 continue;
             }
-            if disk_keys.contains(&(s.original_path.clone(), s.size)) {
+            if disk_keys.contains(&(key(Path::new(&s.original_path)), s.size)) {
                 continue;
             }
             let p = Path::new(&s.original_path);
@@ -265,6 +264,102 @@ impl App {
         }
         if report.written > 0 {
             tracing::info!(game = %game.id, n = report.written, "已把截图写回磁盘");
+        }
+        Ok(report)
+    }
+
+    /// 本机这个游戏的截图文件夹（U-16）：磁盘上已有这个游戏截图的文件夹（最近一张所在的），
+    /// 其次为游戏添加的截图文件夹，再其次 Steam 中这个游戏的截图文件夹。都没有时为 None。
+    pub fn shot_home(&self, game: &GameRecord) -> Result<Option<PathBuf>> {
+        let files = self.shot_files(game)?;
+        if let Some(f) = files.iter().max_by_key(|f| f.mtime_ns)
+            && let Some(dir) = f.path.parent()
+        {
+            return Ok(Some(dir.to_path_buf()));
+        }
+        if let Some(d) = self
+            .index
+            .shot_settings(&game.id)?
+            .dirs
+            .into_iter()
+            .map(PathBuf::from)
+            .find(|d| d.is_dir())
+        {
+            return Ok(Some(d));
+        }
+        // Steam：`userdata/<用户>/760/remote/<AppID>/screenshots`（文件夹已存在时；不替 Steam 创建目录）。
+        if game.platform == "steam"
+            && let (Some(app_id), Some(root)) = (&game.app_id, self.steam_root())
+            && let Ok(users) = std::fs::read_dir(root.join("userdata"))
+        {
+            for u in users.flatten() {
+                let d = u
+                    .path()
+                    .join("760")
+                    .join("remote")
+                    .join(app_id)
+                    .join("screenshots");
+                if d.is_dir() {
+                    return Ok(Some(d));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// 把相册中的截图（如刚导入的）同步到磁盘（U-16）：原位置的文件夹在本机存在时写回原位置，
+    /// 否则写到本机这个游戏的截图文件夹（[`App::shot_home`]）；写到新位置时记录的原位置改为新位置，
+    /// 之后不会被当作新截图。只写入不存在的文件，不覆盖。
+    pub fn sync_shots_to_disk(
+        &mut self,
+        game: &GameRecord,
+        blobs: &[ObjectId],
+    ) -> Result<WriteBackReport> {
+        let wanted: HashSet<&ObjectId> = blobs.iter().collect();
+        let home = self.shot_home(game)?;
+        let mut report = WriteBackReport::default();
+        let mut moved = false;
+        for mut s in self.index.shots_of(&game.id)? {
+            if s.purged || s.deleted_at.is_some() || !wanted.contains(&s.blob) {
+                continue;
+            }
+            let original = PathBuf::from(&s.original_path);
+            if original.is_file() {
+                continue;
+            }
+            let target = if original.parent().is_some_and(Path::is_dir) {
+                original.clone()
+            } else if let Some(h) = &home {
+                h.join(
+                    original
+                        .file_name()
+                        .unwrap_or_else(|| std::ffi::OsStr::new(&s.file)),
+                )
+            } else {
+                report.no_dir += 1;
+                continue;
+            };
+            if target.exists() {
+                report.exists += 1;
+                continue;
+            }
+            let data = self.shot_bytes(&s)?;
+            write_new(&target, &data)?;
+            report.written += 1;
+            report.bytes += data.len() as u64;
+            if let Some(dir) = target.parent()
+                && !report.dirs.iter().any(|d| d == dir)
+            {
+                report.dirs.push(dir.to_path_buf());
+            }
+            if target != original {
+                s.original_path = target.to_string_lossy().into_owned();
+                self.index.update_shot(&s)?;
+                moved = true;
+            }
+        }
+        if moved {
+            self.save_album(&game.id)?;
         }
         Ok(report)
     }
@@ -462,6 +557,88 @@ mod tests {
         assert!(d.ignored.is_empty());
         assert_eq!(env.app.album(&g).unwrap().shots.len(), 4);
         assert_eq!(env.app.album(&g).unwrap().trash.len(), 0);
+    }
+
+    #[test]
+    fn package_with_saves_and_shots_round_trip() {
+        use crate::transfer::{ArchivePick, PackageOptions};
+        let mut env = Env::new();
+        let (g, dir1) = setup(&mut env);
+        let lock = env.app.repo.lock().unwrap();
+        env.app.sync_shots(&lock, &g).unwrap();
+        let picked = env.app.album(&g).unwrap().shots[0].blob;
+        // 只导出选中的一张截图（不含存档：这个游戏还没有快照）。
+        let out = env.dir.path().join("p.bonfire");
+        let r = env
+            .app
+            .export_package(
+                std::slice::from_ref(&g),
+                &out,
+                &PackageOptions {
+                    saves: true,
+                    shots: true,
+                    shot_ids: [(g.id.clone(), vec![picked])].into(),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            (r.games.len(), r.games[0].snapshots, r.games[0].shots),
+            (1, 0, 1)
+        );
+        // 什么都不选时拒绝。
+        assert!(
+            env.app
+                .export_package(std::slice::from_ref(&g), &out, &PackageOptions::default())
+                .is_err()
+        );
+
+        // 在另一个仓库导入：不选截图时什么都不导入；选截图时合并到相册，并写到磁盘。
+        // 另一台电脑：原来的伪造目录已不存在。
+        drop(lock);
+        let mut other = Env::new();
+        let moved = other.dir.path().join("p.bonfire");
+        std::fs::copy(&out, &moved).unwrap();
+        let out = moved;
+        drop(env);
+        let _ = std::fs::remove_dir_all(&dir1);
+        let (g2, dir2) = setup(&mut other);
+        for f in std::fs::read_dir(&dir2).unwrap() {
+            std::fs::remove_file(f.unwrap().path()).unwrap();
+        }
+        let lock2 = other.app.repo.lock().unwrap();
+        let preview = other.app.inspect_archive(&out).unwrap();
+        let key = preview.games[0].key.clone();
+        let mut pick = ArchivePick::all(key.clone());
+        pick.shots = false;
+        let items = other
+            .app
+            .import_archive(&lock2, &out, &[pick], false)
+            .unwrap();
+        assert_eq!(items[0].report.as_ref().unwrap().imported_shots, 0);
+        let items = other
+            .app
+            .import_archive(&lock2, &out, &[ArchivePick::all(key)], false)
+            .unwrap();
+        let rep = items[0].report.as_ref().unwrap();
+        assert_eq!(rep.imported_shots, 1);
+        assert_eq!(rep.new_shot_ids, vec![picked]);
+        // 包内记录的原位置在另一个伪造根目录下，本机不存在：写到本机这个游戏的 Steam 截图文件夹。
+        let w = other
+            .app
+            .sync_shots_to_disk(&g2, &rep.new_shot_ids)
+            .unwrap();
+        assert_eq!(w.written, 1, "{w:?}");
+        assert_eq!(std::fs::read_dir(&dir2).unwrap().count(), 1);
+        // 记录的原位置改为新位置：之后不会被当作新截图。
+        assert_eq!(other.app.pending_shots(&g2).unwrap(), 0);
+        assert_eq!(
+            other
+                .app
+                .sync_shots_to_disk(&g2, &rep.new_shot_ids)
+                .unwrap()
+                .written,
+            0
+        );
     }
 
     #[test]

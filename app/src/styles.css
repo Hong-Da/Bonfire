@@ -749,3 +749,8 @@ button.link:hover { text-decoration: underline; }
 .remove-options { display: grid; gap: 8px; }
 .remove-options .purge-originals { margin-top: 0; }
 .purge-originals.disabled { cursor: default; opacity: 0.75; }
+/* 篝火包：导出 / 导入时选择存档、截图 */
+.package-parts { display: flex; gap: 16px; align-items: center; margin: 0 0 10px; }
+.package-parts .radio { display: inline-flex; align-items: center; gap: 5px; }
+.package-parts.compact { margin: 0; gap: 10px; font-size: 12px; color: var(--muted); }
+.to-disk { margin-top: 10px; }

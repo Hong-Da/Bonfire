@@ -493,6 +493,8 @@ export interface BundleImportReport {
   objects: number;
   createdGame: boolean;
   importedShots: number;
+  /** 加入相册的截图（用于写到磁盘）。 */
+  newShotIds: string[];
 }
 
 export interface CollectionEntry {
@@ -500,6 +502,15 @@ export interface CollectionEntry {
   gameName: string;
   dir: string;
   snapshots: number;
+  shots: number;
+}
+
+/** 导出篝火包的内容。 */
+export interface PackageOptions {
+  saves: boolean;
+  shots: boolean;
+  /** 只导出这些截图（按游戏）。 */
+  shotIds?: Record<string, string[]>;
 }
 
 export interface CollectionReport {

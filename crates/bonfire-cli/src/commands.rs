@@ -12,7 +12,7 @@ use bonfire_app::restore::{Action, RestoreOptions, RestoreReport};
 use bonfire_app::shots::ManageMode;
 use bonfire_app::transfer::{
     ArchivePick, BundleImportReport, BundleScope, ExportFormat, ImportFilesOptions, ImportPlace,
-    RefAction,
+    PackageOptions, RefAction,
 };
 use bonfire_app::util::human_bytes;
 use bonfire_app::{App, AppError, GameState, Locale, NewGame, tf};
@@ -1139,9 +1139,10 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
             from,
             to,
             shots,
+            no_saves,
         } => {
-            // 多个游戏（或 --all）导出为合集包，每个游戏全部分支。
-            if all || games.len() > 1 {
+            // 多个游戏（或 --all）、或只导出截图时，导出为篝火包（合集包格式），每个游戏全部分支。
+            if all || games.len() > 1 || no_saves {
                 if !branches.is_empty() || to.is_some() {
                     return Err(AppError::Invalid(
                         out.t("cli.error.collection_scope").into(),
@@ -1155,7 +1156,15 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
                         .map(|k| app.find_game(k))
                         .collect::<Result<Vec<_>>>()?
                 };
-                let r = app.export_collection(&list, &out_file, shots)?;
+                let r = app.export_package(
+                    &list,
+                    &out_file,
+                    &PackageOptions {
+                        saves: !no_saves,
+                        shots,
+                        shot_ids: Default::default(),
+                    },
+                )?;
                 out.emit(serde_json::to_value(&r).unwrap());
                 out.line(out.tf(
                     "cli.out.collection_exported",
@@ -1166,11 +1175,11 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
                     ],
                 ));
                 for e in &r.games {
-                    out.line(format!(
-                        "  {:<28} {}",
-                        e.game_name,
-                        out.tf("cli.out.snapshots_n", &[("n", &e.snapshots)])
-                    ));
+                    let mut line = out.tf("cli.out.snapshots_n", &[("n", &e.snapshots)]);
+                    if e.shots > 0 {
+                        line.push_str(&out.tf("cli.out.package_shots_n", &[("n", &e.shots)]));
+                    }
+                    out.line(format!("  {:<28} {}", e.game_name, line));
                 }
                 if !r.skipped.is_empty() {
                     out.line(out.tf(
@@ -1213,10 +1222,14 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
             game,
             only,
             dry_run,
+            no_saves,
+            no_shots,
+            shots_to_disk,
         } => {
             let lock = app.repo.lock()?;
             let preview = app.inspect_archive(&file)?;
-            if !preview.collection && only.is_empty() {
+            let partial = no_saves || no_shots || shots_to_disk;
+            if !preview.collection && only.is_empty() && !partial {
                 let r = app.import_bundle(&lock, &file, game.as_deref(), dry_run)?;
                 out.emit(serde_json::to_value(&r).unwrap());
                 print_bundle_import(&r, dry_run, out);
@@ -1235,10 +1248,24 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
                     .ok_or_else(|| {
                         AppError::Invalid(out.tf("cli.error.not_in_collection", &[("game", key)]))
                     })?;
-                picks.push(ArchivePick {
-                    key: hit.key.clone(),
-                    target: None,
-                });
+                picks.push(ArchivePick::all(hit.key.clone()));
+            }
+            // 只导入存档或截图（U-16）。
+            if partial {
+                if picks.is_empty() {
+                    picks = preview
+                        .games
+                        .iter()
+                        .map(|g| ArchivePick {
+                            target: game.clone(),
+                            ..ArchivePick::all(g.key.clone())
+                        })
+                        .collect();
+                }
+                for p in &mut picks {
+                    p.saves = !no_saves;
+                    p.shots = !no_shots;
+                }
             }
             let items = app.import_archive(&lock, &file, &picks, dry_run)?;
             out.emit(serde_json::to_value(&items).unwrap());
@@ -1254,7 +1281,23 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
             for item in &items {
                 out.line(String::new());
                 match (&item.report, &item.error) {
-                    (Some(r), _) => print_bundle_import(r, dry_run, out),
+                    (Some(r), _) => {
+                        print_bundle_import(r, dry_run, out);
+                        // 把新导入的截图写到本机这个游戏的截图文件夹。
+                        if shots_to_disk && !dry_run && !r.new_shot_ids.is_empty() {
+                            let g = app.find_game(&r.preview.game_id)?;
+                            let w = app.sync_shots_to_disk(&g, &r.new_shot_ids)?;
+                            out.line(out.tf(
+                                "cli.out.shots_written",
+                                &[
+                                    ("n", &w.written),
+                                    ("size", &human_bytes(w.bytes)),
+                                    ("exists", &w.exists),
+                                    ("nodir", &w.no_dir),
+                                ],
+                            ));
+                        }
+                    }
                     (None, Some(e)) => {
                         failed += 1;
                         out.line(out.tf(

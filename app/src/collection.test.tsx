@@ -14,6 +14,7 @@ import { useStore, defaultSelection } from "./store";
 import Library from "./pages/Library";
 import GameDetail from "./pages/GameDetail";
 import { CollectionExportDialog, CollectionImportDialog } from "./pages/CollectionDialogs";
+import Gallery from "./pages/Gallery";
 import type { BundlePreview, GameRow } from "./types";
 
 function seed(rows: GameRow[]) {
@@ -86,13 +87,14 @@ describe("导出多个游戏", () => {
   it("还没有快照的游戏不能选，导出所选为合集包", async () => {
     const rows = [row(), row({ id: "steam-1", name: "Cuphead", nameZh: null, snapshots: 0 })];
     dialog.save.mockResolvedValue("D:/out/all.bonfire");
-    api.exportCollection.mockResolvedValue({ dest: "D:/out/all.bonfire", bytes: 4096, games: [{ gameId: "steam-367520", gameName: "Hollow Knight", dir: "games/0/", snapshots: 2 }], objects: 9, skipped: [] });
+    api.exportPackage.mockResolvedValue({ dest: "D:/out/all.bonfire", bytes: 4096, games: [{ gameId: "steam-367520", gameName: "Hollow Knight", dir: "games/0/", snapshots: 2, shots: 0 }], objects: 9, skipped: [] });
     render(<CollectionExportDialog rows={rows} initial={["steam-367520", "steam-1"]} onClose={() => {}} />);
     const cup = screen.getByText("Cuphead").closest("label")!;
     expect(within(cup).getByRole("checkbox")).toBeDisabled();
-    expect(screen.getByText("已选 1 个游戏，共 2 个快照")).toBeInTheDocument();
+    expect(screen.getByText("1 个游戏，2 个快照，0 张截图")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /选择位置并导出/ }));
-    await waitFor(() => expect(api.exportCollection).toHaveBeenCalledWith(["steam-367520"], "D:/out/all.bonfire", false));
+    // 默认存档和截图都导出。
+    await waitFor(() => expect(api.exportPackage).toHaveBeenCalledWith(["steam-367520"], "D:/out/all.bonfire", { saves: true, shots: true }));
     expect(await screen.findByRole("button", { name: /在资源管理器中显示/ })).toBeInTheDocument();
   });
 });
@@ -123,8 +125,8 @@ describe("在游戏库中导入", () => {
     fireEvent.click(screen.getByRole("button", { name: "导入所选（2）" }));
     await waitFor(() =>
       expect(api.importArchive).toHaveBeenCalledWith("D:/in/all.bonfire", [
-        { key: "games/0/", target: null },
-        { key: "games/1/", target: null },
+        { key: "games/0/", target: null, saves: true, shots: false },
+        { key: "games/1/", target: null, saves: true, shots: false },
       ]),
     );
     expect(await screen.findByText(/已加入游戏库/)).toBeInTheDocument();
@@ -208,5 +210,67 @@ describe("删除", () => {
     expect(dialog.ask.mock.calls[0][0]).toContain("2 个快照");
     // 取消：不删除。
     expect(api.deleteBranch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("篝火包：存档与截图（U-16）", () => {
+  it("只导出截图时，没有截图的游戏不能选", async () => {
+    const rows = [row({ shots: 3 }), row({ id: "steam-1", name: "Cuphead", nameZh: null, snapshots: 2, shots: 0 })];
+    dialog.save.mockResolvedValue("D:/out/p.bonfire");
+    api.exportPackage.mockResolvedValue({ dest: "D:/out/p.bonfire", bytes: 10, games: [], objects: 0, skipped: [] });
+    render(<CollectionExportDialog rows={rows} initial={["steam-367520", "steam-1"]} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /存档历史/ }));
+    expect(within(screen.getByText("Cuphead").closest("label")!).getByRole("checkbox")).toBeDisabled();
+    expect(screen.getByText("1 个游戏，0 个快照，3 张截图")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /选择位置并导出/ }));
+    await waitFor(() => expect(api.exportPackage).toHaveBeenCalledWith(["steam-367520"], "D:/out/p.bonfire", { saves: false, shots: true }));
+  });
+
+  it("导入时可只导入截图，并把新导入的截图写到磁盘", async () => {
+    dialog.open.mockResolvedValue("D:/in/p.bonfire");
+    api.inspectArchive.mockResolvedValue({
+      collection: true,
+      createdAt: "2026-10-09T12:00:00+08:00",
+      host: "OLD-PC",
+      games: [{ key: "games/0/", preview: bundle({ newSnapshots: 2, shots: 4, newShots: 3 }) }],
+    });
+    api.importArchive.mockResolvedValue([
+      { key: "games/0/", gameId: "steam-367520", gameName: "Hollow Knight", report: { importedSnapshots: 0, objects: 0, createdGame: false, importedShots: 3, newShotIds: ["b3:1", "b3:2", "b3:3"], preview: bundle({}) }, error: null },
+    ]);
+    api.syncShotsToDisk.mockResolvedValue({ written: 3, bytes: 300, exists: 0, noDir: 0, dirs: ["C:/Steam"] });
+    render(<CollectionImportDialog onClose={() => {}} onDone={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /历史包 \/ 合集包/ }));
+    const saves = await screen.findByRole("checkbox", { name: "导入「Hollow Knight」的存档" });
+    fireEvent.click(saves);
+    const disk = screen.getByRole("checkbox", { name: /把新导入的截图写到磁盘/ });
+    expect(disk).not.toBeChecked();
+    fireEvent.click(disk);
+    fireEvent.click(screen.getByRole("button", { name: "导入所选（1）" }));
+    await waitFor(() => expect(api.importArchive).toHaveBeenCalledWith("D:/in/p.bonfire", [{ key: "games/0/", target: null, saves: false, shots: true }]));
+    await waitFor(() => expect(api.syncShotsToDisk).toHaveBeenCalledWith("steam-367520", ["b3:1", "b3:2", "b3:3"]));
+  });
+
+  it("图库中选中的截图（可跨游戏）导出为篝火包", async () => {
+    const shot = (gameId: string, blob: string) => ({ gameId, blob, takenAt: "2026-10-09T21:00:00+08:00", source: "steam" as const, originalPath: `C:/s/${blob}.jpg`, size: 10, addedAt: "2026-10-09T21:00:00+08:00" });
+    api.gallery.mockResolvedValue({
+      games: [
+        { id: "g1", name: "A", nameZh: null, platform: "steam", inLibrary: true, mode: "both" },
+        { id: "g2", name: "B", nameZh: null, platform: "steam", inLibrary: true, mode: "both" },
+      ],
+      shots: [shot("g1", "b3:111111"), shot("g2", "b3:222222")],
+      trash: [],
+      bytes: 20,
+      trashBytes: 0,
+      dir: "D:/Repo/screenshots",
+    });
+    dialog.save.mockResolvedValue("D:/out/s.bonfire");
+    api.exportPackage.mockResolvedValue({ dest: "D:/out/s.bonfire", bytes: 20, games: [], objects: 0, skipped: [] });
+    render(<Gallery />);
+    await screen.findByText(/2 张截图/);
+    fireEvent.click(screen.getByRole("button", { name: "全选" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    await waitFor(() =>
+      expect(api.exportPackage).toHaveBeenCalledWith(["g1", "g2"], "D:/out/s.bonfire", { saves: false, shots: true, shotIds: { g1: ["b3:111111"], g2: ["b3:222222"] } }),
+    );
   });
 });

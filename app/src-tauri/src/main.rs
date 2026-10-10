@@ -80,6 +80,8 @@ fn main() {
             commands::recollect_shots,
             commands::close_window,
             commands::running_games,
+            commands::export_package,
+            commands::sync_shots_to_disk,
             commands::open_location,
             commands::export_default_name,
             commands::export_files,

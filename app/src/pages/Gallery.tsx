@@ -9,6 +9,8 @@ import PurgeDialog from "../components/PurgeDialog";
 import { useStore } from "../store";
 import type { GalleryGame, GalleryView, PurgeReport, ShotRecord } from "../types";
 import { Lightbox, ShotThumb } from "./ShotsPanel";
+import { save } from "@tauri-apps/plugin-dialog";
+import { CollectionImportDialog } from "./CollectionDialogs";
 
 type Tab = "album" | "trash";
 type Group = "game" | "month" | "day" | "source";
@@ -70,6 +72,7 @@ export default function Gallery() {
   const [busy, setBusy] = useState(false);
   const [purgeAsk, setPurgeAsk] = useState<{ text: string; run: (originals: boolean) => void } | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const marquee = useMarquee(scroller, picked, setPicked);
 
   const reload = useCallback(async () => {
@@ -198,6 +201,18 @@ export default function Gallery() {
         }),
     });
 
+  // 选中的截图（可跨游戏）导出为篝火包，导入到另一台电脑的篝火时合并到相册（U-16）。
+  const exportSel = (shots: ShotRecord[]) =>
+    run(async () => {
+      const ids: Record<string, string[]> = {};
+      for (const s of shots) (ids[s.gameId] ??= []).push(s.blob);
+      const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+      const dest = await save({ defaultPath: `${t("ui.package.shotsFileName")}-${stamp}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
+      if (!dest) return;
+      const r = await api.exportPackage(Object.keys(ids), dest, { saves: false, shots: true, shotIds: ids });
+      store.toast("success", t("ui.package.exported", { n: r.games.length, s: 0, p: shots.length, size: bytes(r.bytes) }), { label: t("ui.transfer.showFile"), run: () => void api.openPath(r.dest) });
+    });
+
   const toggle = (k: string) =>
     setPicked((s) => {
       const n = new Set(s);
@@ -271,6 +286,9 @@ export default function Gallery() {
         </div>
         <div className="grow" />
         <input className="field" type="search" placeholder={t("ui.gallery.search")} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t("ui.gallery.search")} />
+        <button className="btn icon-only" onClick={() => setImportOpen(true)} title={t("ui.package.importHint")} aria-label={t("ui.package.importHint")}>
+          <Icon name="import" />
+        </button>
         <button
           className="btn icon-only"
           onClick={() => void api.openPath(data.dir).catch((e) => store.toast("error", errorMessage(e)))}
@@ -416,11 +434,17 @@ export default function Gallery() {
             </button>
           </>
         ) : (
-          <button className="btn" onClick={() => void remove(sel)} disabled={busy || sel.length === 0}>
-            <Icon name="trash" /> {t("ui.shots.delete")}
-          </button>
+          <>
+            <button className="btn" onClick={() => void exportSel(sel)} disabled={busy || sel.length === 0} title={t("ui.package.galleryExportHint")}>
+              <Icon name="export" /> {t("ui.package.galleryExport")}
+            </button>
+            <button className="btn" onClick={() => void remove(sel)} disabled={busy || sel.length === 0}>
+              <Icon name="trash" /> {t("ui.shots.delete")}
+            </button>
+          </>
         )}
       </div>
+      {importOpen && <CollectionImportDialog onClose={() => setImportOpen(false)} onDone={() => void reload()} />}
       {purgeAsk && <PurgeDialog text={purgeAsk.text} onConfirm={purgeAsk.run} onClose={() => setPurgeAsk(null)} />}
       {!inTrash && viewing !== null && ordered[viewing] && (
         <Lightbox

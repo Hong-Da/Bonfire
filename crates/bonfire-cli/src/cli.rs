@@ -308,6 +308,8 @@ pub enum BundleCmd {
         to: Option<String>,
         #[arg(long)]
         shots: bool,
+        #[arg(long, requires = "shots", conflicts_with_all = ["branches", "from", "to"])]
+        no_saves: bool,
     },
     Import {
         file: PathBuf,
@@ -317,6 +319,12 @@ pub enum BundleCmd {
         only: Vec<String>,
         #[arg(long)]
         dry_run: bool,
+        #[arg(long, conflicts_with = "no_shots")]
+        no_saves: bool,
+        #[arg(long)]
+        no_shots: bool,
+        #[arg(long, conflicts_with = "no_shots")]
+        shots_to_disk: bool,
     },
 }
 

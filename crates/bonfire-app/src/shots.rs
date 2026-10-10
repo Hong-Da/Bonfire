@@ -206,7 +206,7 @@ impl App {
     }
 
     /// Steam 安装目录（伪造根目录下为 `<root>/Steam`）。
-    fn steam_root(&self) -> Option<PathBuf> {
+    pub(crate) fn steam_root(&self) -> Option<PathBuf> {
         match &self.fake_root {
             Some(root) => Some(root.join("Steam")).filter(|p| p.is_dir()),
             None => bonfire_discovery::platforms::SteamAdapter::detect().map(|s| s.root),
@@ -274,16 +274,18 @@ impl App {
     /// 还没有收集的截图（按原路径与大小判断，不读文件内容）。
     /// 回收站中与彻底删除的截图也算已收集，不会再次收集。
     pub(crate) fn uncollected(&self, game: &GameRecord) -> Result<Vec<ShotFile>> {
+        // 路径按规范化后比较（大小写、斜杠方向不同的同一文件算同一个）。
+        let key = |p: &Path| crate::transfer::path_key(p);
         let known: HashSet<(String, u64)> = self
             .index
             .shots_of(&game.id)?
             .into_iter()
-            .map(|s| (s.original_path, s.size))
+            .map(|s| (key(Path::new(&s.original_path)), s.size))
             .collect();
         Ok(self
             .shot_files(game)?
             .into_iter()
-            .filter(|f| !known.contains(&(f.path.to_string_lossy().into_owned(), f.size)))
+            .filter(|f| !known.contains(&(key(&f.path), f.size)))
             .collect())
     }
 

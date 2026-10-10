@@ -715,8 +715,8 @@ impl Index {
     /// 更新截图的存放位置与回收站状态。
     pub fn update_shot(&self, s: &ShotRecord) -> Result<()> {
         self.conn.execute(
-            "UPDATE screenshots SET file = ?3, deleted_at = ?4, purged = ?5 WHERE game_id = ?1 AND blob = ?2",
-            params![s.game_id, s.blob.to_string(), s.file, s.deleted_at, s.purged],
+            "UPDATE screenshots SET file = ?3, deleted_at = ?4, purged = ?5, original_path = ?6 WHERE game_id = ?1 AND blob = ?2",
+            params![s.game_id, s.blob.to_string(), s.file, s.deleted_at, s.purged, s.original_path],
         )?;
         Ok(())
     }

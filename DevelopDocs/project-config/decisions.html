@@ -24,9 +24,51 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 80 项，更新于 2026-10-10 18:14。需要改动的项请在对话中告诉 Claude（附编号）。</p>
-<nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>32 项</small></h2>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 82 项，更新于 2026-10-10 18:30。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<nav><a href="#s-0">缺陷修复</a><a href="#s-1">开发</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
+<section id="s-0"><h2>缺陷修复<small>6 项</small></h2>
+      <article id="U-16b">
+        <header><code>U-16b</code><h3>游戏库底部“已选 0 个”被挤成竖排</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">操作栏中的按钮与文字不压缩、放不下时换行；全选 / 全不选 / 反选合为分段按钮；保存方案、导出所选、移出游戏库收进“所选游戏”菜单（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>操作栏按钮过多，窗口较窄时文字被压缩成一列。</p><p class="impact"><span>影响</span>仅布局。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-10j">
+        <header><code>U-10j</code><h3>恢复到某条分支的最新快照后再备份，会另建一条名字奇怪的分支</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">恢复到分支最新快照时接回这条分支（当前分支优先），之后的备份继续记在它上面（推荐） <b>✓ 采用</b></li><li class="">保持原样，每次都另建分支</li></ul>
+        <p class="reason"><span>理由</span>制作复杂分支图示例时发现：恢复 main 后备份生成了“全收集-20261010-095637”这样的分支。</p><p class="impact"><span>影响</span>从旧快照（不是任何分支的最新快照）恢复的行为不变。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-7g">
+        <header><code>U-7g</code><h3>导入的未安装游戏在本机找不到存档位置时显示“有更新（已删除）”，备份会生成缺少这些文件的快照</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>导入后变更检测缓存设为导入的当前快照，而本机不能确定路径的位置扫描不到文件，被当成删除。</p><p class="impact"><span>影响</span>本机不能确定路径的位置不参与变更检测；备份时沿用上一个快照中这些位置的文件。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7f">
+        <header><code>U-7f</code><h3>导出后“在资源管理器中显示”打开的是“文档”目录</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>选中文件时参数为 /select,&lt;路径&gt;；路径含空格（导出文件名带游戏名，如 Hollow Knight-…zip）时标准库给整个参数加引号，资源管理器不认识这种写法，打开默认的“文档”目录。已在本机用同样的命令行复现并验证修复。</p><p class="impact"><span>影响</span>open_path 改为原样传入 /select,&quot;&lt;路径&gt;&quot;（目录为 &quot;&lt;路径&gt;&quot;），并统一处理正斜杠、长路径前缀与不存在的路径（打开最近的上级目录）。所有打开文件夹的入口都经过它：导出与合集导出后的显示文件、打开存档位置、打开安装目录、设置中打开配置文件。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7b">
+        <header><code>U-7b</code><h3>发现页“新发现”文字没有居中</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>状态标签作为网格项被拉伸成整列宽，文字靠左。</p><p class="impact"><span>影响</span>标签在列中居中（justify-self: center）。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-6c">
+        <header><code>U-6c</code><h3>“打开存档位置”打开的是用户目录而不是存档目录</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>资源管理器不认识正斜杠路径（存档位置记录为 C:/Users/...），会忽略参数并打开默认目录；另外不含通配符的目录型位置被当成通配位置，打开了上一级。</p><p class="impact"><span>影响</span>open_path 打开前统一转为反斜杠（安装目录、导出位置同样受益）；不含通配符的位置直接打开该目录。</p>
+        <footer>2026-10-09</footer>
+      </article></section><section id="s-1"><h2>开发<small>33 项</small></h2>
+      <article id="U-16a">
+        <header><code>U-16a</code><h3>存档和截图统一导入导出（单个或多个游戏，统一文件格式）</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">统一为篝火包（.bonfire，合集包格式）：每个游戏可只含存档、只含截图或两者；导出时选择内容，导入时按游戏选择；截图合并到相册，可选写到本机的截图文件夹（推荐） <b>✓ 采用</b></li><li class="">存档与截图分别使用不同的文件格式</li></ul>
+        <p class="reason"><span>理由</span>用户要求统一文件格式、灵活选择单个或多个，截图导入后合并并可同步到磁盘。沿用已有的合集包格式，旧版导出的历史包、合集包仍可导入。</p><p class="impact"><span>影响</span>写到磁盘默认不勾选，只写入不存在的文件；目标为原文件夹（本机存在时），否则为本机这个游戏的截图文件夹（已有截图所在、添加的文件夹或 Steam 截图文件夹），都没有时跳过；写到新位置时更新记录的原位置，避免被当作新截图。图库可跨游戏导出选中的截图，并新增导入入口。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-15a">
         <header><code>U-15a</code><h3>移出游戏库：入口、确认与是否删除备份</h3><span class="status">用户指定</span></header>
         <ul><li class="chosen">游戏库底部可批量“移出游戏库”，详情页“更多”中保留；先确认，说明移出后的影响；可选“同时删除备份的存档（全部快照）”“同时删除备份的截图”，默认都不勾选（推荐） <b>✓ 采用</b></li><li class="">移出时直接删除全部备份</li><li class="">只移出，不提供删除</li></ul>
@@ -217,36 +259,6 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <header><code>U-5-impl</code><h3>截图备份（U-5）实现中的取舍</h3><span class="status">默认推荐</span></header>
         <ul><li class="">按方案实现</li><li class="chosen">按方案实现；以下几点为实现细节：原图沿用文件对象写入（不重新编码，zstd 对图片收益很小）；Steam 截图按文件名取拍摄时间，不解析 screenshots.vdf；截图与快照的对应为“拍摄之后最早的快照（任何分支）”；定时收集的默认值为关闭（只随备份收集）；缩略图按需生成 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>方案 S1–S6 已确认；这些是方案没有细到的地方，取最简单且不影响效果的做法。</p><p class="impact"><span>影响</span>新增 REQ-014（已完成）。相册的文件对象需作为 M4-4 GC 的根（已写入里程碑说明）。</p>
-        <footer>2026-10-09</footer>
-      </article></section><section id="s-1"><h2>缺陷修复<small>5 项</small></h2>
-      <article id="U-10j">
-        <header><code>U-10j</code><h3>恢复到某条分支的最新快照后再备份，会另建一条名字奇怪的分支</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">恢复到分支最新快照时接回这条分支（当前分支优先），之后的备份继续记在它上面（推荐） <b>✓ 采用</b></li><li class="">保持原样，每次都另建分支</li></ul>
-        <p class="reason"><span>理由</span>制作复杂分支图示例时发现：恢复 main 后备份生成了“全收集-20261010-095637”这样的分支。</p><p class="impact"><span>影响</span>从旧快照（不是任何分支的最新快照）恢复的行为不变。</p>
-        <footer>2026-10-10</footer>
-      </article>
-      <article id="U-7g">
-        <header><code>U-7g</code><h3>导入的未安装游戏在本机找不到存档位置时显示“有更新（已删除）”，备份会生成缺少这些文件的快照</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>导入后变更检测缓存设为导入的当前快照，而本机不能确定路径的位置扫描不到文件，被当成删除。</p><p class="impact"><span>影响</span>本机不能确定路径的位置不参与变更检测；备份时沿用上一个快照中这些位置的文件。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-7f">
-        <header><code>U-7f</code><h3>导出后“在资源管理器中显示”打开的是“文档”目录</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>选中文件时参数为 /select,&lt;路径&gt;；路径含空格（导出文件名带游戏名，如 Hollow Knight-…zip）时标准库给整个参数加引号，资源管理器不认识这种写法，打开默认的“文档”目录。已在本机用同样的命令行复现并验证修复。</p><p class="impact"><span>影响</span>open_path 改为原样传入 /select,&quot;&lt;路径&gt;&quot;（目录为 &quot;&lt;路径&gt;&quot;），并统一处理正斜杠、长路径前缀与不存在的路径（打开最近的上级目录）。所有打开文件夹的入口都经过它：导出与合集导出后的显示文件、打开存档位置、打开安装目录、设置中打开配置文件。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-7b">
-        <header><code>U-7b</code><h3>发现页“新发现”文字没有居中</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>状态标签作为网格项被拉伸成整列宽，文字靠左。</p><p class="impact"><span>影响</span>标签在列中居中（justify-self: center）。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-6c">
-        <header><code>U-6c</code><h3>“打开存档位置”打开的是用户目录而不是存档目录</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>资源管理器不认识正斜杠路径（存档位置记录为 C:/Users/...），会忽略参数并打开默认目录；另外不含通配符的目录型位置被当成通配位置，打开了上一级。</p><p class="impact"><span>影响</span>open_path 打开前统一转为反斜杠（安装目录、导出位置同样受益）；不含通配符的位置直接打开该目录。</p>
         <footer>2026-10-09</footer>
       </article></section><section id="s-2"><h2>用户修改<small>18 项</small></h2>
       <article id="U-8c">

@@ -1262,3 +1262,36 @@ pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir
 args = ["game", "rm", "空洞骑士", "--delete-shots", "-y"]
 expect_exit = 0
 stdout_contains = ["已删除备份：0 个快照"]
+
+[[case]]
+id = "bundle-export-shots-only"
+title = { zh-CN = "只导出截图为篝火包", en = "Export screenshots only as a package" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"]]
+args = ["bundle", "export", "空洞骑士", "--shots", "--no-saves", "-o", "{tmp}/shots.bonfire"]
+expect_exit = 0
+stdout_contains = ["已导出 1 个游戏", "0 个快照", "张截图"]
+
+[[case]]
+id = "bundle-export-no-saves-needs-shots"
+title = { zh-CN = "只导出截图：需要 --shots", en = "Export screenshots only: requires --shots" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["bundle", "export", "空洞骑士", "--no-saves", "-o", "{tmp}/x.bonfire"]
+expect_exit = 2
+
+[[case]]
+id = "bundle-import-no-shots"
+title = { zh-CN = "导入篝火包时只导入存档", en = "Import only the saves from a package" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["bundle", "export", "空洞骑士", "-o", "{tmp}/hk.bonfire"]]
+args = ["bundle", "import", "{tmp}/hk.bonfire", "--no-shots"]
+expect_exit = 0
+
+[[case]]
+id = "bundle-import-conflicting-parts"
+title = { zh-CN = "导入篝火包：不能同时不导入存档和截图", en = "Import a package: cannot skip both saves and screenshots" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["bundle", "export", "空洞骑士", "-o", "{tmp}/hk.bonfire"]]
+args = ["bundle", "import", "{tmp}/hk.bonfire", "--no-saves", "--no-shots"]
+expect_exit = 2

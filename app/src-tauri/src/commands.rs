@@ -23,7 +23,7 @@ use bonfire_app::shots::{
 use bonfire_app::transfer::{
     ArchiveImportItem, ArchivePick, ArchivePreview, BundleImportReport, BundlePreview,
     BundleReport, BundleScope, CollectionReport, ExportFormat, ExportReport, FilesAutoReport,
-    FilesPreview, FilesSource, ImportFilesOptions, ImportFilesReport, ImportPlace,
+    FilesPreview, FilesSource, ImportFilesOptions, ImportFilesReport, ImportPlace, PackageOptions,
 };
 use bonfire_app::{App, AppError, AppPaths, Config, ErrorKind, Locale, NewGame};
 use serde::{Deserialize, Serialize};
@@ -1047,6 +1047,39 @@ pub async fn export_collection(
             .map(|id| find(app, id))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(app.export_collection(&games, &dest, include_shots)?)
+    })
+    .await
+}
+
+/// 导出篝火包：一个或多个游戏的存档历史和 / 或截图（U-16）。
+#[tauri::command]
+pub async fn export_package(
+    h: AppHandle,
+    game_ids: Vec<String>,
+    dest: PathBuf,
+    options: PackageOptions,
+) -> CmdResult<CollectionReport> {
+    with_app(h, move |app, _| {
+        let games = game_ids
+            .iter()
+            .map(|id| find(app, id))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(app.export_package(&games, &dest, &options)?)
+    })
+    .await
+}
+
+/// 把相册中的截图（如刚导入的）写到本机这个游戏的截图文件夹（U-16）。
+#[tauri::command]
+pub async fn sync_shots_to_disk(
+    h: AppHandle,
+    game_id: String,
+    blobs: Vec<String>,
+) -> CmdResult<WriteBackReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let ids = blob_ids(&blobs)?;
+        Ok(app.sync_shots_to_disk(&g, &ids)?)
     })
     .await
 }

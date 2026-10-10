@@ -9,20 +9,22 @@ import type { ArchiveImportItem, ArchivePreview, BundlePreview, FilesSource, Gam
 import { MAX_COMMENT } from "./BackupDialog";
 
 /**
- * 在游戏库中一次导出多个游戏：选中游戏的全部快照与分支打包为一个合集包（.bonfire）。
- * 还没有快照的游戏不能选。
+ * 导出篝火包（.bonfire，U-16）：一个或多个游戏，选择导出存档历史（全部分支）和 / 或截图（相册，不含回收站）。
+ * 没有可导出内容的游戏不能选。游戏库、详情页共用；图库中选中的截图直接导出（见图库页）。
  */
 export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameRow[]; initial: string[]; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const store = useStore();
-  const exportable = rows.filter((r) => r.snapshots > 0);
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(initial.filter((id) => exportable.some((r) => r.id === id))));
+  const [saves, setSaves] = useState(true);
+  const [shots, setShots] = useState(true);
+  const has = (r: GameRow) => (saves && r.snapshots > 0) || (shots && r.shots > 0);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(initial));
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
-  const [withShots, setWithShots] = useState(false);
-  const shotCount = chosenShots(rows, picked);
-  const chosen = exportable.filter((r) => picked.has(r.id));
-  const snapshots = chosen.reduce((n, r) => n + r.snapshots, 0);
+  const chosen = rows.filter((r) => picked.has(r.id) && has(r));
+  const exportable = rows.filter(has);
+  const snapshots = saves ? chosen.reduce((n, r) => n + r.snapshots, 0) : 0;
+  const shotCount = shots ? chosen.reduce((n, r) => n + r.shots, 0) : 0;
 
   const toggle = (id: string) =>
     setPicked((s) => {
@@ -34,17 +36,18 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
 
   const run = async () => {
     const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-    const dest = await save({ defaultPath: `${t("ui.collection.fileName")}-${stamp}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
+    const base = chosen.length === 1 ? displayName(chosen[0], i18n.language) : t("ui.collection.fileName");
+    const dest = await save({ defaultPath: `${base}-${stamp}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
     if (!dest) return;
     setBusy(true);
     try {
-      const r = await api.exportCollection(
+      const r = await api.exportPackage(
         chosen.map((x) => x.id),
         dest,
-        withShots,
+        { saves, shots },
       );
       setDone(r.dest);
-      store.toast("success", t("ui.collection.exported", { n: r.games.length, size: bytes(r.bytes) }));
+      store.toast("success", t("ui.package.exported", { n: r.games.length, s: r.games.reduce((a, e) => a + e.snapshots, 0), p: r.games.reduce((a, e) => a + (e.shots ?? 0), 0), size: bytes(r.bytes) }));
     } catch (e) {
       store.toast("error", errorMessage(e));
     } finally {
@@ -63,7 +66,7 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
     </>
   ) : (
     <>
-      <span className="count num">{t("ui.collection.summary", { n: chosen.length, s: snapshots })}</span>
+      <span className="count num">{t("ui.package.summary", { n: chosen.length, s: snapshots, p: shotCount })}</span>
       <div className="grow" />
       <button className="btn ghost" onClick={onClose}>
         {t("ui.cancel")}
@@ -75,7 +78,17 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
   );
 
   return (
-    <Modal title={t("ui.collection.exportTitle")} subtitle={t("ui.collection.exportIntro")} onClose={onClose} footer={footer}>
+    <Modal title={t("ui.package.exportTitle")} subtitle={t("ui.package.exportIntro")} onClose={onClose} footer={footer}>
+      <div className="package-parts" role="group" aria-label={t("ui.package.parts")}>
+        <label className="radio">
+          <input type="checkbox" checked={saves} onChange={(e) => setSaves(e.target.checked)} />
+          <Icon name="backup" size={14} /> {t("ui.package.saves")}
+        </label>
+        <label className="radio">
+          <input type="checkbox" checked={shots} onChange={(e) => setShots(e.target.checked)} />
+          <Icon name="camera" size={14} /> {t("ui.package.shots")}
+        </label>
+      </div>
       <div className="pick-head">
         <label className="radio">
           <input
@@ -89,25 +102,21 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
           {t("ui.library.selectAll")}
         </label>
       </div>
-      {shotCount > 0 && (
-        <label className="radio include-shots">
-          <input type="checkbox" checked={withShots} onChange={(e) => setWithShots(e.target.checked)} /> {t("ui.transfer.includeShots")}
-          <span className="muted num">{t("ui.shots.badge", { n: shotCount })}</span>
-        </label>
-      )}
       <ul className="pick-list">
         {rows.map((r) => {
-          const disabled = r.snapshots === 0;
+          const disabled = !has(r);
           return (
             <li key={r.id} className={disabled ? "disabled" : picked.has(r.id) ? "on" : undefined}>
               <label>
-                <input type="checkbox" checked={picked.has(r.id)} disabled={disabled} onChange={() => toggle(r.id)} />
+                <input type="checkbox" checked={picked.has(r.id) && !disabled} disabled={disabled} onChange={() => toggle(r.id)} />
                 <Cover row={r} />
                 <span className="pick-name">
                   <b>{displayName(r, i18n.language)}</b>
                   <small>{t(`ui.platform.${r.platform}`, { defaultValue: r.platform })}</small>
                 </span>
-                <span className="muted num">{disabled ? t("ui.collection.noSnapshots") : t("ui.library.snapshots", { n: r.snapshots })}</span>
+                <span className="muted num">
+                  {disabled ? t("ui.package.nothing") : [saves && r.snapshots > 0 && t("ui.library.snapshots", { n: r.snapshots }), shots && r.shots > 0 && t("ui.shots.countN", { n: r.shots })].filter(Boolean).join(" · ")}
+                </span>
               </label>
             </li>
           );
@@ -115,11 +124,6 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
       </ul>
     </Modal>
   );
-}
-
-/** 选中游戏的截图总数。 */
-function chosenShots(rows: GameRow[], picked: Set<string>): number {
-  return rows.filter((r) => picked.has(r.id) && r.snapshots > 0).reduce((n, r) => n + (r.shots ?? 0), 0);
 }
 
 type Loaded = { kind: "archive"; path: string; preview: ArchivePreview } | { kind: "files"; path: string; source: FilesSource };
@@ -146,6 +150,11 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
   const [results, setResults] = useState<ArchiveImportItem[] | null>(null);
   const [filesDone, setFilesDone] = useState<string | null>(null);
   const [comment, setComment] = useState("");
+  // 每个游戏导入哪些内容（默认包内有的都导入），以及是否把新导入的截图写到磁盘（默认不写）。
+  const [parts, setParts] = useState<Record<string, { saves: boolean; shots: boolean }>>({});
+  const [toDisk, setToDisk] = useState(false);
+  const hasSaves = (p: BundlePreview) => p.nodes.length > 0 || p.newSnapshots > 0 || p.refs.length > 0;
+  const partsOf = (key: string, p: BundlePreview) => parts[key] ?? { saves: hasSaves(p), shots: (p.shots ?? 0) > 0 };
 
   const choose = async (what: "archive" | "zip" | "folder") => {
     setError(null);
@@ -188,9 +197,29 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
       if (loaded.kind === "archive") {
         const items = await api.importArchive(
           loaded.path,
-          [...picked].map((key) => ({ key, target: null })),
+          [...picked].map((key) => {
+            const g = loaded.preview.games.find((x) => x.key === key)!;
+            return { key, target: null, ...partsOf(key, g.preview) };
+          }),
         );
         setResults(items);
+        // 把新导入的截图写到本机这个游戏的截图文件夹。
+        if (toDisk) {
+          let written = 0;
+          let skipped = 0;
+          for (const it of items) {
+            const ids = it.report?.newShotIds ?? [];
+            if (ids.length === 0) continue;
+            try {
+              const w = await api.syncShotsToDisk(it.report!.preview.gameId, ids);
+              written += w.written;
+              skipped += w.exists + w.noDir;
+            } catch (e) {
+              store.toast("error", `${it.gameName}：${errorMessage(e)}`);
+            }
+          }
+          if (written + skipped > 0) store.toast(written > 0 ? "success" : "info", t("ui.package.toDiskDone", { n: written, skipped }));
+        }
         const failed = items.filter((i) => i.error).length;
         if (failed > 0) store.toast("error", t("ui.collection.importFailed", { n: failed }));
         else store.toast("success", t("ui.collection.importDone", { ok: items.length }));
@@ -212,7 +241,7 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
     !busy &&
     !!loaded &&
     !finished &&
-    (loaded.kind === "archive" ? picked.size > 0 : !loaded.source.preview?.identical && (loaded.source.preview?.unmapped.length ?? 0) === 0 && [...comment].length <= MAX_COMMENT);
+    (loaded.kind === "archive" ? picked.size > 0 && [...picked].every((k) => { const g = loaded.preview.games.find((x) => x.key === k); return !g || partsOf(k, g.preview).saves || partsOf(k, g.preview).shots; }) : !loaded.source.preview?.identical && (loaded.source.preview?.unmapped.length ?? 0) === 0 && [...comment].length <= MAX_COMMENT);
 
   const footer = finished ? (
     <>
@@ -289,6 +318,32 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
                           {p.createGame ? <span className="tag found-new">{t("ui.collection.stateNew")}</span> : <span className="tag found-managed">{t("ui.collection.stateLocal")}</span>}
                         </small>
                       </span>
+                      <span className="package-parts compact" onClick={(e) => e.preventDefault()}>
+                        {hasSaves(p) && (
+                          <label className="radio" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={partsOf(key, p).saves}
+                              disabled={finished}
+                              onChange={(e) => setParts((x) => ({ ...x, [key]: { ...partsOf(key, p), saves: e.target.checked } }))}
+                              aria-label={t("ui.package.importSavesOf", { name: p.gameName })}
+                            />
+                            {t("ui.package.savesN", { n: Math.max(p.nodes.length, p.newSnapshots) })}
+                          </label>
+                        )}
+                        {(p.shots ?? 0) > 0 && (
+                          <label className="radio" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={partsOf(key, p).shots}
+                              disabled={finished}
+                              onChange={(e) => setParts((x) => ({ ...x, [key]: { ...partsOf(key, p), shots: e.target.checked } }))}
+                              aria-label={t("ui.package.importShotsOf", { name: p.gameName })}
+                            />
+                            {t("ui.package.shotsN", { n: p.shots, fresh: p.newShots })}
+                          </label>
+                        )}
+                      </span>
                       <span className="pick-state num">
                         {res ? (
                           res.error ? (
@@ -298,6 +353,7 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
                           ) : (
                             <span className="ok-text">
                               <Icon name="check" size={14} /> {t("ui.collection.resultOk", { n: res.report?.importedSnapshots ?? 0 })}
+                              {(res.report?.importedShots ?? 0) > 0 && ` · ${t("ui.package.resultShots", { n: res.report?.importedShots })}`}
                               {res.report?.createdGame && ` · ${t("ui.collection.resultAdded")}`}
                             </span>
                           )
@@ -314,6 +370,15 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
                 );
               })}
             </ul>
+            {loaded.preview.games.some((g) => (g.preview.newShots ?? 0) > 0) && (
+              <label className="purge-originals to-disk">
+                <input type="checkbox" className="check" checked={toDisk} disabled={finished} onChange={(e) => setToDisk(e.target.checked)} />
+                <span>
+                  <b>{t("ui.package.toDisk")}</b>
+                  <small>{t("ui.package.toDiskHint")}</small>
+                </span>
+              </label>
+            )}
           </>
         )}
 

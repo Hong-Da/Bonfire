@@ -73,6 +73,8 @@ export function mockApi() {
     recollectShots: vi.fn(),
     closeWindow: vi.fn().mockResolvedValue(undefined),
     runningGames: vi.fn().mockResolvedValue([]),
+    exportPackage: vi.fn(),
+    syncShotsToDisk: vi.fn(),
     onCloseRequested: vi.fn().mockResolvedValue(() => {}),
     syncShots: vi.fn(),
     shotThumb: vi.fn().mockResolvedValue("C:/cache/t.webp"),
