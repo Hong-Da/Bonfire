@@ -6,6 +6,7 @@ import { bytes, hours } from "../lib/format";
 import { useStore } from "../store";
 import type { DiscoveredGame, FoundState, ManageMode, ShotCandidate } from "../types";
 import { MODES, MODE_ICON } from "../components/ModeMenu";
+import { firstBackup, readFirstBackupPref, writeFirstBackupPref } from "../lib/firstBackup";
 
 type Filter = "all" | FoundState;
 const FILTERS: Filter[] = ["new", "managed", "ignored", "all"];
@@ -66,6 +67,7 @@ export default function ScanPage() {
     });
 
   const [includeMode, setIncludeMode] = useState<ManageMode>("both");
+  const [firstOn, setFirstOn] = useState(readFirstBackupPref);
   const act = async (kind: "include" | "ignore") => {
     const targets = pickedGames.filter((g) => (kind === "include" ? g.state !== "managed" : g.state !== "ignored"));
     if (targets.length === 0) return;
@@ -81,8 +83,15 @@ export default function ScanPage() {
       useStore.setState((s) => ({ scan: s.scan && { ...s.scan, games: s.scan.games.map((g) => (ids.includes(g.id) ? { ...g, state } : g)) } }));
       setPicked(new Set());
       store.toast("success", kind === "include" ? t("ui.scan.includedAs", { n: ids.length, mode: t(`ui.mode.${includeMode}`) }) : t("ui.scan.ignored", { n: ids.length }));
-      // 加入后在游戏库中检测状态并联网补全游戏信息。
-      if (kind === "include" || targets.some((g) => g.state === "managed")) void store.loadLibrary(true);
+      if (kind === "include") {
+        // 加入后立即首次备份（可关闭）；存档位置是推测的游戏先不备份，等确认位置后再备份。
+        const auto = firstOn ? targets.filter((g) => g.rule || g.unconfirmed === 0) : [];
+        const guessed = firstOn ? targets.length - auto.length : 0;
+        if (guessed > 0) store.toast("info", t("ui.first.skippedGuessed", { n: guessed }));
+        const names = Object.fromEntries(targets.map((g) => [g.id, displayName(g, i18n.language)]));
+        // 首次备份之后在游戏库中检测状态并联网补全游戏信息。
+        void firstBackup(t, auto.map((g) => g.id), names).then(() => store.loadLibrary(true));
+      } else if (targets.some((g) => g.state === "managed")) void store.loadLibrary(true);
     } catch (e) {
       store.toast("error", errorMessage(e));
     } finally {
@@ -250,6 +259,18 @@ export default function ScanPage() {
               </button>
             ))}
           </div>
+          <label className="inline first-backup" title={t("ui.first.optionHint")}>
+            <input
+              type="checkbox"
+              className="check"
+              checked={firstOn}
+              onChange={(e) => {
+                setFirstOn(e.target.checked);
+                writeFirstBackupPref(e.target.checked);
+              }}
+            />
+            {t("ui.first.option")}
+          </label>
           <button className="btn primary" onClick={() => void act("include")} disabled={busy || !canInclude}>
             <Icon name="plus" /> {t("ui.scan.include")}
           </button>
@@ -311,6 +332,7 @@ function ShotFinds() {
       const g = await api.addShotsGame(c.key, c.name, []);
       await store.refreshRow(g.id);
       store.toast("success", t("ui.scan.shotsAdded", { name: g.name }));
+      if (readFirstBackupPref()) void firstBackup(t, [g.id], { [g.id]: g.name });
       setList((l) => (l ?? []).filter((x) => x.key !== c.key));
     } catch (e) {
       store.toast("error", errorMessage(e));
@@ -322,17 +344,20 @@ function ShotFinds() {
   const addAll = async () => {
     setBusy("*");
     const done: string[] = [];
+    const added: { id: string; name: string }[] = [];
     for (const c of list) {
       try {
         const g = await api.addShotsGame(c.key, c.name, []);
         await store.refreshRow(g.id);
         done.push(c.key);
+        added.push(g);
       } catch (e) {
         store.toast("error", `${c.name}：${errorMessage(e)}`);
       }
     }
     setList((l) => (l ?? []).filter((x) => !done.includes(x.key)));
     if (done.length > 0) store.toast("success", t("ui.scan.shotsAddedAll", { n: done.length }));
+    if (readFirstBackupPref() && added.length > 0) void firstBackup(t, added.map((g) => g.id), Object.fromEntries(added.map((g) => [g.id, g.name])));
     setBusy(null);
   };
   return (

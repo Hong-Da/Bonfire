@@ -24,9 +24,15 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 78 项，更新于 2026-10-10 17:58。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 79 项，更新于 2026-10-10 18:01。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>30 项</small></h2>
+<section id="s-0"><h2>开发<small>31 项</small></h2>
+      <article id="U-14a">
+        <header><code>U-14a</code><h3>加入游戏库后自动开始首次备份</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">默认开启“加入后立即备份”（可关闭，记在本机）；发现页、手动添加、只有截图的游戏都适用；存档位置是推测的游戏先不备份（推荐） <b>✓ 采用</b></li><li class="">全部自动备份，包括位置是推测的</li><li class="">不自动备份</li></ul>
+        <p class="reason"><span>理由</span>用户要求加入后自动首次备份；推测的位置可能不对，备份到错误的文件夹没有意义，先让用户确认。</p><p class="impact"><span>影响</span>首次备份在后台进行，备注自动生成“首次备份：N 个文件”；只管理截图的游戏只收集截图；单个失败只提示。CLI game include 不自动备份（脚本可自行接 backup）。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-13b">
         <header><code>U-13b</code><h3>批量切换管理方式时提示用户</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">切换 2 个及以上游戏时先确认，说明改成什么、有几个已经是这种方式、快照与存档不受影响（推荐） <b>✓ 采用</b></li><li class="">不提示</li></ul>

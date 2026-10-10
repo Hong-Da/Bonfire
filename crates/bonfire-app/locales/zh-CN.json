@@ -1036,5 +1036,12 @@
   "ui.mode.batchTitle": "批量切换管理方式",
   "ui.mode.batchConfirm": "把所选的 {n} 个游戏改为“{mode}”？",
   "ui.mode.batchSame": "其中 {n} 个已经是这种方式，不会变化。",
-  "ui.mode.batchSafe": "已有的快照、截图和磁盘上的存档都不受影响，之后可以随时改回来。"
+  "ui.mode.batchSafe": "已有的快照、截图和磁盘上的存档都不受影响，之后可以随时改回来。",
+  "ui.first.option": "加入后立即备份",
+  "ui.first.optionShots": "加入后立即收集截图",
+  "ui.first.optionHint": "加入游戏库后马上做首次备份（只读取存档，不改动）；只管理截图的游戏只收集截图",
+  "ui.first.running": "正在为 {n} 个新加入的游戏做首次备份…",
+  "ui.first.done": "首次备份完成：{n} 个游戏",
+  "ui.first.failed": "「{name}」首次备份失败：{msg}",
+  "ui.first.skippedGuessed": "{n} 个游戏的存档位置是推测的，先不备份；在游戏详情中确认位置后再备份"
 }

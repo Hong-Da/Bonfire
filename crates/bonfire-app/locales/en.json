@@ -1036,5 +1036,12 @@
   "ui.mode.batchTitle": "Change management for several games",
   "ui.mode.batchConfirm": "Change the {n} selected games to \"{mode}\"?",
   "ui.mode.batchSame": "{n} of them already use it and won't change.",
-  "ui.mode.batchSafe": "Existing snapshots, screenshots and save files on disk are not affected; you can change it back any time."
+  "ui.mode.batchSafe": "Existing snapshots, screenshots and save files on disk are not affected; you can change it back any time.",
+  "ui.first.option": "Back up right after adding",
+  "ui.first.optionShots": "Collect screenshots right after adding",
+  "ui.first.optionHint": "Make the first backup right after adding (saves are only read); screenshot-only games just collect screenshots",
+  "ui.first.running": "Making the first backup of {n} newly added games…",
+  "ui.first.done": "First backup done: {n} games",
+  "ui.first.failed": "First backup of \"{name}\" failed: {msg}",
+  "ui.first.skippedGuessed": "{n} games have guessed save locations and weren't backed up; confirm the locations in the game details first"
 }

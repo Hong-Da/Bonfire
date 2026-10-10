@@ -15,7 +15,7 @@ export function mockApi() {
     gameRow: vi.fn(),
     gameChanges: vi.fn().mockResolvedValue([]),
     cancelTask: vi.fn(),
-    runBackup: vi.fn(),
+    runBackup: vi.fn().mockResolvedValue([]),
     history: vi.fn(),
     snapshotFiles: vi.fn().mockResolvedValue([]),
     diff: vi.fn().mockResolvedValue([]),

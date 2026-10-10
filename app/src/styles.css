@@ -738,3 +738,5 @@ button.link:hover { text-decoration: underline; }
 .menu-list { max-height: min(70vh, 520px); overflow: auto; }
 /* 发现页：加入时选择管理方式 */
 .include-mode button { display: inline-flex; align-items: center; gap: 5px; }
+/* 加入游戏库后立即备份的开关 */
+.first-backup { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { sharedApi as api, row, history } from "./test-utils";
 
 vi.mock("./api", async () => {
@@ -275,7 +275,10 @@ describe("发现游戏", () => {
     await waitFor(() => expect(api.includeGames).toHaveBeenCalledWith(["steam-1"]));
     await waitFor(() => expect(api.setManageMode).toHaveBeenCalledWith(["steam-1"], "shots"));
     expect(useStore.getState().toasts.map((x) => x.text)).toContain("已加入 1 个游戏（只管理截图）");
-    expect(api.loadLibrary).toHaveBeenCalledWith(true);
+    // 加入后立即首次备份，之后再检测游戏库。
+    expect(screen.getByRole("checkbox", { name: "加入后立即备份" })).toBeChecked();
+    await waitFor(() => expect(api.runBackup).toHaveBeenCalledWith([{ gameId: "steam-1" }], false, { mode: "new" }));
+    await waitFor(() => expect(api.loadLibrary).toHaveBeenCalledWith(true));
     await waitFor(() => expect(screen.queryByText("空洞骑士")).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "全选" }));
@@ -284,6 +287,35 @@ describe("发现游戏", () => {
     expect(await screen.findByText("没有新发现的游戏")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^全部/ }));
     expect(screen.getAllByText("已在库中").length).toBeGreaterThan(1);
+  });
+
+  it("加入后首次备份跳过存档位置是推测的游戏，也可以关闭", async () => {
+    localStorage.removeItem("bonfire.firstBackup");
+    useStore.setState({
+      scan: { platforms: ["steam"], rules: { path: "x", games: 1, userGames: 0 }, games: [found({}), found({ id: "steam-2", name: "Indie Quest", nameZh: null, rule: null, unconfirmed: 1 })], withoutSaves: [] },
+      scanning: false,
+      toasts: [],
+    });
+    render(<ScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "全选" }));
+    fireEvent.click(screen.getByRole("button", { name: /加入游戏库/ }));
+    await waitFor(() => expect(api.runBackup).toHaveBeenCalledWith([{ gameId: "steam-1" }], false, { mode: "new" }));
+    expect(useStore.getState().toasts.map((x) => x.text)).toContain("1 个游戏的存档位置是推测的，先不备份；在游戏详情中确认位置后再备份");
+    cleanup();
+
+    // 关闭后不再自动备份，并记住选择。
+    vi.clearAllMocks();
+    api.runBackup.mockResolvedValue([]);
+    useStore.setState({ scan: { platforms: ["steam"], rules: { path: "x", games: 1, userGames: 0 }, games: [found({ id: "steam-5", name: "Hades", nameZh: null })], withoutSaves: [] }, toasts: [] });
+    render(<ScanPage />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "加入后立即备份" }));
+    expect(localStorage.getItem("bonfire.firstBackup")).toBe("0");
+    fireEvent.click(screen.getByRole("button", { name: "全选" }));
+    fireEvent.click(screen.getByRole("button", { name: /加入游戏库/ }));
+    await waitFor(() => expect(api.includeGames).toHaveBeenCalledWith(["steam-5"]));
+    await waitFor(() => expect(api.loadLibrary).toHaveBeenCalled());
+    expect(api.runBackup).not.toHaveBeenCalled();
+    localStorage.removeItem("bonfire.firstBackup");
   });
 
   it("筛选后全选、全不选、反选只作用于列出的游戏", async () => {

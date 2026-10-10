@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
 import { Icon, Modal } from "../components/ui";
 import { useStore } from "../store";
+import { firstBackup, readFirstBackupPref, writeFirstBackupPref } from "../lib/firstBackup";
 
 type Mode = "saves" | "shots";
 
@@ -21,6 +22,7 @@ export default function AddGameDialog({ onClose }: { onClose: () => void }) {
   const [installDir, setInstallDir] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [firstOn, setFirstOn] = useState(readFirstBackupPref);
 
   const pick = async (directory: boolean) => {
     const r = await open({ directory, multiple: false, title: t("ui.add.pickTitle") });
@@ -45,6 +47,8 @@ export default function AddGameDialog({ onClose }: { onClose: () => void }) {
       await store.refreshRow(g.id);
       store.toast("success", t("ui.add.added", { name: g.name }));
       onClose();
+      // 加入后立即首次备份（与发现页同一开关）。
+      if (firstOn) void firstBackup(t, [g.id], { [g.id]: g.name });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -141,6 +145,18 @@ export default function AddGameDialog({ onClose }: { onClose: () => void }) {
           <p className="hint">{t("ui.add.shotsHint")}</p>
         </>
       )}
+      <label className="inline first-backup">
+        <input
+          type="checkbox"
+          className="check"
+          checked={firstOn}
+          onChange={(e) => {
+            setFirstOn(e.target.checked);
+            writeFirstBackupPref(e.target.checked);
+          }}
+        />
+        {mode === "saves" ? t("ui.first.option") : t("ui.first.optionShots")}
+      </label>
       {error && <div className="callout error">{error}</div>}
     </Modal>
   );
