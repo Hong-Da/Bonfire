@@ -124,6 +124,35 @@ describe("游戏库：管理方式", () => {
   });
 });
 
+describe("备份方案", () => {
+  it("选择方案后按钮显示方案名，可取消选择（恢复原来的勾选）与删除方案", async () => {
+    const rows = [row({ id: "a", name: "Alpha", nameZh: null }), row({ id: "b", name: "Beta", nameZh: null, state: "up-to-date" }), row({ id: "c", name: "Gamma", nameZh: null, state: "up-to-date" })];
+    seed(rows);
+    api.profiles.mockResolvedValue([{ name: "周末", gameIds: ["b", "c"], defaultComment: "" }]);
+    api.deleteProfile.mockResolvedValue(undefined);
+    render(<Library />);
+    // 默认勾选了 Alpha（有更新）。
+    const btn = () => screen.getByRole("button", { name: /备份方案：一组常一起备份的游戏/ });
+    await waitFor(() => expect(btn()).toHaveTextContent("备份方案"));
+    fireEvent.click(btn());
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /周末/ }));
+    expect(btn()).toHaveTextContent("方案：周末");
+    expect(useStore.getState().selected).toEqual(new Set(["b", "c"]));
+    fireEvent.click(btn());
+    fireEvent.click(screen.getByRole("menuitem", { name: "取消选择方案" }));
+    expect(useStore.getState().selected).toEqual(new Set(["a"]));
+    expect(btn()).toHaveTextContent("备份方案");
+
+    fireEvent.click(btn());
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /周末/ }));
+    fireEvent.click(btn());
+    api.profiles.mockResolvedValue([]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "删除方案「周末」" }));
+    await waitFor(() => expect(api.deleteProfile).toHaveBeenCalledWith("周末"));
+    expect(dialog.ask.mock.calls.at(-1)?.[0]).toContain("只删除方案，不影响游戏和备份");
+  });
+});
+
 describe("移出游戏库", () => {
   const rows = () => [row({ id: "a", name: "Alpha", nameZh: null, snapshots: 3, shots: 2 }), row({ id: "b", name: "Beta", nameZh: null, snapshots: 1, shots: 0 })];
 

@@ -1093,5 +1093,13 @@
   "ui.package.resultShots": "{n} screenshots",
   "ui.package.toDisk": "Write newly imported screenshots to disk",
   "ui.package.toDiskHint": "Into this game's screenshot folder on this PC (Steam's screenshot folder, the folder that already has its screenshots, or one you added); only missing files are created. Unchecked: screenshots only go into Bonfire's album.",
-  "ui.package.toDiskDone": "Wrote {n} screenshots to disk ({skipped} skipped: a file with that name exists or there's no screenshot folder for the game)"
+  "ui.package.toDiskDone": "Wrote {n} screenshots to disk ({skipped} skipped: a file with that name exists or there's no screenshot folder for the game)",
+  "ui.library.profilesHint": "Backup profiles: groups of games you back up together; choosing one selects them",
+  "ui.library.profileActive": "Profile: {name}",
+  "ui.library.profileGames": "{n} games",
+  "ui.library.profilesNone": "No profiles yet. Select games and save them as one",
+  "ui.library.profileCancel": "Clear profile selection",
+  "ui.library.profileDelete": "Delete profile \"{name}\"",
+  "ui.library.profileDeleteConfirm": "Delete backup profile \"{name}\"? Only the profile is removed; games and backups are not affected.",
+  "ui.library.profileDeleted": "Deleted profile \"{name}\""
 }

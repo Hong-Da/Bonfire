@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
 import { Cover, Icon, Menu, StatusBadge, displayName } from "../components/ui";
@@ -14,6 +14,7 @@ import ProtectSwitch from "../components/ProtectSwitch";
 import AutoSwitch from "../components/AutoSwitch";
 import ModeMenu, { MODES } from "../components/ModeMenu";
 import RemoveDialog from "../components/RemoveDialog";
+import { ask } from "@tauri-apps/plugin-dialog";
 
 const STATES: StateFilter[] = ["all", "has-changes", "never-backed-up", "up-to-date"];
 
@@ -39,11 +40,39 @@ export default function Library() {
     api.profiles().then(setProfiles).catch(() => setProfiles([]));
   }, [backupOpen]);
 
+  // 当前选中的游戏正好是某个方案中的游戏时，这个方案为“当前方案”。
+  const sameSet = (ids: string[]) => {
+    const own = ids.filter((id) => s.rows[id]);
+    return own.length > 0 && own.length === s.selected.size && own.every((id) => s.selected.has(id));
+  };
+  const activeProfile = profiles.find((p) => sameSet(p.gameIds)) ?? null;
+  // 选择方案前的勾选，“取消选择方案”时恢复。
+  const beforeProfile = useRef<Set<string> | null>(null);
+
   const applyProfile = (name: string) => {
     const p = profiles.find((x) => x.name === name);
     if (!p) return;
+    if (!activeProfile) beforeProfile.current = new Set(s.selected);
     s.clearSelection();
     s.selectAll(p.gameIds.filter((id) => s.rows[id]));
+  };
+
+  const cancelProfile = () => {
+    const prev = beforeProfile.current;
+    beforeProfile.current = null;
+    s.clearSelection();
+    if (prev) s.selectAll([...prev].filter((id) => s.rows[id]));
+  };
+
+  const deleteProfile = async (name: string) => {
+    if (!(await ask(t("ui.library.profileDeleteConfirm", { name }), { kind: "warning" }))) return;
+    try {
+      await api.deleteProfile(name);
+      setProfiles(await api.profiles());
+      s.toast("success", t("ui.library.profileDeleted", { name }));
+    } catch (e) {
+      s.toast("error", errorMessage(e));
+    }
   };
 
   const saveProfile = async () => {
@@ -202,17 +231,31 @@ export default function Library() {
             </button>
             <button onClick={() => s.invert(rows.map((r) => r.id))}>{t("ui.library.invert")}</button>
           </div>
-          {profiles.length > 0 && (
-            <select className="field" defaultValue="" onChange={(e) => applyProfile(e.target.value)} aria-label={t("ui.library.profiles")}>
-              <option value="" disabled>
-                {t("ui.library.profiles")}
-              </option>
-              {profiles.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+          {profileName === null && (
+            <Menu
+              icon="stack"
+              label={activeProfile ? t("ui.library.profileActive", { name: activeProfile.name }) : t("ui.library.profiles")}
+              className={`btn ghost${activeProfile ? " filtered" : ""}`}
+              title={t("ui.library.profilesHint")}
+              items={[
+                ...(profiles.length > 0
+                  ? profiles.map((p) => ({
+                      label: (
+                        <span className="mode-item">
+                          <b>{p.name}</b>
+                          <small>{t("ui.library.profileGames", { n: p.gameIds.filter((id) => s.rows[id]).length })}</small>
+                        </span>
+                      ),
+                      checked: activeProfile?.name === p.name,
+                      onClick: () => applyProfile(p.name),
+                    }))
+                  : [{ label: <span className="muted">{t("ui.library.profilesNone")}</span>, onClick: () => {}, disabled: true }]),
+                "divider" as const,
+                { label: t("ui.library.profileCancel"), onClick: cancelProfile, disabled: !activeProfile },
+                { label: t("ui.library.saveProfile"), onClick: () => setProfileName(""), disabled: selected.length === 0 },
+                ...(activeProfile ? [{ label: t("ui.library.profileDelete", { name: activeProfile.name }), onClick: () => void deleteProfile(activeProfile.name), danger: true }] : []),
+              ]}
+            />
           )}
           {profileName === null ? (
             <Menu
@@ -220,7 +263,6 @@ export default function Library() {
               label={t("ui.library.selectedMenu")}
               className="btn ghost"
               items={[
-                { label: t("ui.library.saveProfile"), onClick: () => setProfileName(""), disabled: selected.length === 0 },
                 { label: t("ui.library.exportSelected", { n: selected.length }), onClick: () => setExportIds(selected.map((r) => r.id)), disabled: selected.length === 0 },
                 "divider",
                 { label: t("ui.remove.button", { n: selected.length }), onClick: () => setRemoveOpen(true), disabled: selected.length === 0, danger: true },
