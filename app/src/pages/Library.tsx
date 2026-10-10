@@ -144,6 +144,7 @@ export default function Library() {
         />
         <div className="grow" />
         <input className="field" type="search" placeholder={t("ui.library.search")} value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label={t("ui.library.search")} />
+        {/* 添加与导入、导出分成两个菜单，名字与内容一致。 */}
         <Menu
           icon="plus"
           label={t("ui.library.addMenu")}
@@ -151,7 +152,13 @@ export default function Library() {
           items={[
             { label: t("ui.library.add"), onClick: () => setAddOpen(true) },
             { label: t("ui.library.importSaves"), onClick: () => setImportOpen(true) },
-            "divider",
+          ]}
+        />
+        <Menu
+          icon="export"
+          label={t("ui.library.exportMenu")}
+          align="right"
+          items={[
             { label: t("ui.library.exportSelected", { n: selected.length }), onClick: () => setExportIds(selected.map((r) => r.id)), disabled: selected.length === 0 },
             { label: t("ui.library.exportAll", { n: allRows.length }), onClick: () => setExportIds(allRows.map((r) => r.id)), disabled: allRows.length === 0 },
           ]}

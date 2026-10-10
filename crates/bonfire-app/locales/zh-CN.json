@@ -659,7 +659,7 @@
   "ui.history.notInstalledNote": "这个游戏是从别处导入的，这台电脑上还没有安装。装好游戏后在“发现”页扫描，存档位置确定后即可恢复。",
   "ui.collection.identical": "这些存档与「{name}」已有的快照 {id} 完全相同，无需再导入。",
   "ui.library.transfer": "导入 / 导出",
-  "ui.library.importSaves": "导入存档…",
+  "ui.library.importSaves": "导入篝火包或存档…",
   "tray.open": "打开篝火",
   "tray.check": "检查更新",
   "tray.quit": "退出",
@@ -1023,7 +1023,7 @@
   "ui.library.filter": "筛选",
   "ui.library.filterOn": "筛选：{what}",
   "ui.library.filterHint": "按管理方式与平台筛选",
-  "ui.library.addMenu": "添加",
+  "ui.library.addMenu": "添加 / 导入",
   "ui.backup.gameRunning": "正在运行：{names}。可以照常备份，但建议在游戏中存档后、或退出游戏后再备份——游戏正在写存档时，备份到的可能是不配套的存档。",
   "cli.out.backup_game_running": "提示：「{game}」正在运行（{procs}）。照常备份，但建议在游戏中存档后或退出游戏后再备份",
   "ui.gallery.arrange": "整理",
@@ -1101,5 +1101,6 @@
   "ui.library.profileCancel": "取消选择方案",
   "ui.library.profileDelete": "删除方案「{name}」",
   "ui.library.profileDeleteConfirm": "删除备份方案「{name}」？只删除方案，不影响游戏和备份。",
-  "ui.library.profileDeleted": "已删除方案「{name}」"
+  "ui.library.profileDeleted": "已删除方案「{name}」",
+  "ui.library.exportMenu": "导出"
 }

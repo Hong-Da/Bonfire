@@ -659,7 +659,7 @@
   "ui.history.notInstalledNote": "This game was imported and is not installed on this PC. Install it and scan on the Discover page; once its save locations are known you can restore.",
   "ui.collection.identical": "These saves are identical to snapshot {id} of “{name}”; nothing to import.",
   "ui.library.transfer": "Import / export",
-  "ui.library.importSaves": "Import saves…",
+  "ui.library.importSaves": "Import a package or saves…",
   "tray.open": "Open Bonfire",
   "tray.check": "Check for changes",
   "tray.quit": "Quit",
@@ -1023,7 +1023,7 @@
   "ui.library.filter": "Filter",
   "ui.library.filterOn": "Filter: {what}",
   "ui.library.filterHint": "Filter by management and platform",
-  "ui.library.addMenu": "Add",
+  "ui.library.addMenu": "Add / Import",
   "ui.backup.gameRunning": "Running: {names}. You can back up now, but it's best to save in the game or quit it first; if the game is writing its save, the backup may get files that don't match.",
   "cli.out.backup_game_running": "Note: \"{game}\" is running ({procs}). Backing up anyway, but it's best to save in the game or quit it first",
   "ui.gallery.arrange": "Arrange",
@@ -1101,5 +1101,6 @@
   "ui.library.profileCancel": "Clear profile selection",
   "ui.library.profileDelete": "Delete profile \"{name}\"",
   "ui.library.profileDeleteConfirm": "Delete backup profile \"{name}\"? Only the profile is removed; games and backups are not affected.",
-  "ui.library.profileDeleted": "Deleted profile \"{name}\""
+  "ui.library.profileDeleted": "Deleted profile \"{name}\"",
+  "ui.library.exportMenu": "Export"
 }

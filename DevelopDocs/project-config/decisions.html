@@ -24,9 +24,15 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 83 项，更新于 2026-10-10 18:47。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 84 项，更新于 2026-10-10 18:48。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>34 项</small></h2>
+<section id="s-0"><h2>开发<small>35 项</small></h2>
+      <article id="U-17b">
+        <header><code>U-17b</code><h3>游戏库右上角“添加”菜单中还有导入、导出，名字与内容不符</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">拆成“添加 / 导入”（添加游戏、导入篝火包或存档）与“导出”（导出所选、导出全部）两个菜单（推荐） <b>✓ 采用</b></li><li class="">保留一个菜单，改名为“添加 / 导入 / 导出”</li></ul>
+        <p class="reason"><span>理由</span>用户指出右上角是添加 / 导出；按钮名应说明里面有什么。</p><p class="impact"><span>影响</span>仅界面。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-17a">
         <header><code>U-17a</code><h3>备份方案的选择方式</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">改为与界面一致的“备份方案”菜单：显示当前方案、可取消选择（恢复选择方案前的勾选）、把所选存为方案、删除当前方案（推荐） <b>✓ 采用</b></li><li class="">保留系统下拉框</li></ul>
