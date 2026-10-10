@@ -1244,3 +1244,21 @@ root = "steam-basic"
 pre = [["scan"]]
 args = ["game", "include", "Hollow Knight", "--mode", "all"]
 expect_exit = 2
+
+[[case]]
+id = "game-rm-delete-snapshots-protected"
+title = { zh-CN = "移出游戏库并删除备份的存档：存档安全保护开启时拒绝", en = "Remove a game and its snapshots: refused while save protection is on" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["game", "rm", "空洞骑士", "--delete-snapshots", "-y"]
+expect_exit = 2
+stderr_contains = ["存档安全保护"]
+
+[[case]]
+id = "game-rm-delete-shots"
+title = { zh-CN = "移出游戏库并删除备份的截图", en = "Remove a game and its backed-up screenshots" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"]]
+args = ["game", "rm", "空洞骑士", "--delete-shots", "-y"]
+expect_exit = 0
+stdout_contains = ["已删除备份：0 个快照"]

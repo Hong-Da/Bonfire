@@ -2,6 +2,7 @@
 
 use std::io::{BufRead, IsTerminal, Write};
 
+use bonfire_app::app::RemoveOptions;
 use bonfire_app::backup::{BackupOptions, BackupResult, DetachedChoice, GameStatus};
 use bonfire_app::core::index::{GameRecord, Profile};
 use bonfire_app::core::refs::RefKind;
@@ -424,15 +425,41 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
                 ));
             }
         }
-        GameCmd::Rm { game } => {
+        GameCmd::Rm {
+            game,
+            delete_snapshots,
+            delete_shots,
+        } => {
             let g = app.find_game(&game)?;
-            if !out.confirm(out.tf("cli.confirm.rm", &[("game", &g.name)]))? {
+            let mut extra = String::new();
+            if delete_snapshots {
+                extra.push_str(out.t("cli.confirm.rm_snapshots"));
+            }
+            if delete_shots {
+                extra.push_str(out.t("cli.confirm.rm_shots"));
+            }
+            let text = out.tf("cli.confirm.rm", &[("game", &g.name), ("extra", &extra)]);
+            if !out.confirm(text)? {
                 out.line(out.t("cli.out.cancelled"));
                 return Ok(());
             }
             let lock = app.repo.lock()?;
-            let g = app.remove_game(&lock, &g.id)?;
-            out.emit(json!({ "removed": g.id }));
+            let r = app.remove_game_with(
+                &lock,
+                &g.id,
+                &RemoveOptions {
+                    snapshots: delete_snapshots,
+                    shots: delete_shots,
+                },
+            )?;
+            let g = r.game;
+            out.emit(json!({ "removed": g.id, "snapshots": r.snapshots, "shots": r.shots }));
+            if delete_snapshots || delete_shots {
+                out.line(out.tf(
+                    "cli.out.rm_deleted",
+                    &[("snapshots", &r.snapshots), ("shots", &r.shots)],
+                ));
+            }
             let key = if g.enabled {
                 "cli.out.game_removed"
             } else {

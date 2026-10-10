@@ -231,6 +231,36 @@ impl App {
         Ok(g)
     }
 
+    /// 移出游戏库，并按选择删除备份的存档（全部快照）与截图（U-15）。先删快照：存档安全保护拒绝时什么都不改。
+    /// 磁盘上的游戏存档与截图原图都不受影响。
+    pub fn remove_game_with(
+        &mut self,
+        lock: &RepoLock,
+        key: &str,
+        opts: &RemoveOptions,
+    ) -> Result<RemoveReport> {
+        let g = self.find_game(key)?;
+        let snapshots = if opts.snapshots {
+            self.delete_game_history(lock, &g)?
+        } else {
+            0
+        };
+        let shots = if opts.shots {
+            self.delete_all_shots(lock, &g)?
+        } else {
+            0
+        };
+        let game = self.remove_game(lock, &g.id)?;
+        if snapshots + shots > 0 {
+            tracing::info!(game = %game.id, snapshots, shots, "移出游戏库并删除了备份");
+        }
+        Ok(RemoveReport {
+            game,
+            snapshots,
+            shots,
+        })
+    }
+
     /// 恢复被忽略的游戏。
     pub fn enable_game(&mut self, _lock: &RepoLock, key: &str) -> Result<GameRecord> {
         let mut g = self.find_game(key)?;
@@ -391,4 +421,24 @@ fn absolute(p: &Path) -> Result<PathBuf> {
     }
     let abs = std::path::absolute(p).map_err(|e| AppError::io(p, e))?;
     Ok(abs)
+}
+
+/// 移出游戏库时一并删除的备份（默认都不删）。
+#[derive(Debug, Clone, Copy, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoveOptions {
+    /// 删除备份的存档：全部快照、分支与标签。
+    pub snapshots: bool,
+    /// 删除备份的截图：相册与回收站。
+    pub shots: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoveReport {
+    pub game: GameRecord,
+    /// 删除的快照数。
+    pub snapshots: usize,
+    /// 删除的截图数。
+    pub shots: usize,
 }

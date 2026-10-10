@@ -740,3 +740,9 @@ button.link:hover { text-decoration: underline; }
 .include-mode button { display: inline-flex; align-items: center; gap: 5px; }
 /* 加入游戏库后立即备份的开关 */
 .first-backup { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+/* 移出游戏库确认 */
+.remove-names { margin: 0 0 8px; font-weight: 600; }
+.remove-facts { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.remove-options { display: grid; gap: 8px; }
+.remove-options .purge-originals { margin-top: 0; }
+.purge-originals.disabled { cursor: default; opacity: 0.75; }

@@ -13,6 +13,7 @@ import { CollectionExportDialog, CollectionImportDialog } from "./CollectionDial
 import ProtectSwitch from "../components/ProtectSwitch";
 import AutoSwitch from "../components/AutoSwitch";
 import ModeMenu, { MODES } from "../components/ModeMenu";
+import RemoveDialog from "../components/RemoveDialog";
 
 const STATES: StateFilter[] = ["all", "has-changes", "never-backed-up", "up-to-date"];
 
@@ -32,6 +33,7 @@ export default function Library() {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [exportIds, setExportIds] = useState<string[] | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
 
   useEffect(() => {
     api.profiles().then(setProfiles).catch(() => setProfiles([]));
@@ -236,6 +238,9 @@ export default function Library() {
               </button>
             </form>
           )}
+          <button className="btn ghost small" onClick={() => setRemoveOpen(true)} disabled={selected.length === 0}>
+            {t("ui.remove.button", { n: selected.length })}
+          </button>
           <div className="grow" style={{ flex: 1 }} />
           <ModeMenu ids={selected.map((r) => r.id)} variant="button" label={t("ui.mode.batch", { n: selected.length })} />
           <AutoSwitch />
@@ -249,6 +254,7 @@ export default function Library() {
 
       {backupOpen && <BackupDialog rows={selected} onClose={() => setBackupOpen(false)} />}
       {addOpen && <AddGameDialog onClose={() => setAddOpen(false)} />}
+      {removeOpen && <RemoveDialog rows={selected} onClose={() => setRemoveOpen(false)} onDone={() => s.clearSelection()} />}
       {exportIds && <CollectionExportDialog rows={allRows} initial={exportIds} onClose={() => setExportIds(null)} />}
       {importOpen && <CollectionImportDialog onClose={() => setImportOpen(false)} onDone={() => void s.loadLibrary(false)} />}
     </>

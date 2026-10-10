@@ -11,7 +11,7 @@
 |---|---|
 | `bonfire game add <名称> --path <目录或文件>... [--config-path <路径>]... [--install-dir <目录>]` | 手动添加游戏；`--install-dir` 用于恢复前检测游戏是否在运行 |
 | `bonfire game list [--all]` | 列出游戏；`--all` 包括已忽略的 |
-| `bonfire game rm <game>` | 移出游戏库（需确认）：手动添加的删除配置，扫描发现的改为忽略；历史快照都保留 |
+| `bonfire game rm <game> [--delete-snapshots] [--delete-shots]` | 移出游戏库（需确认）：手动添加的删除配置，扫描发现的改为忽略（重新扫描不会自动加回，可在发现页的“已忽略”中重新加入）；默认快照与截图都保留，`--delete-snapshots` 同时删除全部快照、分支与标签（存档安全保护开启时不能删除本机备份的快照），`--delete-shots` 同时删除备份的截图。磁盘上的游戏存档与截图原图都不会被删除 |
 | `bonfire game include <game>...` / `--all-new` `[--mode both\|saves\|shots]` | 把扫描发现的游戏加入游戏库；`--all-new` 加入全部新发现的游戏；`--mode` 加入后的管理方式（默认存档和截图） |
 | `bonfire game ignore <game>...` | 忽略扫描发现的游戏，之后扫描不再作为新发现提示（已在库中的会移出） |
 | `bonfire game confirm <game>` | 确认启发式找到的存档位置（写入自定义规则 `custom-rules.yaml`） |

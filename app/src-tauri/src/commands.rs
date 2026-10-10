@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use bonfire_app::app::{RemoveOptions, RemoveReport};
 use bonfire_app::auto::{AutoKind, AutoReport};
 use bonfire_app::backup::{BackupOptions, BackupResult, DetachedChoice};
 use bonfire_app::core::index::LocationKind;
@@ -721,11 +722,16 @@ pub async fn add_game(
     .await
 }
 
+/// 移出游戏库；`options` 选择是否同时删除备份的存档（快照）与截图（默认都不删）。
 #[tauri::command]
-pub async fn remove_game(h: AppHandle, game_id: String) -> CmdResult<GameRecord> {
+pub async fn remove_game(
+    h: AppHandle,
+    game_id: String,
+    options: Option<RemoveOptions>,
+) -> CmdResult<RemoveReport> {
     with_app(h, move |app, _| {
         let lock = app.repo.lock()?;
-        Ok(app.remove_game(&lock, &game_id)?)
+        Ok(app.remove_game_with(&lock, &game_id, &options.unwrap_or_default())?)
     })
     .await
 }

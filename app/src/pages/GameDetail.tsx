@@ -16,6 +16,7 @@ import RestoreDialog from "./RestoreDialog";
 import ShotsPanel, { ShotThumb } from "./ShotsPanel";
 import { fileName, shotCounts, shotSnapshots } from "../lib/shots";
 import ModeMenu from "../components/ModeMenu";
+import RemoveDialog from "../components/RemoveDialog";
 
 type Compare = "disk" | "parent";
 type Tab = "changes" | "files";
@@ -315,6 +316,7 @@ function Hero({
   const playtime = meta?.playtimeMin ?? row.playtimeMin;
 
   const openLocation = (ord: number) => api.openLocation(gameId, ord).catch(onFail);
+  const [removeOpen, setRemoveOpen] = useState(false);
 
   return (
     <header className="hero" style={hero ? { ["--hero" as string]: `url("${hero}")` } : undefined}>
@@ -424,21 +426,12 @@ function Hero({
               {
                 label: t("ui.history.remove"),
                 danger: true,
-                onClick: async () => {
-                  if (!(await ask(t("ui.history.removeConfirm", { name }), { kind: "warning" }))) return;
-                  try {
-                    await api.removeGame(gameId);
-                    store.toast("success", t("ui.history.removed", { name }));
-                    await store.loadLibrary(false);
-                    store.go({ name: "library" });
-                  } catch (e) {
-                    onFail(e);
-                  }
-                },
+                onClick: () => setRemoveOpen(true),
               },
             ]}
           />
         </div>
+        {removeOpen && <RemoveDialog rows={[row]} onClose={() => setRemoveOpen(false)} onDone={() => store.go({ name: "library" })} />}
         {row.shotsOnly && <p className="hero-note">{t("ui.history.shotsOnlyNote")}</p>}
         {!row.installed && !row.shotsOnly && <p className="hero-note">{t("ui.history.notInstalledNote")}</p>}
         {unconfirmed > 0 && <p className="hero-note">{t("ui.history.unconfirmedNote", { n: unconfirmed })}</p>}

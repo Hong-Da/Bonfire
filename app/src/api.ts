@@ -99,7 +99,8 @@ export const api = {
 
   addGame: (name: string, savePaths: string[], configPaths: string[], installDir: string | null) =>
     invoke<GameRecord>("add_game", { name, savePaths, configPaths, installDir }),
-  removeGame: (gameId: string) => invoke<GameRecord>("remove_game", { gameId }),
+  removeGame: (gameId: string, options?: { snapshots: boolean; shots: boolean }) =>
+    invoke<{ game: GameRecord; snapshots: number; shots: number }>("remove_game", { gameId, options: options ?? null }),
   confirmLocations: (gameId: string) => invoke<number>("confirm_locations", { gameId }),
   ignoredGames: () => invoke<GameRecord[]>("ignored_games"),
   enableGame: (gameId: string) => invoke<GameRecord>("enable_game", { gameId }),

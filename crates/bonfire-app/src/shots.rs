@@ -622,6 +622,32 @@ impl App {
         }
     }
 
+    /// 删除游戏的全部截图备份（相册、回收站与删除记录，U-15）：删除仓库中的截图文件夹与相册文件、缩略图缓存。
+    /// 不留删除记录，之后重新加入游戏时磁盘上的原图会重新收集。磁盘上的原图不受影响。返回删除的截图数。
+    pub fn delete_all_shots(&mut self, _lock: &RepoLock, game: &GameRecord) -> Result<usize> {
+        let n = self
+            .index
+            .shots_of(&game.id)?
+            .iter()
+            .filter(|s| !s.purged)
+            .count();
+        for dir in [self.shot_dir(&game.id), self.shot_cache_dir(&game.id)] {
+            match std::fs::remove_dir_all(&dir) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(AppError::io(&dir, e)),
+            }
+        }
+        self.index.replace_shots(&game.id, &[])?;
+        let album = self.album_path(&game.id);
+        match std::fs::remove_file(&album) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(AppError::io(&album, e)),
+        }
+        Ok(n)
+    }
+
     /// 按前缀（≥ 6 位）找到相册（含回收站）中的截图。
     pub fn resolve_shots(&self, game: &GameRecord, specs: &[String]) -> Result<Vec<ObjectId>> {
         let shots: Vec<ShotRecord> = self

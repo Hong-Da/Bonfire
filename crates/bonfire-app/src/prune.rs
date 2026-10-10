@@ -100,6 +100,38 @@ impl App {
         Ok(report)
     }
 
+    /// 删除游戏的全部快照、分支与标签（移出游戏库时用户选择“同时删除备份的存档”，U-15）。
+    /// 存档安全保护开启且其中有本机备份的快照时拒绝，什么都不删。只改仓库，不碰存档目录。
+    pub fn delete_game_history(&mut self, lock: &RepoLock, game: &GameRecord) -> Result<usize> {
+        let ids: Vec<ObjectId> = self
+            .index
+            .snapshots_of(&game.id)?
+            .into_iter()
+            .map(|r| r.id)
+            .collect();
+        if let Some(local) = self.local_among(&ids)? {
+            return Err(protected(&format!(
+                "「{}」中有本机备份的快照（如 {}）",
+                game.name,
+                local.short(12)
+            )));
+        }
+        let before = self.head_tree(&game.id)?;
+        for (r, _) in self.repo.list_refs(&game.id)? {
+            self.repo.delete_ref(lock, &game.id, &r)?;
+        }
+        self.repo.set_head(
+            lock,
+            &game.id,
+            &Head {
+                branch: "main".into(),
+                detached: None,
+            },
+        )?;
+        self.drop_snapshots(lock, game, &ids, before)?;
+        Ok(ids.len())
+    }
+
     /// 删除标签（只删指针，快照保留）。
     pub fn delete_tag(&mut self, lock: &RepoLock, game: &GameRecord, name: &str) -> Result<()> {
         let r = RefName::tag(name);
@@ -436,6 +468,72 @@ mod tests {
     use super::*;
     use crate::testutil::Env;
     use crate::{BackupOptions, BackupResult};
+
+    #[test]
+    fn remove_game_can_delete_backups_but_never_disk_files() {
+        let mut env = Env::new();
+        env.write("a.sav", b"1");
+        let g = env.add_game("G");
+        backup(&mut env, &g, "one");
+        env.write("a.sav", b"2");
+        backup(&mut env, &g, "two");
+        {
+            let lock = env.app.repo.lock().unwrap();
+            env.app
+                .create_ref(&lock, &g, RefKind::Tag, "t", None)
+                .unwrap();
+        }
+        // 一张截图：放在为游戏添加的截图文件夹中（伪造目录）。
+        let shots = env.dir.path().join("shots");
+        std::fs::create_dir_all(&shots).unwrap();
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::RgbImage::from_pixel(8, 8, image::Rgb([1, 2, 3]))
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+        std::fs::write(shots.join("s.png"), png.into_inner()).unwrap();
+        env.app.add_shot_dir(&g, &shots).unwrap();
+        let lock = env.app.repo.lock().unwrap();
+        env.app.sync_shots(&lock, &g).unwrap();
+        let shot_dir = env.app.shot_dir(&g.id);
+        assert!(shot_dir.is_dir());
+
+        // 保护开启：拒绝，什么都不改。
+        env.app.config.backup.protect_local = true;
+        let both = crate::app::RemoveOptions {
+            snapshots: true,
+            shots: true,
+        };
+        assert!(env.app.remove_game_with(&lock, &g.id, &both).is_err());
+        assert_eq!(env.app.index.snapshots_of(&g.id).unwrap().len(), 2);
+        assert!(env.app.find_game(&g.id).is_ok());
+        assert!(shot_dir.is_dir());
+
+        // 保护关闭：删除全部快照、分支、标签与截图备份；磁盘上的存档与截图原图不动。
+        env.app.config.backup.protect_local = false;
+        let r = env.app.remove_game_with(&lock, &g.id, &both).unwrap();
+        assert_eq!((r.snapshots, r.shots), (2, 1));
+        assert!(env.app.index.snapshots_of(&g.id).unwrap().is_empty());
+        assert!(env.app.repo.list_refs(&g.id).unwrap().is_empty());
+        assert!(env.app.index.shots_of(&g.id).unwrap().is_empty());
+        assert!(!shot_dir.exists());
+        assert_eq!(env.read("a.sav").unwrap(), b"2");
+        assert!(shots.join("s.png").is_file());
+    }
+
+    #[test]
+    fn remove_game_keeps_backups_by_default() {
+        let mut env = Env::new();
+        env.write("a.sav", b"1");
+        let g = env.add_game("G");
+        backup(&mut env, &g, "one");
+        let lock = env.app.repo.lock().unwrap();
+        let r = env
+            .app
+            .remove_game_with(&lock, &g.id, &crate::app::RemoveOptions::default())
+            .unwrap();
+        assert_eq!((r.snapshots, r.shots), (0, 0));
+        assert_eq!(env.app.index.snapshots_of(&g.id).unwrap().len(), 1);
+    }
 
     fn backup(env: &mut Env, g: &GameRecord, comment: &str) -> ObjectId {
         let lock = env.app.repo.lock().unwrap();

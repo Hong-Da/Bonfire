@@ -341,6 +341,10 @@ pub enum GameCmd {
     },
     Rm {
         game: String,
+        #[arg(long)]
+        delete_snapshots: bool,
+        #[arg(long)]
+        delete_shots: bool,
     },
     Include {
         games: Vec<String>,

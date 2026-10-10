@@ -124,6 +124,41 @@ describe("游戏库：管理方式", () => {
   });
 });
 
+describe("移出游戏库", () => {
+  const rows = () => [row({ id: "a", name: "Alpha", nameZh: null, snapshots: 3, shots: 2 }), row({ id: "b", name: "Beta", nameZh: null, snapshots: 1, shots: 0 })];
+
+  it("默认不删除备份；保护开启时不能勾选删除存档", async () => {
+    seed(rows());
+    api.removeGame.mockResolvedValue({ game: { id: "a" }, snapshots: 0, shots: 0 });
+    render(<Library />);
+    fireEvent.click(screen.getByRole("button", { name: "移出游戏库（2）" }));
+    const dlg = screen.getByRole("dialog", { name: "移出 2 个游戏" });
+    expect(within(dlg).getByText(/磁盘上的游戏存档和截图原图不会被删除/)).toBeInTheDocument();
+    const snaps = within(dlg).getByRole("checkbox", { name: /同时删除备份的存档（共 4 个快照）/ });
+    expect(snaps).not.toBeChecked();
+    expect(snaps).toBeDisabled();
+    expect(within(dlg).getByRole("checkbox", { name: /同时删除备份的截图（共 2 张/ })).not.toBeChecked();
+    fireEvent.click(within(dlg).getByRole("button", { name: "移出游戏库" }));
+    await waitFor(() => expect(api.removeGame).toHaveBeenCalledTimes(2));
+    expect(api.removeGame).toHaveBeenCalledWith("a", { snapshots: false, shots: false });
+    await waitFor(() => expect(useStore.getState().toasts.map((t) => t.text)).toContain("已移出 2 个游戏"));
+  });
+
+  it("保护关闭时可以同时删除备份的存档与截图", async () => {
+    seed(rows());
+    useStore.setState({ info: { ...info, protectLocal: false } });
+    api.removeGame.mockResolvedValue({ game: { id: "a" }, snapshots: 3, shots: 2 });
+    render(<Library />);
+    fireEvent.click(screen.getByRole("button", { name: "移出游戏库（2）" }));
+    const dlg = screen.getByRole("dialog", { name: "移出 2 个游戏" });
+    fireEvent.click(within(dlg).getByRole("checkbox", { name: /同时删除备份的存档/ }));
+    fireEvent.click(within(dlg).getByRole("checkbox", { name: /同时删除备份的截图/ }));
+    expect(within(dlg).getAllByText("删除后不能恢复。")).toHaveLength(2);
+    fireEvent.click(within(dlg).getByRole("button", { name: "移出并删除备份" }));
+    await waitFor(() => expect(api.removeGame).toHaveBeenCalledWith("b", { snapshots: true, shots: true }));
+  });
+});
+
 describe("图库", () => {
   const view = (): GalleryView => ({
     games: [
