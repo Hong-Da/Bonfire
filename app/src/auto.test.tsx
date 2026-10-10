@@ -90,15 +90,16 @@ describe("分支图", () => {
 
 describe("只管理截图", () => {
   it("详情页默认打开截图页，存档页显示未管理，可恢复管理存档", async () => {
-    seed([row({ state: "shots-only", shotsOnly: true, shots: 3 })]);
+    seed([row({ state: "shots-only", shotsOnly: true, mode: "shots", shots: 3 })]);
     api.history.mockResolvedValue({ ...history(), nodes: [], head: null, refs: [] });
     render(<GameDetail id="steam-367520" />);
     expect(await screen.findByRole("tab", { name: /截图/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: /存档/ })).toHaveTextContent("未管理存档");
     expect(screen.getByText(/这个游戏只管理截图，不备份存档/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /更多/ }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /恢复管理存档/ }));
-    await waitFor(() => expect(api.setShotsOnly).toHaveBeenCalledWith("steam-367520", false));
+    // 页头的“管理方式”按钮：改为存档和截图。
+    fireEvent.click(screen.getByRole("button", { name: /只管理截图/ }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /存档和截图/ }));
+    await waitFor(() => expect(api.setManageMode).toHaveBeenCalledWith(["steam-367520"], "both"));
   });
 
   it("发现页列出有截图、不在游戏库中的游戏，可加入为只管理截图", async () => {

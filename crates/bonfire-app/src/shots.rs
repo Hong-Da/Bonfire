@@ -101,6 +101,42 @@ pub struct ShotCandidate {
     pub dir: PathBuf,
 }
 
+/// 游戏的管理方式（U-10）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ManageMode {
+    /// 存档和截图。
+    Both,
+    /// 只管理存档（不收集截图）。
+    Saves,
+    /// 只管理截图（不备份、不检查存档）。
+    Shots,
+}
+
+impl ManageMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ManageMode::Both => "both",
+            ManageMode::Saves => "saves",
+            ManageMode::Shots => "shots",
+        }
+    }
+}
+
+impl std::str::FromStr for ManageMode {
+    type Err = AppError;
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "both" => Ok(ManageMode::Both),
+            "saves" => Ok(ManageMode::Saves),
+            "shots" => Ok(ManageMode::Shots),
+            _ => Err(AppError::Invalid(format!(
+                "管理方式应为 both / saves / shots：{s}"
+            ))),
+        }
+    }
+}
+
 impl App {
     /// 游戏是否收集截图：游戏单独设置优先，否则跟随全局设置。
     pub fn shots_enabled(&self, game: &GameRecord) -> Result<bool> {
@@ -120,9 +156,37 @@ impl App {
     pub fn set_shots_only(&mut self, game: &GameRecord, on: bool) -> Result<()> {
         let mut s = self.index.shot_settings(&game.id)?;
         s.shots_only = on;
-        if on && s.enabled == Some(false) {
-            s.enabled = None;
+        if on {
+            s.enabled = self.enabled_on();
         }
+        self.index.save_shot_settings(&game.id, &s)?;
+        self.save_games_file()
+    }
+
+    /// 截图收集开启时的游戏设置：全局开启时跟随全局，否则为这个游戏单独开启。
+    fn enabled_on(&self) -> Option<bool> {
+        (!self.config.shots.enabled).then_some(true)
+    }
+
+    /// 游戏的管理方式：存档和截图 / 只管理存档 / 只管理截图。
+    pub fn manage_mode(&self, game: &GameRecord) -> Result<ManageMode> {
+        Ok(if self.is_shots_only(&game.id)? {
+            ManageMode::Shots
+        } else if self.shots_enabled(game)? {
+            ManageMode::Both
+        } else {
+            ManageMode::Saves
+        })
+    }
+
+    /// 切换管理方式。已有的快照与截图都保留，可以随时改回来。
+    pub fn set_manage_mode(&mut self, game: &GameRecord, mode: ManageMode) -> Result<()> {
+        let mut s = self.index.shot_settings(&game.id)?;
+        s.shots_only = mode == ManageMode::Shots;
+        s.enabled = match mode {
+            ManageMode::Saves => Some(false),
+            ManageMode::Both | ManageMode::Shots => self.enabled_on(),
+        };
         self.index.save_shot_settings(&game.id, &s)?;
         self.save_games_file()
     }
@@ -195,7 +259,7 @@ impl App {
 
     /// 还没有收集的截图（按原路径与大小判断，不读文件内容）。
     /// 回收站中与彻底删除的截图也算已收集，不会再次收集。
-    fn uncollected(&self, game: &GameRecord) -> Result<Vec<ShotFile>> {
+    pub(crate) fn uncollected(&self, game: &GameRecord) -> Result<Vec<ShotFile>> {
         let known: HashSet<(String, u64)> = self
             .index
             .shots_of(&game.id)?
@@ -228,6 +292,16 @@ impl App {
             return Ok(report);
         }
         let files = self.uncollected(game)?;
+        self.collect_files(game, files, report)
+    }
+
+    /// 把磁盘上的截图原样收集到备份中（内容与已收集的相同时跳过）。
+    pub(crate) fn collect_files(
+        &mut self,
+        game: &GameRecord,
+        files: Vec<ShotFile>,
+        mut report: ShotSyncReport,
+    ) -> Result<ShotSyncReport> {
         if files.is_empty() {
             return Ok(report);
         }
@@ -937,9 +1011,7 @@ impl App {
         self.index.upsert_game(&record)?;
         let mut s = self.index.shot_settings(&record.id)?;
         s.shots_only = true;
-        if s.enabled == Some(false) {
-            s.enabled = None;
-        }
+        s.enabled = self.enabled_on();
         for d in checked {
             let key = crate::transfer::path_key(Path::new(&d));
             if !s

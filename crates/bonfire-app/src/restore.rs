@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use bonfire_core::fault;
 use bonfire_core::index::{GameRecord, IndexEntry};
-use bonfire_core::refs::{Head, RefName};
+use bonfire_core::refs::{Head, RefKind, RefName};
 use bonfire_core::scan::{self, hash_file};
 use bonfire_core::{ObjectId, RepoLock, Tree, TreeEntry, Trigger};
 use globset::{Glob, GlobSet, GlobSetBuilder};
@@ -258,18 +258,32 @@ impl App {
 
         if !plan.partial {
             // 完全按目标快照恢复：HEAD 与变更检测缓存都对应目标快照。
-            let tip = self
+            // 目标是某个分支的最新快照时接回这个分支（当前分支优先），之后的备份继续记在这个分支上；
+            // 否则为“已从旧快照恢复”，下次备份时按选择新建或移动分支。
+            let tips: Vec<String> = self
                 .repo
-                .read_ref(&game.id, &RefName::branch(&previous_head.branch))?;
-            let detached = (tip != Some(target)).then_some(target);
-            self.repo.set_head(
-                lock,
-                &game.id,
-                &Head {
+                .list_refs(&game.id)?
+                .into_iter()
+                .filter(|(r, id)| r.kind == RefKind::Branch && *id == target)
+                .map(|(r, _)| r.name)
+                .collect();
+            let head = if tips.contains(&previous_head.branch) {
+                Head {
                     branch: previous_head.branch.clone(),
-                    detached,
-                },
-            )?;
+                    detached: None,
+                }
+            } else if let [only] = tips.as_slice() {
+                Head {
+                    branch: only.clone(),
+                    detached: None,
+                }
+            } else {
+                Head {
+                    branch: previous_head.branch.clone(),
+                    detached: Some(target),
+                }
+            };
+            self.repo.set_head(lock, &game.id, &head)?;
             self.reindex_from_disk(
                 game,
                 &self.repo.get_tree(&self.repo.get_snapshot(&target)?.tree)?,
@@ -522,6 +536,31 @@ mod tests {
         env.write("c.sav", b"c2");
         let s2 = backup(env, &g);
         (g, s1, s2)
+    }
+
+    #[test]
+    fn restoring_a_branch_tip_switches_to_that_branch() {
+        let mut env = Env::new();
+        let (g, s1, s2) = two_versions(&mut env);
+        {
+            let lock = env.app.repo.lock().unwrap();
+            env.app
+                .create_ref(&lock, &g, RefKind::Branch, "side", Some(&s1.to_string()))
+                .unwrap();
+        }
+        restore(&mut env, &g, "side", &RestoreOptions::default()).unwrap();
+        let head = env.app.repo.head(&g.id).unwrap();
+        assert_eq!((head.branch.as_str(), head.detached), ("side", None));
+        // 之后的备份继续记在 side 上，不另建分支。
+        env.write("a.sav", b"a3");
+        let s3 = backup(&mut env, &g);
+        assert_eq!(env.app.repo.resolve(&g.id, "side").unwrap(), s3);
+        assert_eq!(env.app.repo.get_snapshot(&s3).unwrap().parents, vec![s1]);
+        // 回到 main 的最新快照：接回 main。
+        restore(&mut env, &g, "main", &RestoreOptions::default()).unwrap();
+        let head = env.app.repo.head(&g.id).unwrap();
+        assert_eq!((head.branch.as_str(), head.detached), ("main", None));
+        assert_eq!(env.app.repo.resolve(&g.id, "HEAD").unwrap(), s2);
     }
 
     #[test]

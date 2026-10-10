@@ -44,6 +44,8 @@ pub struct GameRow {
     pub shots: u64,
     /// 只管理截图（不备份存档）。
     pub shots_only: bool,
+    /// 管理方式：存档和截图 / 只管理存档 / 只管理截图。
+    pub mode: crate::shots::ManageMode,
     /// 磁盘上还没有收集的新截图数。
     pub new_shots: u64,
 }
@@ -149,6 +151,7 @@ impl App {
             unresolved,
             shots: self.shot_count(&game.id)?,
             shots_only: st.state == GameState::ShotsOnly,
+            mode: self.manage_mode(game)?,
             // 截图来源读取失败不影响游戏库。
             new_shots: self.pending_shots(game).unwrap_or(0) as u64,
         })

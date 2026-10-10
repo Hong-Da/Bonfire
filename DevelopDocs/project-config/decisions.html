@@ -24,349 +24,73 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 59 项，更新于 2026-10-09 22:49。需要改动的项请在对话中告诉 Claude（附编号）。</p>
-<nav><a href="#s-0">全局</a><a href="#s-1">M1 核心库</a><a href="#s-2">M2 存档发现</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">用户修改</a><a href="#s-5">缺陷修复</a><a href="#s-6">开发</a></nav>
-<section id="s-0"><h2>全局<small>1 项</small></h2>
-      <article id="G-1">
-        <header><code>G-1</code><h3>后续开发中的待确认事项如何处理？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">每项停下来询问</li><li class="chosen">按默认推荐方案自动决定并记录到本页，供事后复核 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户 2026-10-09 指示：按默认推荐选项进行、不必告知，但每一步确认的项目都要打开网页方便回来检查，完成所有项目开发。</p>
-        <footer>2026-10-09</footer>
-      </article></section><section id="s-1"><h2>M1 核心库<small>1 项</small></h2>
-      <article id="M1-ACC">
-        <header><code>M1-ACC</code><h3>M1 用户验收</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">等待用户手工验收后再进入 M2</li><li class="chosen">自动化验收全部通过即视为通过，进入 M2，用户事后复核 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>崩溃一致性（9 个写入点 + 恢复中途 + 24 处压力测试）、fsck、57 条 CLI 用例全部通过；见 docs/project-spec.md「开发记录」M1-7。</p><p class="impact"><span>影响</span>如复核发现问题，修复会在后续版本中进行并记入更新记录。</p>
-        <footer>2026-10-09</footer>
-      </article></section><section id="s-2"><h2>M2 存档发现<small>15 项</small></h2>
-      <article id="M2-D1">
-        <header><code>M2-D1</code><h3>Ludusavi 规则库（17.6 MB YAML）如何内置与更新？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">原样内置 YAML</li><li class="chosen">构建时转换为精简的 zstd 压缩 JSON 内置（只保留 Windows 相关字段），运行时按 ETag 增量更新到缓存目录 <b>✓ 采用</b></li><li class="">不内置，只在首次启动时下载</li></ul>
-        <p class="reason"><span>理由</span>Q3 已确认“内置快照 + 联网增量更新”；精简后体积预计 1–2 MB，启动解析快。规则库快照不提交到 git，由 scripts 在构建前下载生成，测试使用小型示例规则。</p><p class="impact"><span>影响</span>离线首次启动也能识别游戏；规则更新失败时继续使用内置快照。</p>
-        <footer>2026-10-09</footer>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 70 项，更新于 2026-10-10 10:12。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
+<section id="s-0"><h2>开发<small>22 项</small></h2>
+      <article id="U-10k">
+        <header><code>U-10k</code><h3>复杂分支图示例与无人值守的界面检查</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">在隔离环境用伪造存档造 3 条分支、4 个标签的示例并截图；启动页面可由地址指定（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求复杂分支图示例；用户使用电脑时不能移动鼠标。</p><p class="impact"><span>影响</span>示例截图在 docs/acceptance/u10/branch-demo.png。</p>
+        <footer>2026-10-10</footer>
       </article>
-      <article id="M2-D2">
-        <header><code>M2-D2</code><h3>Steam 存档路径中的 &lt;storeUserId&gt; 如何确定？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">只用最近登录的账号</li><li class="chosen">展开为 userdata 下所有本机登录过的账号（steamId3），分别作为存档位置 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>文档 4.1 listUsers 返回本机登录过的账号；多账号家庭机器上不会漏备份。</p>
-        <footer>2026-10-09</footer>
+      <article id="U-10i">
+        <header><code>U-10i</code><h3>决策记录页排序</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">最新的阶段与决策排在最前（推荐） <b>✓ 采用</b></li><li class="">按时间正序</li></ul>
+        <p class="reason"><span>理由</span>用户反馈。</p><p class="impact"><span>影响</span>只影响本页面。</p>
+        <footer>2026-10-10</footer>
       </article>
-      <article id="M2-D3">
-        <header><code>M2-D3</code><h3>规则库命中的存档位置是否需要用户确认？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">全部需要确认</li><li class="chosen">规则库与用户规则直接启用；启发式探测结果标记“待确认”，确认后才备份 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>文档 4.2：启发式结果标记为待确认，由用户确认后转为自定义规则。</p>
-        <footer>2026-10-09</footer>
+      <article id="U-10h">
+        <header><code>U-10h</code><h3>界面细节</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">“存档 / 截图”改为紧凑标签；页头信息行统一字体并对齐；底部操作栏菜单向上展开；大图关闭按钮改为深色底（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>切换按钮太大；页头数字用另一种字体导致上下错位；底部菜单向下展开超出窗口；关闭按钮白底白字。</p><p class="impact"><span>影响</span>仅样式。</p>
+        <footer>2026-10-10</footer>
       </article>
-      <article id="M2-D4">
-        <header><code>M2-D4</code><h3>扫描发现的游戏如何入库？</h3><span class="status">已按用户要求修改（U-2）</span></header>
-        <ul><li class="">有存档的游戏自动入库（原决定）</li><li class="chosen">扫描只发现，不入库；由用户在“发现游戏”页选择加入或忽略 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户 2026-10-09 要求：不是所有游戏都需要存档管理，需要选择哪些游戏加入管理；扫描单独一个页面。已被 U-2 取代。</p>
-        <footer>2026-10-09</footer>
+      <article id="U-10g">
+        <header><code>U-10g</code><h3>一键加入所有只有截图的游戏</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">发现页“有截图、但不在游戏库中的游戏”增加“全部加入”（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈。</p><p class="impact"><span>影响</span>逐个加入，某个失败时提示并继续。</p>
+        <footer>2026-10-10</footer>
       </article>
-      <article id="M2-D5">
-        <header><code>M2-D5</code><h3>游戏封面等图片的缓存格式</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">保持原格式（JPG/PNG）</li><li class="chosen">统一转为 WebP（无损）并生成缩略图 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>文档 4.3 要求统一转为 WebP；纯 Rust 的 image 库只支持无损 WebP 编码，避免引入 C 依赖。</p>
-        <footer>2026-10-09</footer>
+      <article id="U-10f">
+        <header><code>U-10f</code><h3>定时备份与自动备份的快速设置按钮</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">游戏库底部与“保护”并列的“自动备份”按钮，菜单中一键选频率、开关变化后备份（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈，参照存档安全保护按钮。</p><p class="impact"><span>影响</span>具体时刻、间隔仍在设置页调整。</p>
+        <footer>2026-10-10</footer>
       </article>
-      <article id="M2-D6">
-        <header><code>M2-D6</code><h3>IGDB / SteamGridDB 在没有 API Key 时的处理</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">报错</li><li class="chosen">跳过这两个来源，只用 Steam 本地数据与 Steam Store API <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>文档 4.3 与 Q6：未填写 Key 时跳过；提供者接口按文档实现，测试使用模拟数据。</p>
-        <footer>2026-10-09</footer>
+      <article id="U-10e">
+        <header><code>U-10e</code><h3>第一次关闭窗口时询问</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">第一次关闭时询问“最小化到托盘（推荐）/ 退出”，默认记住选择；设置页可改为下次再问（推荐） <b>✓ 采用</b></li><li class="">不询问，直接最小化到托盘</li></ul>
+        <p class="reason"><span>理由</span>用户反馈。</p><p class="impact"><span>影响</span>新增配置 general.close_asked；界面无响应时 10 秒内再次关闭按默认处理，避免窗口关不掉。</p>
+        <footer>2026-10-10</footer>
       </article>
-      <article id="M2-D7">
-        <header><code>M2-D7</code><h3>用户自定义规则存放在哪里、用什么格式？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">写进数据库</li><li class="chosen">配置目录下的 custom-rules.yaml，格式与 Ludusavi 规则库相同，同名游戏覆盖内置规则 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>文档 4.2：用户自定义规则优先级最高、可覆盖任何内置规则；与 Ludusavi 格式一致便于复用社区写法和“提交规则”。启发式结果经用户确认后也写入此文件。</p>
-        <footer>2026-10-09</footer>
+      <article id="U-10d">
+        <header><code>U-10d</code><h3>提醒“回收站和彻底删除的截图不会再被收集”</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">删除提示、回收站说明与“与磁盘对比”中都说明，并可在对比中重新收集（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户可能以为删除后磁盘上的原图会被重新收集。</p><p class="impact"><span>影响</span>文案修改。</p>
+        <footer>2026-10-10</footer>
       </article>
-      <article id="M2-D8">
-        <header><code>M2-D8</code><h3>移除一个自动识别的游戏后，重新扫描会不会又加回来？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">会重新加入</li><li class="chosen">自动识别的游戏移除时改为“已忽略”（enabled=false），扫描不再加回；game list --all 可查看并恢复 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>避免用户反复移除同一个游戏；手动添加的游戏仍然直接删除。</p>
-        <footer>2026-10-09</footer>
+      <article id="U-10c">
+        <header><code>U-10c</code><h3>截图备份与磁盘截图文件夹的差异与双向同步</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">“与磁盘对比”：列出新截图、被忽略的、磁盘上已没有的；可重新收集，可写回原位置或指定文件夹，只写入不存在的文件、绝不覆盖（推荐） <b>✓ 采用</b></li><li class="">只支持导出到新文件夹</li></ul>
+        <p class="reason"><span>理由</span>备份中有、磁盘上已删除的截图需要能找回到原位置。</p><p class="impact"><span>影响</span>这是篝火唯一写入截图来源文件夹的操作，需用户确认；原文件夹不存在时跳过；写回 Steam 截图文件夹的图片不会自动出现在 Steam 截图管理器中。CLI 新增 shots diff / write-back / recollect。</p>
+        <footer>2026-10-10</footer>
       </article>
-      <article id="M2-D9">
-        <header><code>M2-D9</code><h3>注册表存档如何备份与恢复？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">暂不支持</li><li class="chosen">备份时用 reg export 导出为 .reg 文本当作普通文件入库；恢复时写回 .reg 后执行 reg import <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>文档 4.2 约定：注册表存档导出为 .reg 文本后当作普通文件入库。导出文件放在缓存目录，按游戏分开。</p>
-        <footer>2026-10-09</footer>
+      <article id="U-10b">
+        <header><code>U-10b</code><h3>图库页：查看所有游戏的截图</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">左侧导航新增“图库”：按游戏 / 月份 / 日期 / 来源分组，排序、筛选、搜索，含所有游戏的回收站（推荐） <b>✓ 采用</b></li><li class="">只在各游戏详情页查看</li></ul>
+        <p class="reason"><span>理由</span>需要集中查看、整理所有截图。</p><p class="impact"><span>影响</span>分组与排序方式记在本机；已移出游戏库的游戏的截图也显示并标注。</p>
+        <footer>2026-10-10</footer>
       </article>
-      <article id="M2-D10">
-        <header><code>M2-D10</code><h3>YAML 解析与网络请求使用哪些库？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">serde_yaml（已停止维护）+ reqwest（需要 tokio）</li><li class="chosen">serde-saphyr（纯 Rust、不 panic）+ ureq（同步、rustls） <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>serde_yaml 已停止维护；核心库是同步代码，ureq 不需要引入异步运行时，体积更小。</p>
-        <footer>2026-10-09</footer>
+      <article id="U-10a">
+        <header><code>U-10a</code><h3>游戏库按管理方式分类查看、方便地切换管理方式</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">三种管理方式：存档和截图 / 只管理存档 / 只管理截图；游戏库筛选 + 每行标签直接切换 + 底部批量切换 + 详情页页头切换（推荐） <b>✓ 采用</b></li><li class="">只在详情页“更多”中切换</li></ul>
+        <p class="reason"><span>理由</span>原来只有“只管理截图”开关，且藏在“更多”菜单里；只管理存档需要到截图页关闭截图收集。</p><p class="impact"><span>影响</span>切换不删除任何快照、截图或磁盘上的存档；CLI 新增 game mode。</p>
+        <footer>2026-10-10</footer>
       </article>
-      <article id="M2-D11">
-        <header><code>M2-D11</code><h3>规则库命中的存档位置按“匹配到的每个文件”还是“每条规则”登记？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">每个匹配到的文件/目录单独登记（初版做法）</li><li class="chosen">每条规则登记为一个通配位置，每次扫描与备份时重新匹配（Ludusavi 做法） <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>本机实测时发现：按文件登记会让 It Takes Two 出现 29 个位置，且游戏新建的存档栏位要等再次扫描平台才会被备份。按规则登记后新栏位自动纳入，位置列表也简洁。多个位置命中同一文件时只计一次。</p><p class="impact"><span>影响</span>清单路径为“位置序号/相对通配基准目录的路径”。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M2-D12">
-        <header><code>M2-D12</code><h3>测试如何与本机真实平台隔离？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">测试中跳过平台扫描</li><li class="chosen">环境变量 BONFIRE_FAKE_ROOT 把平台与系统目录指向伪造目录；BONFIRE_OFFLINE=1 禁止联网 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>CLI 测试会执行真实的 scan，否则会读取开发机上的 Steam，结果随机器变化；伪造目录还能端到端测试平台识别。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M2-D13">
-        <header><code>M2-D13</code><h3>游戏信息何时获取？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">每次扫描都联网刷新</li><li class="chosen">扫描时只为新游戏与过期（30 天）的游戏获取；游玩时长等本地字段每次扫描重读；info --refresh 强制刷新 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>文档 4.3：文字信息有效期 30 天，本地字段每次扫描重读；获取失败或离线不阻塞扫描。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M2-D14">
-        <header><code>M2-D14</code><h3>联网请求的限速策略</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">不限速</li><li class="chosen">按主机限速（Steam Store 每 1.5 秒 1 次，其他每 0.25 秒 1 次），遇到 429/5xx 退避重试 2 次 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>文档 4.3：请求走全局队列，按来源限速并退避重试；Steam Store API 约 200 次/5 分钟。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M2-D15">
-        <header><code>M2-D15</code><h3>用户手动修改的游戏信息如何保护？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">自动刷新时覆盖</li><li class="chosen">手动修改的字段加锁，自动刷新不覆盖；info --unlock 解除 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>文档 4.3 匹配策略第 4 条。</p>
-        <footer>2026-10-09</footer>
-      </article></section><section id="s-3"><h2>M3 GUI MVP<small>8 项</small></h2>
-      <article id="M3-D1">
-        <header><code>M3-D1</code><h3>界面的视觉方向</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">通用的 SaaS 卡片风格</li><li class="chosen">冷灰“烟与夜色”为底，余烬橙只标记需要处理的东西；游戏名与数字用 Windows 自带的 Bahnschrift；历史时间线画成“篝火路线”（每个快照一处火焰，分支为分岔小路，当前所在快照发光） <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>按 frontend-design 技能先定设计方案再实现：主色来自用户选定的 Logo（#E8590C），避免与米色底搭配的常见套路；字体全部为系统自带，离线可用、无需打包字体。明/暗/自动三态主题。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M3-D2">
-        <header><code>M3-D2</code><h3>游戏库的排版</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">封面卡片网格</li><li class="chosen">紧凑的列表行：勾选框、封面缩略图、名称、状态、最后备份、大小 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>核心操作是“看哪些有更新 → 勾选 → 备份”，列表便于扫读与批量勾选；默认勾选“有更新”和“未备份”（文档 8.1）。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M3-D3">
-        <header><code>M3-D3</code><h3>界面状态与路由</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">React Router + Zustand</li><li class="chosen">Zustand 保存状态，页面切换用状态中的 view（不引入路由库） <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>只有游戏库、游戏详情、设置三个页面加首次运行向导，桌面应用不需要 URL 路由；少一个依赖。与规范技术选型中写的 React Router 不同，已记入开发记录。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M3-D4">
-        <header><code>M3-D4</code><h3>长任务（扫描、备份）如何执行？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">在主线程同步执行</li><li class="chosen">后台线程执行，逐个游戏推送事件更新界面，游戏之间检查取消标志；仓库访问通过共享的 Mutex 串行 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>文档 9.1：长任务在后台执行，显示进度与可取消按钮；扫描按游戏逐个推送结果。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M3-D5">
-        <header><code>M3-D5</code><h3>首次运行何时创建仓库？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">启动时用默认位置创建</li><li class="chosen">完成向导、选定仓库位置后才创建 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>避免用户改选位置后，默认位置留下一个空仓库。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M3-D6">
-        <header><code>M3-D6</code><h3>安装包包含哪些内容？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">只有桌面应用</li><li class="chosen">桌面应用 + 命令行 bonfire.exe + 内置规则库快照（NSIS，按用户安装） <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>Q2 选定 NSIS；Q3 要求内置规则库快照；CLI 与 GUI 同版本一起分发。命令行未加入 PATH，可在安装目录中调用。安装包 10.16 MB。</p><p class="impact"><span>影响</span>build.bat 一键构建；附加内容只写在 tauri.bundle.json 中，不影响开发模式。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M3-D7">
-        <header><code>M3-D7</code><h3>“历史占用空间”是否在游戏库中显示？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">显示（需要统计每个游戏独占的对象大小，开销大）</li><li class="chosen">暂显示快照数量与当前存档大小，历史占用空间随 M4 清理功能一起实现 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>对象全局去重，单个游戏的“占用”需要遍历其全部快照的引用；M4 的保留策略与 GC 会实现同样的遍历，届时一并提供。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="M3-ACC">
-        <header><code>M3-ACC</code><h3>M3 验收方式</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">等待用户本机安装验收</li><li class="chosen">自动化测试 + 真实窗口截图检查后视为通过；安装、卸载、升级由用户事后复核 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>为避免改动用户系统，未在本机执行静默安装；界面在临时仓库中用真实扫描数据逐页截图检查（游戏库、详情时间线、设置、暗色主题、备份与恢复弹窗）。安装包：target/release/bundle/nsis/Bonfire_0.1.0_x64-setup.exe。</p>
-        <footer>2026-10-09</footer>
-      </article></section><section id="s-4"><h2>用户修改<small>18 项</small></h2>
-      <article id="U-1">
-        <header><code>U-1</code><h3>数据存放位置（配置、仓库、日志、缓存）</h3><span class="status">用户指定</span></header>
-        <ul><li class="">配置在 %APPDATA%/Bonfire，仓库、日志、缓存在 %LOCALAPPDATA%/Bonfire（原默认）</li><li class="chosen">全部放在项目（程序）目录下的 data：data/config.toml、data/repo、data/logs、data/cache、data/webview <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户 2026-10-09 要求默认仓库在项目目录下的 data，并选择配置、日志、缓存也一并放入（推荐项）。开发时为项目根目录下的 data（.gitignore 已排除），安装后为程序所在目录下的 data；仓库不能设为 data 本身（避免与应用配置文件同名冲突）。BONFIRE_HOME 仍可指定其他数据根目录。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-2">
-        <header><code>U-2</code><h3>扫描与游戏库的关系</h3><span class="status">用户指定</span></header>
-        <ul><li class="">扫描到有存档的游戏自动加入游戏库</li><li class="chosen">“发现游戏”页单独扫描，默认不勾选，由用户选择加入游戏库或忽略；游戏库只显示加入管理的游戏 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户 2026-10-09 要求：需要选择哪些游戏加入管理；扫描单独一个页面；首次运行在扫描页选择加入管理，后续打开都在存档管理页面（游戏库）。</p><p class="impact"><span>影响</span>首次运行向导完成后进入“发现游戏”页并自动扫描；之后启动进入游戏库，游戏库的“扫描”改为“检查更新”。扫描页显示每个游戏的存档位置、文件数与大小、来源（规则库/推测），未加入的游戏只用本地数据显示封面（不联网）；被忽略的游戏之后扫描显示为“已忽略”，可随时加入。CLI：scan 只列出发现结果，新增 game include / game ignore，game enable 由 include 取代。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-3">
-        <header><code>U-3</code><h3>导出与导入存档（F10 提前到当前阶段）</h3><span class="status">用户指定</span></header>
-        <ul><li class="">按原计划 M5 再做</li><li class="chosen">现在做：导出存档文件（当前或指定快照，zip/文件夹）、导出历史包（全部分支 / 指定分支 / 一段历史）、导入存档文件、导入历史包，并在界面上用分支图选择 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户 2026-10-09 要求：手动导出存档、导出指定版本、全部分支与指定段；手工导入存档用于分享；判断导入的是不是当前分支的后续更新；画出分支图便于选择。</p><p class="impact"><span>影响</span>CLI 新增 export / import / bundle export / bundle import；界面在详情页提供导出、导入对话框（带分支图）。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-3a">
-        <header><code>U-3a</code><h3>导入的历史与本地分支是什么关系？如何判断“后续更新”？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="">按时间先后判断</li><li class="chosen">按快照 ID（内容 + 父快照的哈希）判断：相同 / 后续更新（快进）/ 本地已包含 / 分叉（另建分支，不覆盖本地） <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>快照 ID 由内容与父快照决定，两台电脑上同一段历史的 ID 完全一致，比时间可靠；分叉时保留双方，避免误覆盖。</p><p class="impact"><span>影响</span>导入只写入仓库，不移动当前所在快照，不写入存档目录；要使用导入的存档，在历史中正常恢复（恢复前自动建保护快照）。只导出一段历史时，导入方需要已有更早的快照，否则提示先导入更早的部分。自定义游戏在不同电脑上 ID 不同，导入时指定本地游戏，并记录为别名（重建索引后仍归到本地游戏）。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-3b">
-        <header><code>U-3b</code><h3>导入“存档文件”（没有历史）放在哪里？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="chosen">默认新建分支、独立起点（可选从某个快照分出，或接在某个分支之后） <b>✓ 采用</b></li><li class="">总是接在当前分支之后</li></ul>
-        <p class="reason"><span>理由</span>别人分享的存档不是本地历史的延续，默认不应改动你的分支；需要时可在分支图上选择接在哪里。内容与已有快照完全相同时不重复生成。</p><p class="impact"><span>影响</span>新快照的触发方式为“导入”；按 bonfire-export.json 或文件夹名把文件对应到存档位置，对应不上时列出并拒绝导入。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-3c">
-        <header><code>U-3c</code><h3>导出存档文件的格式与安全</h3><span class="status">按默认推荐自动决定，待复核</span></header>
-        <ul><li class="chosen">zip 或文件夹，每个存档位置一个子文件夹，附 bonfire-export.json；拒绝导出到任何游戏的存档位置或仓库中 <b>✓ 采用</b></li><li class="">只支持 zip</li></ul>
-        <p class="reason"><span>理由</span>对外分享时文件结构清楚、可直接使用；导出绝不写入存档目录。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-4">
-        <header><code>U-4</code><h3>检查更新时页面闪烁</h3><span class="status">用户指定</span></header>
-        <ul><li class="">保持现状</li><li class="chosen">检查在 0.4 秒内完成时不切换按钮文字、不显示取消按钮与进度条 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户 2026-10-09 反馈点击“检查更新”页面会闪一下。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-5">
-        <header><code>U-5</code><h3>游戏截图备份方案（见 screenshot-design.html）</h3><span class="status">用户确认</span></header>
-        <ul><li class="">按方案 S1–S6 推荐项</li><li class="chosen">按推荐项，并补充：S3 可设置定时备份（每天、每周等）；S1 增加 Windows Xbox 截图 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户 2026-10-09 确认方案并补充两点。</p><p class="impact"><span>影响</span>来源：Steam、Xbox（游戏栏 / Xbox 应用，读取系统“捕获”文件夹的实际位置）、手动文件夹；随每次备份收集，另可按天 / 周等定时收集；截图不进存档快照，单独成相册，与时间线按拍摄时间关联；原图入库；详情页“截图”标签页；可单独导出，历史包可选包含。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-6">
-        <header><code>U-6</code><h3>游戏库、发现游戏、设置、向导、导入对话框的界面优化（与详情页风格统一）</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">保持原样</li><li class="chosen">游戏库与发现页改为卡片行并加列标题（含全选框）；有更新的游戏左侧亮余烬色，勾选的整行描边；设置分组为卡片；向导卡片固定在上方、选项用品牌色；导入来源改为带说明的大按钮；发现页“没有新游戏”时给出去游戏库 / 查看全部的按钮 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户 2026-10-09：游戏详情 UI 不错，其它地方 UI 有些丑，检查优化。</p><p class="impact"><span>影响</span>只改界面样式与少量结构，不影响功能；截图见 docs/acceptance/ui-polish/。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-6a">
-        <header><code>U-6a</code><h3>如何查看存档分支图？</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">另开一个分支图页面</li><li class="chosen">详情页左侧的时间线就是分支图：加标题“存档分支图”与分支数、说明；有分叉时每条路线一种颜色，分支按钮带同色圆点，点击跳到该分支并自动滚动到可见位置 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户不知道在哪里看分支图；原来只有灰色线条，看不出它是分支图。放在详情页最常用的位置，不另加页面。</p><p class="impact"><span>影响</span>Timeline 组件按列着色（--lane-0…5，明暗两套），导出 / 导入对话框中的分支图同样着色。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-6b">
-        <header><code>U-6b</code><h3>导入的存档与已有快照相同时，如何在图中标出？</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">原样：小圆圈 + 浅色底</li><li class="chosen">该快照整行高亮、左侧余烬色竖条、加粗备注并带实心“内容相同”标签；分支图自动滚动到它；提示框带“在图中定位”按钮 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户反馈“怎么标出的不明显”。</p><p class="impact"><span>影响</span>Timeline 新增标记 same 与 focus 参数；选中的父快照 / 分支末端显示“已选”标签。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-7a">
-        <header><code>U-7a</code><h3>检查更新没有交互反馈</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">保持（快速完成时不显示进度，避免闪烁）</li><li class="chosen">点击后按钮图标立即转动；完成后右下角提示“检查完成：N 个游戏有更新 / 都没有新的变化”；文字与进度条仍只在较慢时出现 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户反馈“游戏库点击检查更新没有交互反馈”；此前为修复闪烁把 0.4 秒内完成的进度全部隐藏了。</p><p class="impact"><span>影响</span>只改界面；截图 docs/acceptance/collection-delete/check-toast.png。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-7c">
-        <header><code>U-7c</code><h3>删除分支、删除快照怎么做？</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">只删分支指针，快照留在历史中</li><li class="chosen">删除分支时一并删除只属于它的快照；删除快照时后面的快照改接到它的上一个快照上（文档 6.6 的“压掉”），带标签的快照受保护；删除前预览影响并确认，不能撤销 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户反馈“当前没有办法删除分支或者删除快照”。只删指针时快照仍显示在分支图中，用户看不到删除效果。</p><p class="impact"><span>影响</span>CLI：branch -d、tag -d、rm；界面：快照“更多操作”。空间在 GC（M4-4）时释放。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-7d">
-        <header><code>U-7d</code><h3>一键导出导入多个游戏</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">每个游戏一个 .bonfire 文件放在一个文件夹</li><li class="chosen">一个合集包（.bonfire，内含 collection.json 与每个游戏的完整历史包）：导出所选或全部游戏，导入时勾选其中的游戏 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户要求“所有游戏一起导出导入、指定一些游戏导出导入”；单个文件便于拷贝。</p><p class="impact"><span>影响</span>游戏库工具栏“导入 / 导出”菜单；CLI bundle export --all / 多个游戏，bundle import --only。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-7e">
-        <header><code>U-7e</code><h3>导入未安装游戏的存档</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">要求先在游戏库中加入游戏</li><li class="chosen">游戏库中没有时自动加入并标为“未安装”：本机能确定的存档位置照常使用，需要安装目录的位置等装好并扫描后确定，之前恢复会提示 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户要求“可以导入未安装游戏的存档”。</p><p class="impact"><span>影响</span>历史包、合集包、带说明的存档 zip / 文件夹都支持；扫描到游戏后按模板对上原位置序号。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-8a">
-        <header><code>U-8a</code><h3>存档安全保护：保护本机的存档备份分支不被删除</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">不保护</li><li class="chosen">设置“保护本机的存档备份”（默认开启）：本机备份的快照（以电脑名区分）不能删除，会删掉这类快照的分支也不能删除；导入的分支与快照、删除标签不受影响；关闭需确认 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户要求“可以设置存档安全保护，保护由本机的存档备份分支不被删除”。快照本来就记录了备份的电脑名，据此判断最直接。</p><p class="impact"><span>影响</span>配置 backup.protect_local；CLI branch -d / rm 在保护开启时报错（退出码 2）；界面删除菜单置灰并说明。电脑改名后旧名字的快照不再视为本机备份。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-8b">
-        <header><code>U-8b</code><h3>托盘图标运行</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">关闭窗口即退出</li><li class="chosen">常驻托盘图标（打开篝火 / 检查更新 / 退出）；关闭窗口时留在托盘（可在设置中关闭），按 R2-Q1 销毁窗口以节省内存；只运行一个实例，再次启动时打开已运行的窗口 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户要求“添加托盘图标运行”；与第二轮确认的托盘形态（R2-Q1）一致。自动备份仍在 M4-3 中实现。</p><p class="impact"><span>影响</span>配置 general.close_to_tray；新增 tauri-plugin-single-instance。Windows 11 默认把新托盘图标放在任务栏“^”中。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-8c">
-        <header><code>U-8c</code><h3>存档安全保护在游戏库中可以设置，并给出相应提示</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">只在设置页中设置</li><li class="chosen">游戏库底部操作栏放一个开关（与设置中的同一项）：开启为绿色盾牌“保护已开启”，关闭为醒目的“保护已关闭”；悬停说明当前效果，关闭需确认，切换后提示结果 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>用户要求在游戏库中可以设置并给出提示。放在顶部工具栏会把工具栏挤成两行，底部操作栏是常驻的状态区，空间足够。</p><p class="impact"><span>影响</span>只改界面；保护仍是全局设置（backup.protect_local），对所有游戏生效。</p>
-        <footer>2026-10-09</footer>
-      </article></section><section id="s-5"><h2>缺陷修复<small>4 项</small></h2>
-      <article id="U-6c">
-        <header><code>U-6c</code><h3>“打开存档位置”打开的是用户目录而不是存档目录</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>资源管理器不认识正斜杠路径（存档位置记录为 C:/Users/...），会忽略参数并打开默认目录；另外不含通配符的目录型位置被当成通配位置，打开了上一级。</p><p class="impact"><span>影响</span>open_path 打开前统一转为反斜杠（安装目录、导出位置同样受益）；不含通配符的位置直接打开该目录。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-7b">
-        <header><code>U-7b</code><h3>发现页“新发现”文字没有居中</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>状态标签作为网格项被拉伸成整列宽，文字靠左。</p><p class="impact"><span>影响</span>标签在列中居中（justify-self: center）。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-7f">
-        <header><code>U-7f</code><h3>导出后“在资源管理器中显示”打开的是“文档”目录</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>选中文件时参数为 /select,&lt;路径&gt;；路径含空格（导出文件名带游戏名，如 Hollow Knight-…zip）时标准库给整个参数加引号，资源管理器不认识这种写法，打开默认的“文档”目录。已在本机用同样的命令行复现并验证修复。</p><p class="impact"><span>影响</span>open_path 改为原样传入 /select,&quot;&lt;路径&gt;&quot;（目录为 &quot;&lt;路径&gt;&quot;），并统一处理正斜杠、长路径前缀与不存在的路径（打开最近的上级目录）。所有打开文件夹的入口都经过它：导出与合集导出后的显示文件、打开存档位置、打开安装目录、设置中打开配置文件。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-7g">
-        <header><code>U-7g</code><h3>导入的未安装游戏在本机找不到存档位置时显示“有更新（已删除）”，备份会生成缺少这些文件的快照</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>导入后变更检测缓存设为导入的当前快照，而本机不能确定路径的位置扫描不到文件，被当成删除。</p><p class="impact"><span>影响</span>本机不能确定路径的位置不参与变更检测；备份时沿用上一个快照中这些位置的文件。</p>
-        <footer>2026-10-09</footer>
-      </article></section><section id="s-6"><h2>开发<small>12 项</small></h2>
-      <article id="U-5-impl">
-        <header><code>U-5-impl</code><h3>截图备份（U-5）实现中的取舍</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">按方案实现</li><li class="chosen">按方案实现；以下几点为实现细节：原图沿用文件对象写入（不重新编码，zstd 对图片收益很小）；Steam 截图按文件名取拍摄时间，不解析 screenshots.vdf；截图与快照的对应为“拍摄之后最早的快照（任何分支）”；定时收集的默认值为关闭（只随备份收集）；缩略图按需生成 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>方案 S1–S6 已确认；这些是方案没有细到的地方，取最简单且不影响效果的做法。</p><p class="impact"><span>影响</span>新增 REQ-014（已完成）。相册的文件对象需作为 M4-4 GC 的根（已写入里程碑说明）。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-9a">
-        <header><code>U-9a</code><h3>所选游戏已是最新时还能点“备份所选”</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">备份确认页中标出已是最新的游戏并自动跳过（推荐）</li><li class="">游戏库中直接禁用备份按钮</li><li class="chosen">备份确认页中标出已是最新的游戏并自动跳过（推荐）：确认页把“已是最新”的游戏单独列出、说明将跳过，确认按钮只备份有变化的游戏（显示数量）；全部是最新时按钮不可用并说明原因。只管理截图的游戏在确认页中显示“只收集截图”。 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>按用户描述：点击后在下一页提示，备份时自动跳过。</p><p class="impact"><span>影响</span>BackupDialog；状态以最近一次检查为准。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-9b">
-        <header><code>U-9b</code><h3>分支颜色不用灰色</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">每条路线都用彩色，只有一条路线时也用第一种颜色（蓝）（推荐）</li><li class="chosen">每条路线都用彩色，只有一条路线时也用第一种颜色（蓝）（推荐）；分支按钮上的圆点、时间线上的分支名同样着色。 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>灰色容易被理解为“禁用 / 已删除”。</p><p class="impact"><span>影响</span>Timeline、详情页分支按钮。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-9c">
-        <header><code>U-9c</code><h3>定时备份与自动备份怎么做</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">设置中两项：定时备份（每天 / 每周 / 每隔 N 小时）与“存档变化后自动备份”（推荐）</li><li class="">只做定时备份</li><li class="chosen">设置中新增“自动备份”一节（推荐）：① 定时备份：关闭 / 每天某时刻 / 每周某天某时刻 / 每隔 N 小时，到点备份所有有变化的游戏；② 存档变化后自动备份：每隔 N 分钟（默认 5）检查一次，发现变化且存档已停止写入 2 分钟以上（游戏通常已保存完毕）时备份。两项默认都关闭。篝火在运行（含托盘）时执行；只备份有变化的游戏，同时收集截图；仓库正被使用时推迟到下一次检查；当前不在分支末端的游戏按“新建分支”处理。自动备份的快照标为“定时备份 / 自动备份”，完成后在界面中提示。 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>两种需求都覆盖；“变化后备份”相当于游戏存档后自动备份，比按进程判断游戏退出简单可靠（M4 的游戏退出备份仍保留在计划中）。</p><p class="impact"><span>影响</span>config.toml [auto_backup]；快照触发方式新增 auto-change；CLI `backup --auto` 可供计划任务调用。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-9d">
-        <header><code>U-9d</code><h3>截图不压缩、保存原始质量；能打开截图存储目录</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">截图原样存为普通文件，放在仓库的 screenshots\&lt;游戏&gt; 目录（推荐）</li><li class="">仍存对象库，只是不压缩</li><li class="chosen">截图原样存为普通文件（推荐）：仓库下 screenshots\&lt;游戏ID&gt;\ 中保存原图（原文件名，重名加序号），不压缩、不重新编码，可以直接在资源管理器中打开；已收集的截图在启动时自动迁移到这里。导出历史包时截图原样放入包中。 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>同时满足“原始质量”和“能打开存储目录”；截图本身就是压缩格式，再压缩没有收益。</p><p class="impact"><span>影响</span>相册记录新增 file 字段（数据库版本 4）；截图不再占用对象库，M4 GC 不再需要把相册当作根；仓库体检检查截图文件是否存在。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-9e">
-        <header><code>U-9e</code><h3>没有加入游戏库的游戏、只想管理截图的游戏</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">游戏可设为“只管理截图”；发现页列出有截图但不在游戏库中的游戏，可一键加入（推荐）</li><li class="chosen">游戏可设为“只管理截图”（推荐）：不备份、不检查存档，只收集截图，游戏库中显示“只管理截图”；详情页“更多”中切换。发现页新增“有截图的游戏”：列出 Steam 截图与游戏栏截图中找到、但不在游戏库中的游戏，可加入为只管理截图的游戏；手动添加游戏时也可以选择“只管理截图”并指定截图文件夹。 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>覆盖用户提到的两种情况，入口在用户已熟悉的发现页与添加游戏对话框中。</p><p class="impact"><span>影响</span>游戏设置新增 shotsOnly；games.toml 保存；CLI `game shots-only on|off`。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-9f">
-        <header><code>U-9f</code><h3>打开截图存储目录；网格中显示的是缩略图吗</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">相册侧栏“打开截图文件夹”，大图中“在文件夹中显示”；网格是缩略图，点开是原图（推荐）</li><li class="chosen">相册侧栏增加“打开截图文件夹”（备份中的原图所在目录），大图中可“在文件夹中显示”与“打开原位置”。网格显示的是缩略图（为高分屏提高到 480 像素），点开大图显示原图，并在网格提示中说明。 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>回答用户问题并给出入口。</p><p class="impact"><span>影响</span>缩略图缓存按新尺寸重建。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-9g">
-        <header><code>U-9g</code><h3>大图查看时详情信息太大</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">底部一行精简信息，详情可展开 / 收起（按 I 键），默认收起（推荐）</li><li class="chosen">底部一行精简信息（推荐）：文件名、拍摄时间、序号与操作按钮在一行，详情（来源、尺寸、原位置、之后的存档）可展开，默认收起，记住上次的选择；图片尽量占满窗口。 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>图片优先。</p><p class="impact"><span>影响</span>Lightbox 布局。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-9h">
-        <header><code>U-9h</code><h3>截图的全选 / 全不选按钮</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">全选 / 全不选 / 反选 合成一组，每天的标题旁可选择当天全部（推荐）</li><li class="chosen">全选 / 全不选 / 反选合成一组按钮（推荐），每个日期标题旁有复选框选择当天全部；已选数量显示在旁边。 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>与游戏库的选择方式一致，并方便按天操作。</p><p class="impact"><span>影响</span>ShotsPanel。</p>
-        <footer>2026-10-09</footer>
-      </article>
-      <article id="U-9i">
-        <header><code>U-9i</code><h3>删除的截图怎么办；需要回收站</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">删除先进入回收站，可恢复；在回收站中彻底删除（推荐）</li><li class="chosen">删除先进入相册回收站（推荐）：回收站中的截图可恢复、可彻底删除、可清空；不自动清空。回收站中和彻底删除的截图都不会被再次收集（磁盘上的原图仍在也不会重复提示）；磁盘上删掉的截图，备份中照常保留。 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>删除可以反悔；之前删除后会被当作新截图再次收集，这次一并修正。</p><p class="impact"><span>影响</span>相册记录新增 deletedAt / purged；CLI `shots rm` 默认进回收站，`--purge` 彻底删除，新增 `shots restore`、`shots trash`。</p>
+      <article id="U-9k">
+        <header><code>U-9k</code><h3>打开完整的分支历史大图</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">分支图标题旁“放大查看”，全屏查看分支图并选择快照（推荐）</li><li class="chosen">分支图标题旁增加“放大查看”（推荐）：全屏显示完整分支图（路线更宽、可搜索、可按分支跳转），右侧显示选中快照的摘要，双击或点“查看这个快照”回到详情页并选中它；Esc 关闭。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>分支多时侧栏太窄。</p><p class="impact"><span>影响</span>新组件 GraphViewer。</p>
         <footer>2026-10-09</footer>
       </article>
       <article id="U-9j">
@@ -375,10 +99,352 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <p class="reason"><span>理由</span>两个页面是并列的主要内容，切换需要一眼看到。</p><p class="impact"><span>影响</span>GameDetail 样式。</p>
         <footer>2026-10-09</footer>
       </article>
-      <article id="U-9k">
-        <header><code>U-9k</code><h3>打开完整的分支历史大图</h3><span class="status">默认推荐</span></header>
-        <ul><li class="">分支图标题旁“放大查看”，全屏查看分支图并选择快照（推荐）</li><li class="chosen">分支图标题旁增加“放大查看”（推荐）：全屏显示完整分支图（路线更宽、可搜索、可按分支跳转），右侧显示选中快照的摘要，双击或点“查看这个快照”回到详情页并选中它；Esc 关闭。 <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>分支多时侧栏太窄。</p><p class="impact"><span>影响</span>新组件 GraphViewer。</p>
+      <article id="U-9i">
+        <header><code>U-9i</code><h3>删除的截图怎么办；需要回收站</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">删除先进入回收站，可恢复；在回收站中彻底删除（推荐）</li><li class="chosen">删除先进入相册回收站（推荐）：回收站中的截图可恢复、可彻底删除、可清空；不自动清空。回收站中和彻底删除的截图都不会被再次收集（磁盘上的原图仍在也不会重复提示）；磁盘上删掉的截图，备份中照常保留。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>删除可以反悔；之前删除后会被当作新截图再次收集，这次一并修正。</p><p class="impact"><span>影响</span>相册记录新增 deletedAt / purged；CLI `shots rm` 默认进回收站，`--purge` 彻底删除，新增 `shots restore`、`shots trash`。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9h">
+        <header><code>U-9h</code><h3>截图的全选 / 全不选按钮</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">全选 / 全不选 / 反选 合成一组，每天的标题旁可选择当天全部（推荐）</li><li class="chosen">全选 / 全不选 / 反选合成一组按钮（推荐），每个日期标题旁有复选框选择当天全部；已选数量显示在旁边。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>与游戏库的选择方式一致，并方便按天操作。</p><p class="impact"><span>影响</span>ShotsPanel。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9g">
+        <header><code>U-9g</code><h3>大图查看时详情信息太大</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">底部一行精简信息，详情可展开 / 收起（按 I 键），默认收起（推荐）</li><li class="chosen">底部一行精简信息（推荐）：文件名、拍摄时间、序号与操作按钮在一行，详情（来源、尺寸、原位置、之后的存档）可展开，默认收起，记住上次的选择；图片尽量占满窗口。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>图片优先。</p><p class="impact"><span>影响</span>Lightbox 布局。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9f">
+        <header><code>U-9f</code><h3>打开截图存储目录；网格中显示的是缩略图吗</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">相册侧栏“打开截图文件夹”，大图中“在文件夹中显示”；网格是缩略图，点开是原图（推荐）</li><li class="chosen">相册侧栏增加“打开截图文件夹”（备份中的原图所在目录），大图中可“在文件夹中显示”与“打开原位置”。网格显示的是缩略图（为高分屏提高到 480 像素），点开大图显示原图，并在网格提示中说明。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>回答用户问题并给出入口。</p><p class="impact"><span>影响</span>缩略图缓存按新尺寸重建。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9e">
+        <header><code>U-9e</code><h3>没有加入游戏库的游戏、只想管理截图的游戏</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">游戏可设为“只管理截图”；发现页列出有截图但不在游戏库中的游戏，可一键加入（推荐）</li><li class="chosen">游戏可设为“只管理截图”（推荐）：不备份、不检查存档，只收集截图，游戏库中显示“只管理截图”；详情页“更多”中切换。发现页新增“有截图的游戏”：列出 Steam 截图与游戏栏截图中找到、但不在游戏库中的游戏，可加入为只管理截图的游戏；手动添加游戏时也可以选择“只管理截图”并指定截图文件夹。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>覆盖用户提到的两种情况，入口在用户已熟悉的发现页与添加游戏对话框中。</p><p class="impact"><span>影响</span>游戏设置新增 shotsOnly；games.toml 保存；CLI `game shots-only on|off`。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9d">
+        <header><code>U-9d</code><h3>截图不压缩、保存原始质量；能打开截图存储目录</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">截图原样存为普通文件，放在仓库的 screenshots\&lt;游戏&gt; 目录（推荐）</li><li class="">仍存对象库，只是不压缩</li><li class="chosen">截图原样存为普通文件（推荐）：仓库下 screenshots\&lt;游戏ID&gt;\ 中保存原图（原文件名，重名加序号），不压缩、不重新编码，可以直接在资源管理器中打开；已收集的截图在启动时自动迁移到这里。导出历史包时截图原样放入包中。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>同时满足“原始质量”和“能打开存储目录”；截图本身就是压缩格式，再压缩没有收益。</p><p class="impact"><span>影响</span>相册记录新增 file 字段（数据库版本 4）；截图不再占用对象库，M4 GC 不再需要把相册当作根；仓库体检检查截图文件是否存在。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9c">
+        <header><code>U-9c</code><h3>定时备份与自动备份怎么做</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">设置中两项：定时备份（每天 / 每周 / 每隔 N 小时）与“存档变化后自动备份”（推荐）</li><li class="">只做定时备份</li><li class="chosen">设置中新增“自动备份”一节（推荐）：① 定时备份：关闭 / 每天某时刻 / 每周某天某时刻 / 每隔 N 小时，到点备份所有有变化的游戏；② 存档变化后自动备份：每隔 N 分钟（默认 5）检查一次，发现变化且存档已停止写入 2 分钟以上（游戏通常已保存完毕）时备份。两项默认都关闭。篝火在运行（含托盘）时执行；只备份有变化的游戏，同时收集截图；仓库正被使用时推迟到下一次检查；当前不在分支末端的游戏按“新建分支”处理。自动备份的快照标为“定时备份 / 自动备份”，完成后在界面中提示。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>两种需求都覆盖；“变化后备份”相当于游戏存档后自动备份，比按进程判断游戏退出简单可靠（M4 的游戏退出备份仍保留在计划中）。</p><p class="impact"><span>影响</span>config.toml [auto_backup]；快照触发方式新增 auto-change；CLI `backup --auto` 可供计划任务调用。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9b">
+        <header><code>U-9b</code><h3>分支颜色不用灰色</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">每条路线都用彩色，只有一条路线时也用第一种颜色（蓝）（推荐）</li><li class="chosen">每条路线都用彩色，只有一条路线时也用第一种颜色（蓝）（推荐）；分支按钮上的圆点、时间线上的分支名同样着色。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>灰色容易被理解为“禁用 / 已删除”。</p><p class="impact"><span>影响</span>Timeline、详情页分支按钮。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-9a">
+        <header><code>U-9a</code><h3>所选游戏已是最新时还能点“备份所选”</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">备份确认页中标出已是最新的游戏并自动跳过（推荐）</li><li class="">游戏库中直接禁用备份按钮</li><li class="chosen">备份确认页中标出已是最新的游戏并自动跳过（推荐）：确认页把“已是最新”的游戏单独列出、说明将跳过，确认按钮只备份有变化的游戏（显示数量）；全部是最新时按钮不可用并说明原因。只管理截图的游戏在确认页中显示“只收集截图”。 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>按用户描述：点击后在下一页提示，备份时自动跳过。</p><p class="impact"><span>影响</span>BackupDialog；状态以最近一次检查为准。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-5-impl">
+        <header><code>U-5-impl</code><h3>截图备份（U-5）实现中的取舍</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">按方案实现</li><li class="chosen">按方案实现；以下几点为实现细节：原图沿用文件对象写入（不重新编码，zstd 对图片收益很小）；Steam 截图按文件名取拍摄时间，不解析 screenshots.vdf；截图与快照的对应为“拍摄之后最早的快照（任何分支）”；定时收集的默认值为关闭（只随备份收集）；缩略图按需生成 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>方案 S1–S6 已确认；这些是方案没有细到的地方，取最简单且不影响效果的做法。</p><p class="impact"><span>影响</span>新增 REQ-014（已完成）。相册的文件对象需作为 M4-4 GC 的根（已写入里程碑说明）。</p>
+        <footer>2026-10-09</footer>
+      </article></section><section id="s-1"><h2>缺陷修复<small>5 项</small></h2>
+      <article id="U-10j">
+        <header><code>U-10j</code><h3>恢复到某条分支的最新快照后再备份，会另建一条名字奇怪的分支</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">恢复到分支最新快照时接回这条分支（当前分支优先），之后的备份继续记在它上面（推荐） <b>✓ 采用</b></li><li class="">保持原样，每次都另建分支</li></ul>
+        <p class="reason"><span>理由</span>制作复杂分支图示例时发现：恢复 main 后备份生成了“全收集-20261010-095637”这样的分支。</p><p class="impact"><span>影响</span>从旧快照（不是任何分支的最新快照）恢复的行为不变。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-7g">
+        <header><code>U-7g</code><h3>导入的未安装游戏在本机找不到存档位置时显示“有更新（已删除）”，备份会生成缺少这些文件的快照</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>导入后变更检测缓存设为导入的当前快照，而本机不能确定路径的位置扫描不到文件，被当成删除。</p><p class="impact"><span>影响</span>本机不能确定路径的位置不参与变更检测；备份时沿用上一个快照中这些位置的文件。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7f">
+        <header><code>U-7f</code><h3>导出后“在资源管理器中显示”打开的是“文档”目录</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>选中文件时参数为 /select,&lt;路径&gt;；路径含空格（导出文件名带游戏名，如 Hollow Knight-…zip）时标准库给整个参数加引号，资源管理器不认识这种写法，打开默认的“文档”目录。已在本机用同样的命令行复现并验证修复。</p><p class="impact"><span>影响</span>open_path 改为原样传入 /select,&quot;&lt;路径&gt;&quot;（目录为 &quot;&lt;路径&gt;&quot;），并统一处理正斜杠、长路径前缀与不存在的路径（打开最近的上级目录）。所有打开文件夹的入口都经过它：导出与合集导出后的显示文件、打开存档位置、打开安装目录、设置中打开配置文件。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7b">
+        <header><code>U-7b</code><h3>发现页“新发现”文字没有居中</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>状态标签作为网格项被拉伸成整列宽，文字靠左。</p><p class="impact"><span>影响</span>标签在列中居中（justify-self: center）。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-6c">
+        <header><code>U-6c</code><h3>“打开存档位置”打开的是用户目录而不是存档目录</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>资源管理器不认识正斜杠路径（存档位置记录为 C:/Users/...），会忽略参数并打开默认目录；另外不含通配符的目录型位置被当成通配位置，打开了上一级。</p><p class="impact"><span>影响</span>open_path 打开前统一转为反斜杠（安装目录、导出位置同样受益）；不含通配符的位置直接打开该目录。</p>
+        <footer>2026-10-09</footer>
+      </article></section><section id="s-2"><h2>用户修改<small>18 项</small></h2>
+      <article id="U-8c">
+        <header><code>U-8c</code><h3>存档安全保护在游戏库中可以设置，并给出相应提示</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">只在设置页中设置</li><li class="chosen">游戏库底部操作栏放一个开关（与设置中的同一项）：开启为绿色盾牌“保护已开启”，关闭为醒目的“保护已关闭”；悬停说明当前效果，关闭需确认，切换后提示结果 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求在游戏库中可以设置并给出提示。放在顶部工具栏会把工具栏挤成两行，底部操作栏是常驻的状态区，空间足够。</p><p class="impact"><span>影响</span>只改界面；保护仍是全局设置（backup.protect_local），对所有游戏生效。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-8b">
+        <header><code>U-8b</code><h3>托盘图标运行</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">关闭窗口即退出</li><li class="chosen">常驻托盘图标（打开篝火 / 检查更新 / 退出）；关闭窗口时留在托盘（可在设置中关闭），按 R2-Q1 销毁窗口以节省内存；只运行一个实例，再次启动时打开已运行的窗口 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求“添加托盘图标运行”；与第二轮确认的托盘形态（R2-Q1）一致。自动备份仍在 M4-3 中实现。</p><p class="impact"><span>影响</span>配置 general.close_to_tray；新增 tauri-plugin-single-instance。Windows 11 默认把新托盘图标放在任务栏“^”中。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-8a">
+        <header><code>U-8a</code><h3>存档安全保护：保护本机的存档备份分支不被删除</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">不保护</li><li class="chosen">设置“保护本机的存档备份”（默认开启）：本机备份的快照（以电脑名区分）不能删除，会删掉这类快照的分支也不能删除；导入的分支与快照、删除标签不受影响；关闭需确认 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求“可以设置存档安全保护，保护由本机的存档备份分支不被删除”。快照本来就记录了备份的电脑名，据此判断最直接。</p><p class="impact"><span>影响</span>配置 backup.protect_local；CLI branch -d / rm 在保护开启时报错（退出码 2）；界面删除菜单置灰并说明。电脑改名后旧名字的快照不再视为本机备份。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7e">
+        <header><code>U-7e</code><h3>导入未安装游戏的存档</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">要求先在游戏库中加入游戏</li><li class="chosen">游戏库中没有时自动加入并标为“未安装”：本机能确定的存档位置照常使用，需要安装目录的位置等装好并扫描后确定，之前恢复会提示 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求“可以导入未安装游戏的存档”。</p><p class="impact"><span>影响</span>历史包、合集包、带说明的存档 zip / 文件夹都支持；扫描到游戏后按模板对上原位置序号。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7d">
+        <header><code>U-7d</code><h3>一键导出导入多个游戏</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">每个游戏一个 .bonfire 文件放在一个文件夹</li><li class="chosen">一个合集包（.bonfire，内含 collection.json 与每个游戏的完整历史包）：导出所选或全部游戏，导入时勾选其中的游戏 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求“所有游戏一起导出导入、指定一些游戏导出导入”；单个文件便于拷贝。</p><p class="impact"><span>影响</span>游戏库工具栏“导入 / 导出”菜单；CLI bundle export --all / 多个游戏，bundle import --only。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7c">
+        <header><code>U-7c</code><h3>删除分支、删除快照怎么做？</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">只删分支指针，快照留在历史中</li><li class="chosen">删除分支时一并删除只属于它的快照；删除快照时后面的快照改接到它的上一个快照上（文档 6.6 的“压掉”），带标签的快照受保护；删除前预览影响并确认，不能撤销 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈“当前没有办法删除分支或者删除快照”。只删指针时快照仍显示在分支图中，用户看不到删除效果。</p><p class="impact"><span>影响</span>CLI：branch -d、tag -d、rm；界面：快照“更多操作”。空间在 GC（M4-4）时释放。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-7a">
+        <header><code>U-7a</code><h3>检查更新没有交互反馈</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">保持（快速完成时不显示进度，避免闪烁）</li><li class="chosen">点击后按钮图标立即转动；完成后右下角提示“检查完成：N 个游戏有更新 / 都没有新的变化”；文字与进度条仍只在较慢时出现 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈“游戏库点击检查更新没有交互反馈”；此前为修复闪烁把 0.4 秒内完成的进度全部隐藏了。</p><p class="impact"><span>影响</span>只改界面；截图 docs/acceptance/collection-delete/check-toast.png。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-6b">
+        <header><code>U-6b</code><h3>导入的存档与已有快照相同时，如何在图中标出？</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">原样：小圆圈 + 浅色底</li><li class="chosen">该快照整行高亮、左侧余烬色竖条、加粗备注并带实心“内容相同”标签；分支图自动滚动到它；提示框带“在图中定位”按钮 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈“怎么标出的不明显”。</p><p class="impact"><span>影响</span>Timeline 新增标记 same 与 focus 参数；选中的父快照 / 分支末端显示“已选”标签。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-6a">
+        <header><code>U-6a</code><h3>如何查看存档分支图？</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">另开一个分支图页面</li><li class="chosen">详情页左侧的时间线就是分支图：加标题“存档分支图”与分支数、说明；有分叉时每条路线一种颜色，分支按钮带同色圆点，点击跳到该分支并自动滚动到可见位置 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户不知道在哪里看分支图；原来只有灰色线条，看不出它是分支图。放在详情页最常用的位置，不另加页面。</p><p class="impact"><span>影响</span>Timeline 组件按列着色（--lane-0…5，明暗两套），导出 / 导入对话框中的分支图同样着色。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-6">
+        <header><code>U-6</code><h3>游戏库、发现游戏、设置、向导、导入对话框的界面优化（与详情页风格统一）</h3><span class="status">默认推荐</span></header>
+        <ul><li class="">保持原样</li><li class="chosen">游戏库与发现页改为卡片行并加列标题（含全选框）；有更新的游戏左侧亮余烬色，勾选的整行描边；设置分组为卡片；向导卡片固定在上方、选项用品牌色；导入来源改为带说明的大按钮；发现页“没有新游戏”时给出去游戏库 / 查看全部的按钮 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09：游戏详情 UI 不错，其它地方 UI 有些丑，检查优化。</p><p class="impact"><span>影响</span>只改界面样式与少量结构，不影响功能；截图见 docs/acceptance/ui-polish/。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-5">
+        <header><code>U-5</code><h3>游戏截图备份方案（见 screenshot-design.html）</h3><span class="status">用户确认</span></header>
+        <ul><li class="">按方案 S1–S6 推荐项</li><li class="chosen">按推荐项，并补充：S3 可设置定时备份（每天、每周等）；S1 增加 Windows Xbox 截图 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09 确认方案并补充两点。</p><p class="impact"><span>影响</span>来源：Steam、Xbox（游戏栏 / Xbox 应用，读取系统“捕获”文件夹的实际位置）、手动文件夹；随每次备份收集，另可按天 / 周等定时收集；截图不进存档快照，单独成相册，与时间线按拍摄时间关联；原图入库；详情页“截图”标签页；可单独导出，历史包可选包含。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-4">
+        <header><code>U-4</code><h3>检查更新时页面闪烁</h3><span class="status">用户指定</span></header>
+        <ul><li class="">保持现状</li><li class="chosen">检查在 0.4 秒内完成时不切换按钮文字、不显示取消按钮与进度条 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09 反馈点击“检查更新”页面会闪一下。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-3c">
+        <header><code>U-3c</code><h3>导出存档文件的格式与安全</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="chosen">zip 或文件夹，每个存档位置一个子文件夹，附 bonfire-export.json；拒绝导出到任何游戏的存档位置或仓库中 <b>✓ 采用</b></li><li class="">只支持 zip</li></ul>
+        <p class="reason"><span>理由</span>对外分享时文件结构清楚、可直接使用；导出绝不写入存档目录。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-3b">
+        <header><code>U-3b</code><h3>导入“存档文件”（没有历史）放在哪里？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="chosen">默认新建分支、独立起点（可选从某个快照分出，或接在某个分支之后） <b>✓ 采用</b></li><li class="">总是接在当前分支之后</li></ul>
+        <p class="reason"><span>理由</span>别人分享的存档不是本地历史的延续，默认不应改动你的分支；需要时可在分支图上选择接在哪里。内容与已有快照完全相同时不重复生成。</p><p class="impact"><span>影响</span>新快照的触发方式为“导入”；按 bonfire-export.json 或文件夹名把文件对应到存档位置，对应不上时列出并拒绝导入。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-3a">
+        <header><code>U-3a</code><h3>导入的历史与本地分支是什么关系？如何判断“后续更新”？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">按时间先后判断</li><li class="chosen">按快照 ID（内容 + 父快照的哈希）判断：相同 / 后续更新（快进）/ 本地已包含 / 分叉（另建分支，不覆盖本地） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>快照 ID 由内容与父快照决定，两台电脑上同一段历史的 ID 完全一致，比时间可靠；分叉时保留双方，避免误覆盖。</p><p class="impact"><span>影响</span>导入只写入仓库，不移动当前所在快照，不写入存档目录；要使用导入的存档，在历史中正常恢复（恢复前自动建保护快照）。只导出一段历史时，导入方需要已有更早的快照，否则提示先导入更早的部分。自定义游戏在不同电脑上 ID 不同，导入时指定本地游戏，并记录为别名（重建索引后仍归到本地游戏）。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-3">
+        <header><code>U-3</code><h3>导出与导入存档（F10 提前到当前阶段）</h3><span class="status">用户指定</span></header>
+        <ul><li class="">按原计划 M5 再做</li><li class="chosen">现在做：导出存档文件（当前或指定快照，zip/文件夹）、导出历史包（全部分支 / 指定分支 / 一段历史）、导入存档文件、导入历史包，并在界面上用分支图选择 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09 要求：手动导出存档、导出指定版本、全部分支与指定段；手工导入存档用于分享；判断导入的是不是当前分支的后续更新；画出分支图便于选择。</p><p class="impact"><span>影响</span>CLI 新增 export / import / bundle export / bundle import；界面在详情页提供导出、导入对话框（带分支图）。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-2">
+        <header><code>U-2</code><h3>扫描与游戏库的关系</h3><span class="status">用户指定</span></header>
+        <ul><li class="">扫描到有存档的游戏自动加入游戏库</li><li class="chosen">“发现游戏”页单独扫描，默认不勾选，由用户选择加入游戏库或忽略；游戏库只显示加入管理的游戏 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09 要求：需要选择哪些游戏加入管理；扫描单独一个页面；首次运行在扫描页选择加入管理，后续打开都在存档管理页面（游戏库）。</p><p class="impact"><span>影响</span>首次运行向导完成后进入“发现游戏”页并自动扫描；之后启动进入游戏库，游戏库的“扫描”改为“检查更新”。扫描页显示每个游戏的存档位置、文件数与大小、来源（规则库/推测），未加入的游戏只用本地数据显示封面（不联网）；被忽略的游戏之后扫描显示为“已忽略”，可随时加入。CLI：scan 只列出发现结果，新增 game include / game ignore，game enable 由 include 取代。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="U-1">
+        <header><code>U-1</code><h3>数据存放位置（配置、仓库、日志、缓存）</h3><span class="status">用户指定</span></header>
+        <ul><li class="">配置在 %APPDATA%/Bonfire，仓库、日志、缓存在 %LOCALAPPDATA%/Bonfire（原默认）</li><li class="chosen">全部放在项目（程序）目录下的 data：data/config.toml、data/repo、data/logs、data/cache、data/webview <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09 要求默认仓库在项目目录下的 data，并选择配置、日志、缓存也一并放入（推荐项）。开发时为项目根目录下的 data（.gitignore 已排除），安装后为程序所在目录下的 data；仓库不能设为 data 本身（避免与应用配置文件同名冲突）。BONFIRE_HOME 仍可指定其他数据根目录。</p>
+        <footer>2026-10-09</footer>
+      </article></section><section id="s-3"><h2>M3 GUI MVP<small>8 项</small></h2>
+      <article id="M3-ACC">
+        <header><code>M3-ACC</code><h3>M3 验收方式</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">等待用户本机安装验收</li><li class="chosen">自动化测试 + 真实窗口截图检查后视为通过；安装、卸载、升级由用户事后复核 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>为避免改动用户系统，未在本机执行静默安装；界面在临时仓库中用真实扫描数据逐页截图检查（游戏库、详情时间线、设置、暗色主题、备份与恢复弹窗）。安装包：target/release/bundle/nsis/Bonfire_0.1.0_x64-setup.exe。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M3-D7">
+        <header><code>M3-D7</code><h3>“历史占用空间”是否在游戏库中显示？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">显示（需要统计每个游戏独占的对象大小，开销大）</li><li class="chosen">暂显示快照数量与当前存档大小，历史占用空间随 M4 清理功能一起实现 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>对象全局去重，单个游戏的“占用”需要遍历其全部快照的引用；M4 的保留策略与 GC 会实现同样的遍历，届时一并提供。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M3-D6">
+        <header><code>M3-D6</code><h3>安装包包含哪些内容？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">只有桌面应用</li><li class="chosen">桌面应用 + 命令行 bonfire.exe + 内置规则库快照（NSIS，按用户安装） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>Q2 选定 NSIS；Q3 要求内置规则库快照；CLI 与 GUI 同版本一起分发。命令行未加入 PATH，可在安装目录中调用。安装包 10.16 MB。</p><p class="impact"><span>影响</span>build.bat 一键构建；附加内容只写在 tauri.bundle.json 中，不影响开发模式。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M3-D5">
+        <header><code>M3-D5</code><h3>首次运行何时创建仓库？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">启动时用默认位置创建</li><li class="chosen">完成向导、选定仓库位置后才创建 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>避免用户改选位置后，默认位置留下一个空仓库。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M3-D4">
+        <header><code>M3-D4</code><h3>长任务（扫描、备份）如何执行？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">在主线程同步执行</li><li class="chosen">后台线程执行，逐个游戏推送事件更新界面，游戏之间检查取消标志；仓库访问通过共享的 Mutex 串行 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>文档 9.1：长任务在后台执行，显示进度与可取消按钮；扫描按游戏逐个推送结果。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M3-D3">
+        <header><code>M3-D3</code><h3>界面状态与路由</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">React Router + Zustand</li><li class="chosen">Zustand 保存状态，页面切换用状态中的 view（不引入路由库） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>只有游戏库、游戏详情、设置三个页面加首次运行向导，桌面应用不需要 URL 路由；少一个依赖。与规范技术选型中写的 React Router 不同，已记入开发记录。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M3-D2">
+        <header><code>M3-D2</code><h3>游戏库的排版</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">封面卡片网格</li><li class="chosen">紧凑的列表行：勾选框、封面缩略图、名称、状态、最后备份、大小 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>核心操作是“看哪些有更新 → 勾选 → 备份”，列表便于扫读与批量勾选；默认勾选“有更新”和“未备份”（文档 8.1）。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M3-D1">
+        <header><code>M3-D1</code><h3>界面的视觉方向</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">通用的 SaaS 卡片风格</li><li class="chosen">冷灰“烟与夜色”为底，余烬橙只标记需要处理的东西；游戏名与数字用 Windows 自带的 Bahnschrift；历史时间线画成“篝火路线”（每个快照一处火焰，分支为分岔小路，当前所在快照发光） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>按 frontend-design 技能先定设计方案再实现：主色来自用户选定的 Logo（#E8590C），避免与米色底搭配的常见套路；字体全部为系统自带，离线可用、无需打包字体。明/暗/自动三态主题。</p>
+        <footer>2026-10-09</footer>
+      </article></section><section id="s-4"><h2>M2 存档发现<small>15 项</small></h2>
+      <article id="M2-D15">
+        <header><code>M2-D15</code><h3>用户手动修改的游戏信息如何保护？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">自动刷新时覆盖</li><li class="chosen">手动修改的字段加锁，自动刷新不覆盖；info --unlock 解除 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>文档 4.3 匹配策略第 4 条。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D14">
+        <header><code>M2-D14</code><h3>联网请求的限速策略</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">不限速</li><li class="chosen">按主机限速（Steam Store 每 1.5 秒 1 次，其他每 0.25 秒 1 次），遇到 429/5xx 退避重试 2 次 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>文档 4.3：请求走全局队列，按来源限速并退避重试；Steam Store API 约 200 次/5 分钟。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D13">
+        <header><code>M2-D13</code><h3>游戏信息何时获取？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">每次扫描都联网刷新</li><li class="chosen">扫描时只为新游戏与过期（30 天）的游戏获取；游玩时长等本地字段每次扫描重读；info --refresh 强制刷新 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>文档 4.3：文字信息有效期 30 天，本地字段每次扫描重读；获取失败或离线不阻塞扫描。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D12">
+        <header><code>M2-D12</code><h3>测试如何与本机真实平台隔离？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">测试中跳过平台扫描</li><li class="chosen">环境变量 BONFIRE_FAKE_ROOT 把平台与系统目录指向伪造目录；BONFIRE_OFFLINE=1 禁止联网 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>CLI 测试会执行真实的 scan，否则会读取开发机上的 Steam，结果随机器变化；伪造目录还能端到端测试平台识别。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D11">
+        <header><code>M2-D11</code><h3>规则库命中的存档位置按“匹配到的每个文件”还是“每条规则”登记？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">每个匹配到的文件/目录单独登记（初版做法）</li><li class="chosen">每条规则登记为一个通配位置，每次扫描与备份时重新匹配（Ludusavi 做法） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>本机实测时发现：按文件登记会让 It Takes Two 出现 29 个位置，且游戏新建的存档栏位要等再次扫描平台才会被备份。按规则登记后新栏位自动纳入，位置列表也简洁。多个位置命中同一文件时只计一次。</p><p class="impact"><span>影响</span>清单路径为“位置序号/相对通配基准目录的路径”。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D10">
+        <header><code>M2-D10</code><h3>YAML 解析与网络请求使用哪些库？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">serde_yaml（已停止维护）+ reqwest（需要 tokio）</li><li class="chosen">serde-saphyr（纯 Rust、不 panic）+ ureq（同步、rustls） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>serde_yaml 已停止维护；核心库是同步代码，ureq 不需要引入异步运行时，体积更小。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D9">
+        <header><code>M2-D9</code><h3>注册表存档如何备份与恢复？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">暂不支持</li><li class="chosen">备份时用 reg export 导出为 .reg 文本当作普通文件入库；恢复时写回 .reg 后执行 reg import <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>文档 4.2 约定：注册表存档导出为 .reg 文本后当作普通文件入库。导出文件放在缓存目录，按游戏分开。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D8">
+        <header><code>M2-D8</code><h3>移除一个自动识别的游戏后，重新扫描会不会又加回来？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">会重新加入</li><li class="chosen">自动识别的游戏移除时改为“已忽略”（enabled=false），扫描不再加回；game list --all 可查看并恢复 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>避免用户反复移除同一个游戏；手动添加的游戏仍然直接删除。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D7">
+        <header><code>M2-D7</code><h3>用户自定义规则存放在哪里、用什么格式？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">写进数据库</li><li class="chosen">配置目录下的 custom-rules.yaml，格式与 Ludusavi 规则库相同，同名游戏覆盖内置规则 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>文档 4.2：用户自定义规则优先级最高、可覆盖任何内置规则；与 Ludusavi 格式一致便于复用社区写法和“提交规则”。启发式结果经用户确认后也写入此文件。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D6">
+        <header><code>M2-D6</code><h3>IGDB / SteamGridDB 在没有 API Key 时的处理</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">报错</li><li class="chosen">跳过这两个来源，只用 Steam 本地数据与 Steam Store API <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>文档 4.3 与 Q6：未填写 Key 时跳过；提供者接口按文档实现，测试使用模拟数据。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D5">
+        <header><code>M2-D5</code><h3>游戏封面等图片的缓存格式</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">保持原格式（JPG/PNG）</li><li class="chosen">统一转为 WebP（无损）并生成缩略图 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>文档 4.3 要求统一转为 WebP；纯 Rust 的 image 库只支持无损 WebP 编码，避免引入 C 依赖。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D4">
+        <header><code>M2-D4</code><h3>扫描发现的游戏如何入库？</h3><span class="status">已按用户要求修改（U-2）</span></header>
+        <ul><li class="">有存档的游戏自动入库（原决定）</li><li class="chosen">扫描只发现，不入库；由用户在“发现游戏”页选择加入或忽略 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09 要求：不是所有游戏都需要存档管理，需要选择哪些游戏加入管理；扫描单独一个页面。已被 U-2 取代。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D3">
+        <header><code>M2-D3</code><h3>规则库命中的存档位置是否需要用户确认？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">全部需要确认</li><li class="chosen">规则库与用户规则直接启用；启发式探测结果标记“待确认”，确认后才备份 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>文档 4.2：启发式结果标记为待确认，由用户确认后转为自定义规则。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D2">
+        <header><code>M2-D2</code><h3>Steam 存档路径中的 &lt;storeUserId&gt; 如何确定？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">只用最近登录的账号</li><li class="chosen">展开为 userdata 下所有本机登录过的账号（steamId3），分别作为存档位置 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>文档 4.1 listUsers 返回本机登录过的账号；多账号家庭机器上不会漏备份。</p>
+        <footer>2026-10-09</footer>
+      </article>
+      <article id="M2-D1">
+        <header><code>M2-D1</code><h3>Ludusavi 规则库（17.6 MB YAML）如何内置与更新？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">原样内置 YAML</li><li class="chosen">构建时转换为精简的 zstd 压缩 JSON 内置（只保留 Windows 相关字段），运行时按 ETag 增量更新到缓存目录 <b>✓ 采用</b></li><li class="">不内置，只在首次启动时下载</li></ul>
+        <p class="reason"><span>理由</span>Q3 已确认“内置快照 + 联网增量更新”；精简后体积预计 1–2 MB，启动解析快。规则库快照不提交到 git，由 scripts 在构建前下载生成，测试使用小型示例规则。</p><p class="impact"><span>影响</span>离线首次启动也能识别游戏；规则更新失败时继续使用内置快照。</p>
+        <footer>2026-10-09</footer>
+      </article></section><section id="s-5"><h2>M1 核心库<small>1 项</small></h2>
+      <article id="M1-ACC">
+        <header><code>M1-ACC</code><h3>M1 用户验收</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">等待用户手工验收后再进入 M2</li><li class="chosen">自动化验收全部通过即视为通过，进入 M2，用户事后复核 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>崩溃一致性（9 个写入点 + 恢复中途 + 24 处压力测试）、fsck、57 条 CLI 用例全部通过；见 docs/project-spec.md「开发记录」M1-7。</p><p class="impact"><span>影响</span>如复核发现问题，修复会在后续版本中进行并记入更新记录。</p>
+        <footer>2026-10-09</footer>
+      </article></section><section id="s-6"><h2>全局<small>1 项</small></h2>
+      <article id="G-1">
+        <header><code>G-1</code><h3>后续开发中的待确认事项如何处理？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
+        <ul><li class="">每项停下来询问</li><li class="chosen">按默认推荐方案自动决定并记录到本页，供事后复核 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户 2026-10-09 指示：按默认推荐选项进行、不必告知，但每一步确认的项目都要打开网页方便回来检查，完成所有项目开发。</p>
         <footer>2026-10-09</footer>
       </article></section>
 </div></body></html>

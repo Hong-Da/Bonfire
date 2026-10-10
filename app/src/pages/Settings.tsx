@@ -8,8 +8,8 @@ import { useStore } from "../store";
 import { Icon } from "../components/ui";
 import { applyTheme } from "../theme";
 import type { AutoBackupConfig, AutoStatus, Config, FsckReport, GameRecord, Theme } from "../types";
+import { DEFAULT_AUTO } from "../lib/auto";
 
-const DEFAULT_AUTO: AutoBackupConfig = { schedule: "off", at: "21:00", weekday: 7, every_hours: 6, on_change: false, check_minutes: 5, quiet_minutes: 2 };
 
 export const PLATFORMS = ["steam", "epic", "gog"] as const;
 
@@ -338,11 +338,26 @@ export default function Settings() {
           <section>
             <h2>{t("ui.settings.window")}</h2>
             <div className="row">
-              <label>{t("ui.settings.closeToTray")}</label>
-              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input type="checkbox" className="check" checked={cfg.general.close_to_tray} onChange={(e) => update((c) => (c.general.close_to_tray = e.target.checked))} />
-                {t("ui.settings.closeToTrayHint")}
-              </label>
+              <label htmlFor="close-action">{t("ui.settings.closeToTray")}</label>
+              <div>
+                <select
+                  id="close-action"
+                  className="field"
+                  value={!cfg.general.close_asked ? "ask" : cfg.general.close_to_tray ? "tray" : "exit"}
+                  onChange={(e) =>
+                    update((c) => {
+                      const v = e.target.value;
+                      c.general.close_asked = v !== "ask";
+                      c.general.close_to_tray = v !== "exit";
+                    })
+                  }
+                >
+                  <option value="ask">{t("ui.settings.closeAsk")}</option>
+                  <option value="tray">{t("ui.settings.closeTray")}</option>
+                  <option value="exit">{t("ui.settings.closeExit")}</option>
+                </select>
+                <p className="hint">{t("ui.settings.closeToTrayHint")}</p>
+              </div>
             </div>
           </section>
 

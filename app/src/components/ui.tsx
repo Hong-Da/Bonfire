@@ -4,9 +4,9 @@ import { imageSrc } from "../api";
 import { useStore } from "../store";
 import type { GameRow } from "../types";
 
-type IconName =
+export type IconName =
   | "library" | "settings" | "scan" | "backup" | "restore" | "branch" | "tag" | "search" | "folder"
-  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next" | "shield" | "camera" | "info" | "expand" | "image";
+  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next" | "shield" | "camera" | "info" | "expand" | "image" | "clock" | "stack" | "gallery";
 
 const PATHS: Record<IconName, string> = {
   library: "M4 5h4v14H4zM10 5h4v14h-4zM16.5 5.5l3.8 1-3.6 13.5-3.8-1z",
@@ -36,6 +36,9 @@ const PATHS: Record<IconName, string> = {
   info: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5",
   expand: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
   image: "M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M15 9.5a1.5 1.5 0 1 0 0-.01",
+  clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
+  stack: "M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4",
+  gallery: "M3 7h4v4H3zM10 7h4v4h-4zM17 7h4v4h-4zM3 14h4v4H3zM10 14h4v4h-4zM17 14h4v4h-4z",
 };
 
 export function Icon({ name, size = 18, label }: { name: IconName; size?: number; label?: string }) {
@@ -85,10 +88,20 @@ export function Modal({ title, subtitle, children, footer, onClose, wide }: { ti
 }
 
 /** 下拉菜单：点按钮展开，点外部或按 Esc 关闭。 */
+export interface MenuItem {
+  label: ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+  hint?: string;
+  /** 单选项：显示勾选标记。 */
+  checked?: boolean;
+}
+
 export function Menu({ label, icon, items, className = "btn", align = "left", title }: {
   label?: ReactNode;
   icon?: IconName;
-  items: { label: ReactNode; onClick: () => void; danger?: boolean; disabled?: boolean; hint?: string }[];
+  items: (MenuItem | "divider")[];
   className?: string;
   align?: "left" | "right";
   title?: string;
@@ -114,21 +127,27 @@ export function Menu({ label, icon, items, className = "btn", align = "left", ti
       </button>
       {open && (
         <div className={`menu-list ${align}`} role="menu">
-          {items.map((it, i) => (
-            <button
-              key={i}
-              role="menuitem"
-              className={it.danger ? "danger" : undefined}
-              disabled={it.disabled}
-              title={it.hint}
-              onClick={() => {
-                setOpen(false);
-                it.onClick();
-              }}
-            >
-              {it.label}
-            </button>
-          ))}
+          {items.map((it, i) =>
+            it === "divider" ? (
+              <hr key={i} />
+            ) : (
+              <button
+                key={i}
+                role={it.checked === undefined ? "menuitem" : "menuitemradio"}
+                aria-checked={it.checked}
+                className={[it.danger && "danger", it.checked !== undefined && "checkable"].filter(Boolean).join(" ") || undefined}
+                disabled={it.disabled}
+                title={it.hint}
+                onClick={() => {
+                  setOpen(false);
+                  it.onClick();
+                }}
+              >
+                {it.checked !== undefined && <span className="mark">{it.checked && <Icon name="check" size={14} />}</span>}
+                {it.label}
+              </button>
+            ),
+          )}
         </div>
       )}
     </div>

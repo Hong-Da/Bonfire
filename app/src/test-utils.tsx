@@ -5,7 +5,7 @@ import type { GameRow, HistoryView } from "./types";
 export function mockApi() {
   return {
     appInfo: vi.fn(),
-    getSettings: vi.fn(),
+    getSettings: vi.fn().mockResolvedValue(null),
     saveSettings: vi.fn(),
     loadLibrary: vi.fn().mockResolvedValue([]),
     discoverGames: vi.fn(),
@@ -66,6 +66,13 @@ export function mockApi() {
     addShotsGame: vi.fn(),
     autoStatus: vi.fn().mockResolvedValue({ lastScheduled: null, lastCheck: null }),
     onAutoBackup: vi.fn().mockResolvedValue(() => {}),
+    setManageMode: vi.fn().mockResolvedValue(undefined),
+    gallery: vi.fn().mockResolvedValue({ games: [], shots: [], trash: [], bytes: 0, trashBytes: 0, dir: "D:/Repo/screenshots" }),
+    shotDiff: vi.fn().mockResolvedValue({ gameId: "steam-367520", new: [], duplicates: 0, ignored: [], missing: [], restorable: 0, synced: 0 }),
+    writeBackShots: vi.fn(),
+    recollectShots: vi.fn(),
+    closeWindow: vi.fn().mockResolvedValue(undefined),
+    onCloseRequested: vi.fn().mockResolvedValue(() => {}),
     syncShots: vi.fn(),
     shotThumb: vi.fn().mockResolvedValue("C:/cache/t.webp"),
     shotImage: vi.fn().mockResolvedValue("C:/cache/full.png"),
@@ -111,6 +118,7 @@ export function row(over: Partial<GameRow> = {}): GameRow {
     unresolved: 0,
     shots: 0,
     shotsOnly: false,
+    mode: "both",
     newShots: 0,
     ...over,
   };

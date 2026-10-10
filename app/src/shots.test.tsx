@@ -89,7 +89,7 @@ describe("截图标签页", () => {
     await waitFor(() => expect(api.deleteShots).toHaveBeenCalledWith("steam-367520", ["b3:s2"]));
     expect(dialog.ask).not.toHaveBeenCalled();
     const toast = await waitFor(() => {
-      const x = useStore.getState().toasts.find((t) => t.text === "已把 1 张截图移入回收站");
+      const x = useStore.getState().toasts.find((t) => t.text.startsWith("已把 1 张截图移入回收站"));
       expect(x?.action).toBeTruthy();
       return x!;
     });

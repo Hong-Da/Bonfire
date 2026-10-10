@@ -145,6 +145,10 @@ fn every_command_has_ok_and_error_cases() {
         "game shots-dir",
         "game add-shots",
         "game shots-only",
+        "game mode",
+        "shots diff",
+        "shots write-back",
+        "shots recollect",
     ];
     let mut missing = Vec::new();
     for cmd in cmds {

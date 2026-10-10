@@ -1142,3 +1142,80 @@ fixture = "basic"
 pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
 args = ["backup", "--auto", "空洞骑士"]
 expect_exit = 2
+
+[[case]]
+id = "game-mode"
+title = { zh-CN = "切换游戏的管理方式", en = "Change how a game is managed" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["game", "mode", "空洞骑士", "saves"]
+expect_exit = 0
+stdout_contains = ["管理方式改为：只管理存档"]
+
+[[case]]
+id = "game-mode-show"
+title = { zh-CN = "查看游戏的管理方式", en = "Show how a game is managed" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "mode", "空洞骑士", "shots"]]
+args = ["game", "mode", "空洞骑士"]
+expect_exit = 0
+stdout_contains = ["管理方式：只管理截图"]
+
+[[case]]
+id = "game-mode-bad-value"
+title = { zh-CN = "切换管理方式：取值无效", en = "Change management: invalid value" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["game", "mode", "空洞骑士", "all"]
+expect_exit = 2
+
+[[case]]
+id = "shots-diff"
+title = { zh-CN = "对比截图备份与磁盘", en = "Compare screenshots with disk" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"], ["shots", "rm", "空洞骑士", "feaa61", "-y"]]
+args = ["shots", "diff", "空洞骑士"]
+expect_exit = 0
+stdout_contains = ["1 张在回收站", "磁盘上已没有 0 张"]
+
+[[case]]
+id = "shots-diff-unknown-game"
+title = { zh-CN = "对比截图：游戏不存在", en = "Compare screenshots: unknown game" }
+fixture = "basic"
+args = ["shots", "diff", "不存在的游戏"]
+expect_exit = 4
+
+[[case]]
+id = "shots-write-back"
+title = { zh-CN = "写回截图：磁盘上都还在", en = "Write screenshots back: nothing missing" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"]]
+args = ["shots", "write-back", "空洞骑士", "-y"]
+expect_exit = 0
+stdout_contains = ["都还在，不需要写回"]
+
+[[case]]
+id = "shots-write-back-short-id"
+title = { zh-CN = "写回截图：ID 太短", en = "Write screenshots back: ID too short" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"]]
+args = ["shots", "write-back", "空洞骑士", "fe"]
+expect_exit = 2
+stderr_contains = ["至少 6 位"]
+
+[[case]]
+id = "shots-recollect"
+title = { zh-CN = "重新收集回收站中的截图", en = "Collect screenshots in the recycle bin again" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "shots-dir", "add", "空洞骑士", "{inputs}/shots"], ["shots", "sync"], ["shots", "rm", "空洞骑士", "feaa61", "-y"]]
+args = ["shots", "recollect", "空洞骑士"]
+expect_exit = 0
+stdout_contains = ["已重新收集 1 张截图"]
+
+
+[[case]]
+id = "shots-recollect-unknown-game"
+title = { zh-CN = "重新收集截图：游戏不存在", en = "Collect screenshots again: unknown game" }
+fixture = "basic"
+args = ["shots", "recollect", "不存在的游戏"]
+expect_exit = 4

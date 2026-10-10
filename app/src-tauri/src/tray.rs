@@ -1,16 +1,22 @@
 //! 系统托盘：常驻图标，左键单击显示主窗口；菜单“打开篝火 / 检查更新 / 退出”。
 //! 关闭窗口时按设置 `general.close_to_tray`（默认开启）留在托盘：窗口与 WebView 销毁以节省内存，
 //! 程序继续运行；从托盘或再次启动程序时重新创建窗口。从托盘菜单“退出”才结束程序。
+//! 第一次关闭窗口时（`general.close_asked` 为 false）先询问最小化到托盘还是退出（U-10）。
 
 use bonfire_app::{Config, Locale, t};
+use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Emitter, Manager, RunEvent};
+
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Window, WindowEvent};
 
 use crate::commands::Shared;
 
 /// 托盘菜单“检查更新”发给界面的事件。
 pub const CHECK_EVENT: &str = "tray-check";
+/// 第一次关闭窗口时请界面询问关闭方式的事件。
+pub const CLOSE_EVENT: &str = "close-requested";
 
 pub fn create(app: &AppHandle, locale: Locale) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", t(locale, "tray.open"), true, None::<&str>)?;
@@ -82,11 +88,47 @@ pub fn show_main(app: &AppHandle) {
     }
 }
 
+/// 关闭主窗口时：还没选过关闭方式则拦下，请界面询问（界面调用 `close_window` 完成关闭）。
+/// 询问后 10 秒内再次关闭按默认处理，避免界面无响应时窗口关不掉。
+pub fn on_window_event(window: &Window, event: &WindowEvent) {
+    let WindowEvent::CloseRequested { api, .. } = event else {
+        return;
+    };
+    if window.label() != "main" {
+        return;
+    }
+    let app = window.app_handle();
+    let shared = app.state::<Shared>();
+    let ask = shared
+        .app
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .as_ref()
+        .is_some_and(|a| !a.config.general.close_asked);
+    if !ask {
+        return;
+    }
+    let mut last = shared
+        .close_asked_at
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    if last.is_some_and(|t| t.elapsed() < Duration::from_secs(10)) {
+        return;
+    }
+    *last = Some(Instant::now());
+    api.prevent_close();
+    let _ = window.emit(CLOSE_EVENT, ());
+}
+
 /// 最后一个窗口关闭时：设置为留在托盘则不退出（托盘菜单“退出”调用 `exit`，带退出码，照常退出）。
 pub fn on_run_event(app: &AppHandle, event: RunEvent) {
     if let RunEvent::ExitRequested { api, code, .. } = event
         && code.is_none()
-        && close_to_tray(app)
+        && (app
+            .state::<Shared>()
+            .tray_once
+            .swap(false, Ordering::SeqCst)
+            || close_to_tray(app))
     {
         api.prevent_exit();
     }

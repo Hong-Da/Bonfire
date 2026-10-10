@@ -306,12 +306,36 @@ function ShotFinds() {
       setBusy(null);
     }
   };
+  // 一键全部加入：逐个加入，某个失败时提示并继续其余的。
+  const addAll = async () => {
+    setBusy("*");
+    const done: string[] = [];
+    for (const c of list) {
+      try {
+        const g = await api.addShotsGame(c.key, c.name, []);
+        await store.refreshRow(g.id);
+        done.push(c.key);
+      } catch (e) {
+        store.toast("error", `${c.name}：${errorMessage(e)}`);
+      }
+    }
+    setList((l) => (l ?? []).filter((x) => !done.includes(x.key)));
+    if (done.length > 0) store.toast("success", t("ui.scan.shotsAddedAll", { n: done.length }));
+    setBusy(null);
+  };
   return (
     <details className="no-saves shot-finds" open>
       <summary>
         <Icon name="camera" size={14} /> {t("ui.scan.shotFinds", { n: list.length })}
       </summary>
-      <p className="hint">{t("ui.scan.shotFindsHint")}</p>
+      <div className="inline shot-finds-head">
+        <p className="hint">{t("ui.scan.shotFindsHint")}</p>
+        {list.length > 1 && (
+          <button className="btn primary small" onClick={() => void addAll()} disabled={busy !== null}>
+            <Icon name="plus" size={14} /> {t("ui.scan.addAllShots", { n: list.length })}
+          </button>
+        )}
+      </div>
       <ul className="file-list">
         {list.map((c) => (
           <li key={c.key}>

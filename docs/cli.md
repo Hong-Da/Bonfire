@@ -46,8 +46,12 @@
 | `bonfire shots restore <game> <ID>...` | 从回收站恢复截图 |
 | `bonfire shots trash <game> [--empty]` | 列出回收站中的截图；`--empty` 清空回收站（需确认，不能恢复） |
 | `bonfire shots found` | 列出有截图、但不在游戏库中的游戏（Steam 截图按 AppID、游戏栏截图按窗口标题） |
+| `bonfire shots diff <game>` | 对比截图备份与磁盘上的截图文件夹：两边都有、磁盘上的新截图、被忽略的（在回收站中或已彻底删除，原图还在也不会再收集）、磁盘上已没有的 |
+| `bonfire shots write-back <game> [<id>...] [--to <dir>]` | 把备份中有、磁盘上已没有的截图写回原位置（原文件夹不存在时跳过）或 `--to` 指定的文件夹；只写入不存在的文件，不覆盖（需确认） |
+| `bonfire shots recollect <game>` | 重新收集被忽略的截图：回收站中的恢复到相册，彻底删除的去掉删除记录后重新收集 |
 | `bonfire game add-shots <名称> [--steam <AppID>] [--dir <文件夹>]...` | 加入只管理截图的游戏（不备份存档）；游戏栏截图按名称对应 |
 | `bonfire game shots-only <game> on\|off` | 设为只管理截图（不备份、不检查存档，已有快照保留）/ 恢复管理存档 |
+| `bonfire game mode <game> [both\|saves\|shots]` | 查看或切换管理方式：存档和截图 / 只管理存档（不收集截图）/ 只管理截图（不备份、不检查存档）；已有的快照与截图都保留 |
 | `bonfire shots set <game> on\|off\|auto` | 这个游戏收集 / 不收集截图 / 跟随全局设置（`shots.enabled`） |
 | `bonfire game shots-dir add\|rm <game> <文件夹>` | 为游戏添加或移除截图文件夹（游戏自带截图、其他截图工具）；不能是仓库或数据目录；移除后已收集的截图保留 |
 | `bonfire fsck [--deep]` | 校验仓库；`--deep` 还原每个文件并校验哈希 |

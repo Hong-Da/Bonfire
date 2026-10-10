@@ -65,6 +65,8 @@ pub struct General {
     pub repo: Option<PathBuf>,
     /// 关闭窗口时留在系统托盘（不退出）；从托盘菜单“退出”才结束程序。
     pub close_to_tray: bool,
+    /// 已经问过（或在设置中选过）关闭窗口时的做法；为 false 时第一次关闭窗口会询问。
+    pub close_asked: bool,
 }
 
 impl Default for General {
@@ -74,6 +76,7 @@ impl Default for General {
             theme: Theme::Auto,
             repo: None,
             close_to_tray: true,
+            close_asked: false,
         }
     }
 }
@@ -392,6 +395,8 @@ theme = "{theme}"
 # repo = 'D:\Backups\Bonfire'
 # 关闭窗口时留在系统托盘（不退出）；从托盘菜单“退出”才结束程序
 close_to_tray = {tray}
+# 是否已经选过关闭窗口时的做法；为 false 时第一次关闭窗口会询问“最小化到托盘还是退出”
+close_asked = {asked}
 
 [backup]
 # 是否同时备份游戏的配置文件（画质、按键等设置）
@@ -450,6 +455,7 @@ keep_days = {keep}
 "#,
             theme = "auto",
             tray = d.general.close_to_tray,
+            asked = d.general.close_asked,
             protect = d.backup.protect_local,
             shots = d.shots.enabled,
             schedule = "off",

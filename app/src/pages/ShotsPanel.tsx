@@ -7,6 +7,7 @@ import { bytes, dateTime, firstLine } from "../lib/format";
 import { fileName, groupByDay, shotSnapshots } from "../lib/shots";
 import { useStore } from "../store";
 import type { AlbumView, ExportFormat, ShotRecord, SnapshotNode } from "../types";
+import ShotDiffDialog from "./ShotDiffDialog";
 
 /** 截图缩略图：进入可视区域后才生成 / 读取。 */
 export function ShotThumb({ gameId, blob, alt }: { gameId: string; blob: string; alt: string }) {
@@ -75,6 +76,7 @@ export default function ShotsPanel({
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [viewing, setViewing] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [diffOpen, setDiffOpen] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -220,6 +222,9 @@ export default function ShotsPanel({
         </button>
         <button className="btn" onClick={() => void api.openPath(album.dir).catch((e) => store.toast("error", errorMessage(e)))} title={album.dir}>
           <Icon name="folder" /> {t("ui.shots.openDir")}
+        </button>
+        <button className="btn" onClick={() => setDiffOpen(true)} title={t("ui.diff.buttonHint")}>
+          <Icon name="scan" /> {t("ui.diff.button")}
         </button>
         <p className="hint">{t("ui.shots.storedHint")}</p>
 
@@ -376,6 +381,17 @@ export default function ShotsPanel({
         )}
       </section>
 
+      {diffOpen && (
+        <ShotDiffDialog
+          gameId={gameId}
+          gameName={gameName}
+          onClose={() => setDiffOpen(false)}
+          onChanged={() => {
+            void reload();
+            onChanged();
+          }}
+        />
+      )}
       {!inTrash && viewing !== null && ordered[viewing] && (
         <Lightbox
           gameId={gameId}
@@ -409,11 +425,12 @@ function readInfoPref(): boolean {
 }
 
 /**
- * 大图：图片尽量占满窗口，底部一行精简信息与操作；详情（来源、尺寸、原位置、之后的存档）可展开，
+ * 大图（详情页截图与图库共用）：图片尽量占满窗口，底部一行精简信息与操作；详情（来源、尺寸、原位置、之后的存档）可展开，
  * 默认收起并记住上次的选择。← / → 切换，I 展开详情，Esc 关闭。
  */
-function Lightbox({
+export function Lightbox({
   gameId,
+  title,
   shot,
   index,
   total,
@@ -426,16 +443,19 @@ function Lightbox({
   onShowSnapshot,
 }: {
   gameId: string;
+  /** 图库中显示游戏名。 */
+  title?: string;
   shot: ShotRecord;
   index: number;
   total: number;
-  snapshot: SnapshotNode | null;
+  /** 拍摄之后的存档；undefined 时不显示这一项（图库）。 */
+  snapshot?: SnapshotNode | null;
   onPrev: () => void;
   onNext: () => void;
   onClose: () => void;
-  onExport: () => void;
+  onExport?: () => void;
   onDelete: () => void;
-  onShowSnapshot: (id: string) => void;
+  onShowSnapshot?: (id: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [path, setPath] = useState<string | null>(null);
@@ -506,11 +526,12 @@ function Lightbox({
                   </button>
                 </dd>
               </div>
+              {snapshot !== undefined && (
               <div className="wide">
                 <dt>{t("ui.shots.savedIn")}</dt>
                 <dd>
                   {snapshot ? (
-                    <button className="link" onClick={() => onShowSnapshot(snapshot.id)} title={t("ui.shots.showSave")}>
+                    <button className="link" onClick={() => onShowSnapshot?.(snapshot.id)} title={t("ui.shots.showSave")}>
                       {dateTime(snapshot.createdAt, i18n.language)} · {firstLine(snapshot.comment) || t("ui.history.noComment")}
                     </button>
                   ) : (
@@ -518,9 +539,11 @@ function Lightbox({
                   )}
                 </dd>
               </div>
+              )}
             </dl>
           )}
           <div className="lb-bar">
+            {title && <span className="lb-game">{title}</span>}
             <b className="lb-name" title={name}>
               {name}
             </b>
@@ -535,9 +558,11 @@ function Lightbox({
             <button className="btn small ghost" onClick={() => path && void api.openPath(path)} disabled={!path} title={t("ui.shots.revealHint")}>
               <Icon name="folder" size={14} /> {t("ui.shots.reveal")}
             </button>
-            <button className="btn small ghost" onClick={onExport}>
-              <Icon name="export" size={14} /> {t("ui.shots.export")}
-            </button>
+            {onExport && (
+              <button className="btn small ghost" onClick={onExport}>
+                <Icon name="export" size={14} /> {t("ui.shots.export")}
+              </button>
+            )}
             <button className="btn small ghost" onClick={onDelete}>
               <Icon name="trash" size={14} /> {t("ui.shots.delete")}
             </button>

@@ -20,7 +20,7 @@ export interface AppInfo {
 }
 
 export interface Config {
-  general: { language?: string; theme: Theme; repo?: string; close_to_tray: boolean };
+  general: { language?: string; theme: Theme; repo?: string; close_to_tray: boolean; close_asked?: boolean };
   backup: { include_config_files: boolean; size_warning_gb: number; disabled_platforms: string[]; protect_local: boolean };
   shots: ShotsConfig;
   auto_backup: AutoBackupConfig;
@@ -62,6 +62,49 @@ export interface AutoReport {
   kind: "scheduled" | "on-change";
   items: { gameId: string; name: string; snapshot: string | null; newBranch: string | null; error: string | null; shots: number }[];
   waiting: number;
+}
+
+/** 游戏的管理方式。 */
+export type ManageMode = "both" | "saves" | "shots";
+
+/** 图库中的一个游戏。 */
+export interface GalleryGame {
+  id: string;
+  name: string;
+  nameZh: string | null;
+  platform: string;
+  /** 已移出游戏库的游戏为 false（截图仍保留）。 */
+  inLibrary: boolean;
+  mode: ManageMode;
+}
+
+/** 图库：所有游戏的截图。 */
+export interface GalleryView {
+  games: GalleryGame[];
+  shots: ShotRecord[];
+  trash: ShotRecord[];
+  bytes: number;
+  trashBytes: number;
+  dir: string;
+}
+
+/** 截图备份与磁盘上截图文件夹的对比。 */
+export interface ShotDiff {
+  gameId: string;
+  new: { path: string; size: number; source: string }[];
+  duplicates: number;
+  ignored: { path: string; size: number; blob: string; purged: boolean }[];
+  missing: ShotRecord[];
+  restorable: number;
+  synced: number;
+}
+
+export interface WriteBackReport {
+  written: number;
+  bytes: number;
+  exists: number;
+  noDir: number;
+  dirs: string[];
 }
 
 /** 有截图、但还不在游戏库中的游戏。 */
@@ -157,6 +200,8 @@ export interface GameRow {
   shots: number;
   /** 只管理截图（不备份存档）。 */
   shotsOnly: boolean;
+  /** 管理方式：存档和截图 / 只管理存档 / 只管理截图。 */
+  mode: ManageMode;
   /** 磁盘上还没有收集的新截图数。 */
   newShots: number;
 }

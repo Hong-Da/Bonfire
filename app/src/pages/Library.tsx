@@ -5,19 +5,21 @@ import { Cover, Icon, Menu, StatusBadge, displayName } from "../components/ui";
 import { bytes, relative } from "../lib/format";
 import { checkAndReport } from "../lib/check";
 import { useDelayed } from "../lib/hooks";
-import { visibleRows, useStore, type StateFilter } from "../store";
+import { visibleRows, useStore, type ModeFilter, type StateFilter } from "../store";
 import type { GameRow, Profile } from "../types";
 import BackupDialog from "./BackupDialog";
 import AddGameDialog from "./AddGameDialog";
 import { CollectionExportDialog, CollectionImportDialog } from "./CollectionDialogs";
 import ProtectSwitch from "../components/ProtectSwitch";
+import AutoSwitch from "../components/AutoSwitch";
+import ModeMenu, { MODES } from "../components/ModeMenu";
 
 const STATES: StateFilter[] = ["all", "has-changes", "never-backed-up", "up-to-date"];
 
 export default function Library() {
   const { t, i18n } = useTranslation();
   const s = useStore();
-  const rows = useMemo(() => visibleRows(s), [s.rows, s.order, s.platformFilter, s.stateFilter, s.query]);
+  const rows = useMemo(() => visibleRows(s), [s.rows, s.order, s.platformFilter, s.stateFilter, s.modeFilter, s.query]);
   const allRows = useMemo(() => s.order.map((id) => s.rows[id]).filter(Boolean), [s.rows, s.order]);
   const platforms = useMemo(() => [...new Set(allRows.map((r) => r.platform))].sort(), [allRows]);
   const selected = allRows.filter((r) => s.selected.has(r.id));
@@ -79,6 +81,14 @@ export default function Library() {
             </button>
           ))}
         </div>
+        <select className="field" value={s.modeFilter} onChange={(e) => s.setModeFilter(e.target.value as ModeFilter)} aria-label={t("ui.mode.filter")}>
+          <option value="all">{t("ui.mode.all", { n: allRows.length })}</option>
+          {MODES.map((m) => (
+            <option key={m} value={m}>
+              {t("ui.mode.option", { mode: t(`ui.mode.${m}`), n: allRows.filter((r) => r.mode === m).length })}
+            </option>
+          ))}
+        </select>
         {platforms.length > 1 && (
           <select className="field" value={s.platformFilter} onChange={(e) => s.setPlatformFilter(e.target.value)} aria-label={t("ui.library.filterPlatform")}>
             <option value="all">{t("ui.library.allPlatforms")}</option>
@@ -156,6 +166,7 @@ export default function Library() {
                     className="btn"
                     onClick={() => {
                       s.setStateFilter("all");
+                      s.setModeFilter("all");
                       s.setPlatformFilter("all");
                       s.setQuery("");
                     }}
@@ -215,6 +226,8 @@ export default function Library() {
             </form>
           )}
           <div className="grow" style={{ flex: 1 }} />
+          <ModeMenu ids={selected.map((r) => r.id)} variant="button" label={t("ui.mode.batch", { n: selected.length })} />
+          <AutoSwitch />
           <ProtectSwitch />
           <span className="count num">{t("ui.library.selected", { n: selected.length })}</span>
           <button className="btn primary" disabled={selected.length === 0 || busy} onClick={() => setBackupOpen(true)}>
@@ -252,8 +265,9 @@ function GameLine({ row, lang, selected, onToggle, onOpen }: { row: GameRow; lan
           {row.cloudSave && <Icon name="cloud" size={12} label={t("ui.library.cloud")} />}
         </span>
       </div>
-      <div>
+      <div className="col-state">
         <StatusBadge row={row} />
+        <ModeMenu ids={[row.id]} current={row.mode} name={name} />
         {row.state === "has-changes" && <div className="meta num">{t("ui.library.changedFiles", { n: changed, size: bytes(row.summary.changedBytes) })}</div>}
         {row.detached && <div className="meta">{t("ui.library.detached")}</div>}
         {row.newShots > 0 && (

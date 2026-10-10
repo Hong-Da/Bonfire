@@ -34,14 +34,16 @@ if args:
     store.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 e = html.escape
+# 按最新的决策排序：最近追加的阶段与决策排在前面。
+latest = list(reversed(data))
 stages = []
-for d in data:
+for d in latest:
     if d["stage"] not in stages:
         stages.append(d["stage"])
 
 cards = []
 for st in stages:
-    items = [d for d in data if d["stage"] == st]
+    items = [d for d in latest if d["stage"] == st]
     rows = []
     for d in items:
         opts = "".join(
@@ -88,7 +90,7 @@ ul {{ margin:8px 0; padding-left:20px }} li {{ color:var(--muted) }} li.chosen {
 p {{ margin:6px 0 }} footer {{ font-size:12px; color:var(--muted) }}
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核。共 {len(data)} 项，更新于 {datetime.datetime.now():%Y-%m-%d %H:%M}。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 {len(data)} 项，更新于 {datetime.datetime.now():%Y-%m-%d %H:%M}。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav>{nav}</nav>
 {"".join(cards)}
 </div></body></html>

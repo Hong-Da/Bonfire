@@ -39,6 +39,8 @@ fn main() {
         paths,
         cancel: AtomicBool::new(false),
         config_error: Mutex::new(config_error),
+        tray_once: AtomicBool::new(false),
+        close_asked_at: Mutex::new(None),
     };
 
     tauri::Builder::default()
@@ -48,6 +50,7 @@ fn main() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .manage(shared)
+        .on_window_event(tray::on_window_event)
         .setup(move |app| {
             tray::create_main_window(app.handle())?;
             tray::create(app.handle(), locale)?;
@@ -70,6 +73,12 @@ fn main() {
             commands::shot_candidates,
             commands::add_shots_game,
             commands::auto_status,
+            commands::set_manage_mode,
+            commands::gallery,
+            commands::shot_diff,
+            commands::write_back_shots,
+            commands::recollect_shots,
+            commands::close_window,
             commands::open_location,
             commands::export_default_name,
             commands::export_files,

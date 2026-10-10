@@ -20,6 +20,8 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.settings.schedule.": ["off", "daily", "weekly", "hours"],
   "ui.settings.autoScheduleOpt.": ["off", "daily", "weekly", "hours"],
   "ui.weekday.": ["1", "2", "3", "4", "5", "6", "7"],
+  "ui.mode.": ["both", "saves", "shots", "bothHint", "savesHint", "shotsHint"],
+  "ui.gallery.group.": ["game", "month", "day", "source"],
 };
 
 function sources(dir: string): string[] {

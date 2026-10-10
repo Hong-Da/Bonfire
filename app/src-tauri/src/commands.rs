@@ -12,10 +12,11 @@ use bonfire_app::backup::{BackupOptions, BackupResult, DetachedChoice};
 use bonfire_app::core::index::LocationKind;
 use bonfire_app::core::index::{GameRecord, Profile};
 use bonfire_app::core::refs::RefKind;
+use bonfire_app::gallery::{GalleryView, ShotDiff, WriteBackReport};
 use bonfire_app::library::{GameRow, HistoryView, SearchHit};
 use bonfire_app::prune::DeleteReport;
 use bonfire_app::restore::{RestoreOptions, RestorePlan, RestoreReport};
-use bonfire_app::shots::{AlbumView, ShotCandidate, ShotExportReport, ShotSyncReport};
+use bonfire_app::shots::{AlbumView, ManageMode, ShotCandidate, ShotExportReport, ShotSyncReport};
 use bonfire_app::transfer::{
     ArchiveImportItem, ArchivePick, ArchivePreview, BundleImportReport, BundlePreview,
     BundleReport, BundleScope, CollectionReport, ExportFormat, ExportReport, FilesAutoReport,
@@ -31,6 +32,10 @@ pub struct Shared {
     pub paths: AppPaths,
     pub cancel: AtomicBool,
     pub config_error: Mutex<Option<String>>,
+    /// 这次关闭窗口留在托盘（询问时选了“最小化到托盘”但没有记住选择）。
+    pub tray_once: AtomicBool,
+    /// 上次询问关闭方式的时间：询问后很快再次关闭时按默认处理，避免界面无响应时窗口关不掉。
+    pub close_asked_at: Mutex<Option<std::time::Instant>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1193,6 +1198,101 @@ pub async fn add_shots_game(
         Ok(app.add_shots_game(&lock, key.as_deref(), &name, &dirs)?)
     })
     .await
+}
+
+/// 切换游戏的管理方式：存档和截图 / 只管理存档 / 只管理截图。
+#[tauri::command]
+pub async fn set_manage_mode(
+    h: AppHandle,
+    game_ids: Vec<String>,
+    mode: ManageMode,
+) -> CmdResult<()> {
+    with_app(h, move |app, _| {
+        for id in game_ids {
+            let g = find(app, &id)?;
+            app.set_manage_mode(&g, mode)?;
+        }
+        Ok(())
+    })
+    .await
+}
+
+/// 图库：所有游戏的截图。
+#[tauri::command]
+pub async fn gallery(h: AppHandle) -> CmdResult<GalleryView> {
+    with_app(h, move |app, _| Ok(app.gallery()?)).await
+}
+
+/// 对比截图备份与磁盘上的截图文件夹。
+#[tauri::command]
+pub async fn shot_diff(h: AppHandle, game_id: String) -> CmdResult<ShotDiff> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.shot_diff(&g)?)
+    })
+    .await
+}
+
+/// 把备份中有、磁盘上没有的截图写回原位置（`dest` 为空）或指定文件夹。
+#[tauri::command]
+pub async fn write_back_shots(
+    h: AppHandle,
+    game_id: String,
+    blobs: Vec<String>,
+    dest: Option<PathBuf>,
+) -> CmdResult<WriteBackReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let ids = blob_ids(&blobs)?;
+        Ok(app.write_back_shots(&g, &ids, dest.as_deref())?)
+    })
+    .await
+}
+
+/// 重新收集磁盘上被忽略（在回收站中或已彻底删除）的截图。
+#[tauri::command]
+pub async fn recollect_shots(
+    h: AppHandle,
+    game_id: String,
+    paths: Vec<PathBuf>,
+) -> CmdResult<usize> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let lock = app.repo.lock()?;
+        Ok(app.recollect_shots(&lock, &g, &paths)?)
+    })
+    .await
+}
+
+/// 回答“关闭窗口时最小化到托盘还是退出”：`remember` 时写入设置，之后不再询问。
+#[tauri::command]
+pub async fn close_window(h: AppHandle, tray: bool, remember: bool) -> CmdResult<()> {
+    let shared = h.state::<Shared>();
+    if remember
+        && let Some(a) = shared
+            .app
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .as_mut()
+    {
+        a.config.general.close_to_tray = tray;
+        a.config.general.close_asked = true;
+        a.config
+            .save(&shared.paths.config_file)
+            .map_err(AppError::from)?;
+    }
+    if tray {
+        shared.tray_once.store(true, Ordering::SeqCst);
+        if let Some(w) = h.get_webview_window("main") {
+            w.destroy().map_err(|e| CmdError {
+                kind: "general",
+                message: e.to_string(),
+            })?;
+        }
+    } else {
+        h.exit(0);
+    }
+    Ok(())
 }
 
 /// 自动备份的上次执行时间（设置页显示）。

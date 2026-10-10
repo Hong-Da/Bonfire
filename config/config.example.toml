@@ -11,6 +11,8 @@ theme = "auto"
 # repo = 'D:\Backups\Bonfire'
 # 关闭窗口时留在系统托盘（不退出）；从托盘菜单“退出”才结束程序
 close_to_tray = true
+# 是否已经选过关闭窗口时的做法；为 false 时第一次关闭窗口会询问“最小化到托盘还是退出”
+close_asked = false
 
 [backup]
 # 是否同时备份游戏的配置文件（画质、按键等设置）

@@ -15,6 +15,7 @@ import ImportDialog from "./ImportDialog";
 import RestoreDialog from "./RestoreDialog";
 import ShotsPanel, { ShotThumb } from "./ShotsPanel";
 import { fileName, shotCounts, shotSnapshots } from "../lib/shots";
+import ModeMenu from "../components/ModeMenu";
 
 type Compare = "disk" | "parent";
 type Tab = "changes" | "files";
@@ -127,14 +128,14 @@ export default function GameDetail({ id }: { id: string }) {
       )}
       <div className="page-switch" role="tablist" aria-label={t("ui.shots.pageSwitch")}>
         <button role="tab" aria-selected={page === "saves"} onClick={() => setPage("saves")}>
-          <Icon name="backup" size={20} />
+          <Icon name="backup" size={16} />
           <span className="ps-text">
             <b>{t("ui.shots.tabSaves")}</b>
             <small className="num">{row.shotsOnly ? t("ui.shots.savesOff") : t("ui.history.snapshotsCount", { n: hist.nodes.length })}</small>
           </span>
         </button>
         <button role="tab" aria-selected={page === "shots"} onClick={() => setPage("shots")}>
-          <Icon name="camera" size={20} />
+          <Icon name="camera" size={16} />
           <span className="ps-text">
             <b>{t("ui.shots.tab")}</b>
             <small className="num">{t("ui.shots.countN", { n: shots.length })}</small>
@@ -396,6 +397,7 @@ function Hero({
           <button className="btn" onClick={onImport}>
             <Icon name="import" /> {t("ui.transfer.import")}
           </button>
+          <ModeMenu ids={[gameId]} current={row.mode} name={name} variant="button" onDone={onChanged} />
           <Menu
             icon="more"
             className="btn ghost"
@@ -403,19 +405,6 @@ function Hero({
             title={t("ui.more")}
             items={[
               { label: t("ui.history.refreshInfo"), onClick: () => void api.refreshInfo(gameId).then(onChanged).catch(onFail) },
-              {
-                label: row.shotsOnly ? t("ui.history.manageSaves") : t("ui.history.shotsOnly"),
-                hint: row.shotsOnly ? t("ui.history.manageSavesHint") : t("ui.history.shotsOnlyHint"),
-                onClick: async () => {
-                  try {
-                    await api.setShotsOnly(gameId, !row.shotsOnly);
-                    store.toast("success", row.shotsOnly ? t("ui.history.manageSavesDone", { name }) : t("ui.history.shotsOnlyDone", { name }));
-                    onChanged();
-                  } catch (e) {
-                    onFail(e);
-                  }
-                },
-              },
               ...(unconfirmed > 0
                 ? [
                     {

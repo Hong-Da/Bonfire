@@ -1,9 +1,18 @@
 import { create } from "zustand";
 import { api, errorMessage } from "./api";
-import type { AppInfo, GameRow, GameState, Phase, ScanReport } from "./types";
+import type { AppInfo, GameRow, GameState, ManageMode, Phase, ScanReport } from "./types";
 
-export type View = { name: "library" } | { name: "scan" } | { name: "game"; id: string } | { name: "settings" };
+export type View = { name: "library" } | { name: "gallery" } | { name: "scan" } | { name: "game"; id: string } | { name: "settings" };
 export type StateFilter = "all" | GameState;
+export type ModeFilter = "all" | ManageMode;
+
+/** 启动时的页面：地址中的 `#/gallery`、`#/scan`、`#/settings`、`#/game/<id>`，没有时为游戏库。 */
+export function initialView(hash: string): View {
+  const [name, id] = hash.replace(/^#\/?/, "").split("/");
+  if (name === "gallery" || name === "scan" || name === "settings") return { name };
+  if (name === "game" && id) return { name: "game", id: decodeURIComponent(id) };
+  return { name: "library" };
+}
 
 export interface Toast {
   id: number;
@@ -23,6 +32,7 @@ interface Store {
   selected: Set<string>;
   platformFilter: string;
   stateFilter: StateFilter;
+  modeFilter: ModeFilter;
   query: string;
   toasts: Toast[];
   /** 恢复后常驻的“撤销本次恢复”提示（按游戏）。 */
@@ -44,6 +54,7 @@ interface Store {
   clearSelection: () => void;
   setPlatformFilter: (p: string) => void;
   setStateFilter: (s: StateFilter) => void;
+  setModeFilter: (m: ModeFilter) => void;
   setQuery: (q: string) => void;
   toast: (kind: Toast["kind"], text: string, action?: Toast["action"]) => void;
   dismiss: (id: number) => void;
@@ -57,13 +68,14 @@ export function defaultSelection(rows: GameRow[]): Set<string> {
   return new Set(rows.filter((r) => r.state !== "up-to-date").map((r) => r.id));
 }
 
-export function visibleRows(s: Pick<Store, "rows" | "order" | "platformFilter" | "stateFilter" | "query">): GameRow[] {
+export function visibleRows(s: Pick<Store, "rows" | "order" | "platformFilter" | "stateFilter" | "query"> & { modeFilter?: ModeFilter }): GameRow[] {
   const q = s.query.trim().toLowerCase();
   return s.order
     .map((id) => s.rows[id])
     .filter((r): r is GameRow => !!r)
     .filter((r) => s.platformFilter === "all" || r.platform === s.platformFilter)
     .filter((r) => s.stateFilter === "all" || r.state === s.stateFilter)
+    .filter((r) => !s.modeFilter || s.modeFilter === "all" || r.mode === s.modeFilter)
     .filter((r) => !q || r.name.toLowerCase().includes(q) || (r.nameZh ?? "").toLowerCase().includes(q) || r.id.includes(q));
 }
 
@@ -77,7 +89,7 @@ function sortIds(rows: Record<string, GameRow>): string[] {
 
 export const useStore = create<Store>((set, get) => ({
   info: null,
-  view: { name: "library" },
+  view: initialView(typeof location === "undefined" ? "" : location.hash),
   rows: {},
   order: [],
   phase: { phase: "idle", done: 0, total: 0 },
@@ -85,6 +97,7 @@ export const useStore = create<Store>((set, get) => ({
   selected: new Set(),
   platformFilter: "all",
   stateFilter: "all",
+  modeFilter: "all",
   query: "",
   toasts: [],
   undoable: {},
@@ -168,6 +181,7 @@ export const useStore = create<Store>((set, get) => ({
   clearSelection: () => set({ selected: new Set() }),
   setPlatformFilter: (platformFilter) => set({ platformFilter }),
   setStateFilter: (stateFilter) => set({ stateFilter }),
+  setModeFilter: (modeFilter) => set({ modeFilter }),
   setQuery: (query) => set({ query }),
 
   toast: (kind, text, action) => {

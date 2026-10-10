@@ -261,6 +261,18 @@ pub enum ShotsCmd {
         value: ShotSwitch,
     },
     Found,
+    Diff {
+        game: String,
+    },
+    WriteBack {
+        game: String,
+        ids: Vec<String>,
+        #[arg(long, value_name = "DIR")]
+        to: Option<PathBuf>,
+    },
+    Recollect {
+        game: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -354,6 +366,18 @@ pub enum GameCmd {
         #[arg(value_enum)]
         value: OnOff,
     },
+    Mode {
+        game: String,
+        #[arg(value_enum)]
+        mode: Option<ModeArg>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ModeArg {
+    Both,
+    Saves,
+    Shots,
 }
 
 #[derive(Debug, Subcommand)]

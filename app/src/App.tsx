@@ -5,6 +5,8 @@ import logo from "./assets/logo.svg";
 import { Icon, Toasts } from "./components/ui";
 import { setLanguage } from "./i18n";
 import GameDetail from "./pages/GameDetail";
+import Gallery from "./pages/Gallery";
+import CloseDialog from "./components/CloseDialog";
 import Library from "./pages/Library";
 import ScanPage from "./pages/ScanPage";
 import Settings from "./pages/Settings";
@@ -17,6 +19,7 @@ export default function App() {
   const { t } = useTranslation();
   const { info, setInfo, view, go, loadLibrary, startScan, toast } = useStore();
   const [ready, setReady] = useState(false);
+  const [closeAsk, setCloseAsk] = useState(false);
 
   useEffect(() => {
     api
@@ -65,6 +68,14 @@ export default function App() {
     };
   }, []);
 
+  // 第一次关闭窗口：询问最小化到托盘还是退出。
+  useEffect(() => {
+    const off = api.onCloseRequested(() => setCloseAsk(true));
+    return () => {
+      void off.then((f) => f());
+    };
+  }, []);
+
   useEffect(() => {
     const off = api.onTrayCheck(() => {
       if (useStore.getState().info?.firstRun) return;
@@ -104,6 +115,10 @@ export default function App() {
           <Icon name="library" size={22} />
           {t("ui.nav.library")}
         </button>
+        <button aria-current={view.name === "gallery" ? "page" : undefined} onClick={() => go({ name: "gallery" })}>
+          <Icon name="gallery" size={22} />
+          {t("ui.nav.gallery")}
+        </button>
         <button aria-current={view.name === "scan" ? "page" : undefined} onClick={() => go({ name: "scan" })}>
           <Icon name="search" size={22} />
           {t("ui.nav.scan")}
@@ -116,10 +131,12 @@ export default function App() {
       </nav>
       <main className="main">
         {view.name === "library" && <Library />}
+        {view.name === "gallery" && <Gallery />}
         {view.name === "scan" && <ScanPage />}
         {view.name === "game" && <GameDetail id={view.id} />}
         {view.name === "settings" && <Settings />}
       </main>
+      {closeAsk && <CloseDialog onClose={() => setCloseAsk(false)} />}
       <Toasts />
     </div>
   );

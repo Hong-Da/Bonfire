@@ -212,7 +212,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 
 /* 底部的备份操作条：有勾选时出现 */
 .actionbar {
-  position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px;
+  position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 12px;
   padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--line);
 }
 .actionbar .count { font: 500 15px var(--font-sign); }
@@ -269,7 +269,9 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .hero-main { min-width: 0; }
 .hero-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .hero-title h1 { margin: 0; font: 700 28px/1.15 var(--font-sign); letter-spacing: 0.01em; }
-.hero-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0 12px; font-size: 13px; color: var(--muted); }
+.hero-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin: 6px 0 12px; font-size: 13px; line-height: 20px; color: var(--muted); }
+/* 页头信息行统一用正文字体，数字只用等宽数字，避免混用字体导致上下错位 */
+.hero-meta .num { font-family: inherit; }
 .hero[style] .hero-meta { color: rgba(241, 243, 245, 0.75); }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .hero[style] .hero-actions .btn:not(.primary) { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.18); color: inherit; }
@@ -285,6 +287,8 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
   background: var(--raised); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
 }
 .menu-list.right { left: auto; right: 0; }
+/* 底部操作栏中的菜单向上展开，避免超出窗口 */
+.actionbar .menu-list { top: auto; bottom: calc(100% + 6px); max-height: calc(100vh - 120px); overflow: auto; }
 .menu-list button { display: block; width: 100%; text-align: left; white-space: nowrap; padding: 7px 10px; border: 0; border-radius: 4px; background: none; cursor: pointer; color: inherit; }
 .menu-list button:hover:not(:disabled) { background: var(--smoke); }
 .menu-list button:disabled { color: var(--faint); cursor: default; }
@@ -488,24 +492,21 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 
 /* ---------- 截图相册 ---------- */
 
-/* 详情页“存档 / 截图”切换：两个并列的主要页面，用大号分段按钮 */
+/* 详情页“存档 / 截图”切换：页头下方一排紧凑的标签，选中的用余烬色底线与图标强调 */
 .page-switch {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 260px)); gap: 10px; padding: 12px 20px;
-  border-bottom: 1px solid var(--line); background: var(--surface);
+  display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--surface);
 }
 .page-switch button {
-  position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; text-align: left;
-  border: 1px solid var(--line); border-radius: 10px; background: var(--raised); color: var(--muted);
+  position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px 8px; cursor: pointer;
+  border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; color: var(--muted); font-size: 14px;
 }
-.page-switch button:hover { border-color: color-mix(in srgb, var(--ember) 40%, var(--line)); color: var(--ink); }
-.page-switch button[aria-selected="true"] {
-  border-color: var(--ember); background: var(--ember-soft); color: var(--ink); box-shadow: inset 0 -3px 0 var(--ember);
-}
+.page-switch button:hover { color: var(--ink); }
+.page-switch button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ember); font-weight: 600; }
 .page-switch button[aria-selected="true"] svg { color: var(--ember); }
-.ps-text { display: grid; line-height: 1.25; }
-.ps-text b { font: 600 16px var(--font-sign); }
-.ps-text small { font-size: 12px; color: var(--muted); }
-.ps-new { margin-left: auto; padding: 2px 8px; border-radius: 10px; font-size: 12px; color: var(--ember-ink); background: var(--ember); }
+.ps-text { display: inline-flex; align-items: baseline; gap: 6px; }
+.ps-text b { font: inherit; }
+.ps-text small { font-size: 12px; color: var(--muted); font-weight: normal; }
+.ps-new { padding: 1px 7px; border-radius: 10px; font-size: 11px; color: var(--ember-ink); background: var(--ember); font-weight: 600; }
 
 /* 分段按钮组（全选 / 全不选 / 反选、相册 / 回收站） */
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--raised); flex: none; }
@@ -573,6 +574,9 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .lb-bar .muted { color: #aab4be; }
 .lb-name { min-width: 0; max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lightbox .btn.ghost { color: #e8ecf0; }
+/* 深色背景上的普通按钮（如关闭 ×）：半透明深底、浅色文字，不用主题的白底 */
+.lightbox .btn:not(.ghost):not(.primary) { color: #fff; background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.28); }
+.lightbox .btn:not(.ghost):not(.primary):hover { background: rgba(255, 255, 255, 0.24); border-color: rgba(255, 255, 255, 0.5); }
 .lightbox .btn.ghost:hover { background: rgba(255, 255, 255, 0.12); }
 .lightbox .btn.ghost[aria-pressed="true"] { background: rgba(255, 255, 255, 0.16); }
 .lb-info {
@@ -626,5 +630,74 @@ button.link:hover { text-decoration: underline; }
 @media (max-width: 900px) {
   .graph-body { grid-template-columns: 1fr; }
   .graph-side { border-left: 0; border-top: 1px solid var(--line); }
-  .page-switch { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---------- U-10：管理方式、自动备份开关、图库、截图与磁盘对比、关闭询问 ---------- */
+
+/* 菜单中的单选标记、分隔线与小标题 */
+.menu-list button.checkable { display: flex; align-items: flex-start; gap: 6px; }
+.menu-list .mark { width: 14px; flex: none; color: var(--ember); padding-top: 2px; }
+.menu-list hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.menu-list .menu-head { font-size: 12px; color: var(--muted); font-weight: 600; }
+.mode-item { display: grid; gap: 1px; white-space: normal; max-width: 300px; }
+.mode-item b { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.mode-item small { color: var(--muted); font-size: 12px; }
+
+/* 游戏库每行的管理方式标签：小号、低调，点开切换 */
+.col-state { display: grid; justify-items: start; gap: 3px; }
+.mode-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px 1px 5px; border-radius: 10px; cursor: pointer;
+  font-size: 11px; line-height: 18px; color: var(--muted); background: none; border: 1px solid var(--line);
+}
+.mode-chip:hover { color: var(--ink); border-color: var(--muted); }
+.mode-chip svg { width: 12px; height: 12px; }
+.mode-chip.mode-saves { color: var(--muted); }
+.mode-chip.mode-shots { color: var(--ember); border-color: color-mix(in srgb, var(--ember) 40%, var(--line)); }
+
+/* 自动备份开关：与存档安全保护按钮同一套样式，关闭时为普通按钮（自动备份默认关闭，不算警示） */
+.btn.auto-switch.off { color: var(--muted); border: 1px solid var(--line); background: var(--raised); }
+
+/* 图库 */
+.gallery-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 20px;
+  border-bottom: 1px solid var(--line); background: var(--smoke); font-size: 13px;
+}
+.gallery-bar .inline { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.gallery-bar .grow { flex: 1; }
+.gallery { flex: 1; overflow: auto; padding: 4px 20px 32px; }
+.gallery .shot-day h3 .btn { margin-left: auto; }
+.shot-game { display: block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.lb-game { color: #ffd166; font-weight: 600; white-space: nowrap; }
+
+/* 截图与磁盘对比 */
+.diff-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.diff-card { display: grid; align-content: start; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.diff-card header { display: flex; align-items: center; gap: 8px; }
+.diff-card h3 { margin: 0; font: 600 14px var(--font-sign); flex: 1; }
+.diff-card header b { font: 600 20px var(--font-sign); }
+.diff-card p { margin: 0; font-size: 13px; color: var(--muted); }
+.diff-card.ok header svg { color: var(--moss); }
+.diff-card.new { border-color: color-mix(in srgb, var(--ember) 45%, var(--line)); }
+.diff-card.new header svg, .diff-card.warn header svg { color: var(--ember); }
+.diff-card details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+.diff-files { margin: 6px 0 0; padding: 0; list-style: none; max-height: 140px; overflow: auto; font-size: 12px; }
+.diff-files li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.diff-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+
+/* 关闭窗口询问 */
+.close-choices { display: grid; gap: 8px; }
+.close-choices button {
+  display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; text-align: left; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink);
+}
+.close-choices button[aria-checked="true"] { border-color: var(--ember); background: var(--ember-soft); }
+.close-choices button[aria-checked="true"] svg { color: var(--ember); }
+.close-choices span { display: grid; gap: 2px; }
+.close-choices small { color: var(--muted); font-size: 13px; }
+.remember { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; }
+
+.shot-finds-head { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+
+@media (max-width: 720px) {
+  .diff-grid { grid-template-columns: 1fr; }
 }

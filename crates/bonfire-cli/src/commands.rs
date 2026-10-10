@@ -8,6 +8,7 @@ use bonfire_app::core::refs::RefKind;
 use bonfire_app::core::scan::FileStatus;
 use bonfire_app::history::DiffStatus;
 use bonfire_app::restore::{Action, RestoreOptions, RestoreReport};
+use bonfire_app::shots::ManageMode;
 use bonfire_app::transfer::{
     ArchivePick, BundleImportReport, BundleScope, ExportFormat, ImportFilesOptions, ImportPlace,
     RefAction,
@@ -19,8 +20,8 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 use crate::cli::{
-    BundleCmd, Cmd, GameCmd, OnOff, OutputFormat, ProfileCmd, RulesCmd, ShotSwitch, ShotsCmd,
-    ShotsDirCmd,
+    BundleCmd, Cmd, GameCmd, ModeArg, OnOff, OutputFormat, ProfileCmd, RulesCmd, ShotSwitch,
+    ShotsCmd, ShotsDirCmd,
 };
 
 type Result<T> = std::result::Result<T, AppError>;
@@ -360,6 +361,30 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
                     "cli.out.shots_only_off"
                 },
                 &[("game", &g.name)],
+            ));
+        }
+        GameCmd::Mode { game, mode } => {
+            let g = app.find_game(&game)?;
+            if let Some(m) = mode {
+                let m = match m {
+                    ModeArg::Both => ManageMode::Both,
+                    ModeArg::Saves => ManageMode::Saves,
+                    ModeArg::Shots => ManageMode::Shots,
+                };
+                app.set_manage_mode(&g, m)?;
+            }
+            let m = app.manage_mode(&g)?;
+            out.emit(json!({ "game": g.id, "mode": m }));
+            out.line(out.tf(
+                if mode.is_some() {
+                    "cli.out.mode_set"
+                } else {
+                    "cli.out.mode_is"
+                },
+                &[
+                    ("game", &g.name),
+                    ("mode", &out.t(&format!("cli.mode.{}", m.as_str()))),
+                ],
             ));
         }
         GameCmd::Confirm { game } => {
@@ -1697,6 +1722,84 @@ fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
                     x.dir.display()
                 ));
             }
+            Ok(())
+        }
+        ShotsCmd::Diff { game } => {
+            let g = app.find_game(&game)?;
+            let d = app.shot_diff(&g)?;
+            out.emit(serde_json::to_value(&d).unwrap());
+            let trash = d.ignored.iter().filter(|i| !i.purged).count();
+            out.line(out.tf(
+                "cli.out.shots_diff",
+                &[
+                    ("game", &g.name),
+                    ("synced", &d.synced),
+                    ("new", &d.new.len()),
+                    ("dup", &d.duplicates),
+                    ("trash", &trash),
+                    ("purged", &(d.ignored.len() - trash)),
+                    ("missing", &d.missing.len()),
+                    ("restorable", &d.restorable),
+                ],
+            ));
+            for f in &d.new {
+                out.line(format!("  + {}", f.path.display()));
+            }
+            for i in &d.ignored {
+                out.line(format!(
+                    "  {} {}",
+                    if i.purged { "x" } else { "~" },
+                    i.path.display()
+                ));
+            }
+            for s in &d.missing {
+                out.line(format!("  - {}  {}", s.blob.short(12), s.original_path));
+            }
+            Ok(())
+        }
+        ShotsCmd::WriteBack { game, ids, to } => {
+            let g = app.find_game(&game)?;
+            let blobs = app.resolve_shots(&g, &ids)?;
+            let n = if blobs.is_empty() {
+                app.shot_diff(&g)?.missing.len()
+            } else {
+                blobs.len()
+            };
+            if n == 0 {
+                out.emit(json!({ "written": 0 }));
+                out.line(out.t("cli.out.shots_nothing_missing"));
+                return Ok(());
+            }
+            let place = match &to {
+                Some(d) => d.display().to_string(),
+                None => out.t("cli.out.shots_original_place").to_string(),
+            };
+            if !out.confirm(out.tf(
+                "cli.confirm.shots_write_back",
+                &[("n", &n), ("game", &g.name), ("place", &place)],
+            ))? {
+                out.line(out.t("cli.out.cancelled"));
+                return Ok(());
+            }
+            let r = app.write_back_shots(&g, &blobs, to.as_deref())?;
+            out.emit(serde_json::to_value(&r).unwrap());
+            out.line(out.tf(
+                "cli.out.shots_written",
+                &[
+                    ("n", &r.written),
+                    ("size", &human_bytes(r.bytes)),
+                    ("exists", &r.exists),
+                    ("nodir", &r.no_dir),
+                ],
+            ));
+            Ok(())
+        }
+        ShotsCmd::Recollect { game } => {
+            let g = app.find_game(&game)?;
+            let lock = app.repo.lock()?;
+            let n = app.recollect_shots(&lock, &g, &[])?;
+            out.emit(json!({ "recollected": n }));
+            out.line(out.tf("cli.out.shots_recollected", &[("n", &n)]));
             Ok(())
         }
         ShotsCmd::Set { game, value } => {
