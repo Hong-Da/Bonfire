@@ -229,6 +229,8 @@ export interface GameRow {
   primary: string;
   /** 当前不在本机主存档上 */
   offPrimary: boolean;
+  /** 存档可能被手动替换（U-42） */
+  maybeReplaced?: boolean;
 }
 
 export type FileStatus = "added" | "modified" | "deleted" | "unchanged";
@@ -621,4 +623,24 @@ export interface ImportFilesReport {
   snapshot: string | null;
   branch: string | null;
   dryRun: boolean;
+}
+
+/** 导入下载的存档（U-42）。 */
+export type DownloadKind = "download" | "bonfire" | "needs-extract" | "needs-password";
+export type DownloadMode = "overlay" | "replace";
+
+export interface DownloadPreview {
+  kind: DownloadKind;
+  sourceName: string;
+  files: { rel: string; size: number; target: string | null; ignored: boolean; replaces: boolean }[];
+  locations: { ord: number; path: string }[];
+  mode: DownloadMode;
+  currentFiles: number;
+}
+
+export interface DownloadReport {
+  snapshot: string | null;
+  identical: string | null;
+  branch: string | null;
+  files: number;
 }

@@ -46,6 +46,10 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
   const canPick = plan.hasSaves && plan.shots.length > 0;
   const [wantSaves, setWantSaves] = useState(plan.hasSaves);
   const [wantShots, setWantShots] = useState(plan.shots.length > 0);
+  // 存档可能被手动替换成下载的存档：默认另开新路线（U-42e）。
+  const [newBranch, setNewBranch] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(picked.filter((r) => r.maybeReplaced).map((r) => [r.id, `下载-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}`])),
+  );
   const [removed, setRemoved] = useState<{ saves: Set<string>; shots: Set<string> }>({ saves: new Set(), shots: new Set() });
   const steps: Step[] = [...(canPick ? (["pick"] as const) : []), ...(wantSaves ? (["saves"] as const) : []), ...(wantShots ? (["shots"] as const) : [])];
   const [stepIdx, setStepIdx] = useState(0);
@@ -105,12 +109,13 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
       const onDetached: OnDetached = { mode: detachedMode };
       const items = targets.map((r) => {
         const saves = saveRows.includes(r);
-        const item: { gameId: string; comment?: string; tag?: string; saves?: boolean; shots?: boolean } = {
+        const item: { gameId: string; comment?: string; tag?: string; saves?: boolean; shots?: boolean; newBranch?: string } = {
           gameId: r.id,
           comment: saves ? comments[r.id]?.trim() || undefined : undefined,
           tag: saves && withTag && tag.trim() ? tag.trim() : undefined,
         };
         if (!saves) item.saves = false;
+        if (saves && newBranch[r.id]) item.newBranch = newBranch[r.id]!;
         if (!shotRows.includes(r)) item.shots = false;
         return item;
       });
@@ -294,6 +299,8 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
                 {saveRows.map((r) => (
                   <NoteRow
                     key={r.id}
+                    newBranch={newBranch[r.id] ?? null}
+                    onNewBranch={(v) => setNewBranch((x) => ({ ...x, [r.id]: v }))}
                     row={r}
                     value={comments[r.id] ?? ""}
                     onChange={(v) => setComments((c) => ({ ...c, [r.id]: v }))}
@@ -418,7 +425,21 @@ function RemoveButton({ name, onClick }: { name: string; onClick: () => void }) 
   );
 }
 
-function NoteRow({ row, value, onChange, onRemove }: { row: GameRow; value: string; onChange: (v: string) => void; onRemove: () => void }) {
+function NoteRow({
+  row,
+  value,
+  onChange,
+  onRemove,
+  newBranch,
+  onNewBranch,
+}: {
+  row: GameRow;
+  value: string;
+  onChange: (v: string) => void;
+  onRemove: () => void;
+  newBranch: string | null;
+  onNewBranch: (v: string | null) => void;
+}) {
   const { t, i18n } = useTranslation();
   const [files, setFiles] = useState<FileChange[] | null>(null);
   const [open, setOpen] = useState(false);
@@ -445,6 +466,18 @@ function NoteRow({ row, value, onChange, onRemove }: { row: GameRow; value: stri
           </span>
           <RemoveButton name={name} onClick={onRemove} />
         </div>
+        {row.maybeReplaced && (
+          <div className="replaced-note">
+            <p>
+              <Icon name="import" size={13} /> {t("ui.download.backupReplaced")}
+            </p>
+            <label className="opt">
+              <input type="checkbox" className="check" checked={newBranch !== null} onChange={(e) => onNewBranch(e.target.checked ? `下载-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}` : null)} />
+              {t("ui.download.backupNewBranch")}
+              {newBranch !== null && <input className="field" value={newBranch} onChange={(e) => onNewBranch(e.target.value)} aria-label={t("ui.download.branch")} />}
+            </label>
+          </div>
+        )}
         {row.offPrimary && (
           <p className="off-primary-note">
             <Icon name="home" size={13} /> {row.detached ? t("ui.primary.backupDetached", { primary: row.primary }) : t("ui.primary.backupOff", { branch: row.branch, primary: row.primary })}

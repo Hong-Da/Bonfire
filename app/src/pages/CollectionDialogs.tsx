@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { NotBonfireHint } from "./DownloadImportDialog";
 import { useTranslation } from "react-i18next";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
@@ -140,12 +141,14 @@ function importable(p: BundlePreview): boolean {
  * - 别人分享的存档文件（篝火导出的 zip 或文件夹）：按附带的说明找到游戏。
  * 游戏库中没有的游戏自动加入，标为“未安装”。导入只写入仓库，不改动存档目录。
  */
-export function CollectionImportDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onClose: () => void; onDone: () => void; onUseDownload?: (path: string) => void }) {
   const { t, i18n } = useTranslation();
   const store = useStore();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  // 选到不是篝火导出的存档文件时记下路径，提示改用“导入下载的存档”。
+  const [notBonfire, setNotBonfire] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<ArchiveImportItem[] | null>(null);
   const [filesDone, setFilesDone] = useState<string | null>(null);
@@ -160,6 +163,7 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
 
   const choose = async (what: "archive" | "zip" | "folder") => {
     setError(null);
+    setNotBonfire(null);
     setResults(null);
     setFilesDone(null);
     const path =
@@ -178,7 +182,9 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
       }
     } catch (e) {
       setLoaded(null);
-      setError(errorMessage(e));
+      const msg = errorMessage(e);
+      if (what !== "archive" && msg.includes("没有篝火的导出说明")) setNotBonfire(path);
+      else setError(msg);
     } finally {
       setBusy(false);
     }
@@ -305,6 +311,14 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
           ))}
         </div>
         {error && <div className="callout error">{error}</div>}
+        {notBonfire && onUseDownload && (
+          <NotBonfireHint
+            onUse={() => {
+              onUseDownload(notBonfire);
+              onClose();
+            }}
+          />
+        )}
         {loaded && <p className="source-path" title={loaded.path}>{loaded.path}</p>}
 
         {loaded?.kind === "archive" && (

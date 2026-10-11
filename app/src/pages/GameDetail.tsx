@@ -13,6 +13,7 @@ import BackupDialog, { MAX_COMMENT } from "./BackupDialog";
 import ExportDialog, { type ExportKind } from "./ExportDialog";
 import ImportDialog from "./ImportDialog";
 import RestoreDialog from "./RestoreDialog";
+import DownloadImportDialog, { useFileDrop } from "./DownloadImportDialog";
 import { PrimaryDialog, RenameBranchDialog } from "../components/BranchDialogs";
 import ShotsPanel, { ShotThumb } from "./ShotsPanel";
 import { fileName, shotCounts, shotSnapshots } from "../lib/shots";
@@ -50,6 +51,11 @@ export default function GameDetail({ id }: { id: string }) {
   const myPrimary = hist?.primaries?.find((p) => p.mine)?.branch ?? row?.primary ?? "main";
   const othersOf = (branch: string) => (hist?.primaries ?? []).filter((p) => !p.mine && p.branch === branch).map((p) => p.label || p.key);
   const [primaryOf, setPrimaryOf] = useState<string | null>(null);
+  // 导入下载的存档（U-42）：按钮或把 zip / 文件夹拖到详情页上。
+  const [download, setDownload] = useState<{ path?: string } | null>(null);
+  useFileDrop((path) => {
+    if (!useStore.getState().rows[id]?.shotsOnly) setDownload({ path });
+  });
   const [renaming, setRenaming] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -111,6 +117,7 @@ export default function GameDetail({ id }: { id: string }) {
         onBackup={() => setBackingUp(true)}
         onExport={(kind, snapshot) => setExporting({ kind, snapshot })}
         onImport={() => setImporting(true)}
+        onImportDownload={() => setDownload({})}
         onChanged={afterChange}
         onFail={fail}
         onGoPrimary={() => {
@@ -230,7 +237,8 @@ export default function GameDetail({ id }: { id: string }) {
         <section className="files">
           {node ? (
             <SnapshotPanel
-              key={node.id}
+              // 恢复或备份后当前快照变了：重新计算“与当前存档比较”。
+              key={`${node.id}@${hist.head ?? ""}`}
               gameId={id}
               node={node}
               isHead={node.id === hist.head}
@@ -279,6 +287,18 @@ export default function GameDetail({ id }: { id: string }) {
           }}
         />
       )}
+      {download && (
+        <DownloadImportDialog
+          gameId={id}
+          initialPath={download.path}
+          onClose={() => setDownload(null)}
+          onUseBonfireImport={() => setImporting(true)}
+          onDone={async (_g, restoreTo) => {
+            await afterChange();
+            if (restoreTo) setRestore({ target: restoreTo, paths: [] });
+          }}
+        />
+      )}
       {renaming && <RenameBranchDialog gameId={id} branch={renaming} onClose={() => setRenaming(null)} onDone={() => void afterChange()} />}
       {restore && (
         <RestoreDialog
@@ -295,6 +315,7 @@ export default function GameDetail({ id }: { id: string }) {
       {exporting && <ExportDialog hist={hist} gameName={name} kind={exporting.kind} snapshot={exporting.snapshot} onClose={() => setExporting(null)} />}
       {importing && (
         <ImportDialog
+          onUseDownload={(path) => setDownload({ path })}
           hist={hist}
           gameName={name}
           onClose={() => setImporting(false)}
@@ -335,8 +356,10 @@ function Hero({
   onChanged,
   onFail,
   onGoPrimary,
+  onImportDownload,
 }: {
   onGoPrimary: () => void;
+  onImportDownload: () => void;
   hist: HistoryView;
   meta: MetadataView | null;
   row: NonNullable<ReturnType<typeof useStore.getState>["rows"][string]>;
@@ -447,9 +470,14 @@ function Hero({
               { label: t("ui.transfer.exportBundle"), onClick: () => onExport("bundle", null), disabled: hist.nodes.length === 0 },
             ]}
           />
-          <button className="btn" onClick={onImport}>
-            <Icon name="import" /> {t("ui.transfer.import")}
-          </button>
+          <Menu
+            icon="import"
+            label={t("ui.transfer.import")}
+            items={[
+              { label: t("ui.download.menu"), hint: t("ui.download.menuHint"), onClick: onImportDownload, disabled: row.shotsOnly },
+              { label: t("ui.download.menuBonfire"), onClick: onImport },
+            ]}
+          />
           <ModeMenu ids={[gameId]} current={row.mode} name={name} variant="button" onDone={onChanged} />
           <Menu
             icon="more"

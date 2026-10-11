@@ -1,6 +1,6 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { SetPrimaryReport,
+import type { DownloadMode, DownloadPreview, DownloadReport, SetPrimaryReport,
   AlbumView,
   AutoReport,
   AutoStatus,
@@ -80,7 +80,7 @@ export const api = {
   gameChanges: (gameId: string) => invoke<FileChange[]>("game_changes", { gameId }),
   cancelTask: () => invoke<void>("cancel_task"),
 
-  runBackup: (items: { gameId: string; comment?: string; tag?: string; saves?: boolean; shots?: boolean }[], force: boolean, onDetached: OnDetached) =>
+  runBackup: (items: { gameId: string; comment?: string; tag?: string; saves?: boolean; shots?: boolean; newBranch?: string }[], force: boolean, onDetached: OnDetached) =>
     invoke<BackupItemResult[]>("run_backup", { items, force, onDetached }),
 
   history: (gameId: string) => invoke<HistoryView>("history", { gameId }),
@@ -160,6 +160,11 @@ export const api = {
   onAutoBackup: (cb: (r: AutoReport) => void): Promise<UnlistenFn> => listen<AutoReport>("auto-backup", (e) => cb(e.payload)),
   onShotsSynced: (cb: (added: number) => void): Promise<UnlistenFn> => listen<number>("shots-synced", (e) => cb(e.payload)),
   inspectArchive: (path: string) => invoke<ArchivePreview>("inspect_archive", { path }),
+  inspectDownload: (gameId: string, path: string, password: string | null) => invoke<DownloadPreview>("inspect_download", { gameId, path, password }),
+  importDownload: (gameId: string, path: string, password: string | null, request: { mapping: [string, string][]; mode: DownloadMode; branch: string | null; comment: string | null }) =>
+    invoke<DownloadReport>("import_download", { gameId, path, password, request }),
+  /** 把文件拖到窗口上（Tauri 拖放事件）。 */
+  onFileDrop: (cb: (paths: string[]) => void): Promise<UnlistenFn> => listen<{ paths: string[] }>("tauri://drag-drop", (e) => cb(e.payload.paths ?? [])),
   setPrimaryBranch: (gameId: string, branch: string, tidy: boolean) => invoke<SetPrimaryReport>("set_primary_branch", { gameId, branch, tidy }),
   renameBranch: (gameId: string, from: string, to: string) => invoke<void>("rename_branch", { gameId, from, to }),
   importArchive: (path: string, picks: { key: string; target: string | null; saves?: boolean; shots?: boolean; adoptMain?: boolean }[]) => invoke<ArchiveImportItem[]>("import_archive", { path, picks }),

@@ -14,6 +14,8 @@ import ProtectSwitch from "../components/ProtectSwitch";
 import AutoSwitch from "../components/AutoSwitch";
 import ModeMenu, { MODES, MODE_ICON, useSetMode } from "../components/ModeMenu";
 import RemoveDialog from "../components/RemoveDialog";
+import DownloadImportDialog from "./DownloadImportDialog";
+import RestoreDialog from "./RestoreDialog";
 import SelectSeg from "../components/SelectSeg";
 import { confirm } from "../lib/confirm";
 
@@ -44,6 +46,8 @@ export default function Library() {
   const [exportIds, setExportIds] = useState<string[] | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
+  const [download, setDownload] = useState<{ path?: string } | null>(null);
+  const [restoreAfter, setRestoreAfter] = useState<{ gameId: string; target: string } | null>(null);
   const setMode = useSetMode();
 
   useEffect(() => {
@@ -319,6 +323,7 @@ export default function Library() {
               items={[
                 { label: t("ui.library.add"), onClick: () => setAddOpen(true) },
                 { label: t("ui.library.importSaves"), onClick: () => setImportOpen(true) },
+                { label: t("ui.download.menu"), hint: t("ui.download.menuHint"), onClick: () => setDownload({}) },
               ]}
             />
             <Menu
@@ -345,7 +350,31 @@ export default function Library() {
       {addOpen && <AddGameDialog onClose={() => setAddOpen(false)} />}
       {removeOpen && <RemoveDialog rows={selected} onClose={() => setRemoveOpen(false)} onDone={() => s.clearSelection()} />}
       {exportIds && <CollectionExportDialog rows={allRows} initial={exportIds} onClose={() => setExportIds(null)} />}
-      {importOpen && <CollectionImportDialog onClose={() => setImportOpen(false)} onDone={() => void s.loadLibrary(false)} />}
+      {importOpen && <CollectionImportDialog onClose={() => setImportOpen(false)} onDone={() => void s.loadLibrary(false)} onUseDownload={(path) => setDownload({ path })} />}
+      {download && (
+        <DownloadImportDialog
+          initialPath={download.path}
+          onClose={() => setDownload(null)}
+          onUseBonfireImport={() => setImportOpen(true)}
+          onDone={async (gameId, restoreTo) => {
+            await s.refreshRow(gameId);
+            if (restoreTo) setRestoreAfter({ gameId, target: restoreTo });
+          }}
+        />
+      )}
+      {restoreAfter && s.rows[restoreAfter.gameId] && (
+        <RestoreDialog
+          row={s.rows[restoreAfter.gameId]}
+          target={restoreAfter.target}
+          paths={[]}
+          onClose={() => setRestoreAfter(null)}
+          onDone={async () => {
+            const id = restoreAfter.gameId;
+            setRestoreAfter(null);
+            await s.refreshRow(id);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -383,6 +412,11 @@ function GameLine({ row, lang, fresh, selected, onToggle, onOpen }: { row: GameR
         <ModeMenu ids={[row.id]} current={row.mode} name={name} />
         {row.state === "has-changes" && <div className="meta num">{t("ui.library.changedFiles", { n: changed, size: bytes(row.summary.changedBytes) })}</div>}
         {row.detached && <div className="meta">{t("ui.library.detached")}</div>}
+        {row.maybeReplaced && (
+          <div className="meta maybe-replaced" title={t("ui.download.replacedHint")}>
+            <Icon name="import" size={12} /> {t("ui.download.replaced")}
+          </div>
+        )}
         {row.offPrimary && !row.detached && !row.shotsOnly && (
           <div className="meta off-primary" title={t("ui.primary.offHint", { branch: row.branch, primary: row.primary })}>
             <Icon name="home" size={12} /> {t("ui.primary.off")}

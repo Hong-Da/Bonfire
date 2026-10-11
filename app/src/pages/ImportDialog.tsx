@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { NotBonfireHint } from "./DownloadImportDialog";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
@@ -18,7 +19,7 @@ type Placement = "independent" | "fork" | "continue";
  * - 存档文件（zip 或文件夹）：生成一个新快照，默认放在新分支上作为独立起点，也可从选中的快照分出或接在某个分支之后。
  * 导入只写入仓库，不改动存档目录；要使用导入的存档，在历史中选中后恢复。
  */
-export default function ImportDialog({ hist, gameName, onClose, onDone }: { hist: HistoryView; gameName: string; onClose: () => void; onDone: (snapshot: string | null) => void }) {
+export default function ImportDialog({ hist, gameName, onClose, onDone, onUseDownload }: { hist: HistoryView; gameName: string; onClose: () => void; onDone: (snapshot: string | null) => void; onUseDownload?: (path: string) => void }) {
   const { t, i18n } = useTranslation();
   const store = useStore();
   const gameId = hist.game.id;
@@ -149,6 +150,15 @@ export default function ImportDialog({ hist, gameName, onClose, onDone }: { hist
           {!loaded && !error && <p className="hint">{t("ui.transfer.importIntro")}</p>}
           {error && <div className="callout error">{error}</div>}
           {loaded && <p className="source-path" title={loaded.path}>{loaded.path}</p>}
+          {/* 不是篝火导出的存档（没有导出说明、对不上存档位置）：提示改用“导入下载的存档”。 */}
+          {loaded?.kind === "files" && !loaded.preview.manifest && loaded.preview.unmapped.length > 0 && onUseDownload && (
+            <NotBonfireHint
+              onUse={() => {
+                onUseDownload(loaded.path);
+                onClose();
+              }}
+            />
+          )}
           {loaded?.kind === "bundle" && <BundleSummary p={loaded.preview} />}
           {loaded?.kind === "files" && (
             <>
