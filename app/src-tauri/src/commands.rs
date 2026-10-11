@@ -1442,6 +1442,23 @@ pub async fn remove_shot_dir(h: AppHandle, game_id: String, dir: String) -> CmdR
     .await
 }
 
+/// 界面状态（游戏库筛选、图库查看方式等），见 `bonfire_app::ui_state`。
+#[tauri::command]
+pub fn ui_state_get(h: AppHandle) -> std::collections::BTreeMap<String, String> {
+    let shared = h.state::<Shared>();
+    bonfire_app::ui_state::load_ui_state(&bonfire_app::ui_state::ui_state_path(&shared.paths))
+}
+
+#[tauri::command]
+pub fn ui_state_set(h: AppHandle, key: String, value: Option<String>) -> CmdResult<()> {
+    let shared = h.state::<Shared>();
+    Ok(bonfire_app::ui_state::set_ui_state(
+        &bonfire_app::ui_state::ui_state_path(&shared.paths),
+        &key,
+        value,
+    )?)
+}
+
 /// 把“未识别的截图”中的截图归到游戏库中的某个游戏。
 #[tauri::command]
 pub async fn assign_unsorted(

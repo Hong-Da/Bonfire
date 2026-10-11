@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { loadUiState } from "./lib/uiState";
 import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "./api";
 import logo from "./assets/logo.svg";
@@ -23,9 +24,9 @@ export default function App() {
   const [closeAsk, setCloseAsk] = useState(false);
 
   useEffect(() => {
-    api
-      .appInfo()
-      .then((i) => {
+    // 先读入界面状态（筛选、图库查看方式等），再加载游戏库。
+    Promise.all([api.appInfo(), loadUiState().then(() => useStore.getState().restoreFilters())])
+      .then(([i]) => {
         setInfo(i);
         // 主题以配置为准；本地存储只用于避免启动时闪烁。首次运行时还没有配置，回到“自动”。
         applyTheme(i.firstRun ? "auto" : i.theme);

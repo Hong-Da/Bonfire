@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { prefGet, prefSet } from "../lib/uiState";
 import ShotAutoSwitch from "../components/ShotAutoSwitch";
 import SelectSeg from "../components/SelectSeg";
 import AssignDialog from "../components/AssignDialog";
@@ -38,7 +39,7 @@ interface Prefs {
 
 function readPrefs(): Prefs {
   try {
-    const p = JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}") as Partial<Prefs>;
+    const p = JSON.parse(prefGet(PREF_KEY) ?? "{}") as Partial<Prefs>;
     return {
       group: GROUPS.includes(p.group as Group) ? (p.group as Group) : "game",
       sort: p.sort === "old" ? "old" : "new",
@@ -51,7 +52,7 @@ function readPrefs(): Prefs {
 
 function writePrefs(p: Prefs) {
   try {
-    localStorage.setItem(PREF_KEY, JSON.stringify(p));
+    prefSet(PREF_KEY, JSON.stringify(p));
   } catch {
     // 无法保存偏好时只影响本次。
   }
@@ -62,7 +63,7 @@ const FOLD_KEY = "bonfire.gallery.folded";
 /** 折叠的分组（按“分组方式:分组”记住）。 */
 function readFolded(): Set<string> {
   try {
-    const v = JSON.parse(localStorage.getItem(FOLD_KEY) ?? "[]");
+    const v = JSON.parse(prefGet(FOLD_KEY) ?? "[]");
     return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
   } catch {
     return new Set();
@@ -71,7 +72,7 @@ function readFolded(): Set<string> {
 
 function writeFolded(s: Set<string>) {
   try {
-    localStorage.setItem(FOLD_KEY, JSON.stringify([...s]));
+    prefSet(FOLD_KEY, JSON.stringify([...s]));
   } catch {
     // 无法保存时只影响本次。
   }

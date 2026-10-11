@@ -1,3 +1,5 @@
+import { prefGet, prefSet } from "./uiState";
+
 /**
  * 新加入游戏库的游戏（U-34）：记录每个游戏在本机第一次出现在游戏库中的时间，
  * 7 天内、且还没打开过详情的标为“新加入”。第一次使用时已有的游戏不算新加入。
@@ -11,7 +13,7 @@ type Seen = Record<string, number>;
 
 function read(): Seen | null {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = prefGet(KEY);
     if (raw === null) return null;
     const v = JSON.parse(raw);
     return v && typeof v === "object" ? (v as Seen) : {};
@@ -22,7 +24,7 @@ function read(): Seen | null {
 
 function write(s: Seen) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s));
+    prefSet(KEY, JSON.stringify(s));
   } catch {
     // 无法保存时只影响本次。
   }

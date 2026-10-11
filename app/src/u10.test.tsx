@@ -19,6 +19,7 @@ import ScanPage from "./pages/ScanPage";
 import ShotDiffDialog from "./pages/ShotDiffDialog";
 import CloseDialog from "./components/CloseDialog";
 import { noteGames } from "./lib/fresh";
+import { loadUiState, resetUiStateForTest } from "./lib/uiState";
 import type { Config, GalleryView, GameRow, ShotRecord } from "./types";
 
 const info = { version: "0.1.0", portable: false, firstRun: false, locale: "zh-CN", theme: "auto" as const, configPath: "C:/c.toml", defaultRepoDir: "C:/repo", repoDir: "C:/repo", configError: null, host: "PC", protectLocal: true };
@@ -58,6 +59,7 @@ function shot(gameId: string, blob: string, takenAt: string, over: Partial<ShotR
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  resetUiStateForTest();
   dialog.ask.mockResolvedValue(true);
   api.getSettings.mockResolvedValue(structuredClone(cfg));
   await i18n.changeLanguage("zh-CN");
@@ -510,6 +512,7 @@ describe("U-33 记住游戏库的筛选", () => {
     const saved = JSON.parse(localStorage.getItem("bonfire.library.filters") ?? "{}");
     expect(saved).toMatchObject({ modeFilter: "shots", stateFilter: "all", platformFilter: "all", profileFilter: null });
     expect(readFilters()).toMatchObject({ modeFilter: "shots" });
+    resetUiStateForTest();
     localStorage.setItem("bonfire.library.filters", JSON.stringify({ modeFilter: "bogus", stateFilter: "has-changes", profileFilter: { name: "周末", ids: ["a", 3] } }));
     expect(readFilters()).toEqual({ modeFilter: "all", stateFilter: "has-changes", platformFilter: "all", profileFilter: { name: "周末", ids: ["a"] }, newOnly: false });
     localStorage.removeItem("bonfire.library.filters");
@@ -538,5 +541,24 @@ describe("U-34 新加入的游戏", () => {
     expect(useStore.getState().newOnly).toBe(false);
     localStorage.removeItem("bonfire.library.seen");
     localStorage.removeItem("bonfire.library.filters");
+  });
+});
+
+describe("U-38 界面状态由后台保存", () => {
+  it("修改筛选时交给后台写盘；读入后台状态后恢复筛选", async () => {
+    localStorage.removeItem("bonfire.library.filters");
+    seed([row({ id: "a", name: "Alpha", nameZh: null, mode: "shots" })]);
+    render(<Library />);
+    fireEvent.click(within(screen.getByRole("group", { name: "按管理方式筛选" })).getByRole("button", { name: /只管理截图/ }));
+    expect(api.uiStateSet).toHaveBeenCalledWith("bonfire.library.filters", expect.stringContaining('"modeFilter":"shots"'));
+    // 浏览器存储被清空（例如没来得及写盘），后台保存的状态仍能恢复。
+    localStorage.removeItem("bonfire.library.filters");
+    api.uiStateGet.mockResolvedValue({ "bonfire.library.filters": JSON.stringify({ stateFilter: "has-changes", modeFilter: "saves" }) });
+    useStore.setState({ stateFilter: "all", modeFilter: "all" });
+    await loadUiState();
+    useStore.getState().restoreFilters();
+    expect(useStore.getState()).toMatchObject({ stateFilter: "has-changes", modeFilter: "saves" });
+    resetUiStateForTest();
+    api.uiStateGet.mockResolvedValue({});
   });
 });

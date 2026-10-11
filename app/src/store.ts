@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { prefGet, prefSet } from "./lib/uiState";
 import { markSeen, noteGames } from "./lib/fresh";
 import { api, errorMessage } from "./api";
 import type { AppInfo, GameRow, GameState, ManageMode, Phase, ScanReport } from "./types";
@@ -66,6 +67,8 @@ interface Store {
   setModeFilter: (m: ModeFilter) => void;
   setProfileFilter: (p: { name: string; ids: string[] } | null) => void;
   setNewOnly: (on: boolean) => void;
+  /** 启动读入界面状态后恢复上次的筛选 */
+  restoreFilters: () => void;
   /** 标为已看过（不再显示“新加入”） */
   markSeen: (ids: string[]) => void;
   setQuery: (q: string) => void;
@@ -85,7 +88,7 @@ const MODE_VALUES: ModeFilter[] = ["all", "both", "saves", "shots"];
 export function readFilters(): SavedFilters {
   const none: SavedFilters = { stateFilter: "all", modeFilter: "all", platformFilter: "all", profileFilter: null, newOnly: false };
   try {
-    const v = JSON.parse(localStorage.getItem(FILTER_KEY) ?? "{}");
+    const v = JSON.parse(prefGet(FILTER_KEY) ?? "{}");
     const p = v.profileFilter;
     return {
       stateFilter: STATE_VALUES.includes(v.stateFilter) ? v.stateFilter : "all",
@@ -101,13 +104,13 @@ export function readFilters(): SavedFilters {
 
 function saveFilters(s: SavedFilters) {
   try {
-    localStorage.setItem(FILTER_KEY, JSON.stringify(s));
+    prefSet(FILTER_KEY, JSON.stringify(s));
   } catch {
     // 无法保存时只影响本次。
   }
 }
 
-const savedFilters = typeof localStorage === "undefined" ? null : readFilters();
+const savedFilters = readFilters();
 
 /** 默认勾选“有更新”和“未备份”的游戏（文档 8.1 第 1 步）。 */
 export function defaultSelection(rows: GameRow[]): Set<string> {
@@ -258,6 +261,7 @@ export const useStore = create<Store>((set, get) => ({
     set({ profileFilter });
     persistFilters(get());
   },
+  restoreFilters: () => set(readFilters()),
   setNewOnly: (newOnly) => {
     set({ newOnly });
     persistFilters(get());

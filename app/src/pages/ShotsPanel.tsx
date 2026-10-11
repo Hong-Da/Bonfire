@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { prefGet, prefSet } from "../lib/uiState";
 import { useTranslation } from "react-i18next";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage, imageSrc } from "../api";
@@ -428,7 +429,7 @@ const INFO_KEY = "bonfire.shots.info";
 
 function readInfoPref(): boolean {
   try {
-    return localStorage.getItem(INFO_KEY) === "1";
+    return prefGet(INFO_KEY) === "1";
   } catch {
     return false;
   }
@@ -473,7 +474,7 @@ export function Lightbox({
   const toggleInfo = useCallback(() => {
     setInfo((v) => {
       try {
-        localStorage.setItem(INFO_KEY, v ? "0" : "1");
+        prefSet(INFO_KEY, v ? "0" : "1");
       } catch {
         // 无法保存偏好时只影响本次。
       }

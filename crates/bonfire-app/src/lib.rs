@@ -20,6 +20,7 @@ pub mod prune;
 pub mod restore;
 pub mod shots;
 pub mod transfer;
+pub mod ui_state;
 pub mod unsorted;
 pub mod util;
 

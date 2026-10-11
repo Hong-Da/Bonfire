@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next";
+import { prefGet, prefSet } from "./uiState";
 import { api, errorMessage } from "../api";
 import { useStore } from "../store";
 
@@ -7,7 +8,7 @@ const PREF_KEY = "bonfire.firstBackup";
 /** 加入游戏库后是否立即首次备份（默认开启，记在本机）。 */
 export function readFirstBackupPref(): boolean {
   try {
-    return localStorage.getItem(PREF_KEY) !== "0";
+    return prefGet(PREF_KEY) !== "0";
   } catch {
     return true;
   }
@@ -15,7 +16,7 @@ export function readFirstBackupPref(): boolean {
 
 export function writeFirstBackupPref(on: boolean) {
   try {
-    localStorage.setItem(PREF_KEY, on ? "1" : "0");
+    prefSet(PREF_KEY, on ? "1" : "0");
   } catch {
     // 无法保存偏好时只影响本次。
   }
