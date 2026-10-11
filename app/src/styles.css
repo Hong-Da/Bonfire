@@ -449,7 +449,9 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 
 .page { flex: 1; overflow: auto; padding: 16px 24px 48px; }
 /* 设置页铺满宽度：窗口够宽时分两栏（每栏至少 560 像素），各分组不跨栏 */
-.settings { columns: 2 560px; column-gap: 14px; }
+/* 单栏铺满窗口宽度（U-26 右侧不留空白；U-54 全屏时也不分两栏）；长说明限制行宽便于阅读 */
+.settings { display: block; }
+.settings .hint, .settings .row .opt { max-width: 80ch; }
 .settings section { padding: 16px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; break-inside: avoid; margin: 0 0 14px; }
 .settings h2 { font: 600 16px var(--font-sign); margin: 0 0 8px; }
 /* 设置行：左侧名称与右侧控件第一行对齐（多行说明时名称在顶部），说明文字与控件列左对齐 */
@@ -1120,9 +1122,9 @@ button.link:hover { text-decoration: underline; }
 .cleanup-figures > div { padding: 12px 14px; border-radius: var(--radius); background: var(--smoke); display: grid; gap: 2px; }
 .cleanup-figures b { font: 600 24px/1.2 var(--font-sign); color: var(--ink); }
 .cleanup-figures span { font-size: 12px; color: var(--muted); }
-.cleanup-games { list-style: none; margin: 0 0 8px; padding: 0; max-height: 220px; overflow: auto; }
-.cleanup-games li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-.cleanup-games li:last-child { border-bottom: none; }
+.cleanup-games { margin: 0 0 8px; max-height: 300px; overflow: auto; display: grid; gap: 4px; }
+.cleanup-games summary { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 13px; cursor: pointer; }
+.cleanup-games details .bd-list { margin: 0 0 8px; }
 
 /* 游戏程序（M4-2） */
 .process-body { display: grid; gap: 14px; }
@@ -1134,3 +1136,38 @@ button.link:hover { text-decoration: underline; }
 .process-list code { font-size: 12px; }
 .process-add { display: flex; gap: 8px; }
 .process-add .field { flex: 1; min-width: 0; }
+
+/* 多选删除快照 */
+.trail-row.multi { background: var(--ember-soft); }
+.trail-row.multi[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--ember); }
+.multi-check { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--ember); color: #fff; align-self: center; }
+.multi-tip { margin: 0 0 6px; font-size: 12px; }
+.multi-bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 6px; padding: 8px 10px; border-radius: var(--radius); background: var(--raised); border: 1px solid var(--ember); font-size: 13px; }
+.multi-bar .muted { font-size: 12px; }
+.btn.danger-ghost { color: var(--danger); border-color: var(--danger); background: transparent; }
+.btn.danger-ghost:hover { background: var(--danger-soft); }
+.bulk-delete { display: grid; gap: 14px; }
+.bulk-delete h3 { font: 600 13px var(--font-sign); margin: 0 0 6px; color: var(--muted); }
+.bd-list { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.bd-list li { display: grid; grid-template-columns: 150px 1fr auto; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.bd-list li:last-child { border-bottom: none; }
+.bd-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-why { color: var(--muted); font-size: 12px; }
+.bd-block .bd-list { border-color: var(--line); background: var(--smoke); }
+.bd-effects { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; }
+.bd-effects li.warn { color: var(--danger); }
+.bd-safety { display: grid; gap: 6px; }
+.bd-safety .opt { font-weight: 600; }
+
+/* 历史清理说明 */
+.retention-guide { margin: 10px 0 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
+.retention-guide > summary { font: 600 13px var(--font-sign); cursor: pointer; }
+.retention-steps { margin: 10px 0 0; padding-left: 22px; display: grid; gap: 8px; max-width: 90ch; }
+.retention-steps li { font-size: 13px; line-height: 1.6; }
+.retention-steps b { display: block; font-weight: 600; }
+.retention-steps span { color: var(--muted); }
+.retention-example { margin: 10px 0 0; font-size: 13px; max-width: 90ch; }
+.retention-safety-box { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); background: var(--danger-soft); color: var(--ink); max-width: 90ch; }
+.retention-safety-box > b { color: var(--danger); font-size: 13px; }
+.retention-safety { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 3px; font-size: 13px; }
+.warn-hint { color: var(--danger); }

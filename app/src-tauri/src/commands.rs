@@ -716,6 +716,22 @@ pub async fn delete_snapshot(
     .await
 }
 
+/// 删除多个快照：`dry_run` 时检查哪些不能删除并预览影响。
+#[tauri::command]
+pub async fn delete_snapshots(
+    h: AppHandle,
+    game_id: String,
+    snapshots: Vec<String>,
+    dry_run: bool,
+) -> CmdResult<bonfire_app::bulk_delete::BulkDeleteReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let lock = app.repo.lock()?;
+        Ok(app.delete_snapshots(&lock, &g, &snapshots, dry_run)?)
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn create_ref(
     h: AppHandle,

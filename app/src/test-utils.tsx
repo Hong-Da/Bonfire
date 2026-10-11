@@ -39,6 +39,7 @@ export function mockApi() {
     deleteProfile: vi.fn(),
     fsck: vi.fn(),
     cleanHistory: vi.fn(),
+    deleteSnapshots: vi.fn(),
     gameProcesses: vi.fn().mockResolvedValue([]),
     setGameProcesses: vi.fn(),
     reindex: vi.fn(),

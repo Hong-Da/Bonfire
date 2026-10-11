@@ -101,6 +101,7 @@ fn main() {
             commands::delete_branch,
             commands::delete_tag,
             commands::delete_snapshot,
+            commands::delete_snapshots,
             commands::album,
             commands::sync_shots,
             commands::shot_thumb,

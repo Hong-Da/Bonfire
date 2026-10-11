@@ -166,7 +166,8 @@ pub enum Cmd {
     },
     Rm {
         game: String,
-        snapshot: String,
+        #[arg(required = true)]
+        snapshots: Vec<String>,
         #[arg(long)]
         dry_run: bool,
     },

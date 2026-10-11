@@ -16,6 +16,7 @@ import { applyTheme } from "../theme";
 import type { AutoBackupConfig, AutoStatus, Config, FsckReport, GameRecord, RetentionConfig, Theme } from "../types";
 import { DEFAULT_AUTO } from "../lib/auto";
 import { CleanupDialog } from "../components/CleanupDialog";
+import { RetentionGuide } from "../components/RetentionGuide";
 
 /** 历史清理的默认设置（旧配置中没有这一节时使用）。 */
 export const DEFAULT_RETENTION: RetentionConfig = { enabled: false, keep_last: 20, keep_daily: 14, keep_weekly: 8, scope: "auto" };
@@ -279,6 +280,7 @@ export default function Settings() {
                 {t("ui.settings.retentionAutoHint")}
               </label>
             </div>
+            {ret.enabled && <p className="hint warn-hint">{t("ui.settings.retentionAutoWarn")}</p>}
             <div className="row">
               <label>{t("ui.settings.retentionKeep")}</label>
               <div className="retention-rules">
@@ -311,7 +313,7 @@ export default function Settings() {
                 {ret.scope === "all" && cfg.backup.protect_local && <p className="hint">{t("ui.settings.retentionProtected")}</p>}
               </div>
             </div>
-            <p className="hint">{t("ui.settings.retentionHint")}</p>
+            <RetentionGuide ret={ret} protectLocal={cfg.backup.protect_local} />
             <div className="inline" style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button className="btn" disabled={dirty} onClick={() => setCleaning(true)}>
                 {t("ui.settings.cleanNow")}

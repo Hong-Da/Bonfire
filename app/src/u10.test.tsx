@@ -19,6 +19,7 @@ import ScanPage from "./pages/ScanPage";
 import ShotDiffDialog from "./pages/ShotDiffDialog";
 import CloseDialog from "./components/CloseDialog";
 import { ProcessDialog } from "./components/ProcessDialog";
+import { DeleteSnapshotsDialog } from "./components/DeleteSnapshotsDialog";
 import { noteGames } from "./lib/fresh";
 import { loadUiState, resetUiStateForTest } from "./lib/uiState";
 import type { Config, GalleryView, GameRow, ShotRecord } from "./types";
@@ -630,7 +631,11 @@ describe("M4-4 历史清理", () => {
     const plan = { games: [{ gameId: "g", name: "Alpha", snapshots: 9, removed: ["1", "2", "3"], rewritten: 2 }], removed: 3, gc: { chunks: 3, blobs: 3, trees: 3, snapshots: [], bytes: 3 * 1024 * 1024, tmpFiles: 0, dryRun: true }, dryRun: true };
     api.cleanHistory.mockImplementation(async (dry: boolean) => ({ ...plan, dryRun: dry }));
     render(<Settings />);
+    // 规则说明默认展开，按当前设置写出数字。
+    expect(await screen.findByText("清理规则说明（清理前请先阅读）")).toBeInTheDocument();
+    expect(screen.getByText(/最近的 20 个；最近 14 天里每天最新的 1 个；最近 8 周里每周最新的 1 个/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("checkbox", { name: /每次自动备份后按下面的规则清理/ }));
+    expect(screen.getByText(/不再逐次询问。$/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("spinbutton", { name: "保留最近的快照数" }), { target: { value: "5" } });
     // 有未保存的修改时不能清理。
     expect(screen.getByRole("button", { name: "立即清理…" })).toBeDisabled();
@@ -645,6 +650,10 @@ describe("M4-4 历史清理", () => {
     expect(api.cleanHistory).toHaveBeenCalledWith(true);
     expect(within(dlg).getByText("3.0 MB")).toBeInTheDocument();
     expect(within(dlg).getByText("3 / 9 个快照")).toBeInTheDocument();
+    // 安全提示：勾选确认前不能清理。
+    expect(within(dlg).getByText("删除后无法撤销")).toBeInTheDocument();
+    expect(within(dlg).getByRole("button", { name: "清理" })).toBeDisabled();
+    fireEvent.click(within(dlg).getByRole("checkbox", { name: /我已核对/ }));
     fireEvent.click(within(dlg).getByRole("button", { name: "清理" }));
     await within(dlg).findByText("个快照已清理");
     expect(api.cleanHistory).toHaveBeenCalledWith(false);
@@ -674,5 +683,36 @@ describe("M4-2 游戏程序", () => {
     fireEvent.click(within(dlg).getByRole("button", { name: "保存" }));
     await waitFor(() => expect(api.setGameProcesses).toHaveBeenCalledWith("g", ["Alpha.exe"]));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("多选删除快照", () => {
+  it("先检查：列出不能删除的原因与删除后的影响，勾选确认后只删除可以删的", async () => {
+    useStore.setState({ toasts: [] });
+    const node = (id: string, comment: string, createdAt: string) => ({ id, parents: [], createdAt, trigger: "manual", comment, files: 1, refs: [], host: "pc" }) as unknown as import("./types").SnapshotNode;
+    const nodes = [node("aaa", "第一章", "2026-10-01T10:00:00+08:00"), node("bbb", "Boss 前", "2026-10-02T10:00:00+08:00"), node("ccc", "第二章", "2026-10-03T10:00:00+08:00")];
+    api.deleteSnapshots.mockImplementation(async (_g: string, ids: string[], dry: boolean) => ({
+      removed: ids.filter((i) => i !== "bbb"),
+      blocked: dry ? [{ id: "bbb", reason: "tag", detail: "boss" }] : [],
+      rewritten: 1,
+      branches: [{ name: "main", to: "aaa", toCreatedAt: "2026-10-01T10:00:00+08:00" }],
+      headBranch: null,
+      currentRemoved: true,
+      bytes: 2048,
+      dryRun: dry,
+    }));
+    const onDone = vi.fn();
+    render(<DeleteSnapshotsDialog gameId="g" ids={["bbb", "ccc"]} nodes={nodes} onClose={() => {}} onDone={onDone} />);
+    const dlg = await screen.findByRole("dialog", { name: "删除所选的 2 个快照" });
+    await within(dlg).findByText("1 个快照不能删除，会跳过");
+    expect(within(dlg).getByText("带有标签「boss」，先删除标签才能删除")).toBeInTheDocument();
+    expect(within(dlg).getByText(/路线「main」的最新快照被删除，路线退回到 .*「第一章」/)).toBeInTheDocument();
+    expect(within(dlg).getByText(/当前存档对应的快照会被删除/)).toBeInTheDocument();
+    const del = within(dlg).getByRole("button", { name: /删除 1 个快照/ });
+    expect(del).toBeDisabled();
+    fireEvent.click(within(dlg).getByRole("checkbox", { name: /我已确认要删除这 1 个快照/ }));
+    fireEvent.click(del);
+    await waitFor(() => expect(api.deleteSnapshots).toHaveBeenLastCalledWith("g", ["ccc"], false));
+    expect(onDone).toHaveBeenCalled();
   });
 });

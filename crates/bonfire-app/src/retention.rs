@@ -23,7 +23,7 @@ use serde::Serialize;
 use crate::app::App;
 use crate::config::{Retention, RetentionScope};
 use crate::error::Result;
-use crate::prune::changed_between;
+use crate::prune::{changed_between, other_branch};
 use crate::util::host_name;
 
 /// 一个游戏的清理结果。
@@ -38,6 +38,17 @@ pub struct GameCleanup {
     pub removed: Vec<ObjectId>,
     /// 改接到新父快照上的子孙快照数。
     pub rewritten: usize,
+    /// 压掉的快照的时间、触发方式与备注（预览中列出）。
+    pub items: Vec<CleanupItem>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupItem {
+    pub id: ObjectId,
+    pub created_at: String,
+    pub trigger: Trigger,
+    pub comment: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -226,6 +237,17 @@ impl App {
                 if removed.is_empty() {
                     continue;
                 }
+                let mut items = Vec::new();
+                for id in &removed {
+                    let snap = self.repo.get_snapshot(id)?;
+                    items.push(CleanupItem {
+                        id: *id,
+                        comment: self.repo.effective_comment(id, &snap)?,
+                        created_at: snap.created_at,
+                        trigger: snap.trigger,
+                    });
+                }
+                items.sort_by(|a, b| b.created_at.cmp(&a.created_at));
                 let rewritten = if opts.dry_run {
                     self.descendants_of(&game.id, &removed)?.len()
                 } else {
@@ -237,6 +259,7 @@ impl App {
                     snapshots,
                     removed,
                     rewritten,
+                    items,
                 });
             }
         }
@@ -247,7 +270,11 @@ impl App {
                 ..Default::default()
             }
         } else {
-            self.collect_garbage(lock, opts.dry_run, &games)?
+            let planned = games
+                .iter()
+                .flat_map(|g| g.removed.iter().copied())
+                .collect();
+            self.collect_garbage(lock, opts.dry_run, planned)?
         };
         Ok(CleanupReport {
             games,
@@ -258,11 +285,11 @@ impl App {
     }
 
     /// 垃圾回收：删除不再被任何快照使用的对象；顺带清理被回收快照的索引记录与备注。
-    fn collect_garbage(
+    pub(crate) fn collect_garbage(
         &mut self,
         lock: &RepoLock,
         dry_run: bool,
-        planned: &[GameCleanup],
+        assume_removed: HashSet<ObjectId>,
     ) -> Result<GcReport> {
         let mut extra = Vec::new();
         for g in self.index.games()? {
@@ -277,10 +304,7 @@ impl App {
             },
             extra_roots: extra,
             assume_removed: if dry_run {
-                planned
-                    .iter()
-                    .flat_map(|g| g.removed.iter().copied())
-                    .collect()
+                assume_removed
             } else {
                 HashSet::new()
             },
@@ -341,6 +365,11 @@ impl App {
         Ok(seen.difference(&gone).copied().collect())
     }
 
+    /// 改接的后续快照数（预览用）。
+    pub(crate) fn descendants_of_pub(&self, game_id: &str, ids: &[ObjectId]) -> Result<usize> {
+        Ok(self.descendants_of(game_id, ids)?.len())
+    }
+
     fn game_snapshots(&self, game_id: &str) -> Result<HashMap<ObjectId, Snapshot>> {
         let mut snaps = HashMap::new();
         for row in self.index.snapshots_of(game_id)? {
@@ -351,7 +380,8 @@ impl App {
         Ok(snaps)
     }
 
-    /// 一次压掉多个快照（都不是分支最新的、带标签的或当前所在的快照）。返回改写的子孙快照数。
+    /// 一次压掉多个快照（不能带标签）。返回改写的子孙快照数。
+    /// 指向被删快照的分支退回到之前留下的快照（没有时删除分支），当前所在的快照被删时同样退回。
     /// 顺序与删除单个快照相同：先写新快照，再改引用，最后删旧快照，中途失败只会多留快照。
     pub(crate) fn squash_snapshots(
         &mut self,
@@ -414,23 +444,47 @@ impl App {
             added.push((new_id, s));
         }
 
-        // 2. 分支、标签、备注、HEAD 与恢复记录。
-        let message = format!("清理历史：压掉 {} 个快照", ids.len());
-        for (n, id) in &self.repo.list_refs(&game.id)? {
-            let Some(new) = mapping.get(id) else { continue };
-            match n.kind {
-                RefKind::Branch => self.repo.update_ref(
+        // 2. 分支、标签、备注、HEAD 与恢复记录。指向被删快照的分支退回到它之前留下的快照，没有时分支一并删除。
+        let message = format!("删除 {} 个快照", ids.len());
+        let surviving = |id: ObjectId, mapping: &HashMap<ObjectId, ObjectId>| {
+            let mut out = Vec::new();
+            resolve(id, &gone, &snaps, mapping, &mut out);
+            out.first().copied()
+        };
+        let refs = self.repo.list_refs(&game.id)?;
+        let mut deleted_branches = Vec::new();
+        for (n, id) in &refs {
+            let new = if gone.contains(id) {
+                surviving(*id, &mapping)
+            } else {
+                match mapping.get(id) {
+                    Some(m) => Some(*m),
+                    None => continue,
+                }
+            };
+            match (n.kind, new) {
+                (RefKind::Branch, Some(new)) => self.repo.update_ref(
                     lock,
                     &game.id,
                     n,
                     Some(*id),
-                    *new,
-                    "retention",
+                    new,
+                    "delete-snapshot",
                     &message,
                 )?,
-                RefKind::Tag => {
+                (RefKind::Branch, None) => {
                     self.repo.delete_ref(lock, &game.id, n)?;
-                    self.repo.create_tag(lock, &game.id, &n.name, *new)?;
+                    deleted_branches.push(n.name.clone());
+                }
+                (RefKind::Tag, Some(new)) if !gone.contains(id) => {
+                    self.repo.delete_ref(lock, &game.id, n)?;
+                    self.repo.create_tag(lock, &game.id, &n.name, new)?;
+                }
+                (RefKind::Tag, _) => {
+                    return Err(crate::error::AppError::Invalid(format!(
+                        "快照带有标签「{}」，标签保护的快照不能删除",
+                        n.name
+                    )));
                 }
             }
         }
@@ -440,17 +494,20 @@ impl App {
             }
         }
         let head = self.repo.head(&game.id)?;
-        if let Some(d) = head.detached
-            && let Some(n) = mapping.get(&d)
-        {
-            self.repo.set_head(
-                lock,
-                &game.id,
-                &Head {
-                    branch: head.branch.clone(),
-                    detached: Some(*n),
-                },
-            )?;
+        let detached = match head.detached {
+            Some(d) if gone.contains(&d) => surviving(d, &mapping),
+            Some(d) => Some(mapping.get(&d).copied().unwrap_or(d)),
+            None => None,
+        };
+        let branch = if deleted_branches.contains(&head.branch) {
+            let remaining = self.repo.list_refs(&game.id)?;
+            other_branch(&remaining, &head.branch).unwrap_or_else(|| head.branch.clone())
+        } else {
+            head.branch.clone()
+        };
+        if detached != head.detached || branch != head.branch {
+            self.repo
+                .set_head(lock, &game.id, &Head { branch, detached })?;
         }
         self.remap_undo(&game.id, &mapping)?;
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ProcessDialog } from "../components/ProcessDialog";
+import { DeleteSnapshotsDialog } from "../components/DeleteSnapshotsDialog";
 import { confirm } from "../lib/confirm";
 import { api, errorMessage, imageSrc } from "../api";
 import Timeline, { laneColor } from "../components/Timeline";
@@ -47,6 +48,10 @@ export default function GameDetail({ id }: { id: string }) {
   const [page, setPage] = useState<"saves" | "shots">(() => (useStore.getState().rows[id]?.shotsOnly ? "shots" : "saves"));
   const [bigGraph, setBigGraph] = useState(false);
   const [shots, setShots] = useState<ShotRecord[]>([]);
+  // 多选（Ctrl 点选单个、Shift 选一段），用于一次删除多个快照。
+  const [multi, setMulti] = useState<Set<string>>(new Set());
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const [bulkDelete, setBulkDelete] = useState(false);
 
   // 本机主存档与其他电脑的主存档（U-41）。
   const myPrimary = hist?.primaries?.find((p) => p.mine)?.branch ?? row?.primary ?? "main";
@@ -89,6 +94,34 @@ export default function GameDetail({ id }: { id: string }) {
   // 截图与快照的对应：时间线上显示每个快照之前拍的截图数，快照详情中列出这些截图。
   const shotSnap = useMemo(() => shotSnapshots(hist?.nodes ?? [], shots), [hist, shots]);
   const shotsBySnap = useMemo(() => shotCounts(shotSnap), [shotSnap]);
+
+  // 点击快照：普通点击单选；Ctrl 加入或移出多选；Shift 选中上次点击的快照到这一个之间的一段（Ctrl+Shift 追加）。
+  const pick = (sid: string, mods?: { ctrl: boolean; shift: boolean }) => {
+    if (mods?.shift) {
+      const ids = nodes.map((n) => n.id);
+      const from = ids.indexOf(anchor ?? selected ?? sid);
+      const to = ids.indexOf(sid);
+      const range = from < 0 ? [sid] : ids.slice(Math.min(from, to), Math.max(from, to) + 1);
+      setMulti(new Set([...(mods.ctrl ? multi : []), ...range]));
+    } else if (mods?.ctrl) {
+      const next = new Set(multi.size > 0 ? multi : selected ? [selected] : []);
+      if (next.has(sid)) next.delete(sid);
+      else next.add(sid);
+      setMulti(next);
+      setAnchor(sid);
+    } else {
+      setMulti(new Set());
+      setAnchor(sid);
+    }
+    setSelected(sid);
+  };
+
+  useEffect(() => {
+    if (multi.size === 0) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !document.querySelector(".dialog") && setMulti(new Set());
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [multi.size]);
 
   const afterChange = async () => {
     await reload();
@@ -232,9 +265,39 @@ export default function GameDetail({ id }: { id: string }) {
               </div>
             </div>
           ) : (
-            <Timeline nodes={nodes} head={hist.head} selected={selected} onSelect={setSelected} focus={selected} shots={shotsBySnap} />
+            <>
+              {multi.size > 0 ? (
+                <div className="multi-bar" role="toolbar" aria-label={t("ui.bulkDelete.bar")}>
+                  <b className="num">{t("ui.bulkDelete.selected", { n: multi.size })}</b>
+                  <span className="muted">{t("ui.bulkDelete.howTo")}</span>
+                  <div className="grow" />
+                  <button className="btn small danger-ghost" onClick={() => setBulkDelete(true)}>
+                    <Icon name="trash" size={14} /> {t("ui.bulkDelete.open")}
+                  </button>
+                  <button className="btn small ghost" onClick={() => setMulti(new Set())}>
+                    {t("ui.bulkDelete.clear")}
+                  </button>
+                </div>
+              ) : (
+                <p className="multi-tip muted">{t("ui.bulkDelete.howTo")}</p>
+              )}
+              <Timeline nodes={nodes} head={hist.head} selected={selected} onSelect={pick} focus={selected} shots={shotsBySnap} multi={multi} />
+            </>
           )}
         </section>
+        {bulkDelete && (
+          <DeleteSnapshotsDialog
+            gameId={id}
+            ids={hist.nodes.filter((n) => multi.has(n.id)).map((n) => n.id)}
+            nodes={hist.nodes}
+            onClose={() => setBulkDelete(false)}
+            onDone={() => {
+              setBulkDelete(false);
+              setMulti(new Set());
+              void afterChange();
+            }}
+          />
+        )}
         <section className="files">
           {node ? (
             <SnapshotPanel

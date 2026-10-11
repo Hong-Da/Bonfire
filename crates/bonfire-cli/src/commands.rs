@@ -277,9 +277,12 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
         } => refs(app, &game, RefKind::Tag, name, snapshot, out),
         Cmd::Rm {
             game,
-            snapshot,
+            snapshots,
             dry_run,
-        } => delete_snapshot(app, &game, &snapshot, dry_run, out),
+        } => match snapshots.as_slice() {
+            [one] => delete_snapshot(app, &game, one, dry_run, out),
+            many => delete_snapshots(app, &game, many, dry_run, out),
+        },
         Cmd::Profile { cmd } => profile(app, cmd, out),
         Cmd::Export {
             game,
@@ -1544,6 +1547,92 @@ fn delete_snapshot(app: &mut App, key: &str, spec: &str, dry_run: bool, out: &Ou
     }
     if let Some(b) = &r.head_branch {
         out.line(out.tf("cli.out.head_switched", &[("name", b)]));
+    }
+    if dry_run {
+        out.line(out.t("cli.out.dry_run"));
+    }
+    Ok(())
+}
+
+/// 删除多个快照：先检查，列出不能删除的与删除的影响，确认后删除其余的。
+fn delete_snapshots(
+    app: &mut App,
+    key: &str,
+    specs: &[String],
+    dry_run: bool,
+    out: &Out,
+) -> Result<()> {
+    let g = app.find_game(key)?;
+    let lock = app.repo.lock()?;
+    let plan = app.delete_snapshots(&lock, &g, specs, true)?;
+    for b in &plan.blocked {
+        let why = out.t(&format!(
+            "cli.out.blocked.{}",
+            match b.reason {
+                bonfire_app::bulk_delete::BlockReason::Tag => "tag",
+                bonfire_app::bulk_delete::BlockReason::Protected => "protected",
+                bonfire_app::bulk_delete::BlockReason::Undo => "undo",
+            }
+        ));
+        eprintln!(
+            "{}",
+            out.tf(
+                "cli.out.snapshot_blocked",
+                &[
+                    ("id", &b.id.short(12)),
+                    ("why", &why),
+                    ("detail", &b.detail)
+                ]
+            )
+        );
+    }
+    let size = bonfire_app::util::human_bytes(plan.bytes);
+    if !dry_run && !plan.removed.is_empty() {
+        let prompt = out.tf(
+            "cli.confirm.delete_snapshots",
+            &[
+                ("n", &plan.removed.len()),
+                ("m", &plan.rewritten),
+                ("size", &size),
+            ],
+        );
+        if !out.confirm(prompt)? {
+            out.line(out.t("cli.out.cancelled"));
+            return Ok(());
+        }
+    }
+    let r = if dry_run {
+        plan
+    } else {
+        app.delete_snapshots(&lock, &g, specs, false)?
+    };
+    out.emit(serde_json::to_value(&r).unwrap());
+    out.line(out.tf(
+        if dry_run {
+            "cli.out.snapshots_to_delete"
+        } else {
+            "cli.out.snapshots_deleted"
+        },
+        &[
+            ("n", &r.removed.len()),
+            ("m", &r.rewritten),
+            ("size", &bonfire_app::util::human_bytes(r.bytes)),
+        ],
+    ));
+    for b in &r.branches {
+        match &b.to {
+            Some(to) => out.line(out.tf(
+                "cli.out.branch_moved_back",
+                &[("name", &b.name), ("id", &to.short(12))],
+            )),
+            None => out.line(out.tf("cli.out.branch_emptied", &[("name", &b.name)])),
+        }
+    }
+    if let Some(b) = &r.head_branch {
+        out.line(out.tf("cli.out.head_switched", &[("name", b)]));
+    }
+    if r.current_removed {
+        out.line(out.t("cli.out.current_removed"));
     }
     if dry_run {
         out.line(out.t("cli.out.dry_run"));

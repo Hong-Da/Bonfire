@@ -77,7 +77,7 @@ export interface RetentionConfig {
 
 /** 清理历史的结果（预览时为预计）。 */
 export interface CleanupReport {
-  games: { gameId: string; name: string; snapshots: number; removed: string[]; rewritten: number }[];
+  games: { gameId: string; name: string; snapshots: number; removed: string[]; rewritten: number; items?: { id: string; createdAt: string; trigger: string; comment: string }[] }[];
   removed: number;
   gc: { chunks: number; blobs: number; trees: number; snapshots: string[]; bytes: number; tmpFiles: number; dryRun: boolean };
   dryRun: boolean;
@@ -618,6 +618,18 @@ export interface DeleteReport {
   rewritten: number;
   branchesDeleted: string[];
   headBranch: string | null;
+  dryRun: boolean;
+}
+
+/** 删除多个快照的检查与结果。 */
+export interface BulkDeleteReport {
+  removed: string[];
+  blocked: { id: string; reason: "tag" | "protected" | "undo"; detail: string }[];
+  rewritten: number;
+  branches: { name: string; to: string | null; toCreatedAt: string | null }[];
+  headBranch: string | null;
+  currentRemoved: boolean;
+  bytes: number;
   dryRun: boolean;
 }
 

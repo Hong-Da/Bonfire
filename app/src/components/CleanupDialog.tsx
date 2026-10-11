@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
-import { bytes } from "../lib/format";
+import { bytes, dateTime, firstLine } from "../lib/format";
 import { useStore } from "../store";
 import type { CleanupReport } from "../types";
 import { Modal } from "./ui";
+import { RetentionSafety } from "./RetentionGuide";
 
 /** 清理历史（M4-4）：先预览要压掉的快照与能释放的空间，确认后执行。 */
 export function CleanupDialog({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const store = useStore();
   const [plan, setPlan] = useState<CleanupReport | null>(null);
+  const [ack, setAck] = useState(false);
   const [done, setDone] = useState<CleanupReport | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -49,7 +51,7 @@ export function CleanupDialog({ onClose }: { onClose: () => void }) {
         <button className="btn ghost" onClick={onClose} disabled={busy}>
           {t("ui.cancel")}
         </button>
-        <button className="btn danger" onClick={() => void run()} disabled={!plan || busy}>
+        <button className="btn danger" onClick={() => void run()} disabled={!plan || busy || (plan.removed > 0 && !ack)}>
           {t("ui.cleanup.confirm")}
         </button>
       </>
@@ -73,16 +75,40 @@ export function CleanupDialog({ onClose }: { onClose: () => void }) {
           </div>
           {nothing && !done && <p className="muted">{t("ui.cleanup.nothing")}</p>}
           {shown.games.length > 0 && (
-            <ul className="cleanup-games">
+            <div className="cleanup-games">
               {shown.games.map((g) => (
-                <li key={g.gameId}>
-                  <span>{g.name}</span>
-                  <span className="num muted">{t("ui.cleanup.game", { n: g.removed.length, total: g.snapshots })}</span>
-                </li>
+                <details key={g.gameId}>
+                  <summary>
+                    <span>{g.name}</span>
+                    <span className="num muted">{t("ui.cleanup.game", { n: g.removed.length, total: g.snapshots })}</span>
+                  </summary>
+                  <ul className="bd-list">
+                    {(g.items ?? []).map((it) => (
+                      <li key={it.id}>
+                        <span className="num">{dateTime(it.createdAt, i18n.language)}</span>
+                        <span className="bd-what">{firstLine(it.comment) || t("ui.history.noComment")}</span>
+                        <span className="bd-why">{t(`ui.trigger.${it.trigger}`)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               ))}
-            </ul>
+            </div>
           )}
-          {!done && !nothing && <p className="hint">{t("ui.cleanup.facts")}</p>}
+          {!done && plan && plan.removed > 0 && (
+            <>
+              <p className="hint">{t("ui.cleanup.expandHint")}</p>
+              <div className="callout error bd-safety" role="note">
+                <b>{t("ui.bulkDelete.safetyTitle")}</b>
+                <RetentionSafety />
+                <label className="opt">
+                  <input type="checkbox" className="check" checked={ack} onChange={(e) => setAck(e.target.checked)} />
+                  {t("ui.cleanup.ack", { n: plan.removed })}
+                </label>
+              </div>
+            </>
+          )}
+          {!done && plan && plan.removed === 0 && !nothing && <p className="hint">{t("ui.cleanup.onlySpace")}</p>}
         </>
       )}
     </Modal>

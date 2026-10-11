@@ -6,6 +6,7 @@ pub mod app;
 pub mod auto;
 pub mod backup;
 pub mod branding;
+pub mod bulk_delete;
 pub mod config;
 pub mod discover;
 pub mod downloads;

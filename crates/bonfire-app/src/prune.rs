@@ -358,7 +358,7 @@ impl App {
     }
 
     /// 存档安全保护开启时，返回其中第一个本机备份的快照。
-    fn local_among(&self, ids: &[ObjectId]) -> Result<Option<ObjectId>> {
+    pub(crate) fn local_among(&self, ids: &[ObjectId]) -> Result<Option<ObjectId>> {
         if !self.config.backup.protect_local {
             return Ok(None);
         }
@@ -408,7 +408,7 @@ fn protected(what: &str) -> AppError {
 }
 
 /// 删除当前分支后切换到的分支：优先 main，其次按名称排第一的分支；没有其他分支时为 None（保留空分支名）。
-fn other_branch(refs: &[(RefName, ObjectId)], except: &str) -> Option<String> {
+pub(crate) fn other_branch(refs: &[(RefName, ObjectId)], except: &str) -> Option<String> {
     let mut names: Vec<&str> = refs
         .iter()
         .filter(|(n, _)| n.kind == RefKind::Branch && n.name != except)

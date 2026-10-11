@@ -20,6 +20,7 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.settings.schedule.": ["off", "daily", "weekly", "hours"],
   "ui.settings.autoScheduleOpt.": ["off", "daily", "weekly", "hours"],
   "ui.settings.retentionScopeOpt.": ["auto", "all"],
+  "ui.bulkDelete.reason.": ["tag", "protected", "undo"],
   "ui.settings.retention": ["LastPre", "LastSuf", "LastLabel", "DailyPre", "DailySuf", "DailyLabel", "WeeklyPre", "WeeklySuf", "WeeklyLabel"],
   "ui.weekday.": ["1", "2", "3", "4", "5", "6", "7"],
   "ui.mode.short.": ["all", "both", "saves", "shots"],

@@ -825,6 +825,17 @@ expect_exit = 0
 expect_stdout_json = { "processes" = [] }
 
 [[case]]
+id = "rm-many-preview"
+title = { zh-CN = "预览删除多个快照（带标签的跳过）", en = "Preview deleting several snapshots (tagged ones skipped)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士", "--force", "-m", "一"], ["backup", "空洞骑士", "--force", "-m", "二", "--tag", "boss"], ["backup", "空洞骑士", "--force", "-m", "三"]]
+args = ["rm", "空洞骑士", "HEAD~1", "HEAD~2", "--dry-run"]
+expect_exit = 0
+stdout_contains = ["将删除 0 个快照", "预览"]
+stderr_contains = ["不能删除", "boss", "存档安全保护"]
+in_docs = true
+
+[[case]]
 id = "gc-preview"
 title = { zh-CN = "预览清理历史", en = "Preview history cleanup" }
 fixture = "basic"

@@ -24,87 +24,33 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 167 项，更新于 2026-10-11 11:55。需要改动的项请在对话中告诉 Claude（附编号）。</p>
-<nav><a href="#s-0">M4-5 性能与资源</a><a href="#s-1">M4-1 其余平台</a><a href="#s-2">M4-3 自动备份</a><a href="#s-3">M4-2 游戏运行保护</a><a href="#s-4">M4-4 历史清理</a><a href="#s-5">界面</a><a href="#s-6">M3</a><a href="#s-7">导入</a><a href="#s-8">导出</a><a href="#s-9">开发</a><a href="#s-10">缺陷修复</a><a href="#s-11">用户修改</a><a href="#s-12">M3 GUI MVP</a><a href="#s-13">M2 存档发现</a><a href="#s-14">M1 核心库</a><a href="#s-15">全局</a></nav>
-<section id="s-0"><h2>M4-5 性能与资源<small>2 项</small></h2>
-      <article id="M4-5b">
-        <header><code>M4-5b</code><h3>基准测试放在哪里、怎样测托盘内存</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">tests/bench/main.rs 作为忽略的测试，用 --release --ignored 手动运行，不随 test.bat；托盘内存用隔离的 release 构建（独立程序标识与临时数据）关闭窗口进入托盘后测量，结果写入 M4 验收报告（推荐） <b>✓ 采用</b></li><li class="">每次 test.bat 都运行基准</li></ul>
-        <p class="reason"><span>理由</span>基准需要生成近 1 GB 数据、release 构建，放进日常测试太慢；托盘内存需要运行桌面程序，用独立标识避免唤起用户自己的篝火。</p><p class="impact"><span>影响</span>tests/README.md 增加“性能基准”一节。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 171 项，更新于 2026-10-11 13:04。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<nav><a href="#s-0">界面</a><a href="#s-1">M4-5 性能与资源</a><a href="#s-2">M4-1 其余平台</a><a href="#s-3">M4-3 自动备份</a><a href="#s-4">M4-2 游戏运行保护</a><a href="#s-5">M4-4 历史清理</a><a href="#s-6">M3</a><a href="#s-7">导入</a><a href="#s-8">导出</a><a href="#s-9">开发</a><a href="#s-10">缺陷修复</a><a href="#s-11">用户修改</a><a href="#s-12">M3 GUI MVP</a><a href="#s-13">M2 存档发现</a><a href="#s-14">M1 核心库</a><a href="#s-15">全局</a></nav>
+<section id="s-0"><h2>界面<small>9 项</small></h2>
+      <article id="U-55c">
+        <header><code>U-55c</code><h3>历史清理的说明与安全提示</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">设置页“历史清理”中默认展开“清理规则说明”：按执行顺序 1–5 步说明（选出可清理的 → 按规则保留 → 永远保留 → 删除其余 → 回收空间），带当前设置的数字与示例，附安全提示；开启自动清理时显示警告；清理对话框按游戏列出将删除的每个快照（时间、备注、触发方式），勾选“我已核对”后才能清理（推荐） <b>✓ 采用</b></li><li class="">只在对话框中提示</li></ul>
+        <p class="reason"><span>理由</span>用户要求详细介绍逻辑并提供安全提示。</p><p class="impact"><span>影响</span>说明随设置的数字变化；可折叠。</p>
         <footer>2026-10-11</footer>
       </article>
-      <article id="M4-5a">
-        <header><code>M4-5a</code><h3>怎样达到吞吐 ≥ 200 MB/s</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">备份时多个文件并行入库（rayon），单个文件内部仍按分块顺序处理；每个对象写入后仍 fsync（推荐） <b>✓ 采用</b></li><li class="">改为批量落盘、减少 fsync</li><li class="">单个大文件内部也并行压缩分块</li></ul>
-        <p class="reason"><span>理由</span>存档多为多个文件；并行后 64 个文件 512 MB 约 1260 MB/s，单个 256 MB 文件也有约 270 MB/s，都超过目标。保留每个对象 fsync，断电不损坏快照的保证不变。</p><p class="impact"><span>影响</span>对象库写入本来就是“唯一临时文件 + 原子重命名”，同一对象被两个线程同时写入时也安全；崩溃一致性测试仍通过。</p>
-        <footer>2026-10-11</footer>
-      </article></section><section id="s-1"><h2>M4-1 其余平台<small>3 项</small></h2>
-      <article id="M4-1c">
-        <header><code>M4-1c</code><h3>新平台的开关</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">设置页与首次运行向导的“扫描的平台”增加 Ubisoft Connect、EA app、Xbox、Battle.net，默认全部开启；bonfire scan --platform 也可选这几个（推荐） <b>✓ 采用</b></li><li class="">默认关闭</li></ul>
-        <p class="reason"><span>理由</span>与已有平台一致；没有安装的平台扫描不到任何游戏，不影响使用。</p><p class="impact"><span>影响</span>配置项 backup.disabled_platforms 原本就列出这几个平台名。</p>
+      <article id="U-55b">
+        <header><code>U-55b</code><h3>删除前的检查与安全提示</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">先检查：带标签的、存档安全保护开启时本机备份的、撤销上次恢复要用到的快照不能删除，列出原因后跳过，其余照常删除；列出将删除的快照与删除后的影响（后续快照改接、路线退回到哪个快照或被删除、当前存档对应的快照被删）、可释放的空间；勾选“我已确认要删除这 N 个快照”后才能删除（推荐） <b>✓ 采用</b></li><li class="">有不能删除的快照时整个操作拒绝</li></ul>
+        <p class="reason"><span>理由</span>用户要求删除前检查能否删除并给出安全提示；Shift 选一段时常会包含带标签的快照，跳过比整体拒绝更顺手。</p><p class="impact"><span>影响</span>受存档安全保护挡住时提示可在工具栏或设置中关闭保护。删除后立即回收空间。命令行 bonfire rm 可一次给多个快照。</p>
         <footer>2026-10-11</footer>
       </article>
-      <article id="M4-1b">
-        <header><code>M4-1b</code><h3>Xbox / Microsoft Store 游戏怎样识别与备份</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">列出 %LOCALAPPDATA%\Packages 下有 SystemAppData\wgs 容器存档的应用包；规则库按路径中的包名对应游戏；规则库没有的把整个 wgs 目录作为待确认的存档位置，整体备份与恢复（推荐） <b>✓ 采用</b></li><li class="">调用 Get-AppxPackage 列出所有应用</li></ul>
-        <p class="reason"><span>理由</span>文档 4.1、10.3：wgs 是容器格式，只做整体备份；只有游戏才有 wgs 目录，不会把普通应用当成游戏；不需要启动 PowerShell（也不会闪窗口）。规则库有 637 条按包名的规则。</p><p class="impact"><span>影响</span>游戏 ID：xbox-&lt;包名&gt;；规则库没有的游戏名称由包名推出（如 Microsoft.SunriseBaseGame → Sunrise Base Game）。</p>
+      <article id="U-55a">
+        <header><code>U-55a</code><h3>多选删除快照的操作方式</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">存档分支图中按住 Ctrl 点选单个、按住 Shift 选一段（Ctrl+Shift 追加），列表上方出现“已选 N 个快照 / 删除所选… / 取消选择”，Esc 取消（推荐） <b>✓ 采用</b></li><li class="">每行加复选框</li></ul>
+        <p class="reason"><span>理由</span>用户要求；与 Windows 资源管理器的多选习惯一致，不增加常驻的复选框。</p><p class="impact"><span>影响</span>分支图上方常驻一行操作说明。</p>
         <footer>2026-10-11</footer>
       </article>
-      <article id="M4-1a">
-        <header><code>M4-1a</code><h3>Ubisoft、EA、Battle.net 的游戏清单从哪里读</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">Windows“卸载程序”登记（Ubisoft 键名 Uplay Install &lt;ID&gt;；EA app 的卸载程序在 EAInstaller 下；Battle.net 的卸载命令带 --uid=&lt;产品&gt;，跳过启动器本身），Ubisoft 另读启动器目录作为规则库的 &lt;root&gt;（推荐） <b>✓ 采用</b></li><li class="">读各启动器的私有数据库或配置（product.db、EA Desktop 安装记录）</li></ul>
-        <p class="reason"><span>理由</span>启动器的私有文件格式（product.db 为 protobuf、EA app 安装记录加密）经常变化；卸载登记是公开、稳定的 Windows 接口，三家都会写入，且有名称和安装目录。本机实测识别出 Battle.net 的守望先锋。</p><p class="impact"><span>影响</span>游戏 ID：ubisoft-&lt;游戏 ID&gt;、ea-&lt;登记键名&gt;、battlenet-&lt;产品 ID&gt;；名称取登记的显示名称（会随启动器语言本地化）。规则库按安装文件夹名、名称匹配；匹配不到时按名称在常见存档目录中探测，需用户确认。</p>
-        <footer>2026-10-11</footer>
-      </article></section><section id="s-2"><h2>M4-3 自动备份<small>1 项</small></h2>
-      <article id="M4-3a">
-        <header><code>M4-3a</code><h3>退出游戏后自动备份</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">新增设置“退出游戏后自动备份”（默认关闭，与其他自动备份一致），开启后桌面程序每 5 秒检测一次游戏进程，游戏退出 10 秒后备份有变化的存档，备注按变化自动生成，触发方式记为“退出游戏后自动”（推荐） <b>✓ 采用</b></li><li class="">默认开启</li></ul>
-        <p class="reason"><span>理由</span>文档 F8；关闭时不检测进程，不占资源。退出后等几秒，留给游戏收尾写入与平台云同步；期间重新启动游戏则取消。</p><p class="impact"><span>影响</span>设置页与游戏库工具栏的自动备份菜单都可开关；检测进程时不占用应用，不影响界面操作；仓库被占用时下次再试。也会收集游戏期间拍的截图。</p>
-        <footer>2026-10-11</footer>
-      </article></section><section id="s-3"><h2>M4-2 游戏运行保护<small>2 项</small></h2>
-      <article id="M4-2b">
-        <header><code>M4-2b</code><h3>检测到游戏在运行时怎么做</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">恢复：阻止（可强制，同 M1）；手动备份：提醒不阻止（同 U-12）；自动备份：推迟到游戏退出后（推荐） <b>✓ 采用</b></li><li class="">全部只提醒</li></ul>
-        <p class="reason"><span>理由</span>文档 F7 与 10.1：恢复时游戏会覆盖存档必须阻止；自动备份在游戏运行中不做重 IO，也避免备份到游戏正在写的存档。</p><p class="impact"><span>影响</span>定时备份与存档变化后备份跳过正在运行的游戏，游戏退出后再备份（即使没开“退出游戏后自动备份”）。</p>
+      <article id="U-54a">
+        <header><code>U-54a</code><h3>设置页全屏后被拉成两列</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">改为单栏铺满窗口宽度（不再分两栏，右侧也不留空白），较长的说明文字限制行宽便于阅读（推荐） <b>✓ 采用</b></li><li class="">单栏并限制最大宽度居中</li></ul>
+        <p class="reason"><span>理由</span>用户反馈全屏时两栏不好；之前 U-26 用户反馈过右侧空白，铺满宽度可同时满足两点。</p><p class="impact"><span>影响</span>取代 U-26a 的“够宽时分两栏”。</p>
         <footer>2026-10-11</footer>
       </article>
-      <article id="M4-2a">
-        <header><code>M4-2a</code><h3>怎样判断游戏在运行</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">进程的可执行文件在游戏安装目录下，或进程名是为游戏设置的“游戏程序”（详情页“更多 → 游戏程序…”、bonfire game process）（推荐） <b>✓ 采用</b></li><li class="">再从规则库的启动项（launch）自动推断进程名</li><li class="">只按安装目录</li></ul>
-        <p class="reason"><span>理由</span>平台游戏都有安装目录，按目录检测已经准确；需要按进程名检测的是模拟器和手动添加的游戏，这些游戏规则库里也没有启动项，由用户指定最可靠。不必为启动项扩大规则库数据。</p><p class="impact"><span>影响</span>游戏程序存在索引（结构版本 5，新表 game_processes）并写入 games.toml，索引丢失后可恢复；只保留文件名，不区分大小写，可省略 .exe。</p>
-        <footer>2026-10-11</footer>
-      </article></section><section id="s-4"><h2>M4-4 历史清理<small>5 项</small></h2>
-      <article id="M4-4e">
-        <header><code>M4-4e</code><h3>是否做 packs（GC 后把小对象打包成大文件）</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">暂不做，推迟到 M5（推荐） <b>✓ 采用</b></li><li class="">M4 中实现</li></ul>
-        <p class="reason"><span>理由</span>文档标为 P1 的可选优化；存档的对象数量不大，打包会改动对象库的读取路径，增加损坏风险；仓库放在网盘同步目录时，每次 GC 重写大包反而导致整包重新同步。M4-5 基准测试若发现对象数量成为瓶颈再做。</p><p class="impact"><span>影响</span>仓库格式不变（format_version 仍为 1）；项目规范 M4-4 中注明推迟。</p>
-        <footer>2026-10-11</footer>
-      </article>
-      <article id="M4-4d">
-        <header><code>M4-4d</code><h3>垃圾回收保留哪些内容</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">从所有分支、标签、HEAD、30 天内引用日志中出现的快照与可撤销恢复用到的快照出发标记，删除其余对象；最近 1 小时内写入的对象不删；顺带删除写入中断留下的临时文件（推荐） <b>✓ 采用</b></li><li class="">只从分支与标签出发</li></ul>
-        <p class="reason"><span>理由</span>文档 6.4、6.6：“移动当前分支”后原主线后续快照由引用日志保留 30 天；早期版本迁移后留下的截图对象不被任何快照引用，会一并回收。</p><p class="impact"><span>影响</span>删除顺序为快照 → 清单 → 文件 → 分块，中途失败 fsck 仍通过；被回收快照的索引记录与备注同时删除。</p>
-        <footer>2026-10-11</footer>
-      </article>
-      <article id="M4-4c">
-        <header><code>M4-4c</code><h3>什么时候清理</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">默认不自动清理；开启“自动清理”后每次自动备份生成快照时按规则清理；设置页“立即清理…”与 bonfire gc 随时手动清理，都先预览再确认（推荐） <b>✓ 采用</b></li><li class="">默认开启自动清理</li><li class="">只能手动清理</li></ul>
-        <p class="reason"><span>理由</span>删除快照不可撤销，默认不替用户删；自动快照是快照增多的来源，在它之后清理最自然。分块去重使未变化的内容不占额外空间，不清理也不会很快占满磁盘。</p><p class="impact"><span>影响</span>自动清理没有压掉快照时不做垃圾回收，避免每次都遍历对象库；手动清理总是回收空间。</p>
-        <footer>2026-10-11</footer>
-      </article>
-      <article id="M4-4b">
-        <header><code>M4-4b</code><h3>清理哪些快照、与存档安全保护的关系</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">默认只清理自动生成的快照（定时、存档变化后、退出游戏后、恢复前保护）；可改为所有快照，但存档安全保护开启时本机手动备份的仍保留（推荐） <b>✓ 采用</b></li><li class="">所有快照一律按规则清理</li><li class="">存档安全保护开启时完全不能清理</li></ul>
-        <p class="reason"><span>理由</span>手动备份通常带有用户写的备注，是用户在意的存档点；自动快照数量多、最需要清理。存档安全保护的承诺（本机手动备份不被删除）不被自动清理打破。</p><p class="impact"><span>影响</span>带标签的、各分支最新的、当前所在的快照与可撤销的恢复用到的快照永远保留；恢复记录中的快照 ID 随改写同步更新，撤销恢复仍可用。</p>
-        <footer>2026-10-11</footer>
-      </article>
-      <article id="M4-4a">
-        <header><code>M4-4a</code><h3>保留策略的规则与默认值</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">最近 N 个 + 最近几天每天 1 个 + 最近几周每周 1 个；默认 20 个 / 14 天 / 8 周（推荐） <b>✓ 采用</b></li><li class="">只保留最近 N 个</li><li class="">按天数保留（超过 N 天的删除）</li></ul>
-        <p class="reason"><span>理由</span>文档 F9 写的是“保留最近 N 个 + 每天 1 个”；加上每周 1 个，长期不玩的游戏也能留下稀疏的历史。</p><p class="impact"><span>影响</span>设置 [retention] 的 keep_last、keep_daily、keep_weekly；同一秒内的快照按历史先后排序，改写 ID 后结果不变。</p>
-        <footer>2026-10-11</footer>
-      </article></section><section id="s-5"><h2>界面<small>5 项</small></h2>
       <article id="U-53a">
         <header><code>U-53a</code><h3>移出后重新加入游戏库的游戏是否显示“新加入”</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">显示：移出游戏库时不再记录该游戏，重新加入后按新加入处理（7 天内、未打开详情）（推荐） <b>✓ 采用</b></li><li class="">不显示：只看第一次出现的时间</li></ul>
@@ -133,6 +79,84 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <header><code>U-49d</code><h3>导出成功后对话框怎么变化</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">换成导出完成页：文件名、内容、大小、所在文件夹、打开位置与怎么用（推荐） <b>✓ 采用</b></li><li class="">保留原页面，只改底部按钮</li></ul>
         <p class="reason"><span>理由</span>用户反馈导出后还停在“导出xxx的存档”页面。</p><p class="impact"><span>影响</span>详情页导出与游戏库导出共用 ExportDone 组件。</p>
+        <footer>2026-10-11</footer>
+      </article></section><section id="s-1"><h2>M4-5 性能与资源<small>2 项</small></h2>
+      <article id="M4-5b">
+        <header><code>M4-5b</code><h3>基准测试放在哪里、怎样测托盘内存</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">tests/bench/main.rs 作为忽略的测试，用 --release --ignored 手动运行，不随 test.bat；托盘内存用隔离的 release 构建（独立程序标识与临时数据）关闭窗口进入托盘后测量，结果写入 M4 验收报告（推荐） <b>✓ 采用</b></li><li class="">每次 test.bat 都运行基准</li></ul>
+        <p class="reason"><span>理由</span>基准需要生成近 1 GB 数据、release 构建，放进日常测试太慢；托盘内存需要运行桌面程序，用独立标识避免唤起用户自己的篝火。</p><p class="impact"><span>影响</span>tests/README.md 增加“性能基准”一节。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M4-5a">
+        <header><code>M4-5a</code><h3>怎样达到吞吐 ≥ 200 MB/s</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">备份时多个文件并行入库（rayon），单个文件内部仍按分块顺序处理；每个对象写入后仍 fsync（推荐） <b>✓ 采用</b></li><li class="">改为批量落盘、减少 fsync</li><li class="">单个大文件内部也并行压缩分块</li></ul>
+        <p class="reason"><span>理由</span>存档多为多个文件；并行后 64 个文件 512 MB 约 1260 MB/s，单个 256 MB 文件也有约 270 MB/s，都超过目标。保留每个对象 fsync，断电不损坏快照的保证不变。</p><p class="impact"><span>影响</span>对象库写入本来就是“唯一临时文件 + 原子重命名”，同一对象被两个线程同时写入时也安全；崩溃一致性测试仍通过。</p>
+        <footer>2026-10-11</footer>
+      </article></section><section id="s-2"><h2>M4-1 其余平台<small>3 项</small></h2>
+      <article id="M4-1c">
+        <header><code>M4-1c</code><h3>新平台的开关</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">设置页与首次运行向导的“扫描的平台”增加 Ubisoft Connect、EA app、Xbox、Battle.net，默认全部开启；bonfire scan --platform 也可选这几个（推荐） <b>✓ 采用</b></li><li class="">默认关闭</li></ul>
+        <p class="reason"><span>理由</span>与已有平台一致；没有安装的平台扫描不到任何游戏，不影响使用。</p><p class="impact"><span>影响</span>配置项 backup.disabled_platforms 原本就列出这几个平台名。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M4-1b">
+        <header><code>M4-1b</code><h3>Xbox / Microsoft Store 游戏怎样识别与备份</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">列出 %LOCALAPPDATA%\Packages 下有 SystemAppData\wgs 容器存档的应用包；规则库按路径中的包名对应游戏；规则库没有的把整个 wgs 目录作为待确认的存档位置，整体备份与恢复（推荐） <b>✓ 采用</b></li><li class="">调用 Get-AppxPackage 列出所有应用</li></ul>
+        <p class="reason"><span>理由</span>文档 4.1、10.3：wgs 是容器格式，只做整体备份；只有游戏才有 wgs 目录，不会把普通应用当成游戏；不需要启动 PowerShell（也不会闪窗口）。规则库有 637 条按包名的规则。</p><p class="impact"><span>影响</span>游戏 ID：xbox-&lt;包名&gt;；规则库没有的游戏名称由包名推出（如 Microsoft.SunriseBaseGame → Sunrise Base Game）。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M4-1a">
+        <header><code>M4-1a</code><h3>Ubisoft、EA、Battle.net 的游戏清单从哪里读</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">Windows“卸载程序”登记（Ubisoft 键名 Uplay Install &lt;ID&gt;；EA app 的卸载程序在 EAInstaller 下；Battle.net 的卸载命令带 --uid=&lt;产品&gt;，跳过启动器本身），Ubisoft 另读启动器目录作为规则库的 &lt;root&gt;（推荐） <b>✓ 采用</b></li><li class="">读各启动器的私有数据库或配置（product.db、EA Desktop 安装记录）</li></ul>
+        <p class="reason"><span>理由</span>启动器的私有文件格式（product.db 为 protobuf、EA app 安装记录加密）经常变化；卸载登记是公开、稳定的 Windows 接口，三家都会写入，且有名称和安装目录。本机实测识别出 Battle.net 的守望先锋。</p><p class="impact"><span>影响</span>游戏 ID：ubisoft-&lt;游戏 ID&gt;、ea-&lt;登记键名&gt;、battlenet-&lt;产品 ID&gt;；名称取登记的显示名称（会随启动器语言本地化）。规则库按安装文件夹名、名称匹配；匹配不到时按名称在常见存档目录中探测，需用户确认。</p>
+        <footer>2026-10-11</footer>
+      </article></section><section id="s-3"><h2>M4-3 自动备份<small>1 项</small></h2>
+      <article id="M4-3a">
+        <header><code>M4-3a</code><h3>退出游戏后自动备份</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">新增设置“退出游戏后自动备份”（默认关闭，与其他自动备份一致），开启后桌面程序每 5 秒检测一次游戏进程，游戏退出 10 秒后备份有变化的存档，备注按变化自动生成，触发方式记为“退出游戏后自动”（推荐） <b>✓ 采用</b></li><li class="">默认开启</li></ul>
+        <p class="reason"><span>理由</span>文档 F8；关闭时不检测进程，不占资源。退出后等几秒，留给游戏收尾写入与平台云同步；期间重新启动游戏则取消。</p><p class="impact"><span>影响</span>设置页与游戏库工具栏的自动备份菜单都可开关；检测进程时不占用应用，不影响界面操作；仓库被占用时下次再试。也会收集游戏期间拍的截图。</p>
+        <footer>2026-10-11</footer>
+      </article></section><section id="s-4"><h2>M4-2 游戏运行保护<small>2 项</small></h2>
+      <article id="M4-2b">
+        <header><code>M4-2b</code><h3>检测到游戏在运行时怎么做</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">恢复：阻止（可强制，同 M1）；手动备份：提醒不阻止（同 U-12）；自动备份：推迟到游戏退出后（推荐） <b>✓ 采用</b></li><li class="">全部只提醒</li></ul>
+        <p class="reason"><span>理由</span>文档 F7 与 10.1：恢复时游戏会覆盖存档必须阻止；自动备份在游戏运行中不做重 IO，也避免备份到游戏正在写的存档。</p><p class="impact"><span>影响</span>定时备份与存档变化后备份跳过正在运行的游戏，游戏退出后再备份（即使没开“退出游戏后自动备份”）。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M4-2a">
+        <header><code>M4-2a</code><h3>怎样判断游戏在运行</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">进程的可执行文件在游戏安装目录下，或进程名是为游戏设置的“游戏程序”（详情页“更多 → 游戏程序…”、bonfire game process）（推荐） <b>✓ 采用</b></li><li class="">再从规则库的启动项（launch）自动推断进程名</li><li class="">只按安装目录</li></ul>
+        <p class="reason"><span>理由</span>平台游戏都有安装目录，按目录检测已经准确；需要按进程名检测的是模拟器和手动添加的游戏，这些游戏规则库里也没有启动项，由用户指定最可靠。不必为启动项扩大规则库数据。</p><p class="impact"><span>影响</span>游戏程序存在索引（结构版本 5，新表 game_processes）并写入 games.toml，索引丢失后可恢复；只保留文件名，不区分大小写，可省略 .exe。</p>
+        <footer>2026-10-11</footer>
+      </article></section><section id="s-5"><h2>M4-4 历史清理<small>5 项</small></h2>
+      <article id="M4-4e">
+        <header><code>M4-4e</code><h3>是否做 packs（GC 后把小对象打包成大文件）</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">暂不做，推迟到 M5（推荐） <b>✓ 采用</b></li><li class="">M4 中实现</li></ul>
+        <p class="reason"><span>理由</span>文档标为 P1 的可选优化；存档的对象数量不大，打包会改动对象库的读取路径，增加损坏风险；仓库放在网盘同步目录时，每次 GC 重写大包反而导致整包重新同步。M4-5 基准测试若发现对象数量成为瓶颈再做。</p><p class="impact"><span>影响</span>仓库格式不变（format_version 仍为 1）；项目规范 M4-4 中注明推迟。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M4-4d">
+        <header><code>M4-4d</code><h3>垃圾回收保留哪些内容</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">从所有分支、标签、HEAD、30 天内引用日志中出现的快照与可撤销恢复用到的快照出发标记，删除其余对象；最近 1 小时内写入的对象不删；顺带删除写入中断留下的临时文件（推荐） <b>✓ 采用</b></li><li class="">只从分支与标签出发</li></ul>
+        <p class="reason"><span>理由</span>文档 6.4、6.6：“移动当前分支”后原主线后续快照由引用日志保留 30 天；早期版本迁移后留下的截图对象不被任何快照引用，会一并回收。</p><p class="impact"><span>影响</span>删除顺序为快照 → 清单 → 文件 → 分块，中途失败 fsck 仍通过；被回收快照的索引记录与备注同时删除。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M4-4c">
+        <header><code>M4-4c</code><h3>什么时候清理</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">默认不自动清理；开启“自动清理”后每次自动备份生成快照时按规则清理；设置页“立即清理…”与 bonfire gc 随时手动清理，都先预览再确认（推荐） <b>✓ 采用</b></li><li class="">默认开启自动清理</li><li class="">只能手动清理</li></ul>
+        <p class="reason"><span>理由</span>删除快照不可撤销，默认不替用户删；自动快照是快照增多的来源，在它之后清理最自然。分块去重使未变化的内容不占额外空间，不清理也不会很快占满磁盘。</p><p class="impact"><span>影响</span>自动清理没有压掉快照时不做垃圾回收，避免每次都遍历对象库；手动清理总是回收空间。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M4-4b">
+        <header><code>M4-4b</code><h3>清理哪些快照、与存档安全保护的关系</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">默认只清理自动生成的快照（定时、存档变化后、退出游戏后、恢复前保护）；可改为所有快照，但存档安全保护开启时本机手动备份的仍保留（推荐） <b>✓ 采用</b></li><li class="">所有快照一律按规则清理</li><li class="">存档安全保护开启时完全不能清理</li></ul>
+        <p class="reason"><span>理由</span>手动备份通常带有用户写的备注，是用户在意的存档点；自动快照数量多、最需要清理。存档安全保护的承诺（本机手动备份不被删除）不被自动清理打破。</p><p class="impact"><span>影响</span>带标签的、各分支最新的、当前所在的快照与可撤销的恢复用到的快照永远保留；恢复记录中的快照 ID 随改写同步更新，撤销恢复仍可用。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M4-4a">
+        <header><code>M4-4a</code><h3>保留策略的规则与默认值</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">最近 N 个 + 最近几天每天 1 个 + 最近几周每周 1 个；默认 20 个 / 14 天 / 8 周（推荐） <b>✓ 采用</b></li><li class="">只保留最近 N 个</li><li class="">按天数保留（超过 N 天的删除）</li></ul>
+        <p class="reason"><span>理由</span>文档 F9 写的是“保留最近 N 个 + 每天 1 个”；加上每周 1 个，长期不玩的游戏也能留下稀疏的历史。</p><p class="impact"><span>影响</span>设置 [retention] 的 keep_last、keep_daily、keep_weekly；同一秒内的快照按历史先后排序，改写 ID 后结果不变。</p>
         <footer>2026-10-11</footer>
       </article></section><section id="s-6"><h2>M3<small>3 项</small></h2>
       <article id="M3-6c">

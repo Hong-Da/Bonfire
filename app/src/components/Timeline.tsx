@@ -34,11 +34,13 @@ export default function Timeline({
   shots,
   wide,
   onOpen,
+  multi,
 }: {
   nodes: TimelineNode[];
   head: string | null;
   selected: string | null;
-  onSelect: (id: string) => void;
+  /** 点击快照；`mods` 为按住的 Ctrl / Shift（多选）。 */
+  onSelect: (id: string, mods?: { ctrl: boolean; shift: boolean }) => void;
   /** 每个快照的标记；“out”的快照变淡。 */
   mark?: (id: string) => Mark | undefined;
   /** 对话框中使用的紧凑行高。 */
@@ -54,6 +56,8 @@ export default function Timeline({
   wide?: boolean;
   /** 双击快照（大图查看中“查看这个快照”）。 */
   onOpen?: (id: string) => void;
+  /** 多选的快照（详情页 Ctrl / Shift 点选，用于一次删除多个）。 */
+  multi?: Set<string>;
 }) {
   const { t, i18n } = useTranslation();
   const ROW = compact ? 52 : ROW_H;
@@ -78,7 +82,7 @@ export default function Timeline({
   });
 
   return (
-    <div style={{ position: "relative" }} role="listbox" aria-label={label ?? t("ui.history.timeline")} ref={box}>
+    <div style={{ position: "relative" }} role="listbox" aria-label={label ?? t("ui.history.timeline")} aria-multiselectable={multi ? true : undefined} ref={box}>
       <svg width={width} height={nodes.length * ROW} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }} aria-hidden>
         {paths.map((d, i) => (
           // 每条路线一种颜色（只有一条路线时也用第一种颜色），便于分辨分支；不用灰色，避免像“已停用”。
@@ -106,12 +110,12 @@ export default function Timeline({
           <div
             key={n.id}
             data-id={n.id}
-            className={`trail-row${compact ? " compact" : ""}${m ? ` mark-${m}` : ""}`}
+            className={`trail-row${compact ? " compact" : ""}${m ? ` mark-${m}` : ""}${multi?.has(n.id) ? " multi" : ""}`}
             role="option"
-            aria-selected={selected === n.id}
+            aria-selected={multi && multi.size > 0 ? multi.has(n.id) : selected === n.id}
             tabIndex={0}
             style={{ height: ROW }}
-            onClick={() => onSelect(n.id)}
+            onClick={(e) => onSelect(n.id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })}
             onDoubleClick={onOpen ? () => onOpen(n.id) : undefined}
             onKeyDown={(e) => {
               if (e.key === " ") onSelect(n.id);
@@ -121,6 +125,11 @@ export default function Timeline({
             <div style={{ width }} />
             <div className="entry">
               <div className="line1">
+                {multi?.has(n.id) && (
+                  <span className="multi-check" aria-hidden>
+                    <Icon name="check" size={12} />
+                  </span>
+                )}
                 <span className="when" title={dateTime(n.createdAt, i18n.language)}>
                   {relative(n.createdAt, i18n.language)}
                 </span>
