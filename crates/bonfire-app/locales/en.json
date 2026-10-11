@@ -1353,8 +1353,16 @@
   "ui.manual.openN": "Open location {n}",
   "ui.manual.step4": "Back in Bonfire, check for updates; the game is flagged as possibly replaced.",
   "ui.manual.step5": "When backing up, keep “Back up to a new branch” ticked so the download stays separate; use “Back to primary” to return.",
-  "ui.download.overwrite": "Overwrites",
-  "ui.download.overwriteHint": "A file with this name already exists; the downloaded one is used",
+  "ui.download.overwrite": "Overwrite",
+  "ui.download.overwriteHint": "A file with this name exists; replace it with the downloaded one",
   "ui.download.add": "New file",
-  "ui.download.addHint": "No such file yet; it will be added"
+  "ui.download.addHint": "No such file yet; it will be added",
+  "ui.download.keep": "Keep mine",
+  "ui.download.keepHint": "Skip this file; when layering, your existing one stays",
+  "ui.download.choiceOf": "Overwrite or keep {name}",
+  "ui.download.bulkTitle": "{n} files would overwrite existing ones:",
+  "ui.download.allOverwrite": "Overwrite all",
+  "ui.download.allKeep": "Keep all mine",
+  "ui.settings.repos": "Source code",
+  "ui.settings.openRepo": "Open in browser"
 }

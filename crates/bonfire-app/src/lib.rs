@@ -5,6 +5,7 @@
 pub mod app;
 pub mod auto;
 pub mod backup;
+pub mod branding;
 pub mod config;
 pub mod discover;
 pub mod downloads;

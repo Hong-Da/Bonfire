@@ -1,4 +1,9 @@
 import { useEffect, useState } from "react";
+/** 代码仓库（与后台 branding::REPOS 一致）。 */
+const REPOS = [
+  { name: "Gitee", url: "https://gitee.com/Hong_Xiao_Feng/bonfire.git" },
+  { name: "GitHub", url: "https://github.com/Hong-Da/Bonfire.git" },
+];
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { confirm } from "../lib/confirm";
@@ -578,6 +583,21 @@ export default function Settings() {
             <button className="btn small" onClick={() => store.info && api.openPath(store.info.configPath)}>
               {t("ui.settings.openConfig")}
             </button>
+            {/* 代码仓库（U-47）：地址可选中复制，按钮用系统浏览器打开。 */}
+            <div className="repo-links">
+              <h3>{t("ui.settings.repos")}</h3>
+              <ul>
+                {REPOS.map((r, i) => (
+                  <li key={r.name}>
+                    <b>{r.name}</b>
+                    <code className="repo-url">{r.url}</code>
+                    <button className="btn ghost small" onClick={() => void api.openRepo(i).catch((e) => store.toast("error", errorMessage(e)))}>
+                      {t("ui.settings.openRepo")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </section>
         </div>
       </div>

@@ -78,6 +78,9 @@ pub struct ExportLocation {
 pub struct ExportManifest {
     pub format: String,
     pub version: u32,
+    /// 生成者，如 `Bonfire 0.1.0`（U-47，导入时识别；早期导出的没有）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generator: Option<String>,
     pub game_id: String,
     pub game_name: String,
     #[serde(default)]
@@ -127,6 +130,9 @@ pub struct BundleLocation {
 pub struct BundleManifest {
     pub format: String,
     pub version: u32,
+    /// 生成者，如 `Bonfire 0.1.0`。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generator: Option<String>,
     pub game_id: String,
     pub game_name: String,
     pub created_at: String,
@@ -271,6 +277,9 @@ pub struct CollectionEntry {
 pub struct CollectionManifest {
     pub format: String,
     pub version: u32,
+    /// 生成者，如 `Bonfire 0.1.0`。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generator: Option<String>,
     pub created_at: String,
     pub host: String,
     pub games: Vec<CollectionEntry>,
@@ -500,7 +509,11 @@ impl App {
             }
             None => now_compact(),
         };
-        Ok(format!("{}-{label}", sanitize(&game.name)))
+        Ok(format!(
+            "{}{}-{label}",
+            crate::branding::FILE_PREFIX,
+            sanitize(&game.name)
+        ))
     }
 
     /// 导出存档文件：`spec` 为快照（分支、标签、ID）时导出该快照，为空时导出当前磁盘上的存档。
@@ -544,6 +557,7 @@ impl App {
         let manifest = ExportManifest {
             format: FILES_FORMAT.into(),
             version: 1,
+            generator: Some(crate::branding::generator()),
             game_id: game.id.clone(),
             game_name: game.name.clone(),
             snapshot: snapshot.as_ref().map(|(id, _)| *id),
@@ -593,6 +607,19 @@ impl App {
             }
         };
         let manifest_json = serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化");
+        let readme = crate::branding::readme(
+            &crate::branding::ReadmeKind::Files {
+                game: &manifest.game_name,
+                snapshot: manifest.snapshot.as_ref().map(|s| s.short(12)).as_deref(),
+                comment: manifest.comment.as_deref(),
+                locations: manifest
+                    .locations
+                    .iter()
+                    .map(|l| (l.folder.clone(), l.path_template.clone()))
+                    .collect(),
+            },
+            &manifest.exported_at,
+        );
         match format {
             ExportFormat::Zip => {
                 let tmp = with_suffix(&target, ".bonfire-tmp");
@@ -616,6 +643,12 @@ impl App {
                     .map_err(|e| zip_err(&tmp, e))?;
                     zip.write_all(&manifest_json)
                         .map_err(|e| AppError::io(&tmp, e))?;
+                    zip.start_file(
+                        crate::branding::README_NAME,
+                        zip::write::SimpleFileOptions::default().last_modified_time(when),
+                    )
+                    .map_err(|e| zip_err(&tmp, e))?;
+                    zip.write_all(&readme).map_err(|e| AppError::io(&tmp, e))?;
                     let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
                     f.sync_all().map_err(|e| AppError::io(&tmp, e))?;
                     Ok(())
@@ -639,7 +672,9 @@ impl App {
                         bytes += write_item(src, &mut f, &out)?;
                     }
                     let m = tmp.join(EXPORT_MANIFEST);
-                    std::fs::write(&m, &manifest_json).map_err(|e| AppError::io(&m, e))
+                    std::fs::write(&m, &manifest_json).map_err(|e| AppError::io(&m, e))?;
+                    let r = tmp.join(crate::branding::README_NAME);
+                    std::fs::write(&r, &readme).map_err(|e| AppError::io(&r, e))
                 })();
                 if let Err(e) = result {
                     let _ = std::fs::remove_dir_all(&tmp);
@@ -711,6 +746,23 @@ impl App {
             let file = std::fs::File::create(&tmp).map_err(|e| AppError::io(&tmp, e))?;
             let mut zip = zip::ZipWriter::new(file);
             self.write_bundle(&mut zip, &plan, "", &tmp)?;
+            zip.start_file(
+                crate::branding::README_NAME,
+                zip::write::SimpleFileOptions::default()
+                    .compression_method(zip::CompressionMethod::Deflated),
+            )
+            .map_err(|e| zip_err(&tmp, e))?;
+            zip.write_all(&crate::branding::readme(
+                &crate::branding::ReadmeKind::Package {
+                    games: vec![(
+                        plan.manifest.game_name.clone(),
+                        plan.manifest.snapshots.len(),
+                        plan.manifest.shots.len(),
+                    )],
+                },
+                &plan.manifest.created_at,
+            ))
+            .map_err(|e| AppError::io(&tmp, e))?;
             let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
             f.sync_all().map_err(|e| AppError::io(&tmp, e))
         })();
@@ -807,6 +859,7 @@ impl App {
         let manifest = CollectionManifest {
             format: COLLECTION_FORMAT.into(),
             version: 1,
+            generator: Some(crate::branding::generator()),
             created_at: now_local_rfc3339(),
             host: host_name(),
             games: entries.clone(),
@@ -822,6 +875,18 @@ impl App {
                 .map_err(|e| zip_err(&tmp, e))?;
             zip.write_all(&serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化"))
                 .map_err(|e| AppError::io(&tmp, e))?;
+            zip.start_file(crate::branding::README_NAME, deflate)
+                .map_err(|e| zip_err(&tmp, e))?;
+            zip.write_all(&crate::branding::readme(
+                &crate::branding::ReadmeKind::Package {
+                    games: entries
+                        .iter()
+                        .map(|e| (e.game_name.clone(), e.snapshots, e.shots))
+                        .collect(),
+                },
+                &manifest.created_at,
+            ))
+            .map_err(|e| AppError::io(&tmp, e))?;
             for (plan, e) in plans.iter().zip(&entries) {
                 self.write_bundle(&mut zip, plan, &e.dir, &tmp)?;
             }
@@ -1017,6 +1082,7 @@ impl App {
         let manifest = BundleManifest {
             format: BUNDLE_FORMAT.into(),
             version: 1,
+            generator: Some(crate::branding::generator()),
             game_id: game.id.clone(),
             game_name: game.name.clone(),
             created_at: now_local_rfc3339(),
@@ -2265,7 +2331,7 @@ fn gather_source(src: &Path, staging: &Path) -> Result<(SourceFiles, Option<Expo
             .expect("在根目录下")
             .to_string_lossy()
             .replace('\\', "/");
-        if rel == EXPORT_MANIFEST {
+        if rel == EXPORT_MANIFEST || rel.eq_ignore_ascii_case(crate::branding::README_NAME) {
             continue;
         }
         files.push((rel, e));
@@ -2595,7 +2661,9 @@ mod tests {
             .unwrap();
         assert_eq!((r.files, r.snapshot), (2, Some(first)));
         let names = zip_names(&zip_path);
-        assert_eq!(names.len(), 3, "{names:?}");
+        // 存档 2 个 + 说明文件 + readme.txt（U-47）。
+        assert_eq!(names.len(), 4, "{names:?}");
+        assert!(names.contains(&"readme.txt".to_string()), "{names:?}");
         assert!(
             names.contains(&"bonfire-export.json".to_string())
                 && names.contains(&"saves/slot1/a.sav".to_string()),
@@ -2624,6 +2692,22 @@ mod tests {
         let m: ExportManifest =
             serde_json::from_slice(&std::fs::read(r.dest.join(EXPORT_MANIFEST)).unwrap()).unwrap();
         assert_eq!((m.game_id.as_str(), m.snapshot), (g.id.as_str(), None));
+        // 篝火标识：文件夹名、generator、readme.txt。
+        let dir_name = r.dest.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(dir_name.starts_with("Bonfire-"), "{dir_name}");
+        assert!(crate::branding::is_bonfire_generator(
+            m.generator.as_deref()
+        ));
+        let readme = std::fs::read_to_string(r.dest.join("readme.txt")).unwrap();
+        assert!(crate::branding::is_bonfire_readme(&readme) && readme.contains("gitee.com"));
+        // 再导入这个文件夹：readme.txt 不影响对应存档位置。
+        let p = env.app.inspect_files(&g, &r.dest).unwrap();
+        assert!(p.unmapped.is_empty(), "{:?}", p.unmapped);
+        // 拖进“导入下载的存档”：识别为篝火导出的。
+        assert_eq!(
+            env.app.inspect_download(&g, &r.dest, None).unwrap().kind,
+            crate::downloads::DownloadKind::Bonfire
+        );
     }
 
     #[test]

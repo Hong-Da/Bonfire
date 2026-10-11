@@ -79,6 +79,7 @@ export function mockApi() {
     syncShots: vi.fn(),
     assignUnsorted: vi.fn(),
     setPrimaryBranch: vi.fn(),
+    openRepo: vi.fn().mockResolvedValue(undefined),
     inspectDownload: vi.fn(),
     importDownload: vi.fn(),
     onFileDrop: vi.fn().mockResolvedValue(() => {}),

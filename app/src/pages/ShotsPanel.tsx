@@ -132,7 +132,7 @@ export default function ShotsPanel({
     run(async () => {
       const dest =
         format === "zip"
-          ? await save({ defaultPath: `${gameName}-${t("ui.shots.fileName")}.zip`, filters: [{ name: "Zip", extensions: ["zip"] }] })
+          ? await save({ defaultPath: `Bonfire-${gameName}-${t("ui.shots.fileName")}-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}.zip`, filters: [{ name: "Zip", extensions: ["zip"] }] })
           : await open({ directory: true, title: t("ui.transfer.pickParent") });
       if (!dest || Array.isArray(dest)) return;
       const r = await api.exportShots(gameId, blobs, dest, format);

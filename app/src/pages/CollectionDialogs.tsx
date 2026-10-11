@@ -38,7 +38,7 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
   const run = async () => {
     const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
     const base = chosen.length === 1 ? displayName(chosen[0], i18n.language) : t("ui.collection.fileName");
-    const dest = await save({ defaultPath: `${base}-${stamp}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
+    const dest = await save({ defaultPath: `Bonfire-${base}-${stamp}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
     if (!dest) return;
     setBusy(true);
     try {

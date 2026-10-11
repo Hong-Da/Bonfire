@@ -639,6 +639,26 @@ pub async fn set_primary_branch(
     .await
 }
 
+/// 用系统浏览器打开篝火的代码仓库（只能打开 `branding::REPOS` 中的地址）。
+#[tauri::command]
+pub async fn open_repo(index: usize) -> CmdResult<()> {
+    let (_, url) = bonfire_app::branding::REPOS
+        .get(index)
+        .copied()
+        .ok_or_else(|| CmdError {
+            kind: "invalid",
+            message: "没有这个仓库地址".into(),
+        })?;
+    std::process::Command::new("explorer")
+        .arg(url)
+        .spawn()
+        .map_err(|e| CmdError {
+            kind: "general",
+            message: e.to_string(),
+        })?;
+    Ok(())
+}
+
 /// 分支改名。
 #[tauri::command]
 pub async fn rename_branch(

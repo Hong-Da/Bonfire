@@ -118,6 +118,8 @@ export const api = {
   updateRules: () => invoke<{ result: "updated"; games: number; bytes: number } | { result: "notModified" }>("update_rules"),
   rulesInfo: () => invoke<{ path: string | null; games: number; userGames: number }>("rules_info"),
   openPath: (path: string) => invoke<void>("open_path", { path }),
+  /** 用系统浏览器打开篝火的代码仓库（只能打开内置的地址）。 */
+  openRepo: (index: number) => invoke<void>("open_repo", { index }),
   openLocation: (gameId: string, ord: number) => invoke<void>("open_location", { gameId, ord }),
 
   exportDefaultName: (gameId: string, spec: string | null) => invoke<string>("export_default_name", { gameId, spec }),

@@ -112,6 +112,7 @@ fn main() {
             commands::assign_unsorted,
             commands::ui_state_get,
             commands::rename_branch,
+            commands::open_repo,
             commands::set_primary_branch,
             commands::inspect_download,
             commands::import_download,

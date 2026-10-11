@@ -1877,5 +1877,47 @@
     "impact": "新增依赖：sevenz-rust2（Apache-2.0）、unrar（MIT/Apache，含 unRAR 许可的 C++ 源码，只能解压、不得用于做 RAR 压缩器；发布时需在第三方声明中列出）；构建需要 C++ 编译器（Windows 构建环境已有）。",
     "status": "默认推荐",
     "date": "2026-10-11"
+  },
+  {
+    "id": "U-47a",
+    "stage": "导入",
+    "question": "导入下载的存档时，会覆盖现有文件的能否选择不替换",
+    "options": [
+      "每行可选“覆盖 / 不替换”，多个时提供全部覆盖 / 全部不替换（推荐）",
+      "只能整体选叠加或替换"
+    ],
+    "chosen": "每行可选“覆盖 / 不替换”，多个时提供全部覆盖 / 全部不替换（推荐）",
+    "reason": "用户要求可手工选择不替换；有时只想要下载存档中的部分文件。",
+    "impact": "选不替换的文件不导入；全部不替换且无新增文件时无法下一步。",
+    "status": "用户要求",
+    "date": "2026-10-11"
+  },
+  {
+    "id": "U-47b",
+    "stage": "导出",
+    "question": "导出的包如何带篝火标识",
+    "options": [
+      "文件名以 Bonfire- 开头，附中英双语 readme.txt（说明、用法、Gitee / GitHub 地址），说明文件写 generator（推荐）",
+      "只改文件名"
+    ],
+    "chosen": "文件名以 Bonfire- 开头，附中英双语 readme.txt（说明、用法、Gitee / GitHub 地址），说明文件写 generator（推荐）",
+    "reason": "用户要求导出的包都带篝火标识与命名、readme.txt 与仓库地址。readme 用 UTF-8 带 BOM 与 Windows 换行，记事本能正确显示。",
+    "impact": "存档文件导出（zip / 文件夹）、篝火包、合集包、截图导出都带 readme.txt；设置“关于”显示仓库地址。",
+    "status": "用户要求",
+    "date": "2026-10-11"
+  },
+  {
+    "id": "U-47c",
+    "stage": "导入",
+    "question": "导入时如何用篝火标识识别",
+    "options": [
+      "说明文件（含 generator）或 readme.txt 中的 [Bonfire Export] 标记即识别为篝火导出（推荐）",
+      "只看说明文件"
+    ],
+    "chosen": "说明文件（含 generator）或 readme.txt 中的 [Bonfire Export] 标记即识别为篝火导出（推荐）",
+    "reason": "用户要求标识也用于导入识别；即使说明文件丢失，readme 标记也能认出来。早期没有 generator 的导出仍兼容。",
+    "impact": "导入下载的存档遇到篝火导出时提示改用原导入；导入存档文件时忽略 readme.txt。",
+    "status": "用户要求",
+    "date": "2026-10-11"
   }
 ]

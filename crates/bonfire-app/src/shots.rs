@@ -928,7 +928,12 @@ impl App {
             ExportFormat::Folder => {
                 let dir = unique_child(
                     dest,
-                    &format!("{}-截图-{}", sanitize(&game.name), now_compact()),
+                    &format!(
+                        "{}{}-截图-{}",
+                        crate::branding::FILE_PREFIX,
+                        sanitize(&game.name),
+                        now_compact()
+                    ),
                 );
                 std::fs::create_dir_all(&dir).map_err(|e| AppError::io(&dir, e))?;
                 for (s, name) in chosen.iter().zip(&names) {
@@ -937,6 +942,18 @@ impl App {
                     let p = dir.join(name);
                     std::fs::write(&p, &data).map_err(|e| AppError::io(&p, e))?;
                 }
+                let r = dir.join(crate::branding::README_NAME);
+                std::fs::write(
+                    &r,
+                    crate::branding::readme(
+                        &crate::branding::ReadmeKind::Shots {
+                            game: &game.name,
+                            count: chosen.len(),
+                        },
+                        &crate::util::now_local_rfc3339(),
+                    ),
+                )
+                .map_err(|e| AppError::io(&r, e))?;
                 dir
             }
             ExportFormat::Zip => {
@@ -957,6 +974,19 @@ impl App {
                             .map_err(|e| zip_err(&tmp, e))?;
                         zip.write_all(&data).map_err(|e| AppError::io(&tmp, e))?;
                     }
+                    zip.start_file(
+                        crate::branding::README_NAME,
+                        zip::write::SimpleFileOptions::default(),
+                    )
+                    .map_err(|e| zip_err(&tmp, e))?;
+                    zip.write_all(&crate::branding::readme(
+                        &crate::branding::ReadmeKind::Shots {
+                            game: &game.name,
+                            count: chosen.len(),
+                        },
+                        &crate::util::now_local_rfc3339(),
+                    ))
+                    .map_err(|e| AppError::io(&tmp, e))?;
                     let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
                     f.sync_all().map_err(|e| AppError::io(&tmp, e))?;
                     Ok(total)

@@ -1353,8 +1353,16 @@
   "ui.manual.openN": "打开存档位置 {n}",
   "ui.manual.step4": "回到篝火点“检查更新”，游戏会标出“存档可能被手动替换”。",
   "ui.manual.step5": "备份时保持勾选“另开新路线备份”，下载的存档就单独存成一条路线，不会混进你自己的进度；想回去时点“回到主存档”。",
-  "ui.download.overwrite": "覆盖现有",
-  "ui.download.overwriteHint": "存档文件夹里已有同名文件，导入的快照里用下载的这份",
+  "ui.download.overwrite": "覆盖",
+  "ui.download.overwriteHint": "存档文件夹里已有同名文件，用下载的这份替换它",
   "ui.download.add": "新增文件",
-  "ui.download.addHint": "存档文件夹里没有这个文件，导入后新增"
+  "ui.download.addHint": "存档文件夹里没有这个文件，导入后新增",
+  "ui.download.keep": "不替换",
+  "ui.download.keepHint": "不导入这个文件：叠加时保留你现有的那份",
+  "ui.download.choiceOf": "「{name}」覆盖还是不替换",
+  "ui.download.bulkTitle": "{n} 个文件会覆盖你现有的同名文件：",
+  "ui.download.allOverwrite": "全部覆盖",
+  "ui.download.allKeep": "全部不替换",
+  "ui.settings.repos": "代码仓库",
+  "ui.settings.openRepo": "在浏览器中打开"
 }

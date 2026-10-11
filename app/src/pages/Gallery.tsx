@@ -244,7 +244,7 @@ export default function Gallery() {
       const ids: Record<string, string[]> = {};
       for (const s of shots) (ids[s.gameId] ??= []).push(s.blob);
       const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-      const dest = await save({ defaultPath: `${t("ui.package.shotsFileName")}-${stamp}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
+      const dest = await save({ defaultPath: `Bonfire-${t("ui.package.shotsFileName")}-${stamp}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
       if (!dest) return;
       const r = await api.exportPackage(Object.keys(ids), dest, { saves: false, shots: true, shotIds: ids });
       store.toast("success", t("ui.package.exported", { n: r.games.length, s: 0, p: shots.length, size: bytes(r.bytes) }), { label: t("ui.transfer.showFile"), run: () => void api.openPath(r.dest) });

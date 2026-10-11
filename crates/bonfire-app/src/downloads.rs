@@ -160,9 +160,16 @@ fn gather(
     };
     let mut out = Vec::new();
     collect(&root, &root, staging, password, 0, &mut out)?;
-    if out.iter().any(|(rel, _)| {
+    // 篝火导出的：带篝火的说明文件，或 readme.txt 中有篝火标记（U-47）。
+    if out.iter().any(|(rel, abs)| {
         let n = rel.rsplit('/').next().unwrap_or(rel);
-        n == crate::transfer::EXPORT_MANIFEST || n == "bundle.json" || n == "collection.json"
+        n == crate::transfer::EXPORT_MANIFEST
+            || n == "bundle.json"
+            || n == "collection.json"
+            || (n.eq_ignore_ascii_case(crate::branding::README_NAME)
+                && std::fs::read(abs)
+                    .map(|b| crate::branding::is_bonfire_readme(&String::from_utf8_lossy(&b)))
+                    .unwrap_or(false))
     }) {
         return Ok(Err(DownloadKind::Bonfire));
     }

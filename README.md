@@ -6,6 +6,11 @@ Windows 桌面端游戏存档备份工具：自动扫描各平台的游戏存档
 
 > 开发中：M1（核心库 + 命令行）、M2（存档发现）已完成，桌面界面在 M3 提供。
 
+## 代码仓库
+
+- Gitee：https://gitee.com/Hong_Xiao_Feng/bonfire.git
+- GitHub：https://github.com/Hong-Da/Bonfire.git
+
 ## 功能
 
 - **快照式备份**：每次备份生成一个快照，可写备注；内容寻址、分块去重，未变化的文件不重复占用空间。

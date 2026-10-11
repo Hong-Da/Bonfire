@@ -43,6 +43,8 @@ export default function DownloadImportDialog({
   // 每个文件放到哪里：`null` 为跳过。
   const [targets, setTargets] = useState<Record<string, string | null>>({});
   const [mode, setMode] = useState<DownloadMode>("overlay");
+  // 会覆盖现有文件、但选了“不替换”的（不导入，叠加时保留你现有的那份）。
+  const [keep, setKeep] = useState<Set<string>>(new Set());
   const [branch, setBranch] = useState(() => `下载-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}`);
   const [comment, setComment] = useState("");
   const [useNow, setUseNow] = useState(true);
@@ -81,10 +83,20 @@ export default function DownloadImportDialog({
   const files = preview?.files ?? [];
   const saveFiles = files.filter((f) => !f.ignored);
   const ignored = files.filter((f) => f.ignored);
-  const placed = saveFiles.filter((f) => targets[f.rel]);
+  const placed = saveFiles.filter((f) => targets[f.rel] && !keep.has(f.rel));
   const unplaced = saveFiles.filter((f) => !targets[f.rel]);
   const locs = preview?.locations ?? [];
+
+  const setKeepOf = (rel: string, on: boolean) =>
+    setKeep((k) => {
+      const n = new Set(k);
+      if (on) n.add(rel);
+      else n.delete(rel);
+      return n;
+    });
   const existing = useMemo(() => new Set(preview?.existing ?? preview?.files.filter((f) => f.replaces && f.target).map((f) => f.target!.toLowerCase()) ?? []), [preview]);
+  const existingHas = (target: string) => existing.has(target.toLowerCase());
+  const overwrites = saveFiles.filter((f) => targets[f.rel] && existingHas(targets[f.rel]!));
   // 存档位置显示路径的最后两级（完整路径在悬停提示中）。
   const locLabel = (ord: number) => {
     const full = locs.find((l) => l.ord === ord)?.path;
@@ -278,6 +290,17 @@ export default function DownloadImportDialog({
             </div>
           )}
           {placed.length === 0 && <ManualReplaceGuide gameId={gameId} locations={locs.map((l) => l.ord)} />}
+          {overwrites.length > 0 && (
+            <div className="dl-bulk" role="group" aria-label={t("ui.download.bulkTitle")}>
+              <span className="muted">{t("ui.download.bulkTitle", { n: overwrites.length })}</span>
+              <button type="button" className="btn small" onClick={() => setKeep(new Set())} disabled={overwrites.every((f) => !keep.has(f.rel))}>
+                {t("ui.download.allOverwrite")}
+              </button>
+              <button type="button" className="btn small" onClick={() => setKeep(new Set(overwrites.map((f) => f.rel)))} disabled={overwrites.every((f) => keep.has(f.rel))}>
+                {t("ui.download.allKeep")}
+              </button>
+            </div>
+          )}
           <ul className="dl-map">
             {saveFiles.map((f) => {
               const tg = targets[f.rel];
@@ -285,7 +308,7 @@ export default function DownloadImportDialog({
               const inner = tg ? tg.slice(tg.indexOf("/") + 1) : "";
               const name = f.rel.split("/").pop() ?? f.rel;
               return (
-                <li key={f.rel} className={tg ? "on" : "off"}>
+                <li key={f.rel} className={!tg ? "off" : keep.has(f.rel) ? "kept" : "on"}>
                   <span className="dl-src" title={f.rel}>
                     <b>{name}</b>
                     <small>{f.rel}</small>
@@ -320,8 +343,14 @@ export default function DownloadImportDialog({
                     {/* 放到的位置已有同名文件：覆盖；没有：新增。改了位置也实时判断。 */}
                     {tg &&
                       (existing.has(tg.toLowerCase()) ? (
-                        <span className="dl-fate overwrite" title={t("ui.download.overwriteHint")}>
-                          {t("ui.download.overwrite")}
+                        // 会覆盖现有文件：可以选“不替换”。
+                        <span className="seg dl-choice" role="radiogroup" aria-label={t("ui.download.choiceOf", { name })}>
+                          <button type="button" role="radio" aria-checked={!keep.has(f.rel)} className="overwrite" title={t("ui.download.overwriteHint")} onClick={() => setKeepOf(f.rel, false)}>
+                            {t("ui.download.overwrite")}
+                          </button>
+                          <button type="button" role="radio" aria-checked={keep.has(f.rel)} className="keep" title={t("ui.download.keepHint")} onClick={() => setKeepOf(f.rel, true)}>
+                            {t("ui.download.keep")}
+                          </button>
                         </span>
                       ) : (
                         <span className="dl-fate add" title={t("ui.download.addHint")}>

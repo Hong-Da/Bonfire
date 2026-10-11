@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { sharedApi as api, row } from "./test-utils";
 
 vi.mock("./api", async () => {
@@ -55,14 +55,20 @@ describe("导入下载的存档（U-42）", () => {
     expect(screen.getByText(/有 1 个文件没能自动对应/)).toBeInTheDocument();
     expect(screen.getByLabelText("「extra.bin」放到")).toHaveValue("-1");
     // 覆盖现有 / 新增：放到已有文件的位置显示“覆盖现有”，改到别的位置后实时变为“新增文件”。
-    expect(screen.getAllByText("覆盖现有")).toHaveLength(1);
+    // 会覆盖的行可选“覆盖 / 不替换”；新增的标“新增文件”；改位置实时判断。
+    const choice = screen.getByRole("radiogroup", { name: "「user1.dat」覆盖还是不替换" });
+    expect(within(choice).getByRole("radio", { name: "覆盖" })).toHaveAttribute("aria-checked", "true");
     fireEvent.change(screen.getByLabelText("「extra.bin」放到"), { target: { value: "0" } });
     expect(screen.getAllByText("新增文件")).toHaveLength(1);
     fireEvent.change(screen.getByLabelText("「user1.dat」在存档文件夹中的路径"), { target: { value: "user9.dat" } });
-    expect(screen.queryByText("覆盖现有")).toBeNull();
+    expect(screen.queryByRole("radiogroup", { name: "「user1.dat」覆盖还是不替换" })).toBeNull();
     expect(screen.getAllByText("新增文件")).toHaveLength(2);
     fireEvent.change(screen.getByLabelText("「user1.dat」在存档文件夹中的路径"), { target: { value: "user1.dat" } });
     fireEvent.change(screen.getByLabelText("「extra.bin」放到"), { target: { value: "-1" } });
+    // 选“不替换”后这个文件不导入；“全部覆盖”恢复。
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "「user1.dat」覆盖还是不替换" })).getByRole("radio", { name: "不替换" }));
+    expect(screen.getByRole("button", { name: /下一步/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "全部覆盖" }));
     fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
     // 叠加为推荐，默认导入后立即换上。
     expect(screen.getByRole("radio", { name: /叠加到当前存档/ })).toBeChecked();
