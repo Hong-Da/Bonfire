@@ -213,6 +213,16 @@ export default function Settings() {
               </label>
             </div>
             <div className="row">
+              <label>{t("ui.settings.vss")}</label>
+              <div>
+                <label className="opt">
+                  <input type="checkbox" className="check" checked={!!cfg.backup.use_vss} onChange={(e) => update((c) => (c.backup.use_vss = e.target.checked))} />
+                  {t("ui.settings.vssHint")}
+                </label>
+                <p className="hint">{cfg.backup.use_vss ? t("ui.settings.vssOn") : t("ui.settings.vssOff")}</p>
+              </div>
+            </div>
+            <div className="row">
               <label htmlFor="warn">{t("ui.settings.sizeWarning")}</label>
               <div className="inline">
                 <input id="warn" className="field num" type="number" min={0.1} step={0.5} style={{ width: 100 }} value={cfg.backup.size_warning_gb} onChange={(e) => update((c) => (c.backup.size_warning_gb = Number(e.target.value)))} />

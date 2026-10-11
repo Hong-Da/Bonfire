@@ -4,6 +4,7 @@
 //! 任何一步失败都不会破坏已有历史。
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use bonfire_core::index::{GameRecord, IndexEntry};
 use bonfire_core::refs::{Head, RefName, validate_ref_name};
@@ -305,6 +306,35 @@ impl App {
             .zip(reuse.par_iter())
             .map(|(f, r)| r.is_none().then(|| store_file(repo, f)))
             .collect();
+        // 被其他程序占用的文件：开启卷影复制时从卷影副本读取，否则不备份这个游戏。
+        let mut stored = stored;
+        let locked: Vec<usize> = stored
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| matches!(r, Some(Err(AppError::FilesLocked(_)))))
+            .map(|(i, _)| i)
+            .collect();
+        if !locked.is_empty() {
+            let paths: Vec<PathBuf> = locked.iter().map(|&i| disk[i].abs.clone()).collect();
+            if !self.config.backup.use_vss {
+                return Err(AppError::FilesLocked(paths));
+            }
+            let out = self
+                .paths
+                .cache_dir
+                .join("vss")
+                .join(crate::util::now_compact());
+            let copies = self.shadow.copy(&paths, &out);
+            let result = copies.and_then(|copies| {
+                for (&i, copy) in locked.iter().zip(copies) {
+                    stored[i] = Some(store_copy(&self.repo, &copy, &disk[i]));
+                }
+                Ok(())
+            });
+            let _ = std::fs::remove_dir_all(&out);
+            result?;
+            tracing::info!(game = %game.id, files = locked.len(), "用卷影复制读取了被占用的文件");
+        }
         let mut entries = Vec::with_capacity(disk.len());
         let mut new_bytes = 0u64;
         for ((f, r), s) in disk.iter().zip(reuse).zip(stored) {
@@ -597,15 +627,31 @@ pub fn check_comment(c: &str) -> Result<()> {
     Ok(())
 }
 
+/// 从卷影副本复制出的文件入库：内容取副本，修改时间沿用扫描时存档文件的。
+fn store_copy(repo: &Repo, copy: &Path, f: &DiskFile) -> Result<Stored> {
+    let file = std::fs::File::open(copy).map_err(|e| AppError::io(copy, e))?;
+    let stats = repo.write_file(&file, &f.abs)?;
+    Ok((stats.blob, stats.size, f.mtime_ns, stats.new_bytes))
+}
+
 /// 入库后的文件：(Blob ID, 大小, mtime, 新写入字节数)。
 type Stored = (ObjectId, u64, i64, u64);
 
 /// 读取一个文件入库；读取前后大小或 mtime 变化（游戏正在写入）时重试。可在多个线程中同时调用。
 fn store_file(repo: &Repo, f: &DiskFile) -> Result<Stored> {
+    let locked = |e: &std::io::Error| {
+        crate::vss::is_locked(e).then(|| AppError::FilesLocked(vec![f.abs.clone()]))
+    };
     for _ in 0..STABLE_READ_ATTEMPTS {
-        let file = std::fs::File::open(&f.abs).map_err(|e| AppError::io(&f.abs, e))?;
+        let file = std::fs::File::open(&f.abs)
+            .map_err(|e| locked(&e).unwrap_or_else(|| AppError::io(&f.abs, e)))?;
         let before = file.metadata().map_err(|e| AppError::io(&f.abs, e))?;
-        let stats = repo.write_file(&file, &f.abs)?;
+        let stats = repo.write_file(&file, &f.abs).map_err(|e| match &e {
+            bonfire_core::CoreError::Io { source, .. } => {
+                locked(source).unwrap_or(AppError::Core(e))
+            }
+            _ => AppError::Core(e),
+        })?;
         drop(file);
         let after = std::fs::metadata(&f.abs).map_err(|e| AppError::io(&f.abs, e))?;
         let (m1, m2) = (scan::mtime_ns(&before), scan::mtime_ns(&after));

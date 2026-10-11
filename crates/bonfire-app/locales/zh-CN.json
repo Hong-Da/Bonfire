@@ -1559,5 +1559,9 @@
   "ui.bulkDelete.branchShort": "路线「{name}」会变短",
   "ui.bulkDelete.branchGoneTitle": "路线「{name}」会被删除",
   "ui.bulkDelete.ackBranch": "我知道路线{names}会被删除",
-  "ui.history.deleteBranchShort": "这是路线{names}的最新快照，删除后路线退回到上一个快照。"
+  "ui.history.deleteBranchShort": "这是路线{names}的最新快照，删除后路线退回到上一个快照。",
+  "ui.settings.vss": "被占用的存档",
+  "ui.settings.vssHint": "用 Windows 卷影复制读取被游戏占用的存档文件",
+  "ui.settings.vssOn": "需要管理员权限：遇到被占用的文件时会弹出 Windows 用户账户控制确认，同意后从卷影副本读取，不影响正在运行的游戏。",
+  "ui.settings.vssOff": "关闭时，存档被游戏占用的游戏这次不备份并提示原因；自动备份会等游戏退出后再备份。"
 }

@@ -20,7 +20,7 @@ use serde::Serialize;
 use crate::app::App;
 use crate::backup::{BackupOptions, BackupResult, DetachedChoice, GameState};
 use crate::config::{AutoBackup, ShotSchedule, parse_hm};
-use crate::error::Result;
+use crate::error::{AppError, Result};
 
 /// 自动备份的方式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -262,6 +262,8 @@ impl App {
                                 item.new_branch = new_branch;
                             }
                             Ok(BackupResult::NoChanges) => {}
+                            // 存档被游戏占用：不算出错，退出后（或下次）再备份。
+                            Err(AppError::FilesLocked(_)) => report.deferred.push(g.id.clone()),
                             Err(e) => item.error = Some(e.to_string()),
                         }
                     }

@@ -30,6 +30,8 @@ pub struct App {
     pub fake_root: Option<PathBuf>,
     /// 退出游戏后自动备份的检测状态（M4-3）。
     pub exit_watch: crate::auto::ExitWatcher,
+    /// 读取被占用文件的卷影复制（M5-3）；测试中替换为模拟实现。
+    pub shadow: std::sync::Arc<dyn crate::vss::ShadowReader>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -102,6 +104,7 @@ impl App {
             fetch_metadata_on_scan: true,
             fake_root: crate::discover::fake_root(),
             exit_watch: Default::default(),
+            shadow: std::sync::Arc::new(crate::vss::ElevatedVss),
         };
         if fresh_db {
             let restored = app.restore_games_file()?;

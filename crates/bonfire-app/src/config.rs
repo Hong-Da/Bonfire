@@ -100,6 +100,8 @@ pub struct Backup {
     /// 存档安全保护：本机备份的快照（快照记录的电脑名与本机相同）不能删除，
     /// 包含这些快照的分支也不能删除。
     pub protect_local: bool,
+    /// 存档文件被游戏占用时，用 Windows 卷影复制读取（需要管理员权限，每次弹出用户账户控制确认）。
+    pub use_vss: bool,
 }
 
 impl Default for Backup {
@@ -109,6 +111,7 @@ impl Default for Backup {
             size_warning_gb: 2.0,
             disabled_platforms: Vec::new(),
             protect_local: true,
+            use_vss: false,
         }
     }
 }
@@ -499,6 +502,9 @@ size_warning_gb = {size:.1}
 disabled_platforms = []
 # 存档安全保护：本机备份的快照（以电脑名区分）及包含它们的分支不能删除
 protect_local = {protect}
+# 存档文件被游戏占用时用 Windows 卷影复制读取（需要管理员权限，每次会弹出用户账户控制确认）；
+# 关闭时这类游戏跳过备份并提示，自动备份推迟到下次
+use_vss = {vss}
 
 [shots]
 # 是否备份游戏截图（Steam 截图、Windows 游戏栏截图、为游戏指定的截图文件夹）；每个游戏可单独关闭
@@ -576,6 +582,7 @@ keep_days = {keep}
             rem_filters = d.general.remember_filters,
             rem_sel = d.general.remember_selection,
             protect = d.backup.protect_local,
+            vss = d.backup.use_vss,
             shots = d.shots.enabled,
             schedule = "off",
             at = d.shots.at,

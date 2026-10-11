@@ -1559,5 +1559,9 @@
   "ui.bulkDelete.branchShort": "Branch “{name}” gets shorter",
   "ui.bulkDelete.branchGoneTitle": "Branch “{name}” will be deleted",
   "ui.bulkDelete.ackBranch": "I understand branch {names} will be deleted",
-  "ui.history.deleteBranchShort": "This is the latest snapshot of branch {names}; after deleting, the branch moves back to the previous snapshot."
+  "ui.history.deleteBranchShort": "This is the latest snapshot of branch {names}; after deleting, the branch moves back to the previous snapshot.",
+  "ui.settings.vss": "Locked saves",
+  "ui.settings.vssHint": "Read save files locked by a game through a Windows shadow copy",
+  "ui.settings.vssOn": "Needs administrator rights: when a locked file is found, Windows asks for permission (User Account Control); once allowed, the file is read from a shadow copy without disturbing the running game.",
+  "ui.settings.vssOff": "When off, a game whose saves are locked is skipped with a note; automatic backups wait until the game exits."
 }

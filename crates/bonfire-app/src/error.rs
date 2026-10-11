@@ -23,6 +23,8 @@ pub enum AppError {
     CommentTooLong { len: usize, max: usize },
     #[error("文件在备份过程中持续被修改：{0}，请关闭游戏后重试")]
     FileUnstable(PathBuf),
+    #[error("{} 个存档文件被其他程序占用（游戏可能正在运行）：{}。请退出游戏后再备份，或在设置中开启“用卷影复制读取被占用的文件”", .0.len(), locked_list(.0))]
+    FilesLocked(Vec<PathBuf>),
     #[error("游戏正在运行（{processes}），恢复可能被游戏覆盖；请先关闭游戏，或使用 --force")]
     GameRunning { processes: String },
     #[error("游戏「{0}」没有可撤销的恢复")]
@@ -42,6 +44,14 @@ pub enum AppError {
     RepoDamaged(usize),
     #[error("{0}")]
     Invalid(String),
+}
+
+fn locked_list(v: &[PathBuf]) -> String {
+    let mut names: Vec<String> = v.iter().take(3).map(|p| p.display().to_string()).collect();
+    if v.len() > 3 {
+        names.push(format!("等 {} 个", v.len()));
+    }
+    names.join("、")
 }
 
 /// 错误类别，对应 CLI 退出码。
@@ -89,7 +99,7 @@ impl AppError {
             | AppError::CommentTooLong { .. }
             | AppError::NoLocations(_)
             | AppError::Invalid(_) => ErrorKind::Usage,
-            AppError::GameRunning { .. } => ErrorKind::GameRunning,
+            AppError::GameRunning { .. } | AppError::FilesLocked(_) => ErrorKind::GameRunning,
             AppError::Network(_) => ErrorKind::External,
             _ => ErrorKind::General,
         }

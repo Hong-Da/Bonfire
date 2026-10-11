@@ -24,7 +24,7 @@ export interface AppInfo {
 
 export interface Config {
   general: { language?: string; theme: Theme; repo?: string; close_to_tray: boolean; close_asked?: boolean; remember_filters?: boolean; remember_selection?: boolean };
-  backup: { include_config_files: boolean; size_warning_gb: number; disabled_platforms: string[]; protect_local: boolean };
+  backup: { include_config_files: boolean; size_warning_gb: number; disabled_platforms: string[]; protect_local: boolean; use_vss?: boolean };
   shots: ShotsConfig;
   auto_backup: AutoBackupConfig;
   retention?: RetentionConfig;

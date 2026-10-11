@@ -29,6 +29,7 @@ pub mod transfer;
 pub mod ui_state;
 pub mod unsorted;
 pub mod util;
+pub mod vss;
 
 #[cfg(test)]
 mod testutil;
