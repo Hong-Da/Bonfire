@@ -96,6 +96,22 @@ export default function Settings() {
     }
   };
 
+  // 开启自动清理前确认：说明规则、永远保留的快照与无法找回的风险。关闭不需要确认。
+  const toggleAutoClean = async (on: boolean) => {
+    const r = cfg.retention ?? DEFAULT_RETENTION;
+    if (on) {
+      const text = [
+        t("ui.settings.autoCleanConfirm.lead"),
+        t("ui.settings.autoCleanConfirm.rules", { last: r.keep_last, days: r.keep_daily, weeks: r.keep_weekly, scope: t(`ui.settings.retentionScopeOpt.${r.scope}`) }),
+        t("ui.settings.autoCleanConfirm.kept"),
+        t("ui.settings.autoCleanConfirm.risk"),
+      ].join("\n\n");
+      const ok = await confirm(text, { title: t("ui.settings.autoCleanConfirm.title"), kind: "warning", ok: t("ui.settings.autoCleanConfirm.ok") });
+      if (!ok) return;
+    }
+    update((c) => (c.retention = { ...(c.retention ?? DEFAULT_RETENTION), enabled: on }));
+  };
+
   const pickRepo = async () => {
     const r = await open({ directory: true, multiple: false, title: t("ui.settings.repo") });
     if (typeof r === "string") update((c) => (c.general.repo = r));
@@ -276,7 +292,7 @@ export default function Settings() {
             <div className="row">
               <label>{t("ui.settings.retentionAuto")}</label>
               <label className="opt">
-                <input type="checkbox" className="check" checked={ret.enabled} onChange={(e) => update((c) => (c.retention = { ...ret, enabled: e.target.checked }))} />
+                <input type="checkbox" className="check" checked={ret.enabled} onChange={(e) => void toggleAutoClean(e.target.checked)} />
                 {t("ui.settings.retentionAutoHint")}
               </label>
             </div>

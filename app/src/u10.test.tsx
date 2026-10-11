@@ -634,7 +634,15 @@ describe("M4-4 历史清理", () => {
     // 规则说明默认展开，按当前设置写出数字。
     expect(await screen.findByText("清理规则说明（清理前请先阅读）")).toBeInTheDocument();
     expect(screen.getByText(/最近的 20 个；最近 14 天里每天最新的 1 个；最近 8 周里每周最新的 1 个/)).toBeInTheDocument();
+    // 开启自动清理先确认：取消则不开启，确认后才勾上。
+    dialog.ask.mockResolvedValueOnce(false);
     fireEvent.click(await screen.findByRole("checkbox", { name: /每次自动备份后按下面的规则清理/ }));
+    await waitFor(() => expect(dialog.ask).toHaveBeenCalled());
+    expect(String(dialog.ask.mock.calls.at(-1)![0])).toContain("保留最近 20 个、最近 14 天每天 1 个、最近 8 周每周 1 个");
+    expect(screen.getByRole("checkbox", { name: /每次自动备份后按下面的规则清理/ })).not.toBeChecked();
+    dialog.ask.mockResolvedValueOnce(true);
+    fireEvent.click(screen.getByRole("checkbox", { name: /每次自动备份后按下面的规则清理/ }));
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /每次自动备份后按下面的规则清理/ })).toBeChecked());
     expect(screen.getByText(/不再逐次询问。$/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("spinbutton", { name: "保留最近的快照数" }), { target: { value: "5" } });
     // 有未保存的修改时不能清理。

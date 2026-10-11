@@ -1535,5 +1535,11 @@
   "ui.retentionGuide.safe4": "磁盘上的游戏存档不会被删除，只清理仓库中的备份。",
   "ui.cleanup.expandHint": "点开游戏可以查看将删除的每个快照。",
   "ui.cleanup.ack": "我已核对，确认删除这 {n} 个快照",
-  "ui.cleanup.onlySpace": "按当前规则没有要删除的快照，只回收不再使用的空间，不影响任何快照。"
+  "ui.cleanup.onlySpace": "按当前规则没有要删除的快照，只回收不再使用的空间，不影响任何快照。",
+  "ui.settings.autoCleanConfirm.title": "开启自动清理？",
+  "ui.settings.autoCleanConfirm.lead": "开启后，每次自动备份生成新快照时，篝火会按规则直接删除多余的快照，不再逐次询问。",
+  "ui.settings.autoCleanConfirm.rules": "当前规则：保留最近 {last} 个、最近 {days} 天每天 1 个、最近 {weeks} 周每周 1 个；清理范围：{scope}。",
+  "ui.settings.autoCleanConfirm.kept": "带标签的快照、每条路线最新的快照、当前存档对应的快照和撤销恢复要用到的快照永远保留；磁盘上的游戏存档不受影响。",
+  "ui.settings.autoCleanConfirm.risk": "被删除的快照无法找回。建议先给重要的存档点打上标签，或先用“立即清理…”预览一次。开启后点“保存”才生效。",
+  "ui.settings.autoCleanConfirm.ok": "开启自动清理"
 }

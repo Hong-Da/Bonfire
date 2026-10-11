@@ -1535,5 +1535,11 @@
   "ui.retentionGuide.safe4": "Game saves on disk are never deleted; only backups in the repository are cleaned up.",
   "ui.cleanup.expandHint": "Open a game to see every snapshot that will be deleted.",
   "ui.cleanup.ack": "I've checked the list and want to delete these {n} snapshots",
-  "ui.cleanup.onlySpace": "No snapshots need deleting under the current rules; only unused space is freed, no snapshot is affected."
+  "ui.cleanup.onlySpace": "No snapshots need deleting under the current rules; only unused space is freed, no snapshot is affected.",
+  "ui.settings.autoCleanConfirm.title": "Turn on automatic cleanup?",
+  "ui.settings.autoCleanConfirm.lead": "When on, every automatic backup that creates a snapshot deletes extra snapshots by the rules right away, without asking each time.",
+  "ui.settings.autoCleanConfirm.rules": "Current rules: keep the latest {last}, one a day for {days} days and one a week for {weeks} weeks; clean up: {scope}.",
+  "ui.settings.autoCleanConfirm.kept": "Tagged snapshots, the latest snapshot of each branch, the snapshot matching your current saves and snapshots needed to undo a restore are always kept; game saves on disk are not touched.",
+  "ui.settings.autoCleanConfirm.risk": "Deleted snapshots can't be recovered. Tag important save points first, or preview once with “Clean up now…”. Click Save to apply.",
+  "ui.settings.autoCleanConfirm.ok": "Turn on automatic cleanup"
 }
