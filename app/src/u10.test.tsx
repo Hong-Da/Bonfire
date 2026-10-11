@@ -11,7 +11,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => dialog);
 vi.mock("./lib/confirm", () => ({ confirm: (...a: unknown[]) => dialog.ask(...a), ConfirmHost: () => null }));
 
 import i18n from "./i18n";
-import { useStore, defaultSelection, initialView } from "./store";
+import { useStore, defaultSelection, initialView, readFilters } from "./store";
 import Library from "./pages/Library";
 import Gallery from "./pages/Gallery";
 import Settings from "./pages/Settings";
@@ -492,5 +492,20 @@ describe("U-29 未识别的截图", () => {
     fireEvent.click(within(dlg).getByRole("button", { name: "归到这个游戏" }));
     await waitFor(() => expect(api.assignUnsorted).toHaveBeenCalledWith(["b3:111111", "b3:222222"], "g1"));
     expect(useStore.getState().toasts.map((x) => x.text)).toContain("已把 2 张截图归到「Hollow Knight」");
+  });
+});
+
+describe("U-33 记住游戏库的筛选", () => {
+  it("筛选与管理方式写入本机，重新打开时恢复；无效的值回到全部", async () => {
+    localStorage.removeItem("bonfire.library.filters");
+    seed([row({ id: "a", name: "Alpha", nameZh: null, mode: "shots" })]);
+    render(<Library />);
+    fireEvent.click(within(screen.getByRole("group", { name: "按管理方式筛选" })).getByRole("button", { name: /只管理截图/ }));
+    const saved = JSON.parse(localStorage.getItem("bonfire.library.filters") ?? "{}");
+    expect(saved).toMatchObject({ modeFilter: "shots", stateFilter: "all", platformFilter: "all", profileFilter: null });
+    expect(readFilters()).toMatchObject({ modeFilter: "shots" });
+    localStorage.setItem("bonfire.library.filters", JSON.stringify({ modeFilter: "bogus", stateFilter: "has-changes", profileFilter: { name: "周末", ids: ["a", 3] } }));
+    expect(readFilters()).toEqual({ modeFilter: "all", stateFilter: "has-changes", platformFilter: "all", profileFilter: { name: "周末", ids: ["a"] } });
+    localStorage.removeItem("bonfire.library.filters");
   });
 });

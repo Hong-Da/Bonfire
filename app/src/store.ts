@@ -68,6 +68,38 @@ interface Store {
 
 let toastSeq = 0;
 
+/** 游戏库的筛选（状态、管理方式、平台、筛选方案）记在本机，重新打开时恢复。 */
+const FILTER_KEY = "bonfire.library.filters";
+type SavedFilters = { stateFilter: StateFilter; modeFilter: ModeFilter; platformFilter: string; profileFilter: { name: string; ids: string[] } | null };
+const STATE_VALUES: StateFilter[] = ["all", "has-changes", "never-backed-up", "up-to-date", "shots-only"];
+const MODE_VALUES: ModeFilter[] = ["all", "both", "saves", "shots"];
+
+export function readFilters(): SavedFilters {
+  const none: SavedFilters = { stateFilter: "all", modeFilter: "all", platformFilter: "all", profileFilter: null };
+  try {
+    const v = JSON.parse(localStorage.getItem(FILTER_KEY) ?? "{}");
+    const p = v.profileFilter;
+    return {
+      stateFilter: STATE_VALUES.includes(v.stateFilter) ? v.stateFilter : "all",
+      modeFilter: MODE_VALUES.includes(v.modeFilter) ? v.modeFilter : "all",
+      platformFilter: typeof v.platformFilter === "string" && v.platformFilter ? v.platformFilter : "all",
+      profileFilter: p && typeof p.name === "string" && Array.isArray(p.ids) ? { name: p.name, ids: p.ids.filter((x: unknown) => typeof x === "string") } : null,
+    };
+  } catch {
+    return none;
+  }
+}
+
+function saveFilters(s: SavedFilters) {
+  try {
+    localStorage.setItem(FILTER_KEY, JSON.stringify(s));
+  } catch {
+    // 无法保存时只影响本次。
+  }
+}
+
+const savedFilters = typeof localStorage === "undefined" ? null : readFilters();
+
 /** 默认勾选“有更新”和“未备份”的游戏（文档 8.1 第 1 步）。 */
 export function defaultSelection(rows: GameRow[]): Set<string> {
   return new Set(rows.filter((r) => r.state !== "up-to-date").map((r) => r.id));
@@ -104,10 +136,10 @@ export const useStore = create<Store>((set, get) => ({
   phase: { phase: "idle", done: 0, total: 0 },
   loading: false,
   selected: new Set(),
-  platformFilter: "all",
-  stateFilter: "all",
-  modeFilter: "all",
-  profileFilter: null,
+  platformFilter: savedFilters?.platformFilter ?? "all",
+  stateFilter: savedFilters?.stateFilter ?? "all",
+  modeFilter: savedFilters?.modeFilter ?? "all",
+  profileFilter: savedFilters?.profileFilter ?? null,
   query: "",
   toasts: [],
   undoable: {},
@@ -189,10 +221,22 @@ export const useStore = create<Store>((set, get) => ({
       return { selected };
     }),
   clearSelection: () => set({ selected: new Set() }),
-  setPlatformFilter: (platformFilter) => set({ platformFilter }),
-  setStateFilter: (stateFilter) => set({ stateFilter }),
-  setModeFilter: (modeFilter) => set({ modeFilter }),
-  setProfileFilter: (profileFilter) => set({ profileFilter }),
+  setPlatformFilter: (platformFilter) => {
+    set({ platformFilter });
+    persistFilters(get());
+  },
+  setStateFilter: (stateFilter) => {
+    set({ stateFilter });
+    persistFilters(get());
+  },
+  setModeFilter: (modeFilter) => {
+    set({ modeFilter });
+    persistFilters(get());
+  },
+  setProfileFilter: (profileFilter) => {
+    set({ profileFilter });
+    persistFilters(get());
+  },
   setQuery: (query) => set({ query }),
 
   toast: (kind, text, action) => {
@@ -210,3 +254,7 @@ export const useStore = create<Store>((set, get) => ({
       return { undoable };
     }),
 }));
+
+function persistFilters(s: SavedFilters) {
+  saveFilters({ stateFilter: s.stateFilter, modeFilter: s.modeFilter, platformFilter: s.platformFilter, profileFilter: s.profileFilter });
+}
