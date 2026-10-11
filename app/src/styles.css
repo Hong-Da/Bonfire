@@ -1055,3 +1055,9 @@ button.link:hover { text-decoration: underline; }
 .repo-links li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .repo-links b { min-width: 52px; }
 .repo-url { user-select: all; font-size: 12.5px; padding: 1px 6px; border-radius: 4px; background: var(--surface); word-break: break-all; }
+
+/* 篝火导出校验（U-48）：校验不通过 / 无法核对时的提示 */
+.dl-check { margin: 8px 0; }
+.dl-check p { margin: 4px 0 0; }
+.dl-check.compact { margin: 0 0 8px; padding: 6px 10px; font-size: 13px; }
+.dl-guide.damaged h3 { color: var(--danger); }

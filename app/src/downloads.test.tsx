@@ -127,4 +127,35 @@ describe("导入下载的存档（U-42）", () => {
     fireEvent.click(screen.getByRole("button", { name: /改用“导入下载的存档”/ }));
     expect(use).toHaveBeenCalledWith("D:/dl/hk.zip");
   });
+
+  it("篝火导出校验（U-48）：被改过的按普通下载处理并提示；篝火包校验不通过不能导入", async () => {
+    dialog.open.mockResolvedValue("D:/dl/Bonfire-空洞骑士.zip");
+    api.inspectDownload.mockResolvedValueOnce(preview({ notice: "modified" }));
+    render(<DownloadImportDialog gameId="steam-367520" onClose={() => {}} onDone={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "选择压缩包…" }));
+    expect(await screen.findByText("校验不通过，按普通下载的存档导入")).toBeInTheDocument();
+    expect(screen.getByText(/可能被手动修改过，或混入了其他存档文件/)).toBeInTheDocument();
+    // 仍可继续导入，放置位置页同样提示。
+    fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
+    expect(screen.getByText("校验不通过，按普通下载的存档导入")).toBeInTheDocument();
+
+    api.inspectDownload.mockResolvedValueOnce(preview({ kind: "damaged", files: [] }));
+    dialog.open.mockResolvedValue("D:/dl/a.bonfire");
+    fireEvent.click(screen.getByRole("button", { name: /上一步/ }));
+    fireEvent.click(screen.getByRole("button", { name: "选择压缩包…" }));
+    expect(await screen.findByText("篝火包校验不通过")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /下一步/ })).toBeDisabled();
+  });
+
+  it("原来的导入中选到校验不通过的篝火导出存档：说明原因并改用导入下载的存档", async () => {
+    dialog.open.mockResolvedValue("D:/dl/hk.zip");
+    api.inspectFilesSource.mockRejectedValue(new Error("这份篝火导出的存档校验不通过：内容与导出时不一致"));
+    const use = vi.fn();
+    render(<CollectionImportDialog onClose={() => {}} onDone={() => {}} onUseDownload={use} />);
+    fireEvent.click(screen.getByRole("button", { name: /存档文件（zip）|zip/ }));
+    expect(await screen.findByText("校验不通过，按普通下载的存档导入")).toBeInTheDocument();
+    expect(screen.getByText(/不能按篝火导出的导入/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /改用“导入下载的存档”/ }));
+    expect(use).toHaveBeenCalledWith("D:/dl/hk.zip");
+  });
 });

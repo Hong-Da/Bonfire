@@ -1364,5 +1364,15 @@
   "ui.download.allOverwrite": "全部覆盖",
   "ui.download.allKeep": "全部不替换",
   "ui.settings.repos": "代码仓库",
-  "ui.settings.openRepo": "在浏览器中打开"
+  "ui.settings.openRepo": "在浏览器中打开",
+  "cli.error.download_damaged": "篝火包校验不通过：内容与导出时不一致，可能被修改过或已损坏，不能导入",
+  "cli.out.download_modified": "提示：这是篝火导出的存档，但校验不通过（可能被手动修改过或混入了其他文件），按普通下载的存档导入",
+  "cli.out.download_unverifiable": "提示：带篝火的标识，但缺少导出说明，无法核对，按普通下载的存档导入",
+  "ui.download.damagedTitle": "篝火包校验不通过",
+  "ui.download.damagedHint": "包的内容与导出时不一致，可能被修改过或下载不完整。篝火包里是篝火自己的存储格式，不能当普通存档文件导入，请找分享的人重新导出一份，或重新下载。",
+  "ui.download.modifiedTitle": "校验不通过，按普通下载的存档导入",
+  "ui.download.modifiedHint": "这是篝火导出的存档，但内容与导出时不一致——可能被手动修改过，或混入了其他存档文件。下面按普通下载的存档处理，请核对每个文件放到哪里；导入前最好先备份当前存档。",
+  "ui.download.unverifiableTitle": "无法核对，按普通下载的存档导入",
+  "ui.download.unverifiableHint": "这里有篝火的标识，但缺少导出说明（bonfire-export.json），无法确认内容是否被改过。下面按普通下载的存档处理，请核对每个文件放到哪里。",
+  "ui.download.modifiedImportHint": "这份存档带篝火的导出说明，但内容与导出时不一致——可能被手动修改过，或混入了其他存档文件，不能按篝火导出的导入。用“导入下载的存档”按普通存档文件导入，会让你核对每个文件放到哪里。"
 }

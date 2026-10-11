@@ -13,6 +13,7 @@ pub mod error;
 pub mod gallery;
 pub mod history;
 pub mod i18n;
+pub mod integrity;
 pub mod library;
 pub mod logging;
 pub mod metadata;

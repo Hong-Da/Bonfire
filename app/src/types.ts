@@ -626,7 +626,9 @@ export interface ImportFilesReport {
 }
 
 /** 导入下载的存档（U-42）。 */
-export type DownloadKind = "download" | "bonfire" | "needs-extract" | "needs-password";
+export type DownloadKind = "download" | "bonfire" | "needs-extract" | "needs-password" | "damaged";
+/** 带篝火标识却按普通下载处理时的提示（U-48）：校验不通过 / 无法核对。 */
+export type DownloadNotice = "modified" | "unverifiable";
 export type DownloadMode = "overlay" | "replace";
 
 export interface DownloadPreview {
@@ -638,6 +640,7 @@ export interface DownloadPreview {
   currentFiles: number;
   /** 当前存档中已有的文件（清单路径，小写） */
   existing?: string[];
+  notice?: DownloadNotice | null;
 }
 
 export interface DownloadReport {

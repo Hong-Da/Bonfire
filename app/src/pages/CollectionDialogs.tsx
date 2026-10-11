@@ -149,6 +149,7 @@ export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onC
   const [error, setError] = useState<string | null>(null);
   // 选到不是篝火导出的存档文件时记下路径，提示改用“导入下载的存档”。
   const [notBonfire, setNotBonfire] = useState<string | null>(null);
+  const [modified, setModified] = useState(false);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<ArchiveImportItem[] | null>(null);
   const [filesDone, setFilesDone] = useState<string | null>(null);
@@ -183,8 +184,11 @@ export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onC
     } catch (e) {
       setLoaded(null);
       const msg = errorMessage(e);
-      if (what !== "archive" && msg.includes("没有篝火的导出说明")) setNotBonfire(path);
-      else setError(msg);
+      const isModified = msg.includes("校验不通过");
+      if (what !== "archive" && (isModified || msg.includes("没有篝火的导出说明"))) {
+        setNotBonfire(path);
+        setModified(isModified);
+      } else setError(msg);
     } finally {
       setBusy(false);
     }
@@ -313,6 +317,7 @@ export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onC
         {error && <div className="callout error">{error}</div>}
         {notBonfire && onUseDownload && (
           <NotBonfireHint
+            modified={modified}
             onUse={() => {
               onUseDownload(notBonfire);
               onClose();

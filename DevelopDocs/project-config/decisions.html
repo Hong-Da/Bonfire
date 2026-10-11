@@ -24,9 +24,27 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 140 项，更新于 2026-10-11 02:06。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 143 项，更新于 2026-10-11 02:19。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">导入</a><a href="#s-1">导出</a><a href="#s-2">开发</a><a href="#s-3">缺陷修复</a><a href="#s-4">用户修改</a><a href="#s-5">M3 GUI MVP</a><a href="#s-6">M2 存档发现</a><a href="#s-7">M1 核心库</a><a href="#s-8">全局</a></nav>
-<section id="s-0"><h2>导入<small>2 项</small></h2>
+<section id="s-0"><h2>导入<small>5 项</small></h2>
+      <article id="U-48c">
+        <header><code>U-48c</code><h3>篝火包（.bonfire）校验不通过时怎么处理</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">不能导入，提示被修改或损坏、请重新导出 / 下载（推荐） <b>✓ 采用</b></li><li class="">仍尝试导入</li></ul>
+        <p class="reason"><span>理由</span>篝火包内是篝火的对象库格式，无法当普通存档文件对应；内容不一致时导入可能写入损坏的历史。</p><p class="impact"><span>影响</span>导入下载的存档显示“篝火包校验不通过”；原导入的预览与导入同样拒绝。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="U-48b">
+        <header><code>U-48b</code><h3>存档文件校验不通过或只有篝火标识时怎么处理</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">按普通下载的存档处理并提示可能被手动修改过（推荐） <b>✓ 采用</b></li><li class="">拒绝导入</li></ul>
+        <p class="reason"><span>理由</span>用户要求：校验失败可能是手动修改过或混入其他存档，按普通下载包处理并提示。</p><p class="impact"><span>影响</span>导入下载的存档显示黄色提示，可继续核对放置位置导入；原导入中报错并引导改用导入下载的存档；同名但非篝火格式的 bundle.json 等当普通文件。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="U-48a">
+        <header><code>U-48a</code><h3>导出的包如何计算校验值</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">每个文件 blake3，按路径排序后整体再算一次，写入说明文件 contentHash（推荐） <b>✓ 采用</b></li><li class="">整个 zip 文件算一次哈希另存文件</li></ul>
+        <p class="reason"><span>理由</span>与仓库一致用 blake3；按文件计算，zip 与文件夹、重新压缩后都能核对；校验值放在说明文件中不另加文件。</p><p class="impact"><span>影响</span>说明文件与根目录 readme.txt 不计入；早期导出的没有校验值，仍按篝火导出的处理。</p>
+        <footer>2026-10-11</footer>
+      </article>
       <article id="U-47c">
         <header><code>U-47c</code><h3>导入时如何用篝火标识识别</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">说明文件（含 generator）或 readme.txt 中的 [Bonfire Export] 标记即识别为篝火导出（推荐） <b>✓ 采用</b></li><li class="">只看说明文件</li></ul>

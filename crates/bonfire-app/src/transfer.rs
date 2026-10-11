@@ -81,6 +81,9 @@ pub struct ExportManifest {
     /// 生成者，如 `Bonfire 0.1.0`（U-47，导入时识别；早期导出的没有）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub generator: Option<String>,
+    /// 内容的校验值（U-48，`blake3:…`）：导入时核对，不一致说明被修改过。早期导出的没有。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_hash: Option<String>,
     pub game_id: String,
     pub game_name: String,
     #[serde(default)]
@@ -133,6 +136,9 @@ pub struct BundleManifest {
     /// 生成者，如 `Bonfire 0.1.0`。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub generator: Option<String>,
+    /// 内容的校验值（U-48，`blake3:…`）：导入时核对，不一致说明被修改过。早期导出的没有。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_hash: Option<String>,
     pub game_id: String,
     pub game_name: String,
     pub created_at: String,
@@ -280,6 +286,9 @@ pub struct CollectionManifest {
     /// 生成者，如 `Bonfire 0.1.0`。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub generator: Option<String>,
+    /// 内容的校验值（U-48，`blake3:…`）：导入时核对，不一致说明被修改过。早期导出的没有。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_hash: Option<String>,
     pub created_at: String,
     pub host: String,
     pub games: Vec<CollectionEntry>,
@@ -554,10 +563,11 @@ impl App {
                 game.name
             )));
         }
-        let manifest = ExportManifest {
+        let mut manifest = ExportManifest {
             format: FILES_FORMAT.into(),
             version: 1,
             generator: Some(crate::branding::generator()),
+            content_hash: None,
             game_id: game.id.clone(),
             game_name: game.name.clone(),
             snapshot: snapshot.as_ref().map(|(id, _)| *id),
@@ -597,6 +607,7 @@ impl App {
         self.check_export_target(&target)?;
 
         let mut bytes = 0u64;
+        let mut digest = crate::integrity::Digest::default();
         let write_item = |src: &Source, out: &mut dyn Write, label: &Path| -> Result<u64> {
             match src {
                 Source::Blob(b) => Ok(self.repo.read_blob_to(b, out, label)?),
@@ -606,7 +617,6 @@ impl App {
                 }
             }
         };
-        let manifest_json = serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化");
         let readme = crate::branding::readme(
             &crate::branding::ReadmeKind::Files {
                 game: &manifest.game_name,
@@ -632,10 +642,16 @@ impl App {
                             .compression_method(zip::CompressionMethod::Deflated)
                             .large_file(*size >= u32::MAX as u64)
                             .last_modified_time(when);
-                        zip.start_file(out_name(path), opts)
+                        let name = out_name(path);
+                        zip.start_file(name.as_str(), opts)
                             .map_err(|e| zip_err(&tmp, e))?;
-                        bytes += write_item(src, &mut zip, &tmp)?;
+                        let mut w = crate::integrity::HashWriter::new(&mut zip);
+                        bytes += write_item(src, &mut w, &tmp)?;
+                        digest.add(&name, w.hasher.finalize());
                     }
+                    manifest.content_hash = Some(digest.finish());
+                    let manifest_json =
+                        serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化");
                     zip.start_file(
                         EXPORT_MANIFEST,
                         zip::write::SimpleFileOptions::default().last_modified_time(when),
@@ -663,14 +679,19 @@ impl App {
                 let tmp = with_suffix(&target, ".bonfire-tmp");
                 let result = (|| -> Result<()> {
                     for (path, _, src) in &items {
-                        let out = safe_join(&tmp, &out_name(path))?;
+                        let name = out_name(path);
+                        let out = safe_join(&tmp, &name)?;
                         if let Some(dir) = out.parent() {
                             std::fs::create_dir_all(dir).map_err(|e| AppError::io(dir, e))?;
                         }
-                        let mut f =
-                            std::fs::File::create(&out).map_err(|e| AppError::io(&out, e))?;
-                        bytes += write_item(src, &mut f, &out)?;
+                        let f = std::fs::File::create(&out).map_err(|e| AppError::io(&out, e))?;
+                        let mut w = crate::integrity::HashWriter::new(f);
+                        bytes += write_item(src, &mut w, &out)?;
+                        digest.add(&name, w.hasher.finalize());
                     }
+                    manifest.content_hash = Some(digest.finish());
+                    let manifest_json =
+                        serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化");
                     let m = tmp.join(EXPORT_MANIFEST);
                     std::fs::write(&m, &manifest_json).map_err(|e| AppError::io(&m, e))?;
                     let r = tmp.join(crate::branding::README_NAME);
@@ -745,7 +766,7 @@ impl App {
         let result = (|| -> Result<()> {
             let file = std::fs::File::create(&tmp).map_err(|e| AppError::io(&tmp, e))?;
             let mut zip = zip::ZipWriter::new(file);
-            self.write_bundle(&mut zip, &plan, "", &tmp)?;
+            self.write_bundle(&mut zip, &plan, "", &tmp, None)?;
             zip.start_file(
                 crate::branding::README_NAME,
                 zip::write::SimpleFileOptions::default()
@@ -860,6 +881,7 @@ impl App {
             format: COLLECTION_FORMAT.into(),
             version: 1,
             generator: Some(crate::branding::generator()),
+            content_hash: None,
             created_at: now_local_rfc3339(),
             host: host_name(),
             games: entries.clone(),
@@ -871,10 +893,6 @@ impl App {
             let mut zip = zip::ZipWriter::new(file);
             let deflate = zip::write::SimpleFileOptions::default()
                 .compression_method(zip::CompressionMethod::Deflated);
-            zip.start_file(COLLECTION_MANIFEST, deflate)
-                .map_err(|e| zip_err(&tmp, e))?;
-            zip.write_all(&serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化"))
-                .map_err(|e| AppError::io(&tmp, e))?;
             zip.start_file(crate::branding::README_NAME, deflate)
                 .map_err(|e| zip_err(&tmp, e))?;
             zip.write_all(&crate::branding::readme(
@@ -887,9 +905,17 @@ impl App {
                 &manifest.created_at,
             ))
             .map_err(|e| AppError::io(&tmp, e))?;
+            let mut digest = crate::integrity::Digest::default();
             for (plan, e) in plans.iter().zip(&entries) {
-                self.write_bundle(&mut zip, plan, &e.dir, &tmp)?;
+                self.write_bundle(&mut zip, plan, &e.dir, &tmp, Some(&mut digest))?;
             }
+            // 说明最后写入：其中的校验值覆盖包内全部文件（各游戏的 bundle.json 也在内）。
+            let mut manifest = manifest.clone();
+            manifest.content_hash = Some(digest.finish());
+            zip.start_file(COLLECTION_MANIFEST, deflate)
+                .map_err(|e| zip_err(&tmp, e))?;
+            zip.write_all(&serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化"))
+                .map_err(|e| AppError::io(&tmp, e))?;
             let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
             f.sync_all().map_err(|e| AppError::io(&tmp, e))
         })();
@@ -1083,6 +1109,7 @@ impl App {
             format: BUNDLE_FORMAT.into(),
             version: 1,
             generator: Some(crate::branding::generator()),
+            content_hash: None,
             game_id: game.id.clone(),
             game_name: game.name.clone(),
             created_at: now_local_rfc3339(),
@@ -1125,13 +1152,30 @@ impl App {
         plan: &BundlePlan,
         prefix: &str,
         tmp: &Path,
+        mut outer: Option<&mut crate::integrity::Digest>,
     ) -> Result<()> {
         let deflate = zip::write::SimpleFileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated);
-        zip.start_file(format!("{prefix}{BUNDLE_MANIFEST}"), deflate)
-            .map_err(|e| zip_err(tmp, e))?;
-        zip.write_all(&serde_json::to_vec_pretty(&plan.manifest).expect("说明文件可以序列化"))
-            .map_err(|e| AppError::io(tmp, e))?;
+        // 本游戏的校验值（包内相对路径）；合集包另算整个包的（完整路径）。
+        let mut digest = crate::integrity::Digest::default();
+        let mut put = |zip: &mut zip::ZipWriter<std::fs::File>,
+                       rel: String,
+                       bytes: &[u8],
+                       opts: zip::write::SimpleFileOptions|
+         -> Result<()> {
+            let name = format!("{prefix}{rel}");
+            zip.start_file(name.as_str(), opts)
+                .map_err(|e| zip_err(tmp, e))?;
+            zip.write_all(bytes).map_err(|e| AppError::io(tmp, e))?;
+            let h = blake3::hash(bytes);
+            if rel != BUNDLE_MANIFEST {
+                digest.add(&rel, h);
+            }
+            if let Some(o) = outer.as_deref_mut() {
+                o.add(&name, h);
+            }
+            Ok(())
+        };
         // 对象文件已是 zstd 压缩，原样存放。
         let stored = zip::write::SimpleFileOptions::default()
             .compression_method(zip::CompressionMethod::Stored)
@@ -1144,19 +1188,26 @@ impl App {
         ] {
             for id in ids {
                 let bytes = self.repo.read_object_file(kind, id)?;
-                zip.start_file(
-                    format!("{prefix}objects/{}/{}", kind.dir(), id.to_hex()),
+                put(
+                    zip,
+                    format!("objects/{}/{}", kind.dir(), id.to_hex()),
+                    &bytes,
                     stored,
-                )
-                .map_err(|e| zip_err(tmp, e))?;
-                zip.write_all(&bytes).map_err(|e| AppError::io(tmp, e))?;
+                )?;
             }
         }
         for sh in &plan.shots {
             let data = self.shot_bytes(sh)?;
-            zip.start_file(format!("{prefix}{}", shot_entry(sh)), stored)
-                .map_err(|e| zip_err(tmp, e))?;
-            zip.write_all(&data).map_err(|e| AppError::io(tmp, e))?;
+            put(zip, shot_entry(sh), &data, stored)?;
+        }
+        let mut manifest = plan.manifest.clone();
+        manifest.content_hash = Some(digest.finish());
+        let json = serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化");
+        zip.start_file(format!("{prefix}{BUNDLE_MANIFEST}"), deflate)
+            .map_err(|e| zip_err(tmp, e))?;
+        zip.write_all(&json).map_err(|e| AppError::io(tmp, e))?;
+        if let Some(o) = outer {
+            o.add(&format!("{prefix}{BUNDLE_MANIFEST}"), blake3::hash(&json));
         }
         Ok(())
     }
@@ -1166,6 +1217,7 @@ impl App {
     /// 选中的是合集包时，取其中与 `target` 同一 ID 的游戏（只有一个游戏时取它）。
     pub fn inspect_bundle(&self, path: &Path, target: Option<&str>) -> Result<BundlePreview> {
         let mut zip = open_zip(path)?;
+        verify_package_or_err(&mut zip, path)?;
         let prefix = self.prefix_for(&mut zip, path, target)?;
         let manifest = read_bundle_manifest(&mut zip, path, &prefix)?;
         let snaps = read_bundle_snapshots(&mut zip, path, &manifest, &prefix)?;
@@ -1204,6 +1256,7 @@ impl App {
     /// 读取历史包或合集包中的全部游戏并与本地比较，不写入任何东西。
     pub fn inspect_archive(&self, path: &Path) -> Result<ArchivePreview> {
         let mut zip = open_zip(path)?;
+        verify_package_or_err(&mut zip, path)?;
         let collection = read_collection_manifest(&mut zip, path)?;
         let dirs: Vec<String> = match &collection {
             Some(c) => c.games.iter().map(|e| e.dir.clone()).collect(),
@@ -1472,6 +1525,7 @@ impl App {
     ) -> Result<BundleImportReport> {
         let prefix = {
             let mut zip = open_zip(path)?;
+            verify_package_or_err(&mut zip, path)?;
             self.prefix_for(&mut zip, path, target)?
         };
         self.import_bundle_at(lock, path, &prefix, target, dry_run, (true, true))
@@ -2320,10 +2374,13 @@ fn gather_source(src: &Path, staging: &Path) -> Result<(SourceFiles, Option<Expo
         Some(inner) => inner,
         None => root,
     };
-    let manifest = std::fs::read(root.join(EXPORT_MANIFEST))
-        .ok()
-        .and_then(|b| serde_json::from_slice::<ExportManifest>(&b).ok())
-        .filter(|m| m.format == FILES_FORMAT);
+    let manifest = read_files_manifest(&root);
+    // 篝火导出的：核对校验值，不一致时不按篝火导出的导入（U-48）。
+    if let Some(m) = &manifest
+        && files_check(&root, m, &|_| false)? == crate::integrity::Check::Modified
+    {
+        return Err(AppError::Invalid(crate::integrity::FILES_MODIFIED.into()));
+    }
     let mut files = Vec::new();
     for e in walkdir_files(&root)? {
         let rel = e
@@ -2338,6 +2395,84 @@ fn gather_source(src: &Path, staging: &Path) -> Result<(SourceFiles, Option<Expo
     }
     files.sort();
     Ok((files, manifest))
+}
+
+/// 读取文件夹中的篝火导出说明（格式不对或读不出时为空）。
+pub(crate) fn read_files_manifest(root: &Path) -> Option<ExportManifest> {
+    std::fs::read(root.join(EXPORT_MANIFEST))
+        .ok()
+        .and_then(|b| serde_json::from_slice::<ExportManifest>(&b).ok())
+        .filter(|m| m.format == FILES_FORMAT)
+}
+
+/// 核对篝火导出的存档文件（`skip_dir`：不计入的子文件夹）。
+pub(crate) fn files_check(
+    root: &Path,
+    m: &ExportManifest,
+    skip_dir: &dyn Fn(&str) -> bool,
+) -> Result<crate::integrity::Check> {
+    crate::integrity::compare(m.content_hash.as_deref(), || {
+        crate::integrity::dir_digest(root, EXPORT_MANIFEST, skip_dir)
+    })
+}
+
+/// 核对篝火包（历史包或合集包）。不是篝火包（没有说明或格式不对）时为空。
+pub(crate) fn package_check(
+    zip: &mut zip::ZipArchive<std::fs::File>,
+    path: &Path,
+) -> Result<Option<crate::integrity::Check>> {
+    let read = |zip: &mut zip::ZipArchive<std::fs::File>, name: &str| -> Option<Vec<u8>> {
+        zip.index_for_name(name)?;
+        read_entry(zip, name, path).ok()
+    };
+    if let Some(b) = read(zip, COLLECTION_MANIFEST) {
+        let Some(c) = serde_json::from_slice::<CollectionManifest>(&b)
+            .ok()
+            .filter(|c| c.format == COLLECTION_FORMAT)
+        else {
+            return Ok(None);
+        };
+        return crate::integrity::compare(c.content_hash.as_deref(), || {
+            crate::integrity::zip_digest(zip, path, "", COLLECTION_MANIFEST)
+        })
+        .map(Some);
+    }
+    if let Some(b) = read(zip, BUNDLE_MANIFEST) {
+        let Some(m) = serde_json::from_slice::<BundleManifest>(&b)
+            .ok()
+            .filter(|m| m.format == BUNDLE_FORMAT)
+        else {
+            return Ok(None);
+        };
+        return crate::integrity::compare(m.content_hash.as_deref(), || {
+            crate::integrity::zip_digest(zip, path, "", BUNDLE_MANIFEST)
+        })
+        .map(Some);
+    }
+    Ok(None)
+}
+
+/// 是否为篝火包的说明（`bundle.json` / `collection.json` 的内容）。
+pub(crate) fn is_package_manifest(bytes: &[u8]) -> bool {
+    #[derive(Deserialize)]
+    struct Head {
+        format: String,
+    }
+    serde_json::from_slice::<Head>(bytes)
+        .is_ok_and(|h| h.format == BUNDLE_FORMAT || h.format == COLLECTION_FORMAT)
+}
+
+/// 篝火包校验不通过时报错（不能导入：包内是篝火的对象库格式，不能当普通存档文件用）。
+fn verify_package_or_err(zip: &mut zip::ZipArchive<std::fs::File>, path: &Path) -> Result<()> {
+    if package_check(zip, path)? == Some(crate::integrity::Check::Modified) {
+        return Err(AppError::Invalid(format!(
+            "篝火包「{}」校验不通过：内容与导出时不一致，可能被修改过或已损坏，不能导入。请找导出的人重新导出一份",
+            path.file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        )));
+    }
+    Ok(())
 }
 
 fn single_child_with_manifest(root: &Path) -> Option<PathBuf> {
@@ -2708,6 +2843,107 @@ mod tests {
             env.app.inspect_download(&g, &r.dest, None).unwrap().kind,
             crate::downloads::DownloadKind::Bonfire
         );
+        assert_eq!(
+            env.app.inspect_download(&g, &zip_path, None).unwrap().kind,
+            crate::downloads::DownloadKind::Bonfire
+        );
+
+        // 校验值（U-48）：手动改了文件后，不再按篝火导出的导入，按普通下载的存档处理并提示。
+        assert!(
+            m.content_hash
+                .as_deref()
+                .is_some_and(|h| h.starts_with("blake3:"))
+        );
+        std::fs::write(r.dest.join("saves/slot1/a.sav"), b"edited").unwrap();
+        let err = env.app.inspect_files(&g, &r.dest).unwrap_err();
+        assert!(err.to_string().contains("校验不通过"), "{err}");
+        let d = env.app.inspect_download(&g, &r.dest, None).unwrap();
+        assert_eq!(
+            (d.kind, d.notice),
+            (
+                crate::downloads::DownloadKind::Download,
+                Some(crate::downloads::DownloadNotice::Modified)
+            )
+        );
+        // 说明文件不当存档；存档文件照常对应。
+        assert!(
+            d.files.iter().all(|f| f.rel != EXPORT_MANIFEST),
+            "{:?}",
+            d.files
+        );
+        assert!(
+            d.files
+                .iter()
+                .any(|f| f.rel == "saves/slot1/a.sav" && f.target.is_some())
+        );
+        // 多了文件也算被修改。
+        std::fs::write(r.dest.join("saves/slot1/a.sav"), b"two!").unwrap();
+        assert!(env.app.inspect_files(&g, &r.dest).is_ok());
+        std::fs::write(r.dest.join("saves/other.sav"), b"x").unwrap();
+        assert!(env.app.inspect_files(&g, &r.dest).is_err());
+        // 没有说明、只有 readme 标记：无法核对。
+        std::fs::remove_file(r.dest.join(EXPORT_MANIFEST)).unwrap();
+        assert_eq!(
+            env.app.inspect_download(&g, &r.dest, None).unwrap().notice,
+            Some(crate::downloads::DownloadNotice::Unverifiable)
+        );
+        // 早期导出的没有校验值：仍按篝火导出的导入。
+        let mut legacy = m.clone();
+        legacy.content_hash = None;
+        std::fs::write(
+            r.dest.join(EXPORT_MANIFEST),
+            serde_json::to_vec(&legacy).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            env.app.inspect_download(&g, &r.dest, None).unwrap().kind,
+            crate::downloads::DownloadKind::Bonfire
+        );
+    }
+
+    #[test]
+    fn modified_bundle_is_refused() {
+        let mut env = Env::new();
+        env.write("slot1/a.sav", b"one");
+        let g = env.add_game("Hollow Knight");
+        backup(&mut env, &g, "第一次");
+        let out = env.dir.path().join("out");
+        std::fs::create_dir_all(&out).unwrap();
+        let pkg = out.join("a.bonfire");
+        env.app
+            .export_bundle(&g, &BundleScope::All, &pkg, false)
+            .unwrap();
+        assert!(env.app.inspect_bundle(&pkg, None).is_ok());
+        assert_eq!(
+            env.app.inspect_download(&g, &pkg, None).unwrap().kind,
+            crate::downloads::DownloadKind::Bonfire
+        );
+        // 合集包同样带校验值。
+        let col = out.join("c.bonfire");
+        env.app
+            .export_collection(std::slice::from_ref(&g), &col, false)
+            .unwrap();
+        assert!(env.app.inspect_archive(&col).is_ok());
+        // 往包里加一个文件：校验不通过，不能导入。
+        for p in [&pkg, &col] {
+            let f = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(p)
+                .unwrap();
+            let mut z = zip::ZipWriter::new_append(f).unwrap();
+            z.start_file("objects/extra", zip::write::SimpleFileOptions::default())
+                .unwrap();
+            z.write_all(b"x").unwrap();
+            z.finish().unwrap();
+            let err = env.app.inspect_archive(p).unwrap_err();
+            assert!(err.to_string().contains("校验不通过"), "{err}");
+            assert_eq!(
+                env.app.inspect_download(&g, p, None).unwrap().kind,
+                crate::downloads::DownloadKind::Damaged
+            );
+        }
+        assert!(env.app.inspect_bundle(&pkg, None).is_err());
     }
 
     #[test]

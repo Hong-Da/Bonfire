@@ -1364,5 +1364,15 @@
   "ui.download.allOverwrite": "Overwrite all",
   "ui.download.allKeep": "Keep all mine",
   "ui.settings.repos": "Source code",
-  "ui.settings.openRepo": "Open in browser"
+  "ui.settings.openRepo": "Open in browser",
+  "cli.error.download_damaged": "The Bonfire package failed its check: contents differ from the export (modified or damaged), so it can't be imported",
+  "cli.out.download_modified": "Note: exported by Bonfire but the check failed (possibly edited by hand or mixed with other files); importing as an ordinary downloaded save",
+  "cli.out.download_unverifiable": "Note: has Bonfire markings but no export manifest to check against; importing as an ordinary downloaded save",
+  "ui.download.damagedTitle": "The Bonfire package failed its check",
+  "ui.download.damagedHint": "Its contents differ from the export: it was modified or the download is incomplete. A Bonfire package uses Bonfire's own storage format and can't be imported as plain save files. Ask the sharer to export it again, or download it again.",
+  "ui.download.modifiedTitle": "Check failed: importing as an ordinary downloaded save",
+  "ui.download.modifiedHint": "This was exported by Bonfire, but its contents differ from the export: it may have been edited by hand or mixed with other save files. It's handled as an ordinary downloaded save below. Check where each file goes, and back up your current save first.",
+  "ui.download.unverifiableTitle": "Can't be checked: importing as an ordinary downloaded save",
+  "ui.download.unverifiableHint": "It has Bonfire markings but no export manifest (bonfire-export.json), so there's no way to tell whether it was changed. It's handled as an ordinary downloaded save below. Check where each file goes.",
+  "ui.download.modifiedImportHint": "This save has a Bonfire export manifest, but its contents differ from the export: it may have been edited by hand or mixed with other save files, so it can't be imported as a Bonfire export. Use “Import a downloaded save” to import it as plain save files; you'll confirm where each file goes."
 }

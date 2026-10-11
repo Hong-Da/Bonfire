@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::app::App;
 use crate::error::{AppError, Result};
+use crate::integrity::Check;
 use crate::util::{host_name, now_compact, now_local_rfc3339};
 
 /// 来源的类型。
@@ -33,6 +34,18 @@ pub enum DownloadKind {
     NeedsExtract,
     /// 加密的 zip：需要解压密码。
     NeedsPassword,
+    /// 篝火包校验不通过（被修改过或已损坏）：包内是篝火的对象库格式，不能当普通存档导入。
+    Damaged,
+}
+
+/// 按普通下载的存档处理时的提示（U-48）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DownloadNotice {
+    /// 是篝火导出的存档，但校验不通过：内容与导出时不一致，可能被手动修改过或混入了其他文件。
+    Modified,
+    /// 带篝火的标识（readme.txt 或篝火包的说明），但缺少导出说明，无法核对。
+    Unverifiable,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,6 +92,8 @@ pub struct DownloadPreview {
     pub current_files: usize,
     /// 当前存档中已有的文件（清单路径，小写）：界面据此标出“覆盖现有文件 / 新增文件”，改了位置也能实时判断。
     pub existing: Vec<String>,
+    /// 带篝火标识却没能按篝火导出的导入时的提示。
+    pub notice: Option<DownloadNotice>,
 }
 
 /// 导入时的选择：每个文件放到哪里（不导入的不列出）。
@@ -125,19 +140,36 @@ fn lower(s: &str) -> String {
 }
 
 /// 把来源（文件夹或 zip）展开为 (相对路径, 文件)。
+type Gathered = (Vec<(String, PathBuf)>, Option<DownloadNotice>);
+
 fn gather(
     src: &Path,
     staging: &Path,
     password: Option<&str>,
-) -> Result<std::result::Result<Vec<(String, PathBuf)>, DownloadKind>> {
+) -> Result<std::result::Result<Gathered, DownloadKind>> {
     let meta = std::fs::metadata(src).map_err(|e| AppError::io(src, e))?;
     let ext = src
         .extension()
         .map(|e| e.to_string_lossy().to_lowercase())
         .unwrap_or_default();
     if !meta.is_dir() {
+        // 篝火包（历史包 / 合集包，也可能改成了 .zip）：校验通过或早期导出的按篝火包导入；
+        // 校验不通过不能导入（U-48）。
+        if matches!(ext.as_str(), "bonfire" | "zip") {
+            let check = std::fs::File::open(src)
+                .ok()
+                .and_then(|f| zip::ZipArchive::new(f).ok())
+                .map(|mut z| crate::transfer::package_check(&mut z, src))
+                .transpose()?
+                .flatten();
+            match check {
+                Some(Check::Verified | Check::Unsigned) => return Ok(Err(DownloadKind::Bonfire)),
+                Some(Check::Modified) => return Ok(Err(DownloadKind::Damaged)),
+                None if ext == "bonfire" => return Ok(Err(DownloadKind::Damaged)),
+                None => {}
+            }
+        }
         match ext.as_str() {
-            "bonfire" => return Ok(Err(DownloadKind::Bonfire)),
             "tar" | "gz" | "tgz" | "xz" | "bz2" => {
                 return Ok(Err(DownloadKind::NeedsExtract));
             }
@@ -160,21 +192,47 @@ fn gather(
     };
     let mut out = Vec::new();
     collect(&root, &root, staging, password, 0, &mut out)?;
-    // 篝火导出的：带篝火的说明文件，或 readme.txt 中有篝火标记（U-47）。
-    if out.iter().any(|(rel, abs)| {
-        let n = rel.rsplit('/').next().unwrap_or(rel);
-        n == crate::transfer::EXPORT_MANIFEST
-            || n == "bundle.json"
-            || n == "collection.json"
-            || (n.eq_ignore_ascii_case(crate::branding::README_NAME)
-                && std::fs::read(abs)
-                    .map(|b| crate::branding::is_bonfire_readme(&String::from_utf8_lossy(&b)))
-                    .unwrap_or(false))
-    }) {
-        return Ok(Err(DownloadKind::Bonfire));
+    // 篝火导出的存档文件：读出说明并核对校验值（U-48）。通过（或早期导出的没有校验值）才按篝火导出的导入；
+    // 不通过的按普通下载的存档处理，并提示可能被手动修改过。
+    let name_of = |rel: &str| rel.rsplit('/').next().unwrap_or(rel).to_string();
+    let mut notice = None;
+    for (rel, abs) in &out {
+        if name_of(rel) != crate::transfer::EXPORT_MANIFEST {
+            continue;
+        }
+        let Some(dir) = abs.parent() else { continue };
+        let Some(m) = crate::transfer::read_files_manifest(dir) else {
+            continue;
+        };
+        // 解压到临时文件夹时，嵌套压缩包解在其中的 nested-* 下，不算导出的内容。
+        let at_staging = dir == staging;
+        let skip = |r: &str| at_staging && !r.contains('/') && r.starts_with("nested-");
+        match crate::transfer::files_check(dir, &m, &skip)? {
+            Check::Verified | Check::Unsigned => return Ok(Err(DownloadKind::Bonfire)),
+            Check::Modified => notice = Some(DownloadNotice::Modified),
+        }
     }
+    // 只有篝火的标识（readme.txt 标记、解压出的篝火包说明），没有可核对的导出说明。
+    let is_marker = |rel: &str, abs: &Path| -> bool {
+        let n = name_of(rel);
+        let read = || std::fs::read(abs).unwrap_or_default();
+        (n.eq_ignore_ascii_case(crate::branding::README_NAME)
+            && crate::branding::is_bonfire_readme(&String::from_utf8_lossy(&read())))
+            || ((n == "bundle.json" || n == "collection.json")
+                && crate::transfer::is_package_manifest(&read()))
+    };
+    if notice.is_none() && out.iter().any(|(rel, abs)| is_marker(rel, abs)) {
+        notice = Some(DownloadNotice::Unverifiable);
+    }
+    // 按普通存档处理时，篝火的说明文件不当存档导入。
+    out.retain(|(rel, abs)| {
+        let n = name_of(rel);
+        n != crate::transfer::EXPORT_MANIFEST
+            && !((n == "bundle.json" || n == "collection.json")
+                && crate::transfer::is_package_manifest(&std::fs::read(abs).unwrap_or_default()))
+    });
     out.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(Ok(out))
+    Ok(Ok((out, notice)))
 }
 
 /// 递归收集文件；zip 里的 zip 再解开（最多两层）。
@@ -570,7 +628,7 @@ impl App {
                 path: l.resolved_path.clone(),
             })
             .collect();
-        let files = match gather(src, staging, password)? {
+        let (files, notice) = match gather(src, staging, password)? {
             Ok(f) => f,
             Err(kind) => {
                 return Ok(DownloadPreview {
@@ -581,6 +639,7 @@ impl App {
                     mode: DownloadMode::Overlay,
                     current_files: 0,
                     existing: Vec::new(),
+                    notice: None,
                 });
             }
         };
@@ -631,6 +690,7 @@ impl App {
                 v.sort();
                 v
             },
+            notice,
         })
     }
 
@@ -663,13 +723,18 @@ impl App {
     ) -> Result<DownloadReport> {
         let locations = self.locations(&game.id)?;
         let files = match gather(src, staging, password)? {
-            Ok(f) => f,
+            Ok((f, _)) => f,
             Err(DownloadKind::NeedsPassword) => {
                 return Err(AppError::Invalid("这个压缩包需要解压密码".into()));
             }
             Err(DownloadKind::NeedsExtract) => {
                 return Err(AppError::Invalid(
                     "请先用解压工具解压，再导入解压出来的文件夹".into(),
+                ));
+            }
+            Err(DownloadKind::Damaged) => {
+                return Err(AppError::Invalid(
+                    "篝火包校验不通过：内容与导出时不一致，可能被修改过或已损坏，不能导入".into(),
                 ));
             }
             Err(_) => {
@@ -949,10 +1014,21 @@ mod tests {
         );
         let bf = env.dir.path().join("exported");
         std::fs::create_dir_all(&bf).unwrap();
+        // 名字相同但不是篝火的说明：按普通下载处理，说明文件不当存档（U-48）。
         std::fs::write(bf.join(crate::transfer::EXPORT_MANIFEST), b"{}").unwrap();
+        std::fs::write(bf.join("bundle.json"), br#"{"format":"other"}"#).unwrap();
+        let p = env.app.inspect_download(&g, &bf, None).unwrap();
+        assert_eq!((p.kind, p.notice), (DownloadKind::Download, None));
         assert_eq!(
-            env.app.inspect_download(&g, &bf, None).unwrap().kind,
-            DownloadKind::Bonfire
+            p.files.iter().map(|f| f.rel.as_str()).collect::<Vec<_>>(),
+            vec!["bundle.json"]
+        );
+        // 损坏的 .bonfire 不能导入。
+        let broken = env.dir.path().join("broken.bonfire");
+        std::fs::write(&broken, b"not a zip").unwrap();
+        assert_eq!(
+            env.app.inspect_download(&g, &broken, None).unwrap().kind,
+            DownloadKind::Damaged
         );
     }
 

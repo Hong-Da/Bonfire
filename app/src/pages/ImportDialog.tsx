@@ -33,8 +33,11 @@ export default function ImportDialog({ hist, gameName, onClose, onDone, onUseDow
   const [branchName, setBranchName] = useState("");
   const [comment, setComment] = useState("");
 
+  // 篝火导出的存档校验不通过（U-48）：引导改用“导入下载的存档”。
+  const [modified, setModified] = useState<string | null>(null);
   const choose = async (what: "bundle" | "zip" | "folder") => {
     setError(null);
+    setModified(null);
     const path =
       what === "folder"
         ? await open({ directory: true, title: t("ui.transfer.pickFolder") })
@@ -46,7 +49,9 @@ export default function ImportDialog({ hist, gameName, onClose, onDone, onUseDow
       else setLoaded({ kind: "files", path, preview: await api.inspectFiles(gameId, path) });
     } catch (e) {
       setLoaded(null);
-      setError(errorMessage(e));
+      const msg = errorMessage(e);
+      if (what !== "bundle" && msg.includes("校验不通过") && onUseDownload) setModified(path);
+      else setError(msg);
     } finally {
       setBusy(false);
     }
@@ -149,6 +154,15 @@ export default function ImportDialog({ hist, gameName, onClose, onDone, onUseDow
           </div>
           {!loaded && !error && <p className="hint">{t("ui.transfer.importIntro")}</p>}
           {error && <div className="callout error">{error}</div>}
+          {modified && onUseDownload && (
+            <NotBonfireHint
+              modified
+              onUse={() => {
+                onUseDownload(modified);
+                onClose();
+              }}
+            />
+          )}
           {loaded && <p className="source-path" title={loaded.path}>{loaded.path}</p>}
           {/* 不是篝火导出的存档（没有导出说明、对不上存档位置）：提示改用“导入下载的存档”。 */}
           {loaded?.kind === "files" && !loaded.preview.manifest && loaded.preview.unmapped.length > 0 && onUseDownload && (

@@ -2083,6 +2083,17 @@ fn import_download(
                 out.t("cli.error.download_bonfire").into(),
             ));
         }
+        DownloadKind::Damaged => {
+            return Err(AppError::Invalid(
+                out.t("cli.error.download_damaged").into(),
+            ));
+        }
+    }
+    if let Some(n) = p.notice {
+        out.line(out.t(match n {
+            bonfire_app::downloads::DownloadNotice::Modified => "cli.out.download_modified",
+            bonfire_app::downloads::DownloadNotice::Unverifiable => "cli.out.download_unverifiable",
+        }));
     }
     let mapping: Vec<(String, String)> = p
         .files

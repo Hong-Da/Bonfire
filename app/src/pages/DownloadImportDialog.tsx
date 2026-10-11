@@ -5,7 +5,7 @@ import { api, errorMessage } from "../api";
 import { Icon, Modal, displayName } from "../components/ui";
 import { bytes } from "../lib/format";
 import { useStore } from "../store";
-import type { DownloadMode, DownloadPreview } from "../types";
+import type { DownloadMode, DownloadPreview, DownloadNotice } from "../types";
 
 type Step = "pick" | "map" | "finish";
 
@@ -251,6 +251,15 @@ export default function DownloadImportDialog({
               )}
             </div>
           )}
+          {preview?.kind === "damaged" && (
+            <div className="dl-guide damaged" role="alert">
+              <h3>
+                <Icon name="shield" size={16} /> {t("ui.download.damagedTitle")}
+              </h3>
+              <p>{t("ui.download.damagedHint")}</p>
+            </div>
+          )}
+          {preview?.kind === "download" && preview.notice && <CheckNotice notice={preview.notice} />}
           {preview?.kind === "download" && saveFiles.length === 0 && (
             <div className="dl-guide">
               <h3>{t("ui.download.emptyTitle")}</h3>
@@ -290,6 +299,7 @@ export default function DownloadImportDialog({
             </div>
           )}
           {placed.length === 0 && <ManualReplaceGuide gameId={gameId} locations={locs.map((l) => l.ord)} />}
+          {preview.notice && <CheckNotice notice={preview.notice} compact />}
           {overwrites.length > 0 && (
             <div className="dl-bulk" role="group" aria-label={t("ui.download.bulkTitle")}>
               <span className="muted">{t("ui.download.bulkTitle", { n: overwrites.length })}</span>
@@ -418,13 +428,24 @@ export default function DownloadImportDialog({
   );
 }
 
-/** 原来的导入中选到的不是篝火导出的存档：提示并一键改用“导入下载的存档”（U-42g）。 */
-export function NotBonfireHint({ onUse }: { onUse: () => void }) {
+/** 带篝火标识却按普通下载的存档处理时的提示（U-48）。 */
+function CheckNotice({ notice, compact }: { notice: DownloadNotice; compact?: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <div className={`callout warn dl-check${compact ? " compact" : ""}`} role="note">
+      <b>{t(notice === "modified" ? "ui.download.modifiedTitle" : "ui.download.unverifiableTitle")}</b>
+      {!compact && <p>{t(notice === "modified" ? "ui.download.modifiedHint" : "ui.download.unverifiableHint")}</p>}
+    </div>
+  );
+}
+
+/** 原来的导入中选到的不是篝火导出的存档（或校验不通过的）：提示并一键改用“导入下载的存档”（U-42g、U-48）。 */
+export function NotBonfireHint({ onUse, modified }: { onUse: () => void; modified?: boolean }) {
   const { t } = useTranslation();
   return (
     <div className="dl-guide not-bonfire" role="note">
-      <h3>{t("ui.download.notBonfireTitle")}</h3>
-      <p>{t("ui.download.notBonfireHint")}</p>
+      <h3>{t(modified ? "ui.download.modifiedTitle" : "ui.download.notBonfireTitle")}</h3>
+      <p>{t(modified ? "ui.download.modifiedImportHint" : "ui.download.notBonfireHint")}</p>
       <button className="btn primary" onClick={onUse}>
         <Icon name="import" size={16} /> {t("ui.download.notBonfireUse")}
       </button>
