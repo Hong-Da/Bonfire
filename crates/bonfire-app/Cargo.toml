@@ -28,6 +28,7 @@ zstd.workspace = true
 rayon.workspace = true
 getrandom.workspace = true
 walkdir.workspace = true
+ureq.workspace = true
 trash.workspace = true
 
 [target.'cfg(windows)'.dependencies]

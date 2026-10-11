@@ -206,3 +206,185 @@ fn shots_only_and_secrets_and_removal() {
     assert!(env.app.sync_secret(&t.id).is_none());
     assert!(env.app.sync_status().is_empty());
 }
+
+/// 测试用的最小 WebDAV 服务：PUT、GET、DELETE、MKCOL、PROPFIND（Depth 0 / 1），Basic 认证。
+pub(crate) mod mock_dav {
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Default)]
+    pub struct Store {
+        pub files: BTreeMap<String, Vec<u8>>,
+        pub dirs: BTreeSet<String>,
+    }
+
+    /// 启动服务，返回 (地址前缀，如 http://127.0.0.1:1234, 数据)。
+    pub fn start(auth: &'static str) -> (String, Arc<Mutex<Store>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let store = Arc::new(Mutex::new(Store::default()));
+        store.lock().unwrap().dirs.insert("/".into());
+        let s2 = store.clone();
+        std::thread::spawn(move || {
+            for conn in listener.incoming() {
+                let Ok(conn) = conn else { continue };
+                let store = s2.clone();
+                std::thread::spawn(move || {
+                    let mut reader = BufReader::new(conn.try_clone().unwrap());
+                    let mut out = conn;
+                    loop {
+                        let mut line = String::new();
+                        if reader.read_line(&mut line).unwrap_or(0) == 0 {
+                            return;
+                        }
+                        let mut parts = line.split_whitespace();
+                        let method = parts.next().unwrap_or("").to_string();
+                        let path = parts.next().unwrap_or("/").to_string();
+                        let mut len = 0usize;
+                        let mut depth = "0".to_string();
+                        let mut authed = false;
+                        loop {
+                            let mut h = String::new();
+                            reader.read_line(&mut h).unwrap();
+                            let h = h.trim_end();
+                            if h.is_empty() {
+                                break;
+                            }
+                            let (k, v) = h.split_once(':').unwrap_or((h, ""));
+                            match k.to_ascii_lowercase().as_str() {
+                                "content-length" => len = v.trim().parse().unwrap_or(0),
+                                "depth" => depth = v.trim().to_string(),
+                                "authorization" => authed = v.trim() == auth,
+                                _ => {}
+                            }
+                        }
+                        let mut body = vec![0; len];
+                        reader.read_exact(&mut body).unwrap();
+                        let (status, resp) = if !authed {
+                            (401, Vec::new())
+                        } else {
+                            handle(&store, &method, &path, &depth, body)
+                        };
+                        let head = format!(
+                            "HTTP/1.1 {status} X\r\nContent-Length: {}\r\nContent-Type: application/xml\r\n\r\n",
+                            resp.len()
+                        );
+                        if out.write_all(head.as_bytes()).is_err() || out.write_all(&resp).is_err()
+                        {
+                            return;
+                        }
+                    }
+                });
+            }
+        });
+        (format!("http://{addr}"), store)
+    }
+
+    fn parent(p: &str) -> String {
+        let t = p.trim_end_matches('/');
+        match t.rfind('/') {
+            Some(i) => t[..=i].to_string(),
+            None => "/".into(),
+        }
+    }
+
+    fn handle(
+        store: &Arc<Mutex<Store>>,
+        method: &str,
+        path: &str,
+        depth: &str,
+        body: Vec<u8>,
+    ) -> (u16, Vec<u8>) {
+        let mut s = store.lock().unwrap();
+        match method {
+            "MKCOL" => {
+                let p = format!("{}/", path.trim_end_matches('/'));
+                if s.dirs.contains(&p) {
+                    (405, vec![])
+                } else if !s.dirs.contains(&parent(&p)) {
+                    (409, vec![])
+                } else {
+                    s.dirs.insert(p);
+                    (201, vec![])
+                }
+            }
+            "PUT" => {
+                if !s.dirs.contains(&parent(path)) {
+                    return (409, vec![]);
+                }
+                s.files.insert(path.to_string(), body);
+                (201, vec![])
+            }
+            "GET" => match s.files.get(path) {
+                Some(b) => (200, b.clone()),
+                None => (404, vec![]),
+            },
+            "DELETE" => {
+                s.files.remove(path);
+                (204, vec![])
+            }
+            "PROPFIND" => {
+                let dir = format!("{}/", path.trim_end_matches('/'));
+                if !s.dirs.contains(&dir) {
+                    return (404, vec![]);
+                }
+                let mut xml =
+                    String::from(r#"<?xml version="1.0"?><D:multistatus xmlns:D="DAV:">"#);
+                xml += &format!(
+                    "<D:response><D:href>{dir}</D:href><D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype></D:prop></D:propstat></D:response>"
+                );
+                if depth == "1" {
+                    for d in s.dirs.iter().filter(|d| *d != &dir && parent(d) == dir) {
+                        xml += &format!(
+                            "<D:response><D:href>{d}</D:href><D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype></D:prop></D:propstat></D:response>"
+                        );
+                    }
+                    for (f, b) in s.files.iter().filter(|(f, _)| parent(f) == dir) {
+                        xml += &format!(
+                            "<D:response><D:href>{f}</D:href><D:propstat><D:prop><D:resourcetype/><D:getcontentlength>{}</D:getcontentlength></D:prop></D:propstat></D:response>",
+                            b.len()
+                        );
+                    }
+                }
+                xml += "</D:multistatus>";
+                (207, xml.into_bytes())
+            }
+            _ => (405, vec![]),
+        }
+    }
+}
+
+#[test]
+fn webdav_sync_and_restore() {
+    let (url, store) = mock_dav::start("Basic dXNlcjpwYXNz");
+    let mut env = Env::new();
+    env.write("存档 1.sav", b"one");
+    let g = env.add_game("空洞骑士");
+    backup(&mut env, &g);
+    let mut t = SyncTarget::new(SyncKind::Webdav, "坚果云", &format!("{url}/dav/篝火 备份"));
+    t.user = "user".into();
+    let t = env.app.save_sync_target(t.clone(), Some("wrong")).unwrap();
+    assert!(env.app.sync_test(&t).is_err(), "密码不对");
+    env.app.set_sync_secret(&t.id, "pass").unwrap();
+    assert!(env.app.sync_test(&t).unwrap().contains("可以写入"));
+
+    let run = env.app.sync_push(&t.id, &mut |_, _| {}).unwrap();
+    assert!(run.uploaded > 3 && run.error.is_none());
+    {
+        let s = store.lock().unwrap();
+        assert!(s.files.keys().any(|k| k.ends_with("/config.toml")));
+        assert!(
+            s.files
+                .keys()
+                .all(|k| k.starts_with("/dav/%E7%AF%9D%E7%81%AB%20%E5%A4%87%E4%BB%BD/")),
+            "中文路径已编码"
+        );
+    }
+    let dest = env.dir.path().join("from-dav");
+    let n = env.app.sync_restore(&t.id, &dest).unwrap();
+    assert_eq!(n, store.lock().unwrap().files.len());
+    let restored = bonfire_core::Repo::open(&dest).unwrap();
+    assert!(bonfire_core::fsck::fsck(&restored, true).unwrap().ok());
+}

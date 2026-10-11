@@ -12,6 +12,7 @@
 mod content;
 mod folder;
 pub mod target;
+mod webdav;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -269,6 +270,11 @@ impl App {
     pub fn sync_remote(&self, t: &SyncTarget) -> Result<Box<dyn Remote>> {
         match t.kind {
             SyncKind::Folder => Ok(Box::new(folder::Folder::new(&t.url))),
+            SyncKind::Webdav => Ok(Box::new(webdav::WebDav::new(
+                &t.url,
+                &t.user,
+                self.sync_secret(&t.id).as_deref(),
+            )?)),
             _ => Err(AppError::Invalid(format!(
                 "暂不支持的同步目标：{:?}",
                 t.kind

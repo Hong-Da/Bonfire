@@ -510,6 +510,7 @@ dependencies = [
  "tracing-subscriber",
  "trash",
  "unrar",
+ "ureq",
  "walkdir",
  "windows-sys 0.61.2",
  "zip",
