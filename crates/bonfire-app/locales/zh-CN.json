@@ -1161,5 +1161,11 @@
   "ui.diff.missingBody0": "可能在游戏或 Steam 中删掉了。",
   "ui.diff.newNone": "磁盘上没有未收集的新截图",
   "ui.diff.ignoredNone": "没有被忽略的截图",
-  "ui.diff.writeBackHome": "原文件夹不在本机的，会写到：{dir}"
+  "ui.diff.writeBackHome": "原文件夹不在本机的，会写到：{dir}",
+  "ui.auto.quick.checkHead": "检查存档变化",
+  "ui.auto.quick.checkEvery": "每 {n} 分钟检查一次",
+  "ui.auto.quick.checkOff": "先开启“存档变化后自动备份”",
+  "ui.auto.quick.changeEvery": "变化后（每 {n} 分钟检查）",
+  "ui.settings.autoCheckSuffix": "分钟检查一次",
+  "ui.settings.autoQuietSuffix": "分钟后再备份"
 }

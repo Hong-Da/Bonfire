@@ -22,6 +22,6 @@ export function scheduleText(t: TFunction, a: Pick<AutoBackupConfig, "schedule" 
 export function autoSummary(t: TFunction, a: AutoBackupConfig): string {
   const parts: string[] = [];
   if (a.schedule !== "off") parts.push(scheduleText(t, a));
-  if (a.on_change) parts.push(t("ui.auto.quick.changeShort"));
+  if (a.on_change) parts.push(t("ui.auto.quick.changeEvery", { n: a.check_minutes }));
   return parts.length ? t("ui.auto.quick.on", { what: parts.join(" + ") }) : t("ui.auto.quick.allOff");
 }

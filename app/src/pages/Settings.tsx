@@ -211,20 +211,18 @@ export default function Settings() {
                   <input type="checkbox" className="check" checked={cfg.auto_backup.on_change} onChange={(e) => update((c) => (c.auto_backup.on_change = e.target.checked))} />
                   {t("ui.settings.autoChangeHint")}
                 </label>
-                {cfg.auto_backup.on_change && (
-                  <div className="inline" style={{ marginTop: 8 }}>
-                    <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      {t("ui.settings.autoCheckEvery")}
-                      <input className="field num" type="number" min={1} max={120} style={{ width: 70 }} value={cfg.auto_backup.check_minutes} onChange={(e) => update((c) => (c.auto_backup.check_minutes = Number(e.target.value)))} aria-label={t("ui.settings.autoCheckEvery")} />
-                      {t("ui.settings.minutes")}
-                    </label>
-                    <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      {t("ui.settings.autoQuiet")}
-                      <input className="field num" type="number" min={0} max={60} style={{ width: 70 }} value={cfg.auto_backup.quiet_minutes} onChange={(e) => update((c) => (c.auto_backup.quiet_minutes = Number(e.target.value)))} aria-label={t("ui.settings.autoQuiet")} />
-                      {t("ui.settings.minutes")}
-                    </label>
-                  </div>
-                )}
+                <div className={`inline auto-check${cfg.auto_backup.on_change ? "" : " off"}`} style={{ marginTop: 8 }}>
+                  <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {t("ui.settings.autoCheckEvery")}
+                    <input className="field num" type="number" min={1} max={120} style={{ width: 70 }} disabled={!cfg.auto_backup.on_change} value={cfg.auto_backup.check_minutes} onChange={(e) => update((c) => (c.auto_backup.check_minutes = Number(e.target.value)))} aria-label={t("ui.settings.autoCheckEvery")} />
+                    {t("ui.settings.autoCheckSuffix")}
+                  </label>
+                  <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {t("ui.settings.autoQuiet")}
+                    <input className="field num" type="number" min={0} max={60} style={{ width: 70 }} disabled={!cfg.auto_backup.on_change} value={cfg.auto_backup.quiet_minutes} onChange={(e) => update((c) => (c.auto_backup.quiet_minutes = Number(e.target.value)))} aria-label={t("ui.settings.autoQuiet")} />
+                    {t("ui.settings.autoQuietSuffix")}
+                  </label>
+                </div>
               </div>
             </div>
             <p className="hint">{t("ui.settings.autoHint")}</p>

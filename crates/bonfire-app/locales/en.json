@@ -885,7 +885,7 @@
   "ui.settings.autoChange": "Back up when saves change",
   "ui.settings.autoChangeHint": "Check saves regularly and back up once a change is found and the game has stopped writing (like backing up right after the game saves).",
   "ui.settings.autoCheckEvery": "Check every",
-  "ui.settings.autoQuiet": "after saves are quiet for",
+  "ui.settings.autoQuiet": "After saves stop changing for",
   "ui.settings.minutes": "min",
   "ui.settings.autoHint": "Runs while Bonfire is running (including in the tray). Only games that changed and were backed up manually at least once are backed up; new screenshots are collected too. Snapshots made this way are labeled \"Scheduled\" / \"Auto\" in the branch graph.",
   "ui.settings.autoLastScheduled": "Last scheduled backup: {when}",
@@ -1161,5 +1161,11 @@
   "ui.diff.missingBody0": "They may have been deleted in the game or Steam.",
   "ui.diff.newNone": "No new screenshots on disk",
   "ui.diff.ignoredNone": "No ignored screenshots",
-  "ui.diff.writeBackHome": "Those whose folder isn't on this PC go to: {dir}"
+  "ui.diff.writeBackHome": "Those whose folder isn't on this PC go to: {dir}",
+  "ui.auto.quick.checkHead": "Check saves for changes",
+  "ui.auto.quick.checkEvery": "Every {n} min",
+  "ui.auto.quick.checkOff": "Turn on backing up after saves change first",
+  "ui.auto.quick.changeEvery": "on change (every {n} min)",
+  "ui.settings.autoCheckSuffix": "minutes",
+  "ui.settings.autoQuietSuffix": "minutes, back up"
 }

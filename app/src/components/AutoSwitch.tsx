@@ -65,6 +65,17 @@ export default function AutoSwitch() {
         sched("hours"),
         "divider",
         { label: t("ui.settings.autoChange"), hint: t("ui.settings.autoChangeHint"), checked: a.on_change, disabled: busy, onClick: () => void apply({ on_change: !a.on_change }) },
+        // 检查存档变化的间隔：常用几档，配置中是其他值时也列出。
+        { label: <b className="menu-head">{t("ui.auto.quick.checkHead")}</b>, onClick: () => {}, disabled: true },
+        ...[...new Set([1, 5, 15, 30, a.check_minutes])]
+          .sort((x, y) => x - y)
+          .map((n) => ({
+            label: t("ui.auto.quick.checkEvery", { n }),
+            checked: a.check_minutes === n,
+            disabled: busy || !a.on_change,
+            hint: a.on_change ? undefined : t("ui.auto.quick.checkOff"),
+            onClick: () => void apply({ check_minutes: n }),
+          })),
         "divider",
         { label: t("ui.auto.quick.more"), onClick: () => store.go({ name: "settings" }) },
       ]}

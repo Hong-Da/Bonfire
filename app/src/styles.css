@@ -871,3 +871,6 @@ button.link:hover { text-decoration: underline; }
 .btn .flip { display: inline-flex; transform: scaleX(-1); }
 .btn.step-prev { padding-left: 10px; }
 .btn.step-next { padding-right: 10px; }
+
+/* 设置页：存档变化后自动备份未开启时，间隔设置变淡 */
+.auto-check.off { opacity: 0.55; }

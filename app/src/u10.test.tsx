@@ -125,6 +125,12 @@ describe("游戏库：管理方式", () => {
     fireEvent.click(screen.getByRole("menuitemradio", { name: /存档变化后自动备份/ }));
     await waitFor(() => expect(api.saveSettings).toHaveBeenCalledTimes(2));
     expect(api.saveSettings.mock.calls[1][0].auto_backup).toMatchObject({ schedule: "daily", on_change: true });
+    // 检查间隔：开启变化后自动备份后可选，按钮上显示。
+    await waitFor(() => expect(screen.getByRole("button", { name: /自动备份：快速设置/ })).toHaveTextContent("变化后（每 5 分钟检查）"));
+    fireEvent.click(screen.getByRole("button", { name: /自动备份：快速设置/ }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "每 15 分钟检查一次" }));
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalledTimes(3));
+    expect(api.saveSettings.mock.calls[2][0].auto_backup).toMatchObject({ on_change: true, check_minutes: 15 });
   });
 });
 
