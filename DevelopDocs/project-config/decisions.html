@@ -24,9 +24,15 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 117 项，更新于 2026-10-11 00:04。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 118 项，更新于 2026-10-11 00:10。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>68 项</small></h2>
+<section id="s-0"><h2>开发<small>69 项</small></h2>
+      <article id="U-39a">
+        <header><code>U-39a</code><h3>改变了勾选，重新打开后没有记住</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">记住勾选的游戏，重新打开时恢复；从没保存过时按默认勾选有更新与未备份的（推荐） <b>✓ 采用</b></li><li class="">每次按默认重新勾选</li></ul>
+        <p class="reason"><span>理由</span>用户要求；与筛选一样由后台写盘。</p><p class="impact"><span>影响</span>之后新出现变化的游戏不会自动勾上，需要时用“全选”或筛选“有更新”后勾选。</p>
+        <footer>2026-10-11</footer>
+      </article>
       <article id="U-38a">
         <header><code>U-38a</code><h3>修改过筛选条件，重新打开后没有记住</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">界面上的选择改由后台立即写入数据目录的 ui-state.json，启动时先读入再显示；浏览器存储只作备份（推荐） <b>✓ 采用</b></li><li class="">继续只用浏览器存储</li></ul>

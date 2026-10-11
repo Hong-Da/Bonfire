@@ -562,3 +562,21 @@ describe("U-38 界面状态由后台保存", () => {
     api.uiStateGet.mockResolvedValue({});
   });
 });
+
+describe("U-39 记住勾选的游戏", () => {
+  it("勾选变化时保存，重新加载游戏库时恢复；没有保存过时按默认勾选", async () => {
+    localStorage.removeItem("bonfire.library.selected");
+    seed([row({ id: "a", name: "Alpha", nameZh: null }), row({ id: "b", name: "Beta", nameZh: null, state: "up-to-date" })]);
+    useStore.getState().toggle("b");
+    expect(JSON.parse(localStorage.getItem("bonfire.library.selected") ?? "[]").sort()).toEqual(["a", "b"]);
+    expect(api.uiStateSet).toHaveBeenCalledWith("bonfire.library.selected", expect.any(String));
+    useStore.getState().toggle("a");
+    api.loadLibrary.mockResolvedValue([row({ id: "a", name: "Alpha", nameZh: null }), row({ id: "b", name: "Beta", nameZh: null, state: "up-to-date" })]);
+    useStore.setState({ selected: new Set(), loading: false });
+    localStorage.setItem("bonfire.library.selected", JSON.stringify(["b", "gone"]));
+    resetUiStateForTest();
+    await useStore.getState().loadLibrary(false);
+    expect(useStore.getState().selected).toEqual(new Set(["b"]));
+    localStorage.removeItem("bonfire.library.selected");
+  });
+});

@@ -112,6 +112,18 @@ function saveFilters(s: SavedFilters) {
 
 const savedFilters = readFilters();
 
+/** 游戏库中勾选的游戏也记住（U-39）：重新打开时恢复；从没保存过时按默认勾选有更新与未备份的游戏。 */
+const SELECTION_KEY = "bonfire.library.selected";
+
+export function readSelection(): string[] | null {
+  try {
+    const v = JSON.parse(prefGet(SELECTION_KEY) ?? "null");
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 默认勾选“有更新”和“未备份”的游戏（文档 8.1 第 1 步）。 */
 export function defaultSelection(rows: GameRow[]): Set<string> {
   return new Set(rows.filter((r) => r.state !== "up-to-date").map((r) => r.id));
@@ -198,7 +210,9 @@ export const useStore = create<Store>((set, get) => ({
       const map = Object.fromEntries(rows.map((r) => [r.id, r]));
       // 用户在加载过程中已经勾选过时保留其选择；否则默认勾选有更新与未备份的游戏。
       const keep = get().selected.size > 0 && [...get().selected].every((id) => map[id]);
-      set({ rows: map, order: sortIds(map), selected: keep ? get().selected : defaultSelection(rows), fresh: noteGames(rows.map((r) => r.id)) });
+      const saved = readSelection();
+      const selected = keep ? get().selected : saved ? new Set(saved.filter((id) => map[id])) : defaultSelection(rows);
+      set({ rows: map, order: sortIds(map), selected, fresh: noteGames(rows.map((r) => r.id)) });
     } catch (e) {
       get().toast("error", errorMessage(e));
     } finally {
@@ -296,3 +310,8 @@ export const useStore = create<Store>((set, get) => ({
 function persistFilters(s: SavedFilters) {
   saveFilters({ stateFilter: s.stateFilter, modeFilter: s.modeFilter, platformFilter: s.platformFilter, profileFilter: s.profileFilter, newOnly: s.newOnly });
 }
+
+// 勾选变化时保存（加载游戏库之前的空勾选不保存）。
+useStore.subscribe((s, prev) => {
+  if (s.selected !== prev.selected && Object.keys(s.rows).length > 0) prefSet(SELECTION_KEY, JSON.stringify([...s.selected]));
+});
