@@ -448,15 +448,16 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 /* ---------- 设置与向导 ---------- */
 
 .page { flex: 1; overflow: auto; padding: 16px 24px 48px; }
-.settings { max-width: 780px; display: grid; gap: 14px; }
-.settings section { padding: 16px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+/* 设置页铺满宽度：窗口够宽时分两栏（每栏至少 560 像素），各分组不跨栏 */
+.settings { columns: 2 560px; column-gap: 14px; }
+.settings section { padding: 16px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; break-inside: avoid; margin: 0 0 14px; }
 .settings h2 { font: 600 16px var(--font-sign); margin: 0 0 8px; }
 /* 设置行：左侧名称与右侧控件第一行对齐（多行说明时名称在顶部），说明文字与控件列左对齐 */
 .row { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; align-items: start; padding: 6px 0; }
 .row > label:first-child { color: var(--muted); padding-top: 6px; line-height: 20px; }
 .row .inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row .field { width: 100%; }
-.row .inline .field:not([style*="flex"]), .row select.field { width: auto; min-width: 180px; }
+.row .inline .field:not([style*="flex"]), .row select.field { width: auto; min-width: 180px; justify-self: start; }
 .row .inline .field.num { min-width: 0; }
 .opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; line-height: 20px; color: var(--ink); cursor: pointer; }
 .opt > .check { flex: none; margin: 2px 0 0; }

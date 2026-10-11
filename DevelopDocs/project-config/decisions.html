@@ -24,9 +24,15 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 104 项，更新于 2026-10-10 22:36。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 105 项，更新于 2026-10-10 22:40。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>55 项</small></h2>
+<section id="s-0"><h2>开发<small>56 项</small></h2>
+      <article id="U-26a">
+        <header><code>U-26a</code><h3>设置页面的右边有空白</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">铺满宽度：窗口够宽时分两栏（每栏至少 560 像素，分组不跨栏），较窄时单栏铺满（推荐） <b>✓ 采用</b></li><li class="">单栏铺满整个宽度</li></ul>
+        <p class="reason"><span>理由</span>原来最宽 780 像素，宽窗口右侧空出一半；单栏拉满时说明文字行过长、不易阅读。</p><p class="impact"><span>影响</span>分组按列从上到下排列；从“更多设置”跳转仍定位到对应分组。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-25c">
         <header><code>U-25c</code><h3>设置中有些元素没有对齐</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">名称与控件第一行对齐、复选框与文字顶端对齐、说明与控件列左对齐、下拉框按内容宽度；窄窗口改为上下排列（推荐） <b>✓ 采用</b></li><li class="">保持原样</li></ul>
