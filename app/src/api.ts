@@ -145,6 +145,7 @@ export const api = {
   setShotsOnly: (gameId: string, on: boolean) => invoke<void>("set_shots_only", { gameId, on }),
   shotCandidates: () => invoke<ShotCandidate[]>("shot_candidates"),
   addShotsGame: (key: string | null, name: string, dirs: string[]) => invoke<GameRecord>("add_shots_game", { key, name, dirs }),
+  assignUnsorted: (blobs: string[], gameId: string) => invoke<number>("assign_unsorted", { blobs, gameId }),
   autoStatus: () => invoke<AutoStatus>("auto_status"),
   setManageMode: (gameIds: string[], mode: ManageMode) => invoke<void>("set_manage_mode", { gameIds, mode }),
   gallery: () => invoke<GalleryView>("gallery"),

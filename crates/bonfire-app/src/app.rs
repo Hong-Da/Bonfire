@@ -122,6 +122,10 @@ impl App {
         if let Some(g) = self.index.game(key)? {
             return Ok(g);
         }
+        // “未识别的截图”相册（不是游戏库中的游戏，截图相关操作按游戏处理）。
+        if key == crate::unsorted::UNSORTED {
+            return Ok(crate::unsorted::unsorted_game());
+        }
         let lower = key.to_lowercase();
         let matches: Vec<GameRecord> = self
             .index

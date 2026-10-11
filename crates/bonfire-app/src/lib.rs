@@ -20,6 +20,7 @@ pub mod prune;
 pub mod restore;
 pub mod shots;
 pub mod transfer;
+pub mod unsorted;
 pub mod util;
 
 #[cfg(test)]

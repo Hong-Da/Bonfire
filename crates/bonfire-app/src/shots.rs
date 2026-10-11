@@ -241,7 +241,7 @@ impl App {
     }
 
     /// 游戏的各种名称（英文名、中文名），用于对应游戏栏截图的窗口标题。
-    fn shot_names(&self, game: &GameRecord) -> Result<Vec<String>> {
+    pub(crate) fn shot_names(&self, game: &GameRecord) -> Result<Vec<String>> {
         let mut names = vec![game.name.clone()];
         if let Some(z) = self.metadata(&game.id)?.and_then(|m| m.data.name_zh) {
             names.push(z);
@@ -330,6 +330,8 @@ impl App {
             report.disabled = true;
             return Ok(report);
         }
+        // 先把“未识别的截图”中属于这个游戏的移过来，不重复收集。
+        self.adopt_unsorted(game)?;
         let files = self.uncollected(game)?;
         self.collect_files(game, files, report)
     }
@@ -404,6 +406,12 @@ impl App {
                 Ok(r) => out.push(r),
                 Err(e) => tracing::warn!(game = %g.id, "收集截图失败：{e}"),
             }
+        }
+        // 对应不上任何游戏的截图放到“未识别的截图”。
+        match self.sync_unsorted(lock) {
+            Ok(r) if r.added > 0 => out.push(r),
+            Ok(_) => {}
+            Err(e) => tracing::warn!("收集未识别的截图失败：{e}"),
         }
         self.mark_shots_synced()?;
         Ok(out)

@@ -132,6 +132,28 @@ impl App {
                 platform: g.platform,
             });
         }
+        // “未识别的截图”相册。
+        let unsorted: Vec<ShotRecord> = self
+            .index
+            .shots_of(crate::unsorted::UNSORTED)?
+            .into_iter()
+            .filter(|s| !s.purged)
+            .collect();
+        if !unsorted.is_empty() {
+            let g = crate::unsorted::unsorted_game();
+            let (t, a): (Vec<ShotRecord>, Vec<ShotRecord>) =
+                unsorted.into_iter().partition(|s| s.deleted_at.is_some());
+            shots.extend(a);
+            trash.extend(t);
+            games.push(GalleryGame {
+                name_zh: None,
+                mode: crate::shots::ManageMode::Shots,
+                in_library: false,
+                id: g.id,
+                name: g.name,
+                platform: g.platform,
+            });
+        }
         let newest = |a: &ShotRecord, b: &ShotRecord| b.taken_at.cmp(&a.taken_at);
         shots.sort_by(newest);
         trash.sort_by(|a, b| b.deleted_at.cmp(&a.deleted_at).then(newest(a, b)));

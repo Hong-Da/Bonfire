@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ShotAutoSwitch from "../components/ShotAutoSwitch";
 import SelectSeg from "../components/SelectSeg";
+import AssignDialog from "../components/AssignDialog";
+
+/** “未识别的截图”相册的游戏 ID。 */
+const UNSORTED = "unsorted";
 import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
 import { Icon, Menu, displayName, type IconName } from "../components/ui";
@@ -102,6 +106,7 @@ export default function Gallery() {
   const [purgeAsk, setPurgeAsk] = useState<{ text: string; run: (originals: boolean) => void } | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [assign, setAssign] = useState<string[] | null>(null);
   const marquee = useMarquee(scroller, picked, setPicked);
 
   const reload = useCallback(async () => {
@@ -117,6 +122,7 @@ export default function Gallery() {
 
   const games = useMemo(() => new Map((data?.games ?? []).map((g) => [g.id, g])), [data]);
   const gameName = useCallback((id: string) => {
+    if (id === UNSORTED) return t("ui.unsorted.name");
     const g = games.get(id);
     return g ? displayName(g, i18n.language) : id;
   }, [games, i18n.language]);
@@ -403,8 +409,21 @@ export default function Gallery() {
                       {t("ui.gallery.openGame")}
                     </button>
                   )}
-                  {gameInfo && !gameInfo.inLibrary && <span className="tag">{t("ui.gallery.removed")}</span>}
+                  {gameInfo && !gameInfo.inLibrary && g.key !== UNSORTED && <span className="tag">{t("ui.gallery.removed")}</span>}
+                  {/* 未识别的截图：说明与“归到游戏…”（有勾选时只归勾选的）。 */}
+                  {g.key === UNSORTED && !inTrash && (
+                    <button
+                      className="btn small"
+                      onClick={() => {
+                        const own = g.shots.filter((s) => picked.has(keyOf(s)));
+                        setAssign((own.length > 0 ? own : g.shots).map((s) => s.blob));
+                      }}
+                    >
+                      {n > 0 ? t("ui.unsorted.assignPicked", { n }) : t("ui.unsorted.assignAll", { n: keys.length })}
+                    </button>
+                  )}
                 </h3>
+                {g.key === UNSORTED && !isFolded && <p className="hint unsorted-hint">{t("ui.unsorted.hint")}</p>}
                 {isFolded ? null : prefs.look === "list" ? (
                   <ul className="shot-list">
                     {g.shots.map((s) => {
@@ -512,6 +531,16 @@ export default function Gallery() {
           </>
         )}
       </div>
+      {assign && (
+        <AssignDialog
+          blobs={assign}
+          onClose={() => setAssign(null)}
+          onDone={() => {
+            setPicked(new Set());
+            void reload();
+          }}
+        />
+      )}
       {importOpen && <CollectionImportDialog onClose={() => setImportOpen(false)} onDone={() => void reload()} />}
       {purgeAsk && <PurgeDialog text={purgeAsk.text} onConfirm={purgeAsk.run} onClose={() => setPurgeAsk(null)} />}
       {!inTrash && viewing !== null && ordered[viewing] && (

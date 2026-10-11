@@ -195,6 +195,39 @@ pub fn shared_titles(dir: &Path, names: &[&str]) -> Vec<(String, usize)> {
     groups.into_values().collect()
 }
 
+/// 捕获文件夹中对应不上任何游戏的截图（不进入子文件夹）：标题与 `names` 都不对应，或文件名不是游戏栏格式。
+pub fn capture_unmatched(dir: &Path, names: &[&str]) -> Vec<ShotFile> {
+    let wanted = wanted_names(names);
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut out: Vec<ShotFile> = rd
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| is_image(p))
+        .filter(|p| {
+            let stem = p
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            parse_capture_name(&stem).is_none_or(|(t, _)| best_score(&t, &wanted) == 0)
+        })
+        .filter_map(|p| shot_file(p, ShotSource::Capture))
+        .collect();
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    out
+}
+
+/// 公用截图文件夹中对应不上任何游戏的截图（含子文件夹）。
+pub fn shared_unmatched(dir: &Path, names: &[&str]) -> Vec<ShotFile> {
+    let wanted = wanted_names(names);
+    shared_files(dir)
+        .into_iter()
+        .filter(|(_, titles)| titles_score(titles, &wanted) == 0)
+        .filter_map(|(p, _)| shot_file(p, ShotSource::Shared))
+        .collect()
+}
+
 /// 捕获文件夹中标题与游戏名对应的截图（不进入子文件夹）。`names` 为游戏的各种名称（英文名、中文名等）。
 pub fn capture_shots(dir: &Path, names: &[&str], others: &[&str]) -> Vec<ShotFile> {
     let wanted = wanted_names(names);

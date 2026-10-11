@@ -1185,5 +1185,19 @@
   "ui.gallery.fold": "折叠「{name}」",
   "ui.gallery.unfold": "展开「{name}」",
   "ui.gallery.foldAll": "全部折叠",
-  "ui.gallery.unfoldAll": "全部展开"
+  "ui.gallery.unfoldAll": "全部展开",
+  "ui.unsorted.name": "未识别的截图",
+  "ui.unsorted.hint": "这些截图没有对应到游戏库中的游戏，已照常备份。加入对应的游戏后会自动归过去，也可以手动归到某个游戏。",
+  "ui.unsorted.assignAll": "全部归到游戏…（{n}）",
+  "ui.unsorted.assignPicked": "把所选归到游戏…（{n}）",
+  "ui.unsorted.assignTitle": "把 {n} 张截图归到游戏",
+  "ui.unsorted.assignHint": "截图会移到这个游戏的相册中，原图不变。",
+  "ui.unsorted.toGame": "归到",
+  "ui.unsorted.newGame": "新建游戏（只管理截图）…",
+  "ui.unsorted.newName": "游戏名称",
+  "ui.unsorted.newNameHint": "与截图文件名中的游戏名一致时，以后的新截图会自动对应",
+  "ui.unsorted.assign": "归到这个游戏",
+  "ui.unsorted.assigned": "已把 {n} 张截图归到「{name}」",
+  "ui.unsorted.keep": "也备份没有识别出游戏的截图",
+  "ui.unsorted.keepRule": "游戏栏与公用截图文件夹中对应不上游戏库中任何游戏的截图，放在图库的“未识别的截图”中；之后加入对应的游戏时自动归过去，也可以在图库中手动归到游戏。"
 }

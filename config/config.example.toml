@@ -29,6 +29,8 @@ protect_local = true
 enabled = true
 # Windows 游戏栏 / Xbox 应用的“捕获”文件夹；不写时读取系统设置中的实际位置
 # captures_dir = 'D:\Videos\Captures'
+# 公用截图文件夹：多个游戏的截图放在一起（NVIDIA、ShareX 等的截图目录），按子文件夹名或文件名中的游戏名对应游戏
+# shared_dirs = ['D:\Screenshots']
 # 定时收集截图：off（只随备份收集）/ daily / weekly / hours；在托盘中运行时执行
 schedule = "off"
 # 每天 / 每周收集的时刻
@@ -37,6 +39,12 @@ at = "21:00"
 weekday = 7
 # schedule = "hours" 时每隔几小时收集（1–168）
 every_hours = 6
+# 备份未识别游戏的截图：对应不上游戏库中任何游戏的截图放在“未识别的截图”相册中，之后加入对应的游戏时自动归位
+keep_unsorted = true
+# 截图变化后自动收集：每隔 check_minutes 分钟检查截图文件夹，有新截图就收集
+on_change = false
+# 检查新截图的间隔（分钟，1–120）
+check_minutes = 5
 
 [auto_backup]
 # 自动备份在篝火运行（含托盘中）时执行，只备份有变化、已经手动备份过的游戏，同时收集截图。

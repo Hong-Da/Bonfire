@@ -1442,6 +1442,22 @@ pub async fn remove_shot_dir(h: AppHandle, game_id: String, dir: String) -> CmdR
     .await
 }
 
+/// 把“未识别的截图”中的截图归到游戏库中的某个游戏。
+#[tauri::command]
+pub async fn assign_unsorted(
+    h: AppHandle,
+    blobs: Vec<String>,
+    game_id: String,
+) -> CmdResult<usize> {
+    with_app(h, move |app, _| {
+        let game = find(app, &game_id)?;
+        let ids = blob_ids(&blobs)?;
+        let lock = app.repo.lock()?;
+        Ok(app.assign_unsorted(&lock, &ids, &game)?)
+    })
+    .await
+}
+
 /// 截图来源的位置（设置页说明用）：Steam 截图所在的 `userdata` 文件夹与“捕获”文件夹。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

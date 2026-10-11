@@ -346,6 +346,19 @@ export default function Settings() {
                     <small>{t("ui.settings.srcFolderRule")}</small>
                   </div>
                 </li>
+                <li>
+                  <span className="src-icon">
+                    <Icon name="info" size={16} />
+                  </span>
+                  <div>
+                    <b>{t("ui.unsorted.name")}</b>
+                    <label className="opt">
+                      <input type="checkbox" className="check" checked={cfg.shots.keep_unsorted ?? true} onChange={(e) => update((c) => (c.shots.keep_unsorted = e.target.checked))} />
+                      {t("ui.unsorted.keep")}
+                    </label>
+                    <small>{t("ui.unsorted.keepRule")}</small>
+                  </div>
+                </li>
               </ul>
             </div>
             <div className="row">

@@ -470,3 +470,27 @@ describe("U-27 / U-28", () => {
     localStorage.removeItem("bonfire.gallery.folded");
   });
 });
+
+describe("U-29 未识别的截图", () => {
+  it("图库中单独成组，可把所选归到游戏库中的游戏", async () => {
+    seed([row({ id: "g1", name: "Hollow Knight", nameZh: null })]);
+    api.gallery.mockResolvedValue({
+      games: [{ id: "unsorted", name: "未识别的截图", nameZh: null, platform: "unsorted", inLibrary: false, mode: "shots" }],
+      shots: [shot("unsorted", "b3:111111", "2026-10-09T21:00:00+08:00"), shot("unsorted", "b3:222222", "2026-10-08T21:00:00+08:00")],
+      trash: [],
+      bytes: 2000,
+      trashBytes: 0,
+      dir: "D:/Repo/screenshots",
+    });
+    api.assignUnsorted.mockResolvedValue(2);
+    render(<Gallery />);
+    expect(await screen.findByText(/没有对应到游戏库中的游戏，已照常备份/)).toBeInTheDocument();
+    expect(screen.queryByText("已移出游戏库")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "全部归到游戏…（2）" }));
+    const dlg = await screen.findByRole("dialog", { name: "把 2 张截图归到游戏" });
+    expect(within(dlg).getByLabelText("归到")).toHaveValue("g1");
+    fireEvent.click(within(dlg).getByRole("button", { name: "归到这个游戏" }));
+    await waitFor(() => expect(api.assignUnsorted).toHaveBeenCalledWith(["b3:111111", "b3:222222"], "g1"));
+    expect(useStore.getState().toasts.map((x) => x.text)).toContain("已把 2 张截图归到「Hollow Knight」");
+  });
+});

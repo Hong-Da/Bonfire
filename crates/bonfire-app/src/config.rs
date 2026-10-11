@@ -139,6 +139,9 @@ pub struct Shots {
     /// 公用截图文件夹：多个游戏的截图放在一起（NVIDIA、ShareX 等），按子文件夹名或文件名对应游戏。
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub shared_dirs: Vec<PathBuf>,
+    /// 备份未识别游戏的截图：“捕获”文件夹与公用截图文件夹中对应不上游戏库中任何游戏的截图，
+    /// 放在“未识别的截图”相册中，之后加入对应的游戏时自动归位。
+    pub keep_unsorted: bool,
     /// 截图变化后自动收集：每隔 `check_minutes` 分钟检查截图文件夹，有新截图就收集。
     pub on_change: bool,
     /// 检查新截图的间隔（分钟，1–120）。
@@ -155,6 +158,7 @@ impl Default for Shots {
             weekday: 7,
             every_hours: 6,
             shared_dirs: Vec::new(),
+            keep_unsorted: true,
             on_change: false,
             check_minutes: 5,
         }
@@ -439,6 +443,8 @@ at = "{at}"
 weekday = {weekday}
 # schedule = "hours" 时每隔几小时收集（1–168）
 every_hours = {hours}
+# 备份未识别游戏的截图：对应不上游戏库中任何游戏的截图放在“未识别的截图”相册中，之后加入对应的游戏时自动归位
+keep_unsorted = {s_unsorted}
 # 截图变化后自动收集：每隔 check_minutes 分钟检查截图文件夹，有新截图就收集
 on_change = {s_change}
 # 检查新截图的间隔（分钟，1–120）
@@ -485,6 +491,7 @@ keep_days = {keep}
             weekday = d.shots.weekday,
             hours = d.shots.every_hours,
             s_change = d.shots.on_change,
+            s_unsorted = d.shots.keep_unsorted,
             s_check = d.shots.check_minutes,
             a_at = d.auto_backup.at,
             a_weekday = d.auto_backup.weekday,
