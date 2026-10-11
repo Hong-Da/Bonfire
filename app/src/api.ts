@@ -80,7 +80,7 @@ export const api = {
   gameChanges: (gameId: string) => invoke<FileChange[]>("game_changes", { gameId }),
   cancelTask: () => invoke<void>("cancel_task"),
 
-  runBackup: (items: { gameId: string; comment?: string; tag?: string }[], force: boolean, onDetached: OnDetached) =>
+  runBackup: (items: { gameId: string; comment?: string; tag?: string; saves?: boolean; shots?: boolean }[], force: boolean, onDetached: OnDetached) =>
     invoke<BackupItemResult[]>("run_backup", { items, force, onDetached }),
 
   history: (gameId: string) => invoke<HistoryView>("history", { gameId }),

@@ -5,7 +5,7 @@ import type { AutoBackupConfig } from "../types";
 export const DEFAULT_AUTO: AutoBackupConfig = { schedule: "off", at: "21:00", weekday: 7, every_hours: 6, on_change: false, check_minutes: 5, quiet_minutes: 2 };
 
 /** 定时备份的简短说明：“每天 21:00”“每周日 21:00”“每 6 小时”。 */
-export function scheduleText(t: TFunction, a: AutoBackupConfig): string {
+export function scheduleText(t: TFunction, a: Pick<AutoBackupConfig, "schedule" | "at" | "weekday" | "every_hours">): string {
   switch (a.schedule) {
     case "daily":
       return t("ui.auto.quick.daily", { at: a.at });

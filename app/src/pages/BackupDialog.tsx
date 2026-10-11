@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, errorMessage, type OnDetached } from "../api";
-import { Cover, Modal, displayName } from "../components/ui";
+import { Cover, Icon, Modal, displayName } from "../components/ui";
 import { bytes, displayPath } from "../lib/format";
 import { useStore } from "../store";
 import type { BackupItemResult, FileChange, GameRow } from "../types";
@@ -9,9 +9,15 @@ import type { BackupItemResult, FileChange, GameRow } from "../types";
 export const MAX_COMMENT = 500;
 
 /**
- * 备份确认：逐个游戏写备注（留空自动生成），顶部“统一备注”一键填充，可同时打标签（文档 9.1）。
- * 已是最新的游戏单独列出并自动跳过；只管理截图的游戏只收集截图。
+ * 备份所选游戏，分步进行：
+ * 1. 选择要备份的内容：存档、截图，或两者（所选游戏中只有一种可备份时跳过这一步）；
+ * 2. 确认备份存档：逐个游戏写备注（留空自动生成），顶部“统一备注”一键填充，可同时打标签（文档 9.1）；
+ *    已是最新的游戏单独列出并跳过；
+ * 3. 确认收集截图。
+ * 确认页中不想备份的游戏可以移除。
  */
+type Step = "pick" | "saves" | "shots";
+
 export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[]; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const store = useStore();
@@ -23,39 +29,73 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<BackupItemResult[] | null>(null);
-  // 已是最新的游戏跳过（状态以最近一次检查为准，备份时后端还会再判断一次）。
-  // 打开时分好，备份完成后行状态刷新也不影响结果列表。
-  const [{ skipped, rows }] = useState(() => ({
-    skipped: picked.filter((r) => r.state === "up-to-date"),
-    rows: picked.filter((r) => r.state !== "up-to-date"),
-  }));
-  const saveRows = rows.filter((r) => !r.shotsOnly);
+  // 打开时分好：管理存档的游戏中已是最新的跳过（状态以最近一次检查为准，备份时后端还会再判断一次）；
+  // 管理截图的游戏可以收集截图。备份完成后行状态刷新也不影响结果列表。
+  const [plan] = useState(() => {
+    const saveCand = picked.filter((r) => !r.shotsOnly && r.mode !== "shots");
+    return {
+      skipped: saveCand.filter((r) => r.state === "up-to-date"),
+      saves: saveCand.filter((r) => r.state !== "up-to-date"),
+      hasSaves: saveCand.length > 0,
+      shots: picked.filter((r) => r.mode !== "saves"),
+    };
+  });
+  const canPick = plan.hasSaves && plan.shots.length > 0;
+  const [wantSaves, setWantSaves] = useState(plan.hasSaves);
+  const [wantShots, setWantShots] = useState(plan.shots.length > 0);
+  const [removed, setRemoved] = useState<{ saves: Set<string>; shots: Set<string> }>({ saves: new Set(), shots: new Set() });
+  const steps: Step[] = [...(canPick ? (["pick"] as const) : []), ...(wantSaves ? (["saves"] as const) : []), ...(wantShots ? (["shots"] as const) : [])];
+  const [stepIdx, setStepIdx] = useState(0);
+  const step = steps[Math.min(stepIdx, steps.length - 1)] ?? "saves";
+  const last = stepIdx >= steps.length - 1;
+
+  const saveRows = wantSaves ? plan.saves.filter((r) => !removed.saves.has(r.id)) : [];
+  const shotRows = wantShots ? plan.shots.filter((r) => !removed.shots.has(r.id)) : [];
+  // 本次要处理的游戏（按所选顺序）：备份存档和 / 或收集截图。
+  const targets = picked.filter((r) => saveRows.includes(r) || shotRows.includes(r));
+  const drop = (kind: "saves" | "shots", id: string) => setRemoved((x) => ({ ...x, [kind]: new Set(x[kind]).add(id) }));
+
   // 游戏正在运行时只提醒，不阻止备份（U-12）。
   const [runningGames, setRunningGames] = useState<{ gameId: string; processes: string[] }[]>([]);
   useEffect(() => {
-    if (saveRows.length === 0) return;
+    if (plan.saves.length === 0) return;
     api
-      .runningGames(saveRows.map((r) => r.id))
+      .runningGames(plan.saves.map((r) => r.id))
       .then(setRunningGames)
       .catch(() => setRunningGames([]));
   }, []);
+  const shownRunning = runningGames.filter((g) => saveRows.some((r) => r.id === g.gameId));
   const detached = saveRows.filter((r) => r.detached);
-  const tooLong = rows.some((r) => [...(comments[r.id] ?? "")].length > MAX_COMMENT);
+  const tooLong = saveRows.some((r) => [...(comments[r.id] ?? "")].length > MAX_COMMENT);
 
-  const fillAll = () => setComments(Object.fromEntries(rows.map((r) => [r.id, unified])));
+  const fillAll = () => setComments(Object.fromEntries(saveRows.map((r) => [r.id, unified])));
 
   const start = async () => {
     setRunning(true);
     const unlisten = await api.onBackupProgress((p) => setProgress(p.index + 1));
     try {
       const onDetached: OnDetached = { mode: detachedMode };
-      const items = rows.map((r) => ({ gameId: r.id, comment: comments[r.id]?.trim() || undefined, tag: withTag && tag.trim() ? tag.trim() : undefined }));
+      const items = targets.map((r) => {
+        const saves = saveRows.includes(r);
+        const item: { gameId: string; comment?: string; tag?: string; saves?: boolean; shots?: boolean } = {
+          gameId: r.id,
+          comment: saves ? comments[r.id]?.trim() || undefined : undefined,
+          tag: saves && withTag && tag.trim() ? tag.trim() : undefined,
+        };
+        if (!saves) item.saves = false;
+        if (!shotRows.includes(r)) item.shots = false;
+        return item;
+      });
       const res = await api.runBackup(items, false, onDetached);
       setResults(res);
-      await Promise.all(rows.map((r) => store.refreshRow(r.id)));
+      await Promise.all(targets.map((r) => store.refreshRow(r.id)));
       const created = res.filter((x) => x.ok && x.result?.result === "created").length;
-      store.toast(res.every((x) => x.ok) ? "success" : "error", t("ui.backup.done", { created, failed: res.filter((x) => !x.ok).length }));
-      rows.forEach((r) => store.setUndoable(r.id, null));
+      const pics = res.reduce((n, x) => n + (x.shots ?? 0), 0);
+      store.toast(
+        res.every((x) => x.ok) ? "success" : "error",
+        saveRows.length > 0 ? t("ui.backup.done", { created, failed: res.filter((x) => !x.ok).length }) : t("ui.backup.shotsDoneAll", { n: pics }),
+      );
+      saveRows.forEach((r) => store.setUndoable(r.id, null));
     } catch (e) {
       store.toast("error", errorMessage(e));
     } finally {
@@ -64,38 +104,59 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
     }
   };
 
+  const nextDisabled =
+    step === "pick" ? !wantSaves && !wantShots : step === "saves" ? tooLong || (withTag && !tag.trim()) : false;
+
   const footer = results ? (
     <button className="btn primary" onClick={onClose}>
       {t("ui.close")}
     </button>
   ) : (
     <>
-      <label className="inline" style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <input type="checkbox" className="check" checked={withTag} onChange={(e) => setWithTag(e.target.checked)} />
-        {t("ui.backup.withTag")}
-      </label>
-      {withTag && <input className="field" value={tag} onChange={(e) => setTag(e.target.value)} placeholder={t("ui.backup.tagName")} aria-label={t("ui.backup.tagName")} />}
+      {stepIdx > 0 && (
+        <button className="btn ghost" onClick={() => setStepIdx(stepIdx - 1)} disabled={running}>
+          {t("ui.backup.prev")}
+        </button>
+      )}
+      {step === "saves" && saveRows.length > 0 && (
+        <>
+          <label className="inline" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input type="checkbox" className="check" checked={withTag} onChange={(e) => setWithTag(e.target.checked)} />
+            {t("ui.backup.withTag")}
+          </label>
+          {withTag && <input className="field" value={tag} onChange={(e) => setTag(e.target.value)} placeholder={t("ui.backup.tagName")} aria-label={t("ui.backup.tagName")} />}
+        </>
+      )}
       <div className="grow" />
-      {running && <span className="muted num">{t("ui.backup.progress", { done: progress, total: rows.length })}</span>}
+      {running && <span className="muted num">{t("ui.backup.progress", { done: progress, total: targets.length })}</span>}
       <button className="btn ghost" onClick={running ? () => api.cancelTask() : onClose}>
         {t("ui.cancel")}
       </button>
-      <button className="btn primary" onClick={start} disabled={running || rows.length === 0 || tooLong || (withTag && !tag.trim())}>
-        {t("ui.backup.confirm", { n: rows.length })}
-      </button>
+      {last ? (
+        <button className="btn primary" onClick={start} disabled={running || targets.length === 0 || tooLong || (withTag && !tag.trim())}>
+          {t("ui.backup.confirm", { n: targets.length })}
+        </button>
+      ) : (
+        <button className="btn primary" onClick={() => setStepIdx(stepIdx + 1)} disabled={nextDisabled}>
+          {t("ui.backup.next")}
+        </button>
+      )}
     </>
   );
 
+  const stepLabel = (st: Step) => t(`ui.backup.step.${st}`);
+  const subtitle = results ? undefined : steps.length > 1 ? t("ui.backup.stepOf", { i: stepIdx + 1, n: steps.length, what: stepLabel(step) }) : t(`ui.backup.stepHint.${step}`);
+
   return (
-    <Modal title={t("ui.backup.title")} subtitle={t("ui.backup.subtitle")} footer={footer} onClose={running ? () => {} : onClose} wide>
+    <Modal title={t("ui.backup.title")} subtitle={subtitle} footer={footer} onClose={running ? () => {} : onClose} wide>
       {results ? (
         <ul className="note-rows" aria-label={t("ui.backup.results")}>
           {results.map((r) => {
-            const row = rows.find((x) => x.id === r.gameId);
+            const row = picked.find((x) => x.id === r.gameId);
             const name = row ? displayName(row, i18n.language) : r.gameId;
             let text: string;
             if (!r.ok) text = t("ui.backup.failed", { msg: r.error?.message ?? "" });
-            else if (r.shotsOnly) text = r.shots > 0 ? t("ui.backup.shotsOnlyDone", { n: r.shots }) : t("ui.backup.shotsOnlyNone");
+            else if (r.shotsOnly) text = r.shots > 0 ? t("ui.backup.shotsDone", { n: r.shots }) : t("ui.backup.shotsNone");
             else if (r.result?.result === "created") text = t("ui.backup.created", { comment: r.result.comment, size: bytes(r.result.newBytes) });
             else text = t("ui.backup.noChanges");
             return (
@@ -116,62 +177,142 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
         </ul>
       ) : (
         <>
-          {rows.length === 0 && <div className="callout same"><p>{t("ui.backup.allUpToDate", { n: skipped.length })}</p></div>}
-          {saveRows.length > 1 && (
-          <div className="row">
-            <label htmlFor="unified">{t("ui.backup.unified")}</label>
-            <div className="inline">
-              <input id="unified" className="field" style={{ flex: 1 }} value={unified} onChange={(e) => setUnified(e.target.value)} placeholder={t("ui.backup.commentPlaceholder")} />
-              <button className="btn" onClick={fillAll} disabled={!unified.trim()}>
-                {t("ui.backup.fillAll")}
-              </button>
-            </div>
-          </div>
+          {steps.length > 1 && (
+            <ol className="backup-steps" aria-label={t("ui.backup.steps")}>
+              {steps.map((st, i) => (
+                <li key={st} className={i === stepIdx ? "current" : i < stepIdx ? "done" : undefined} aria-current={i === stepIdx ? "step" : undefined}>
+                  <span className="num">{i + 1}</span> {stepLabel(st)}
+                </li>
+              ))}
+            </ol>
           )}
-          {runningGames.length > 0 && (
-            <div className="callout warn" role="note">
-              <p style={{ margin: 0 }}>
-                {t("ui.backup.gameRunning", {
-                  names: runningGames
-                    .map((g) => {
-                      const r = rows.find((x) => x.id === g.gameId);
-                      return `${r ? displayName(r, i18n.language) : g.gameId}（${g.processes.join("、")}）`;
-                    })
-                    .join("、"),
-                })}
-              </p>
-            </div>
-          )}
-          {detached.length > 0 && (
-            <div className="callout warn">
-              <p style={{ margin: "0 0 6px" }}>{t("ui.backup.detachedIntro", { names: detached.map((r) => displayName(r, i18n.language)).join("、") })}</p>
-              <label style={{ display: "block" }}>
-                <input type="radio" name="detached" checked={detachedMode === "new"} onChange={() => setDetachedMode("new")} /> {t("ui.backup.detachedNew")}
+
+          {step === "pick" && (
+            <div className="backup-kinds" role="group" aria-label={t("ui.backup.step.pick")}>
+              <label className={`backup-kind${wantSaves ? " on" : ""}`}>
+                <input type="checkbox" className="check" checked={wantSaves} onChange={(e) => setWantSaves(e.target.checked)} />
+                <span className="backup-kind-icon mode-saves">
+                  <Icon name="backup" size={20} />
+                </span>
+                <span>
+                  <b>{t("ui.backup.kindSaves")}</b>
+                  <small>
+                    {plan.saves.length > 0 ? t("ui.backup.kindSavesHint", { n: plan.saves.length }) : t("ui.backup.kindSavesNone")}
+                    {plan.skipped.length > 0 && t("ui.backup.kindSavesSkip", { n: plan.skipped.length })}
+                  </small>
+                </span>
               </label>
-              <label style={{ display: "block" }}>
-                <input type="radio" name="detached" checked={detachedMode === "move"} onChange={() => setDetachedMode("move")} /> {t("ui.backup.detachedMove")}
+              <label className={`backup-kind${wantShots ? " on" : ""}`}>
+                <input type="checkbox" className="check" checked={wantShots} onChange={(e) => setWantShots(e.target.checked)} />
+                <span className="backup-kind-icon mode-shots">
+                  <Icon name="camera" size={20} />
+                </span>
+                <span>
+                  <b>{t("ui.backup.kindShots")}</b>
+                  <small>{t("ui.backup.kindShotsHint", { n: plan.shots.length })}</small>
+                </span>
               </label>
             </div>
           )}
-          <ul className="note-rows">
-            {rows.map((r) => (
-              <NoteRow key={r.id} row={r} value={comments[r.id] ?? ""} onChange={(v) => setComments((c) => ({ ...c, [r.id]: v }))} />
-            ))}
-          </ul>
-          {skipped.length > 0 && (
-            <section className="skip-list" aria-label={t("ui.backup.skippedTitle", { n: skipped.length })}>
-              <h3>{t("ui.backup.skippedTitle", { n: skipped.length })}</h3>
-              <p className="hint">{t("ui.backup.skippedHint")}</p>
-              <ul>
-                {skipped.map((r) => (
-                  <li key={r.id}>
-                    <Cover row={r} size="note" />
-                    <span>{displayName(r, i18n.language)}</span>
-                    <span className="tag">{t("ui.backup.upToDate")}</span>
-                  </li>
+
+          {step === "saves" && (
+            <>
+              {saveRows.length === 0 && (
+                <div className="callout same">
+                  <p>{plan.saves.length === 0 ? t("ui.backup.allUpToDate", { n: plan.skipped.length }) : t("ui.backup.noneLeft")}</p>
+                </div>
+              )}
+              {saveRows.length > 1 && (
+                <div className="row">
+                  <label htmlFor="unified">{t("ui.backup.unified")}</label>
+                  <div className="inline">
+                    <input id="unified" className="field" style={{ flex: 1 }} value={unified} onChange={(e) => setUnified(e.target.value)} placeholder={t("ui.backup.commentPlaceholder")} />
+                    <button className="btn" onClick={fillAll} disabled={!unified.trim()}>
+                      {t("ui.backup.fillAll")}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {shownRunning.length > 0 && (
+                <div className="callout warn" role="note">
+                  <p style={{ margin: 0 }}>
+                    {t("ui.backup.gameRunning", {
+                      names: shownRunning
+                        .map((g) => {
+                          const r = saveRows.find((x) => x.id === g.gameId);
+                          return `${r ? displayName(r, i18n.language) : g.gameId}（${g.processes.join("、")}）`;
+                        })
+                        .join("、"),
+                    })}
+                  </p>
+                </div>
+              )}
+              {detached.length > 0 && (
+                <div className="callout warn">
+                  <p style={{ margin: "0 0 6px" }}>{t("ui.backup.detachedIntro", { names: detached.map((r) => displayName(r, i18n.language)).join("、") })}</p>
+                  <label style={{ display: "block" }}>
+                    <input type="radio" name="detached" checked={detachedMode === "new"} onChange={() => setDetachedMode("new")} /> {t("ui.backup.detachedNew")}
+                  </label>
+                  <label style={{ display: "block" }}>
+                    <input type="radio" name="detached" checked={detachedMode === "move"} onChange={() => setDetachedMode("move")} /> {t("ui.backup.detachedMove")}
+                  </label>
+                </div>
+              )}
+              <ul className="note-rows">
+                {saveRows.map((r) => (
+                  <NoteRow
+                    key={r.id}
+                    row={r}
+                    value={comments[r.id] ?? ""}
+                    onChange={(v) => setComments((c) => ({ ...c, [r.id]: v }))}
+                    onRemove={() => drop("saves", r.id)}
+                  />
                 ))}
               </ul>
-            </section>
+              {plan.skipped.length > 0 && (
+                <section className="skip-list" aria-label={t("ui.backup.skippedTitle", { n: plan.skipped.length })}>
+                  <h3>{t("ui.backup.skippedTitle", { n: plan.skipped.length })}</h3>
+                  <p className="hint">{t("ui.backup.skippedHint")}</p>
+                  <ul>
+                    {plan.skipped.map((r) => (
+                      <li key={r.id}>
+                        <Cover row={r} size="note" />
+                        <span>{displayName(r, i18n.language)}</span>
+                        <span className="tag">{t("ui.backup.upToDate")}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </>
+          )}
+
+          {step === "shots" && (
+            <>
+              <p className="hint">{t("ui.backup.shotsIntro")}</p>
+              {shotRows.length === 0 && (
+                <div className="callout same">
+                  <p>{t("ui.backup.noneLeft")}</p>
+                </div>
+              )}
+              <ul className="note-rows">
+                {shotRows.map((r) => {
+                  const name = displayName(r, i18n.language);
+                  return (
+                    <li key={r.id} className="note-row">
+                      <Cover row={r} size="note" />
+                      <div>
+                        <div className="head">
+                          <strong>{name}</strong>
+                          <span className="muted">{t("ui.backup.shotsHave", { n: r.shots })}</span>
+                          <RemoveButton name={name} onClick={() => drop("shots", r.id)} />
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </>
       )}
@@ -179,7 +320,18 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
   );
 }
 
-function NoteRow({ row, value, onChange }: { row: GameRow; value: string; onChange: (v: string) => void }) {
+/** 确认页中把一个游戏移出本次备份。 */
+function RemoveButton({ name, onClick }: { name: string; onClick: () => void }) {
+  const { t } = useTranslation();
+  const label = t("ui.backup.removeRow", { name });
+  return (
+    <button type="button" className="btn ghost small icon-only row-remove" onClick={onClick} aria-label={label} title={label}>
+      <Icon name="close" size={14} />
+    </button>
+  );
+}
+
+function NoteRow({ row, value, onChange, onRemove }: { row: GameRow; value: string; onChange: (v: string) => void; onRemove: () => void }) {
   const { t, i18n } = useTranslation();
   const [files, setFiles] = useState<FileChange[] | null>(null);
   const [open, setOpen] = useState(false);
@@ -191,18 +343,6 @@ function NoteRow({ row, value, onChange }: { row: GameRow; value: string; onChan
     if (open && files === null) api.gameChanges(row.id).then(setFiles).catch(() => setFiles([]));
   }, [open, files, row.id]);
 
-  if (row.shotsOnly)
-    return (
-      <li className="note-row">
-        <Cover row={row} size="note" />
-        <div>
-          <div className="head">
-            <strong>{name}</strong>
-            <span className="muted">{t("ui.backup.shotsOnlyRow")}</span>
-          </div>
-        </div>
-      </li>
-    );
   return (
     <li className="note-row">
       <Cover row={row} size="note" />
@@ -216,6 +356,7 @@ function NoteRow({ row, value, onChange }: { row: GameRow; value: string; onChan
                 ? t("ui.backup.upToDate")
                 : t("ui.library.changedFiles", { n: changed, size: bytes(row.summary.changedBytes) })}
           </span>
+          <RemoveButton name={name} onClick={onRemove} />
         </div>
         <textarea
           className="field comment-edit"

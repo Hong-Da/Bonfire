@@ -24,9 +24,39 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 90 项，更新于 2026-10-10 21:53。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 95 项，更新于 2026-10-10 22:12。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>41 项</small></h2>
+<section id="s-0"><h2>开发<small>46 项</small></h2>
+      <article id="U-21e">
+        <header><code>U-21e</code><h3>图库添加截图自动备份设置</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">图库底栏加快捷按钮：开关截图备份、定时收集（只随备份 / 每天 / 每周 / 每几小时）、立即收集、更多设置，与设置页同一配置（推荐） <b>✓ 采用</b></li><li class="">只放跳转设置页的链接</li></ul>
+        <p class="reason"><span>理由</span>与游戏库“自动备份”按钮一致，常用设置一键完成。</p><p class="impact"><span>影响</span>详细时刻在设置页调整；回收站视图中不显示。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-21d">
+        <header><code>U-21d</code><h3>图库选择后底部统计</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">选中截图时显示“已选 N 张，大小，来自 M 个游戏”，未选时显示全部（推荐） <b>✓ 采用</b></li><li class="">统计不变，另显示已选数量</li></ul>
+        <p class="reason"><span>理由</span>用户要求底部统计跟随选择改变。</p><p class="impact"><span>影响</span>回收站中显示“已选 N 张，大小”。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-21c">
+        <header><code>U-21c</code><h3>顶部搜索框宽度</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">填满工具栏空余位置（游戏库与图库）（推荐） <b>✓ 采用</b></li><li class="">固定宽度</li></ul>
+        <p class="reason"><span>理由</span>用户要求搜索框填满空余位置。</p><p class="impact"><span>影响</span>窗口较窄时最小 160 像素。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-21b">
+        <header><code>U-21b</code><h3>游戏库底栏左端顺序</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">所选游戏（显示已选数量）→ 全选框与反选一组 → 添加 / 导入与导出一组；右侧为自动备份、保护、备份所选（推荐） <b>✓ 采用</b></li><li class="">保持原顺序</li></ul>
+        <p class="reason"><span>理由</span>用户要求所选游戏放最左，然后全选框，然后添加 / 导入，导出与其放在一起；反选保留。</p><p class="impact"><span>影响</span>“全不选”由全选框完成（半选状态表示部分勾选）；右上角不再有导出；空游戏库页面加了导入入口。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-21a">
+        <header><code>U-21a</code><h3>备份所选游戏先选择备份存档还是截图，再依次确认</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">分步：选择内容（两项默认都选，只有一种可备份时跳过）→ 确认存档 → 确认截图；确认页每个游戏可移除；最后一步“备份 N 个游戏”一次执行（推荐） <b>✓ 采用</b></li><li class="">每种内容单独执行一次</li></ul>
+        <p class="reason"><span>理由</span>用户要求先选择、依次进入确认页、可移除不想备份的游戏。一次执行可共用进度与结果页。</p><p class="impact"><span>影响</span>后端 run_backup 每项可指定 saves / shots；已是最新的游戏仍可收集截图。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-20d">
         <header><code>U-20d</code><h3>存档安全保护弹窗不符合当前界面</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">所有确认弹窗改为应用内对话框（与其他对话框同样式，带图标，警告类红色确认按钮，按钮写明动作）（推荐） <b>✓ 采用</b></li><li class="">只改保护开关的弹窗</li></ul>

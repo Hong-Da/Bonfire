@@ -383,6 +383,16 @@ pub struct BackupItem {
     game_id: String,
     comment: Option<String>,
     tag: Option<String>,
+    /// 备份存档（默认是；只管理截图的游戏始终不备份存档）。
+    #[serde(default = "yes")]
+    saves: bool,
+    /// 收集新截图（默认是）。
+    #[serde(default = "yes")]
+    shots: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 #[derive(Debug, Deserialize)]
@@ -451,9 +461,9 @@ pub async fn run_backup(
                 },
                 ..Default::default()
             };
-            // 备份时顺带收集新截图（失败只记日志，不影响备份结果）。
+            // 按选择备份存档、收集新截图（截图失败只记日志，不影响备份结果）。
             // 只管理截图的游戏不备份存档，只收集截图。
-            let shots_only = app.is_shots_only(&item.game_id).unwrap_or(false);
+            let shots_only = !item.saves || app.is_shots_only(&item.game_id).unwrap_or(false);
             let (r, shots) = match app.find_game(&item.game_id) {
                 Ok(g) => {
                     let r = if shots_only {
@@ -461,11 +471,15 @@ pub async fn run_backup(
                     } else {
                         app.backup(&lock, &g, &opts)
                     };
-                    let shots = match app.sync_shots(&lock, &g) {
-                        Ok(s) => s.added,
-                        Err(e) => {
-                            tracing::warn!(game = %g.id, "收集截图失败：{e}");
-                            0
+                    let shots = if !item.shots {
+                        0
+                    } else {
+                        match app.sync_shots(&lock, &g) {
+                            Ok(s) => s.added,
+                            Err(e) => {
+                                tracing::warn!(game = %g.id, "收集截图失败：{e}");
+                                0
+                            }
                         }
                     };
                     (r, shots)

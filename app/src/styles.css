@@ -791,3 +791,50 @@ button.link:hover { text-decoration: underline; }
 .confirm-body.warning .confirm-icon { background: var(--danger-soft); color: var(--danger); }
 .confirm-lead { margin: 2px 0 0; line-height: 1.6; white-space: pre-line; }
 .confirm-more { margin: 8px 0 0; color: var(--muted); line-height: 1.6; white-space: pre-line; }
+
+/* 游戏库底栏：所选游戏菜单显示已选数量，全选框，添加 / 导入与导出成组 */
+.btn.sel-menu.has { border-color: color-mix(in srgb, var(--ember) 45%, var(--line)); color: var(--ink); }
+.btn.sel-menu .num, .btn.sel-menu { font-variant-numeric: tabular-nums; }
+/* 全选框与反选成一组（分段按钮样式） */
+.sel-seg .sel-all {
+  display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 10px; cursor: pointer;
+  font-size: 13px; color: var(--ink); white-space: nowrap; user-select: none;
+}
+.sel-seg .sel-all:hover { background: var(--surface); }
+.sel-seg .sel-all + button { border-left: 1px solid var(--line); }
+.sel-seg .check { margin: 0; }
+.btn-group { display: inline-flex; }
+.btn-group > .menu > .btn { border-radius: 0; }
+.btn-group > .menu:first-child > .btn { border-radius: var(--radius) 0 0 var(--radius); }
+.btn-group > .menu:last-child > .btn { border-radius: 0 var(--radius) var(--radius) 0; margin-left: -1px; }
+.btn-group > .menu > .btn:hover, .btn-group > .menu > .btn[aria-expanded="true"] { position: relative; z-index: 1; }
+
+/* 图库底栏：选中截图时统计变为所选 */
+.gallery-sum.has { color: var(--ink); font-weight: 600; }
+
+/* 备份分步 */
+.backup-steps { display: flex; gap: 6px; margin: 0 0 14px; padding: 0; list-style: none; counter-reset: none; }
+.backup-steps li {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 4px; border-radius: 14px;
+  font-size: 13px; color: var(--muted); background: var(--surface); border: 1px solid var(--line);
+}
+.backup-steps li .num { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--line); font-size: 12px; }
+.backup-steps li.done .num { background: var(--moss); color: var(--surface); }
+.backup-steps li.current { color: var(--ink); border-color: var(--ember); }
+.backup-steps li.current .num { background: var(--ember); color: var(--ember-ink); }
+.backup-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 4px 0 8px; }
+.backup-kind {
+  display: grid; grid-template-columns: auto auto 1fr; gap: 12px; align-items: center; padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: var(--surface);
+}
+.backup-kind.on { border-color: var(--mode, var(--ember)); background: color-mix(in srgb, var(--mode, var(--ember)) 7%, var(--surface)); }
+.backup-kind:has(.mode-saves) { --mode: var(--lane-0); }
+.backup-kind:has(.mode-shots) { --mode: var(--lane-2); }
+.backup-kind-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; color: var(--mode); background: color-mix(in srgb, var(--mode) 14%, transparent); }
+.backup-kind b { display: block; font: 600 15px var(--font-sign); }
+.backup-kind small { display: block; margin-top: 2px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.note-row .head .row-remove { margin-left: auto; color: var(--muted); }
+.note-row .head .row-remove:hover { color: var(--danger); }
+
+/* 工具栏搜索框填满空余位置 */
+.toolbar input[type="search"].fill { flex: 1 1 200px; width: auto; min-width: 160px; max-width: none; }

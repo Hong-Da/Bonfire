@@ -39,22 +39,52 @@ beforeEach(async () => {
 });
 
 describe("备份确认", () => {
-  it("已是最新的游戏单独列出并跳过，只管理截图的游戏只收集截图", async () => {
+  it("分步：选择存档与截图，依次确认，确认页可移除游戏；已是最新的跳过存档", async () => {
     const changed = row({ id: "a", name: "A", nameZh: null });
     const latest = row({ id: "b", name: "B", nameZh: null, state: "up-to-date" });
-    const shotsOnly = row({ id: "c", name: "C", nameZh: null, state: "shots-only", shotsOnly: true });
-    seed([changed, latest, shotsOnly]);
+    const savesOnly = row({ id: "d", name: "D", nameZh: null, mode: "saves" });
+    const shotsOnly = row({ id: "c", name: "C", nameZh: null, state: "shots-only", shotsOnly: true, mode: "shots" });
+    seed([changed, latest, savesOnly, shotsOnly]);
     api.runBackup.mockResolvedValue([
       { gameId: "a", ok: true, result: { result: "no-changes" }, error: null, shots: 0, shotsOnly: false },
       { gameId: "c", ok: true, result: null, error: null, shots: 2, shotsOnly: true },
     ]);
-    render(<BackupDialog rows={[changed, latest, shotsOnly]} onClose={() => {}} />);
+    render(<BackupDialog rows={[changed, latest, savesOnly, shotsOnly]} onClose={() => {}} />);
+    // 第 1 步：两种内容默认都选。
+    expect(screen.getByText("第 1 步，共 3 步：选择内容")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /备份存档/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /备份截图/ })).toBeChecked();
+    expect(screen.getByText(/2 个游戏的存档有变化或还没备份；1 个已是最新，会跳过/)).toBeInTheDocument();
+    expect(screen.getByText(/从 3 个游戏收集新截图/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    // 第 2 步：确认存档，移除 D。
     expect(screen.getByText("已是最新，将跳过（1）")).toBeInTheDocument();
-    expect(screen.getByText("只管理截图：只收集新截图")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "这次不备份「D」" }));
+    expect(screen.queryByLabelText("「D」的备注")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    // 第 3 步：确认截图，移除 B。
+    expect(screen.getByText("第 3 步，共 3 步：确认截图")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "这次不备份「B」" }));
     fireEvent.click(screen.getByRole("button", { name: "备份 2 个游戏" }));
     await waitFor(() => expect(api.runBackup).toHaveBeenCalled());
-    expect(api.runBackup.mock.calls[0][0].map((x: { gameId: string }) => x.gameId)).toEqual(["a", "c"]);
-    expect(await screen.findByText("只管理截图：收集了 2 张新截图")).toBeInTheDocument();
+    expect(api.runBackup.mock.calls[0][0]).toEqual([
+      { gameId: "a", comment: undefined, tag: undefined },
+      { gameId: "c", comment: undefined, tag: undefined, saves: false },
+    ]);
+    expect(await screen.findByText("收集了 2 张新截图")).toBeInTheDocument();
+  });
+
+  it("只选截图时跳过存档确认页，只收集截图", async () => {
+    const a = row({ id: "a", name: "A", nameZh: null });
+    seed([a]);
+    api.runBackup.mockResolvedValue([]);
+    render(<BackupDialog rows={[a]} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /备份存档/ }));
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(screen.getByText("第 2 步，共 2 步：确认截图")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "备份 1 个游戏" }));
+    await waitFor(() => expect(api.runBackup).toHaveBeenCalled());
+    expect(api.runBackup.mock.calls[0][0]).toEqual([{ gameId: "a", comment: undefined, tag: undefined, saves: false }]);
   });
 
   it("游戏正在运行时提醒，但不阻止备份", async () => {
@@ -63,6 +93,8 @@ describe("备份确认", () => {
     api.runningGames.mockResolvedValue([{ gameId: r.id, processes: ["hollow_knight.exe"] }]);
     api.runBackup.mockResolvedValue([]);
     render(<BackupDialog rows={[r]} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /备份截图/ }));
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
     expect(await screen.findByText(/正在运行：空洞骑士（hollow_knight.exe）/)).toBeInTheDocument();
     const btn = screen.getByRole("button", { name: "备份 1 个游戏" });
     expect(btn).toBeEnabled();
@@ -74,6 +106,9 @@ describe("备份确认", () => {
     const latest = row({ state: "up-to-date" });
     seed([latest]);
     render(<BackupDialog rows={[latest]} onClose={() => {}} />);
+    expect(screen.getByText("所选游戏的存档都已是最新；1 个已是最新，会跳过")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: /备份截图/ }));
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
     expect(screen.getByText("所选的 1 个游戏都已是最新，不需要备份。")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "备份 0 个游戏" })).toBeDisabled();
   });

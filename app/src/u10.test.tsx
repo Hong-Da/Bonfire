@@ -283,12 +283,13 @@ describe("图库：查看方式与框选", () => {
     fireEvent.mouseDown(scroller, { button: 0, clientX: 5, clientY: 5 });
     fireEvent.mouseMove(window, { clientX: 300, clientY: 150 });
     fireEvent.mouseUp(window);
-    expect(screen.getByText("已选 2 张")).toBeInTheDocument();
+    // 底部统计跟随选择变化。
+    expect(screen.getByText(/^已选 2 张，.*来自 1 个游戏$/)).toBeInTheDocument();
     // 按住 Ctrl 再框选第三张：加到已有的选择上。
     fireEvent.mouseDown(scroller, { button: 0, clientX: 5, clientY: 230, ctrlKey: true });
     fireEvent.mouseMove(window, { clientX: 300, clientY: 260 });
     fireEvent.mouseUp(window);
-    expect(screen.getByText("已选 3 张")).toBeInTheDocument();
+    expect(screen.getByText(/^已选 3 张，/)).toBeInTheDocument();
     localStorage.removeItem("bonfire.gallery");
   });
 });
@@ -347,5 +348,39 @@ describe("其他", () => {
     expect(initialView("#/gallery")).toEqual({ name: "gallery" });
     expect(initialView("#/game/steam-367520")).toEqual({ name: "game", id: "steam-367520" });
     expect(initialView("#/nope")).toEqual({ name: "library" });
+  });
+});
+
+describe("U-21 底栏与图库自动备份", () => {
+  it("底栏：所选游戏显示数量，全选框与反选一组，添加 / 导入与导出在一起", async () => {
+    seed([row({ id: "a", name: "Alpha", nameZh: null }), row({ id: "b", name: "Beta", nameZh: null, state: "up-to-date" })]);
+    render(<Library />);
+    expect(screen.getByRole("button", { name: "所选游戏" })).toHaveTextContent("已选 1 个");
+    const group = screen.getByRole("group", { name: "选择" });
+    const all = within(group).getByRole("checkbox", { name: "全选" });
+    expect((all as HTMLInputElement).indeterminate).toBe(true);
+    fireEvent.click(all);
+    expect(useStore.getState().selected).toEqual(new Set(["a", "b"]));
+    fireEvent.click(within(group).getByRole("button", { name: "反选" }));
+    expect(useStore.getState().selected).toEqual(new Set());
+    fireEvent.click(within(group).getByRole("button", { name: "反选" }));
+    expect(useStore.getState().selected).toEqual(new Set(["a", "b"]));
+    const tools = screen.getByRole("group", { name: "添加、导入与导出" });
+    expect(within(tools).getByRole("button", { name: "添加 / 导入" })).toBeInTheDocument();
+    expect(within(tools).getByRole("button", { name: "导出" })).toBeInTheDocument();
+  });
+
+  it("图库：截图自动备份快捷设置，选择定时收集后保存", async () => {
+    useStore.setState({ info, toasts: [] });
+    api.gallery.mockResolvedValue({ games: [], shots: [], trash: [], bytes: 0, trashBytes: 0, dir: "D:/Repo/screenshots" });
+    api.saveSettings.mockResolvedValue(info);
+    render(<Gallery />);
+    const btn = await screen.findByRole("button", { name: /截图自动备份/ });
+    expect(btn).toHaveTextContent("截图：随备份收集");
+    fireEvent.click(btn);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "每天 21:00" }));
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalled());
+    expect(api.saveSettings.mock.calls[0][0].shots).toMatchObject({ enabled: true, schedule: "daily" });
+    await waitFor(() => expect(btn).toHaveTextContent("自动收集：每天 21:00"));
   });
 });

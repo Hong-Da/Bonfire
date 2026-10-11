@@ -195,18 +195,7 @@ export default function Library() {
             );
           })}
         </div>
-        <div className="grow" />
-        <input className="field" type="search" placeholder={t("ui.library.search")} value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label={t("ui.library.search")} />
-        {/* 导出在右上角；“添加 / 导入”在底部操作栏左端。 */}
-        <Menu
-          icon="export"
-          label={t("ui.library.exportMenu")}
-          align="right"
-          items={[
-            { label: t("ui.library.exportSelected", { n: selected.length }), onClick: () => setExportIds(selected.map((r) => r.id)), disabled: selected.length === 0 },
-            { label: t("ui.library.exportAll", { n: allRows.length }), onClick: () => setExportIds(allRows.map((r) => r.id)), disabled: allRows.length === 0 },
-          ]}
-        />
+        <input className="field fill" type="search" placeholder={t("ui.library.search")} value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label={t("ui.library.search")} />
       </div>
       <div className="progress-line" aria-hidden>
         <span style={{ width: busy ? `${Math.max(pct, 8)}%` : "0%" }} />
@@ -223,6 +212,9 @@ export default function Library() {
               </button>
               <button className="btn" onClick={() => setAddOpen(true)}>
                 <Icon name="plus" /> {t("ui.library.add")}
+              </button>
+              <button className="btn" onClick={() => setImportOpen(true)}>
+                <Icon name="import" /> {t("ui.library.importSaves")}
               </button>
             </div>
           </div>
@@ -276,50 +268,73 @@ export default function Library() {
 
       {allRows.length > 0 && (
         <div className="actionbar">
+          {/* 左端：所选游戏（显示已选数量）→ 全选框 → 添加 / 导入与导出（一组）。 */}
           <Menu
-            icon="plus"
-            label={t("ui.library.addMenu")}
-            className="btn ghost"
+            icon="check"
+            label={t("ui.library.selected", { n: selected.length })}
+            className={`btn sel-menu${selected.length > 0 ? " has" : ""}`}
+            title={t("ui.library.selectedMenu")}
             items={[
-              { label: t("ui.library.add"), onClick: () => setAddOpen(true) },
-              { label: t("ui.library.importSaves"), onClick: () => setImportOpen(true) },
+              { label: t("ui.library.exportSelected", { n: selected.length }), onClick: () => setExportIds(selected.map((r) => r.id)), disabled: selected.length === 0 },
+              "divider",
+              { label: <b className="menu-head">{t("ui.mode.batchHead")}</b>, onClick: () => {}, disabled: true },
+              ...MODES.map((m) => ({
+                label: (
+                  <span className="mode-item">
+                    <b>
+                      <Icon name={MODE_ICON[m]} size={14} /> {t(`ui.mode.${m}`)}
+                    </b>
+                  </span>
+                ),
+                onClick: () => void setMode(selected.map((r) => r.id), m),
+                disabled: selected.length === 0,
+              })),
+              "divider",
+              { label: t("ui.remove.button", { n: selected.length }), onClick: () => setRemoveOpen(true), disabled: selected.length === 0, danger: true },
             ]}
           />
-          <div className="seg" role="group" aria-label={t("ui.library.selection")}>
-            <button onClick={() => s.selectAll(rows.map((r) => r.id))}>{t("ui.library.selectAll")}</button>
-            <button onClick={() => s.clearSelection()} disabled={selected.length === 0}>
-              {t("ui.library.selectNone")}
-            </button>
-            <button onClick={() => s.invert(rows.map((r) => r.id))}>{t("ui.library.invert")}</button>
+          <div className="seg sel-seg" role="group" aria-label={t("ui.library.selection")}>
+          <label className="sel-all" title={t("ui.library.selectAllHint")}>
+            <input
+              type="checkbox"
+              className="check"
+              checked={rows.length > 0 && rows.every((r) => s.selected.has(r.id))}
+              ref={(el) => {
+                if (el) el.indeterminate = rows.some((r) => s.selected.has(r.id)) && !rows.every((r) => s.selected.has(r.id));
+              }}
+              onChange={() => (rows.length > 0 && rows.every((r) => s.selected.has(r.id)) ? s.clearSelection() : s.selectAll(rows.map((r) => r.id)))}
+            />
+            <span>{t("ui.library.selectAll")}</span>
+          </label>
+          <button onClick={() => s.invert(rows.map((r) => r.id))} disabled={rows.length === 0} title={t("ui.library.invertHint")}>
+            {t("ui.library.invert")}
+          </button>
           </div>
-          <Menu
-              icon="more"
-              label={t("ui.library.selectedMenu")}
-              className="btn ghost"
+          <div className="btn-group" role="group" aria-label={t("ui.library.addExport")}>
+            <Menu
+              icon="plus"
+              label={<span className="bar-label">{t("ui.library.addMenu")}</span>}
+              title={t("ui.library.addMenu")}
+              className="btn"
               items={[
-                { label: t("ui.library.exportSelected", { n: selected.length }), onClick: () => setExportIds(selected.map((r) => r.id)), disabled: selected.length === 0 },
-                "divider",
-                { label: <b className="menu-head">{t("ui.mode.batchHead")}</b>, onClick: () => {}, disabled: true },
-                ...MODES.map((m) => ({
-                  label: (
-                    <span className="mode-item">
-                      <b>
-                        <Icon name={MODE_ICON[m]} size={14} /> {t(`ui.mode.${m}`)}
-                      </b>
-                    </span>
-                  ),
-                  onClick: () => void setMode(selected.map((r) => r.id), m),
-                  disabled: selected.length === 0,
-                })),
-                "divider",
-                { label: t("ui.remove.button", { n: selected.length }), onClick: () => setRemoveOpen(true), disabled: selected.length === 0, danger: true },
+                { label: t("ui.library.add"), onClick: () => setAddOpen(true) },
+                { label: t("ui.library.importSaves"), onClick: () => setImportOpen(true) },
               ]}
             />
-
+            <Menu
+              icon="export"
+              label={<span className="bar-label">{t("ui.library.exportMenu")}</span>}
+              title={t("ui.library.exportMenu")}
+              className="btn"
+              items={[
+                { label: t("ui.library.exportSelected", { n: selected.length }), onClick: () => setExportIds(selected.map((r) => r.id)), disabled: selected.length === 0 },
+                { label: t("ui.library.exportAll", { n: allRows.length }), onClick: () => setExportIds(allRows.map((r) => r.id)), disabled: allRows.length === 0 },
+              ]}
+            />
+          </div>
           <div className="grow" style={{ flex: 1 }} />
           <AutoSwitch />
           <ProtectSwitch />
-          <span className="count num">{t("ui.library.selected", { n: selected.length })}</span>
           <button className="btn primary" disabled={selected.length === 0 || busy} onClick={() => setBackupOpen(true)}>
             <Icon name="backup" /> {t("ui.library.backupSelected")}
           </button>

@@ -89,6 +89,9 @@ describe("游戏库", () => {
     render(<Library />);
     fireEvent.click(screen.getByRole("button", { name: /备份所选/ }));
     const dialog = await screen.findByRole("dialog", { name: "备份所选游戏" });
+    // 第 1 步选择内容：只备份存档。
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: /备份截图/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "下一步" }));
     fireEvent.change(within(dialog).getByLabelText("统一备注"), { target: { value: "周末" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "填到所有游戏" }));
     expect(within(dialog).getByLabelText("「空洞骑士」的备注")).toHaveValue("周末");
@@ -96,8 +99,8 @@ describe("游戏库", () => {
     await waitFor(() => expect(api.runBackup).toHaveBeenCalled());
     const [items, force, onDetached] = api.runBackup.mock.calls[0];
     expect(items).toEqual([
-      { gameId: "steam-367520", comment: "周末", tag: undefined },
-      { gameId: "custom-x", comment: "周末", tag: undefined },
+      { gameId: "steam-367520", comment: "周末", tag: undefined, shots: false },
+      { gameId: "custom-x", comment: "周末", tag: undefined, shots: false },
     ]);
     expect(force).toBe(false);
     expect(onDetached).toEqual({ mode: "new" });
@@ -110,6 +113,8 @@ describe("游戏库", () => {
     render(<Library />);
     fireEvent.click(screen.getByRole("button", { name: /备份所选/ }));
     const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: /备份截图/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "下一步" }));
     fireEvent.change(within(dialog).getByLabelText("「空洞骑士」的备注"), { target: { value: "长".repeat(501) } });
     expect(within(dialog).getByRole("button", { name: "备份 1 个游戏" })).toBeDisabled();
     expect(within(dialog).getByText("501/500")).toBeInTheDocument();
@@ -121,6 +126,8 @@ describe("游戏库", () => {
     render(<Library />);
     fireEvent.click(screen.getByRole("button", { name: /备份所选/ }));
     const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: /备份截图/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "下一步" }));
     fireEvent.click(within(dialog).getByLabelText(/接在当前分支上/));
     fireEvent.click(within(dialog).getByRole("button", { name: "备份 1 个游戏" }));
     await waitFor(() => expect(api.runBackup).toHaveBeenCalled());

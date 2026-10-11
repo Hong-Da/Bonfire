@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ShotAutoSwitch from "../components/ShotAutoSwitch";
 import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
 import { Icon, Menu, displayName, type IconName } from "../components/ui";
@@ -286,8 +287,7 @@ export default function Gallery() {
             </button>
           ))}
         </div>
-        <div className="grow" />
-        <input className="field" type="search" placeholder={t("ui.gallery.search")} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t("ui.gallery.search")} />
+        <input className="field fill" type="search" placeholder={t("ui.gallery.search")} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t("ui.gallery.search")} />
         <button className="btn icon-only" onClick={() => setImportOpen(true)} title={t("ui.package.importHint")} aria-label={t("ui.package.importHint")}>
           <Icon name="import" />
         </button>
@@ -407,10 +407,15 @@ export default function Gallery() {
       </div>
 
       <div className="actionbar">
-        <span className="muted num">
-          {inTrash
-            ? t("ui.gallery.trashSummary", { n: data.trash.length, size: bytes(data.trashBytes) })
-            : t("ui.gallery.summary", { n: data.shots.length, size: bytes(data.bytes), games: data.games.filter((g) => data.shots.some((s) => s.gameId === g.id)).length })}
+        {/* 统计跟随选择：选中截图时显示所选的数量、大小与游戏数，否则显示全部。 */}
+        <span className={`num gallery-sum${sel.length > 0 ? " has" : " muted"}`} aria-live="polite">
+          {sel.length > 0
+            ? inTrash
+              ? t("ui.gallery.selTrashSummary", { n: sel.length, size: bytes(sel.reduce((n, x) => n + x.size, 0)) })
+              : t("ui.gallery.selSummary", { n: sel.length, size: bytes(sel.reduce((n, x) => n + x.size, 0)), games: new Set(sel.map((x) => x.gameId)).size })
+            : inTrash
+              ? t("ui.gallery.trashSummary", { n: data.trash.length, size: bytes(data.trashBytes) })
+              : t("ui.gallery.summary", { n: data.shots.length, size: bytes(data.bytes), games: data.games.filter((g) => data.shots.some((s) => s.gameId === g.id)).length })}
         </span>
         {ordered.length > 0 && (
           <div className="seg" role="group" aria-label={t("ui.shots.selection")}>
@@ -422,7 +427,7 @@ export default function Gallery() {
           </div>
         )}
         <div className="grow" style={{ flex: 1 }} />
-        <span className="count num">{t("ui.shots.selected", { n: sel.length })}</span>
+        {!inTrash && <ShotAutoSwitch onSynced={() => void reload()} />}
         {inTrash ? (
           <>
             <button className="btn" onClick={() => void restore(sel)} disabled={busy || sel.length === 0}>
