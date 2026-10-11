@@ -201,6 +201,43 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
         } => delete_branch(app, &game, &name, dry_run, out),
         Cmd::Branch {
             game,
+            primary: Some(branch),
+            tidy,
+            ..
+        } => {
+            let g = app.find_game(&game)?;
+            match branch {
+                Some(b) => {
+                    let lock = app.repo.lock()?;
+                    let r = app.set_primary(&lock, &g, &b, tidy)?;
+                    out.emit(serde_json::to_value(&r).unwrap());
+                    for (from, to) in &r.renamed {
+                        out.line(out.tf("cli.out.branch_renamed", &[("from", from), ("to", to)]));
+                    }
+                    out.line(out.tf("cli.out.primary_set", &[("branch", &r.branch)]));
+                }
+                None => {
+                    let views = app.primaries(&g.id)?;
+                    out.emit(json!({ "primary": views[0].branch, "offPrimary": app.off_primary(&g.id)?, "machines": views }));
+                    for v in &views {
+                        let who = if v.mine {
+                            out.t("cli.out.primary_mine").to_string()
+                        } else if v.label.is_empty() {
+                            v.key.clone()
+                        } else {
+                            v.label.clone()
+                        };
+                        out.line(format!("{who}: heads/{}", v.branch));
+                    }
+                    if app.off_primary(&g.id)? {
+                        out.line(out.t("cli.out.primary_off"));
+                    }
+                }
+            }
+            Ok(())
+        }
+        Cmd::Branch {
+            game,
             rename: Some(pair),
             ..
         } => {
@@ -1240,10 +1277,11 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
             no_saves,
             no_shots,
             shots_to_disk,
+            adopt_main,
         } => {
             let lock = app.repo.lock()?;
             let preview = app.inspect_archive(&file)?;
-            let partial = no_saves || no_shots || shots_to_disk;
+            let partial = no_saves || no_shots || shots_to_disk || adopt_main;
             if !preview.collection && only.is_empty() && !partial {
                 let r = app.import_bundle(&lock, &file, game.as_deref(), dry_run)?;
                 out.emit(serde_json::to_value(&r).unwrap());
@@ -1280,6 +1318,7 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
                 for p in &mut picks {
                     p.saves = !no_saves;
                     p.shots = !no_shots;
+                    p.adopt_main = adopt_main;
                 }
             }
             let items = app.import_archive(&lock, &file, &picks, dry_run)?;
@@ -1298,6 +1337,12 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
                 match (&item.report, &item.error) {
                     (Some(r), _) => {
                         print_bundle_import(r, dry_run, out);
+                        if let Some(b) = &item.adopted_main {
+                            out.line(out.tf(
+                                "cli.out.adopted_main",
+                                &[("branch", b), ("game", &item.game_name)],
+                            ));
+                        }
                         // 把新导入的截图写到本机这个游戏的截图文件夹。
                         if shots_to_disk && !dry_run && !r.new_shot_ids.is_empty() {
                             let g = app.find_game(&r.preview.game_id)?;

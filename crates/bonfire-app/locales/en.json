@@ -1226,5 +1226,12 @@
   "ui.settings.rememberFilters": "Library filters and management view (when off, every launch shows all games)",
   "ui.settings.rememberSelection": "Selected games in the library (when off, games with changes or never backed up are selected each launch)",
   "cli.arg.branch.rename": "Rename branch OLD to NEW (snapshots unchanged; current branch and primaries follow)",
-  "cli.out.branch_renamed": "Renamed branch {from} to {to}"
+  "cli.out.branch_renamed": "Renamed branch {from} to {to}",
+  "cli.arg.branch.primary": "Show this PC's primary branch; set it when a name is given",
+  "cli.arg.branch.tidy": "When setting the primary, rename: old main to main-<this PC>, the chosen branch to main",
+  "cli.arg.bundle.import.adopt_main": "These are my old PC's saves: when the package's main diverges, make it this PC's primary (renaming branches)",
+  "cli.out.primary_set": "heads/{branch} is now this PC's primary; restore its latest snapshot with bonfire restore if needed",
+  "cli.out.primary_mine": "This PC",
+  "cli.out.primary_off": "Currently not on this PC's primary branch",
+  "cli.out.adopted_main": "{game}: the imported line is now this PC's primary heads/{branch}; restore it with bonfire restore"
 }

@@ -48,6 +48,10 @@ pub struct GameRow {
     pub mode: crate::shots::ManageMode,
     /// 磁盘上还没有收集的新截图数。
     pub new_shots: u64,
+    /// 本机主存档（U-41）。
+    pub primary: String,
+    /// 当前不在本机主存档上。
+    pub off_primary: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -87,6 +91,8 @@ pub struct HistoryView {
     /// 全部快照，最新的在前。
     pub nodes: Vec<HistoryNode>,
     pub locations: Vec<LocationRecord>,
+    /// 各电脑的主存档（本机在前）。
+    pub primaries: Vec<crate::primary::PrimaryView>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -154,6 +160,8 @@ impl App {
             mode: self.manage_mode(game)?,
             // 截图来源读取失败不影响游戏库。
             new_shots: self.pending_shots(game).unwrap_or(0) as u64,
+            primary: self.primary_branch(&game.id)?,
+            off_primary: self.off_primary(&game.id)?,
         })
     }
 
@@ -218,6 +226,7 @@ impl App {
             refs,
             nodes,
             locations: self.locations(&game.id)?,
+            primaries: self.primaries(&game.id)?,
         })
     }
 

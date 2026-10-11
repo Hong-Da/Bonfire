@@ -1226,5 +1226,12 @@
   "ui.settings.rememberFilters": "游戏库的筛选与管理方式（关闭后每次打开都显示全部游戏）",
   "ui.settings.rememberSelection": "游戏库中勾选的游戏（关闭后每次打开按默认勾选有更新与未备份的游戏）",
   "cli.arg.branch.rename": "把分支 OLD 改名为 NEW（快照不动，当前分支与主存档一并更新）",
-  "cli.out.branch_renamed": "已把分支 {from} 改名为 {to}"
+  "cli.out.branch_renamed": "已把分支 {from} 改名为 {to}",
+  "cli.arg.branch.primary": "查看本机主存档；给出分支名时设为本机主存档",
+  "cli.arg.branch.tidy": "设为主存档时整理名称：原 main 改名为 main-本机电脑名，选中的改为 main",
+  "cli.arg.bundle.import.adopt_main": "这是我旧电脑的存档：包内的 main 与本机分叉时，以它为本机主存档（整理名称）",
+  "cli.out.primary_set": "已把 heads/{branch} 设为本机主存档；需要时用 bonfire restore 恢复到它的最新快照",
+  "cli.out.primary_mine": "本机",
+  "cli.out.primary_off": "当前不在本机主存档上",
+  "cli.out.adopted_main": "「{game}」：已以导入的路线为本机主存档 heads/{branch}，用 bonfire restore 恢复到它的最新快照"
 }

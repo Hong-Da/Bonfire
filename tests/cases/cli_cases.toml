@@ -583,6 +583,34 @@ expect_exit = 2
 stderr_contains = ["已存在"]
 
 [[case]]
+id = "branch-primary-set"
+title = { zh-CN = "设为本机主存档并整理名称", en = "Set the primary branch and tidy names" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["branch", "空洞骑士", "main-旧电脑"]]
+args = ["branch", "空洞骑士", "--primary", "main-旧电脑", "--tidy"]
+expect_exit = 0
+stdout_contains = ["已把分支 main-旧电脑 改名为 main", "已把 heads/main 设为本机主存档"]
+in_docs = true
+
+[[case]]
+id = "branch-primary-show"
+title = { zh-CN = "查看本机主存档", en = "Show the primary branch" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["branch", "空洞骑士", "二周目"], ["branch", "空洞骑士", "--primary", "二周目"]]
+args = ["branch", "空洞骑士", "--primary"]
+expect_exit = 0
+stdout_contains = ["本机: heads/二周目", "当前不在本机主存档上"]
+
+[[case]]
+id = "branch-primary-delete-refused"
+title = { zh-CN = "主存档不能删除", en = "The primary branch cannot be deleted" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["branch", "空洞骑士", "二周目"], ["branch", "空洞骑士", "--primary", "二周目"]]
+args = ["branch", "空洞骑士", "-d", "二周目", "-y"]
+expect_exit = 2
+stderr_contains = ["主存档"]
+
+[[case]]
 id = "branch-delete"
 title = { zh-CN = "删除分支", en = "Delete a branch" }
 fixture = "basic"

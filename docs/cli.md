@@ -293,6 +293,14 @@ bonfire branch 空洞骑士 --rename main-旧电脑 二周目
 
 退出码：0
 
+### 设为本机主存档并整理名称
+
+```bat
+bonfire branch 空洞骑士 --primary main-旧电脑 --tidy
+```
+
+退出码：0
+
 ### 删除分支
 
 ```bat

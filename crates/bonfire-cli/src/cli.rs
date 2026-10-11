@@ -150,6 +150,10 @@ pub enum Cmd {
         delete: Option<String>,
         #[arg(long, num_args = 2, value_names = ["OLD", "NEW"], conflicts_with_all = ["name", "snapshot"])]
         rename: Option<Vec<String>>,
+        #[arg(long, num_args = 0..=1, value_name = "NAME", conflicts_with_all = ["name", "snapshot", "delete", "rename"])]
+        primary: Option<Option<String>>,
+        #[arg(long, requires = "primary")]
+        tidy: bool,
         #[arg(long, requires = "delete")]
         dry_run: bool,
     },
@@ -327,6 +331,8 @@ pub enum BundleCmd {
         no_shots: bool,
         #[arg(long, conflicts_with = "no_shots")]
         shots_to_disk: bool,
+        #[arg(long, conflicts_with = "no_saves")]
+        adopt_main: bool,
     },
 }
 

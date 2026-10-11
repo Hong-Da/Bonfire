@@ -24,9 +24,21 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 125 项，更新于 2026-10-11 00:30。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 127 项，更新于 2026-10-11 00:44。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>76 项</small></h2>
+<section id="s-0"><h2>开发<small>78 项</small></h2>
+      <article id="U-41h">
+        <header><code>U-41h</code><h3>导入时 main 冲突的默认选择（修订 U-41e）</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">默认“这是别人的存档：作为新路线加入”；“这是我旧电脑的存档：以它为本机主存档并恢复到磁盘”必须手动选 <b>✓ 采用</b></li><li class="">本机 main 只有首次备份时默认以导入为准</li></ul>
+        <p class="reason"><span>理由</span>导入朋友的存档时不能误把别人的路线当成本机主存档并覆盖磁盘存档。</p><p class="impact"><span>影响</span>迁移新电脑时在导入页选择第二项。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="U-41g">
+        <header><code>U-41g</code><h3>新旧电脑名一样时，主存档按什么区分（修订 U-41a、取代 U-41d）</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">本机标识：每台电脑第一次运行时生成随机标识，存在数据目录（machine-id）；界面显示电脑名 <b>✓ 采用</b></li><li class="">按电脑名</li></ul>
+        <p class="reason"><span>理由</span>同名电脑同时使用时互不影响；打包迁移数据目录时标识随之迁移，新电脑直接继承主存档。</p><p class="impact"><span>影响</span>电脑改名不再影响主存档，U-41d 不再需要。</p>
+        <footer>2026-10-11</footer>
+      </article>
       <article id="U-41f">
         <header><code>U-41f</code><h3>要不要做路线改名</h3><span class="status">用户确认</span></header>
         <ul><li class="chosen">要做：分支图菜单与命令行都能改名；“设为本机主存档”时可同时整理名称（导入改名的路线改回 main，本机原 main 改为 main-本机电脑名） <b>✓ 采用</b></li><li class="">不做</li></ul>

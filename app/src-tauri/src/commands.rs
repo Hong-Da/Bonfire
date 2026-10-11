@@ -587,6 +587,22 @@ pub async fn set_comment(
 }
 
 /// 删除分支（`dry_run` 时只返回会删除的快照）。
+/// 设为本机主存档（`tidy` 时整理名称）。
+#[tauri::command]
+pub async fn set_primary_branch(
+    h: AppHandle,
+    game_id: String,
+    branch: String,
+    tidy: bool,
+) -> CmdResult<bonfire_app::primary::SetPrimaryReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let lock = app.repo.lock()?;
+        Ok(app.set_primary(&lock, &g, &branch, tidy)?)
+    })
+    .await
+}
+
 /// 分支改名。
 #[tauri::command]
 pub async fn rename_branch(

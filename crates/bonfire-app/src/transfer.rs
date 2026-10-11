@@ -232,6 +232,8 @@ pub struct BundlePreview {
     /// 包内的截图数，其中本地相册没有的。
     pub shots: usize,
     pub new_shots: usize,
+    /// 包内的 main 与本机的 main 分叉，导入时改成的名字（如 main-旧电脑）。导入页据此询问是否以它为本机主存档。
+    pub main_conflict: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -315,6 +317,9 @@ pub struct ArchivePick {
     pub saves: bool,
     #[serde(default = "yes")]
     pub shots: bool,
+    /// 这是我旧电脑的存档：包内的 main 与本机分叉时，以它为本机主存档并整理名称（U-41h，必须手动选）。
+    #[serde(default)]
+    pub adopt_main: bool,
 }
 
 fn yes() -> bool {
@@ -329,6 +334,7 @@ impl ArchivePick {
             target: None,
             saves: true,
             shots: true,
+            adopt_main: false,
         }
     }
 }
@@ -362,6 +368,9 @@ pub struct ArchiveImportItem {
     pub report: Option<BundleImportReport>,
     /// 这个游戏导入失败的原因（其他游戏照常导入）。
     pub error: Option<String>,
+    /// 以导入的路线为本机主存档后它的名字（界面随后恢复它的最新快照）。
+    #[serde(default)]
+    pub adopted_main: Option<String>,
 }
 
 /// 导入的存档文件放在哪里。
@@ -1191,12 +1200,37 @@ impl App {
                 dry_run,
                 (pick.saves, pick.shots),
             );
+            // 这是我旧电脑的存档：以导入的 main 为本机主存档并整理名称。
+            let mut adopted_main = None;
+            let mut error = result.as_ref().err().map(|e| e.to_string());
+            if !dry_run
+                && result.is_ok()
+                && pick.adopt_main
+                && pick.saves
+                && let Some(name) = result
+                    .as_ref()
+                    .ok()
+                    .and_then(|r| r.preview.main_conflict.clone())
+            {
+                let id = pick
+                    .target
+                    .clone()
+                    .unwrap_or_else(|| game.preview.game_id.clone());
+                match self
+                    .find_game(&id)
+                    .and_then(|g| self.set_primary(lock, &g, &name, true))
+                {
+                    Ok(r) => adopted_main = Some(r.branch),
+                    Err(e) => error = Some(e.to_string()),
+                }
+            }
             out.push(ArchiveImportItem {
                 key: pick.key.clone(),
                 game_id: game.preview.game_id.clone(),
                 game_name: game.preview.game_name.clone(),
-                error: result.as_ref().err().map(|e| e.to_string()),
+                error,
                 report: result.ok(),
+                adopted_main,
             });
         }
         Ok(out)
@@ -1332,6 +1366,10 @@ impl App {
             }
             None => false,
         };
+        let main_conflict = refs
+            .iter()
+            .find(|r| r.kind == RefKind::Branch && r.name == bonfire_core::refs::DEFAULT_BRANCH)
+            .and_then(|r| r.new_name.clone());
         Ok(BundlePreview {
             game_id: local_game
                 .as_ref()
@@ -1353,6 +1391,7 @@ impl App {
                 .iter()
                 .filter(|s| !local_shots.contains(&s.blob))
                 .count(),
+            main_conflict,
         })
     }
 
