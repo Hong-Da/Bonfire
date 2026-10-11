@@ -118,7 +118,7 @@ dialog.zoom button { font: inherit; padding: 4px 14px; border-radius: 8px; borde
   <nav class="toc" aria-label="场景目录">
     <h2>场景</h2>
     <a href="#import"><span class="n">1</span><span>导入加密的下载存档并换上<small>最常见的情况</small></span></a>
-    <a href="#seven"><span class="n">2</span><span>下载的是 7z / rar<small>先解压再导入</small></span></a>
+    <a href="#seven"><span class="n">2</span><span>下载的是 7z / rar<small>同样直接导入</small></span></a>
     <a href="#failed"><span class="n">3</span><span>导入失败，改为手工替换<small>先备份，再覆盖</small></span></a>
     <a href="#manual"><span class="n">4</span><span>手工替换后再备份<small>单独存成新路线</small></span></a>
     <a href="#home"><span class="n">5</span><span>玩完回到自己的进度<small>回到主存档</small></span></a>
@@ -171,13 +171,18 @@ dialog.zoom button { font: inherit; padding: 4px 14px; border-radius: 8px; borde
     <section class="case" id="seven">
       <div class="case-head">
         <span class="tag">场景 2</span>
-        <h2>下载的是 7z 或 rar 压缩包</h2>
-        <p>篝火只能直接读取 zip。遇到 7z、rar 时，不会报一个看不懂的错误，而是告诉你怎么先解压。</p>
+        <h2>下载的是 7z 或 rar 压缩包，同样直接导入</h2>
+        <p>7z 和 rar 也内置了解压，加密的同样会提示输入密码，用法和 zip 完全一样。这次用的是一个文件名也加密了的 7z。只有 tar、gz 这类少见格式才需要先自己解压。</p>
       </div>
       <ol class="steps">
         <li>
-          <div class="step-text"><div><h3>按提示先解压</h3><p>用 7-Zip、Bandizip 或 WinRAR 解压（有密码就在解压时输入），然后回来点“选择文件夹…”，选解压出来的文件夹，接着走场景 1 的第 3 步。</p></div></div>
-          <figure class="shot"><button type="button" data-full="shots/c2-1-7z.png" aria-label="放大：7z 解压指引"><img src="shots/c2-1-7z.png" alt="对话框提示 7z / rar 压缩包请先解压，列出三步操作" loading="lazy"></button><figcaption>选到 7z 时的指引，“下一步”不可点。</figcaption></figure>
+          <div class="step-text"><div><h3>把 7z 拖进来，输入解压密码</h3><p>文件名也加密的 7z，不输入密码连里面有什么都看不到，篝火会先要密码。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c2-1-7z-password.png" aria-label="放大：7z 输入密码"><img src="shots/c2-1-7z-password.png" alt="选中余烬之旅-论坛存档.7z 后提示这个压缩包需要解压密码" loading="lazy"></button><figcaption>加密 7z 的密码提示，和 zip 一样。</figcaption></figure>
+        </li>
+        <li>
+          <div class="step-text"><div><h3>解压后自动对应</h3><p>找到 1 个存档文件并自动对应好，附带的说明被忽略。下一步和场景 1 一样，确认放在哪里。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c2-2-7z-found.png" aria-label="放大：7z 读取结果"><img src="shots/c2-2-7z-found.png" alt="显示找到 1 个存档文件，已自动对应 1 个，另有 1 个说明已忽略" loading="lazy"></button><figcaption>读取结果。</figcaption></figure>
+          <figure class="shot"><button type="button" data-full="shots/c2-3-7z-map.png" aria-label="放大：7z 放置位置"><img src="shots/c2-3-7z-map.png" alt="slot1.sav 放到 demo-saves\EmberQuest 存档文件夹，标着替换" loading="lazy"></button><figcaption>确认放置位置：存档文件夹只显示路径的最后两级，鼠标停上去能看到完整路径。</figcaption></figure>
         </li>
       </ol>
     </section>
@@ -239,7 +244,8 @@ dialog.zoom button { font: inherit; padding: 4px 14px; border-radius: 8px; borde
         <li>所有操作都在隔离的检查实例里完成，用的是测试仓库和假存档目录，没有碰你自己的篝火和真实游戏存档。</li>
         <li>点击和输入由脚本在页面里完成，相当于正常点按钮；拖放是用应用的拖放事件模拟的。</li>
         <li>场景 1 的路线名带了“-2”，是因为之前测试时已经导入过一次同名路线。</li>
-        <li>命令行也能做同样的导入：<code>bonfire import 游戏 下载的zip或文件夹 --download --password 密码</code>。</li>
+        <li>命令行也能做同样的导入：<code>bonfire import 游戏 下载的zip/7z/rar或文件夹 --download --password 密码</code>。</li>
+        <li>场景 2 是 7z、rar 支持内置解压之后重拍的。</li>
       </ul>
     </footer>
   </main>
