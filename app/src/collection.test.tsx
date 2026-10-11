@@ -300,9 +300,16 @@ describe("篝火包：存档与截图（U-16）", () => {
     await screen.findByText(/2 张截图/);
     fireEvent.click(screen.getByRole("checkbox", { name: "全选" }));
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    // 与游戏库相同的导出对话框（U-50）：默认只导出选中的截图，可选格式。
+    const dlg = await screen.findByRole("dialog", { name: "导出存档和截图" });
+    expect(within(dlg).getByText(/导出选中的 2 张截图/)).toBeInTheDocument();
+    expect(within(dlg).getByRole("radio", { name: /zip 压缩包/ })).toBeInTheDocument();
+    expect(within(dlg).getByRole("checkbox", { name: /存档历史/ })).not.toBeChecked();
+    fireEvent.click(within(dlg).getByRole("button", { name: /选择位置并导出/ }));
     await waitFor(() =>
       expect(api.exportPackage).toHaveBeenCalledWith(["g1", "g2"], "D:/out/s.bonfire", { saves: false, shots: true, shotIds: { g1: ["b3:111111"], g2: ["b3:222222"] } }),
     );
+    expect(await screen.findByRole("dialog", { name: "导出完成" })).toBeInTheDocument();
   });
 });
 

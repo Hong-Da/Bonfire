@@ -14,10 +14,9 @@ import { fileName, purgeMessage } from "../lib/shots";
 import { useMarquee } from "../lib/marquee";
 import PurgeDialog from "../components/PurgeDialog";
 import { useStore } from "../store";
-import type { GalleryGame, GalleryView, PurgeReport, ShotRecord } from "../types";
+import type { GalleryGame, GalleryView, GameRow, PurgeReport, ShotRecord } from "../types";
 import { Lightbox, ShotThumb } from "./ShotsPanel";
-import { save } from "@tauri-apps/plugin-dialog";
-import { CollectionImportDialog } from "./CollectionDialogs";
+import { CollectionExportDialog, CollectionImportDialog } from "./CollectionDialogs";
 import { fuzzyMatch } from "../lib/search";
 
 type Tab = "album" | "trash";
@@ -238,17 +237,19 @@ export default function Gallery() {
         }),
     });
 
-  // 选中的截图（可跨游戏）导出为篝火包，导入到另一台电脑的篝火时合并到相册（U-16）。
-  const exportSel = (shots: ShotRecord[]) =>
-    run(async () => {
-      const ids: Record<string, string[]> = {};
-      for (const s of shots) (ids[s.gameId] ??= []).push(s.blob);
-      const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-      const dest = await save({ defaultPath: `Bonfire-${t("ui.package.shotsFileName")}-${stamp}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
-      if (!dest) return;
-      const r = await api.exportPackage(Object.keys(ids), dest, { saves: false, shots: true, shotIds: ids });
-      store.toast("success", t("ui.package.exported", { n: r.games.length, s: 0, p: shots.length, size: bytes(r.bytes) }), { label: t("ui.transfer.showFile"), run: () => void api.openPath(r.dest) });
-    });
+  // 选中的截图（可跨游戏）导出：与游戏库的导出相同的对话框（U-50），截图只导出选中的，
+  // 也可同时导出这些游戏的存档，可选篝火包或 zip、一个或两个文件。
+  const [exporting, setExporting] = useState<{ rows: GameRow[]; shotIds: Record<string, string[]> } | null>(null);
+  const exportSel = (shots: ShotRecord[]) => {
+    const ids: Record<string, string[]> = {};
+    for (const s of shots) (ids[s.gameId] ??= []).push(s.blob);
+    // 游戏库中的游戏用它的信息（含快照数）；已移出游戏库的只能导出截图。
+    const rows = Object.keys(ids).map(
+      (id): GameRow =>
+        store.rows[id] ?? ({ id, name: games.get(id)?.name ?? id, nameZh: games.get(id)?.nameZh ?? null, platform: games.get(id)?.platform ?? "", coverThumb: null, snapshots: 0, shots: ids[id].length } as unknown as GameRow),
+    );
+    setExporting({ rows, shotIds: ids });
+  };
 
   const toggle = (k: string) =>
     setPicked((s) => {
@@ -558,6 +559,7 @@ export default function Gallery() {
       )}
       {importOpen && <CollectionImportDialog onClose={() => setImportOpen(false)} onDone={() => void reload()} />}
       {purgeAsk && <PurgeDialog text={purgeAsk.text} onConfirm={purgeAsk.run} onClose={() => setPurgeAsk(null)} />}
+      {exporting && <CollectionExportDialog rows={exporting.rows} initial={exporting.rows.map((r) => r.id)} shotIds={exporting.shotIds} onClose={() => setExporting(null)} />}
       {!inTrash && viewing !== null && ordered[viewing] && (
         <Lightbox
           gameId={ordered[viewing].gameId}

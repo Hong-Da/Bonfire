@@ -32,14 +32,22 @@ const joinPath = (dir: string, name: string) => {
  * 同时导出存档与截图时可合成一个文件或分成两个文件。没有可导出内容的游戏不能选。
  * 游戏库、详情页共用；图库中选中的截图直接导出（见图库页）。导出后换成导出完成的页面。
  */
-export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameRow[]; initial: string[]; onClose: () => void }) {
+export function CollectionExportDialog({ rows, initial, onClose, shotIds }: {
+  rows: GameRow[];
+  initial: string[];
+  onClose: () => void;
+  /** 图库中选中的截图（按游戏，U-50）：截图只导出这些，默认只导出截图 */
+  shotIds?: Record<string, string[]>;
+}) {
   const { t, i18n } = useTranslation();
   const store = useStore();
-  const [saves, setSaves] = useState(true);
+  const [saves, setSaves] = useState(!shotIds);
+  // 每个游戏要导出的截图数：图库中导出时为选中的张数。
+  const shotsOf = (r: GameRow) => (shotIds ? (shotIds[r.id]?.length ?? 0) : r.shots);
   const [shots, setShots] = useState(true);
   const [format, setFormat] = useState<PackageFormat>("bonfire");
   const [split, setSplit] = useState(false);
-  const has = (r: GameRow) => (saves && r.snapshots > 0) || (shots && r.shots > 0);
+  const has = (r: GameRow) => (saves && r.snapshots > 0) || (shots && shotsOf(r) > 0);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(initial));
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ files: ExportedFile[]; skipped: string[] } | null>(null);
@@ -47,7 +55,7 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
   const exportable = rows.filter(has);
   const snapshots = saves ? chosen.reduce((n, r) => n + r.snapshots, 0) : 0;
   const latest = saves ? chosen.filter((r) => r.snapshots > 0).length : 0;
-  const shotCount = shots ? chosen.reduce((n, r) => n + r.shots, 0) : 0;
+  const shotCount = shots ? chosen.reduce((n, r) => n + shotsOf(r), 0) : 0;
   const both = saves && shots;
   // 两个文件：只在同时导出存档与截图、且两样都有内容时。
   const twoFiles = both && split && latest > 0 && shotCount > 0;
@@ -63,15 +71,16 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
 
   /** 导出一个文件，返回导出结果的说明。 */
   const exportOne = async (dest: string, part: { saves: boolean; shots: boolean }): Promise<{ file: ExportedFile; skipped: string[] }> => {
-    const ids = chosen.filter((r) => (part.saves && r.snapshots > 0) || (part.shots && r.shots > 0)).map((x) => x.id);
-    const r = format === "zip" ? await api.exportPackageZip(ids, dest, part) : await api.exportPackage(ids, dest, part);
+    const ids = chosen.filter((r) => (part.saves && r.snapshots > 0) || (part.shots && shotsOf(r) > 0)).map((x) => x.id);
+    const options = part.shots && shotIds ? { ...part, shotIds: Object.fromEntries(ids.filter((id) => shotIds[id]).map((id) => [id, shotIds[id]])) } : part;
+    const r = format === "zip" ? await api.exportPackageZip(ids, dest, options) : await api.exportPackage(ids, dest, options);
     const kind = part.saves && part.shots ? "both" : part.saves ? "saves" : "shots";
     const label = [t(`ui.export.kind.${kind}`), t("ui.export.gamesN", { n: r.games.length })].join(" · ");
     return { file: { path: r.dest, bytes: r.bytes, label }, skipped: r.skipped };
   };
 
   const run = async () => {
-    const base = chosen.length === 1 ? displayName(chosen[0], i18n.language) : t("ui.collection.fileName");
+    const base = chosen.length === 1 ? displayName(chosen[0], i18n.language) : t(shotIds ? "ui.package.shotsFileName" : "ui.collection.fileName");
     let jobs: { dest: string; part: { saves: boolean; shots: boolean } }[];
     if (twoFiles) {
       const dir = await open({ directory: true, title: t("ui.package.pickFolder") });
@@ -136,7 +145,7 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
   }
 
   return (
-    <Modal title={t("ui.package.exportTitle")} subtitle={t("ui.package.exportIntro")} onClose={onClose} footer={footer}>
+    <Modal title={t("ui.package.exportTitle")} subtitle={shotIds ? t("ui.package.galleryIntro", { n: Object.values(shotIds).reduce((n, v) => n + v.length, 0) }) : t("ui.package.exportIntro")} onClose={onClose} footer={footer}>
       <div className="export-opts">
         <span className="export-opt-label" id="pkg-parts">
           {t("ui.package.parts")}
@@ -213,7 +222,7 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
                   <small>{t(`ui.platform.${r.platform}`, { defaultValue: r.platform })}</small>
                 </span>
                 <span className="muted num">
-                  {disabled ? t("ui.package.nothing") : [saves && r.snapshots > 0 && savesText, shots && r.shots > 0 && t("ui.shots.countN", { n: r.shots })].filter(Boolean).join(" · ")}
+                  {disabled ? t("ui.package.nothing") : [saves && r.snapshots > 0 && savesText, shots && shotsOf(r) > 0 && t("ui.shots.countN", { n: shotsOf(r) })].filter(Boolean).join(" · ")}
                 </span>
               </label>
             </li>

@@ -1082,7 +1082,7 @@
   "ui.package.exported": "Exported {n} games ({s} snapshots, {p} screenshots), {size}",
   "ui.package.exportOne": "Export saves and screenshots (Bonfire package / zip)",
   "ui.package.galleryExport": "Export",
-  "ui.package.galleryExportHint": "Export the selected screenshots as a Bonfire package; importing merges them into the album",
+  "ui.package.galleryExportHint": "Export the selected screenshots as a Bonfire package or zip, optionally with these games' saves",
   "ui.package.shotsFileName": "bonfire-screenshots",
   "ui.package.importHint": "Import a Bonfire package (saves and screenshots)",
   "ui.package.savesN": "Saves ({n} snapshots)",
@@ -1412,5 +1412,6 @@
   "ui.collection.filesWillAdd": "Added to the library on import",
   "ui.gallery.groupSelect": "Selection in {name}",
   "ui.gallery.groupPicked": "{n} picked",
-  "cli.arg.bundle.export.zip": "Export a zip (Bonfire's zip format: each game's current snapshot files and original screenshots) instead of a Bonfire package"
+  "cli.arg.bundle.export.zip": "Export a zip (Bonfire's zip format: each game's current snapshot files and original screenshots) instead of a Bonfire package",
+  "ui.package.galleryIntro": "Export the {n} selected screenshots, optionally with these games' saves. Choose the contents and format."
 }
