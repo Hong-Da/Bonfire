@@ -38,6 +38,9 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
       saves: saveCand.filter((r) => r.state !== "up-to-date"),
       hasSaves: saveCand.length > 0,
       shots: picked.filter((r) => r.mode !== "saves"),
+      // 所选游戏中不参与某一步的：只管理截图的不备份存档，只管理存档的不收集截图。
+      shotsOnly: picked.filter((r) => r.shotsOnly || r.mode === "shots"),
+      savesOnly: picked.filter((r) => r.mode === "saves"),
     };
   });
   const canPick = plan.hasSaves && plan.shots.length > 0;
@@ -221,6 +224,7 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
                   <small>
                     {plan.saves.length > 0 ? t("ui.backup.kindSavesHint", { n: plan.saves.length }) : t("ui.backup.kindSavesNone")}
                     {plan.skipped.length > 0 && t("ui.backup.kindSavesSkip", { n: plan.skipped.length })}
+                    {plan.shotsOnly.length > 0 && t("ui.backup.kindSavesShotsOnly", { n: plan.shotsOnly.length })}
                   </small>
                 </span>
               </label>
@@ -231,7 +235,10 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
                 </span>
                 <span>
                   <b>{t("ui.backup.kindShots")}</b>
-                  <small>{t("ui.backup.kindShotsHint", { n: plan.shots.length })}</small>
+                  <small>
+                    {t("ui.backup.kindShotsHint", { n: plan.shots.length })}
+                    {plan.savesOnly.length > 0 && t("ui.backup.kindShotsSavesOnly", { n: plan.savesOnly.length })}
+                  </small>
                 </span>
               </label>
             </div>
@@ -292,6 +299,7 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
                 ))}
               </ul>
               <RemovedStrip rows={plan.saves.filter((r) => removed.saves.has(r.id))} onRestore={(id) => undrop("saves", id)} />
+              <ExcludedList rows={plan.shotsOnly} title={t("ui.backup.excludedShotsOnly", { n: plan.shotsOnly.length })} hint={t(wantShots ? "ui.backup.excludedShotsOnlyHint" : "ui.backup.excludedShotsOnlyHintNoShots")} tag={t("ui.mode.shots")} />
               {plan.skipped.length > 0 && (
                 <section className="skip-list" aria-label={t("ui.backup.skippedTitle", { n: plan.skipped.length })}>
                   <h3>{t("ui.backup.skippedTitle", { n: plan.skipped.length })}</h3>
@@ -341,11 +349,33 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
                 })}
               </ul>
               <RemovedStrip rows={plan.shots.filter((r) => removed.shots.has(r.id))} onRestore={(id) => undrop("shots", id)} />
+              <ExcludedList rows={plan.savesOnly} title={t("ui.backup.excludedSavesOnly", { n: plan.savesOnly.length })} hint={t("ui.backup.excludedSavesOnlyHint")} tag={t("ui.mode.saves")} />
             </>
           )}
         </>
       )}
     </Modal>
+  );
+}
+
+/** 所选游戏中因管理方式不参与这一步的（只管理截图的不备份存档、只管理存档的不收集截图）。 */
+function ExcludedList({ rows, title, hint, tag }: { rows: GameRow[]; title: string; hint: string; tag: string }) {
+  const { i18n } = useTranslation();
+  if (rows.length === 0) return null;
+  return (
+    <section className="skip-list" aria-label={title}>
+      <h3>{title}</h3>
+      <p className="hint">{hint}</p>
+      <ul>
+        {rows.map((r) => (
+          <li key={r.id}>
+            <Cover row={r} size="note" />
+            <span>{displayName(r, i18n.language)}</span>
+            <span className="tag">{tag}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

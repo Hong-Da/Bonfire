@@ -1211,5 +1211,12 @@
   "ui.fresh.hint": "Added to the library in the last {days} days; cleared once you open it",
   "ui.fresh.head": "Newly added",
   "ui.fresh.only": "Only newly added ({n})",
-  "ui.fresh.markAll": "Mark all as seen ({n})"
+  "ui.fresh.markAll": "Mark all as seen ({n})",
+  "ui.backup.kindSavesShotsOnly": "; {n} manage screenshots only and won't back up saves",
+  "ui.backup.kindShotsSavesOnly": "; {n} manage saves only and won't collect screenshots",
+  "ui.backup.excludedShotsOnly": "Screenshots only, saves not backed up ({n})",
+  "ui.backup.excludedShotsOnlyHint": "These games only collect screenshots (next step). To back up their saves, change their management to “Saves and screenshots”.",
+  "ui.backup.excludedShotsOnlyHintNoShots": "These games manage screenshots only, so no saves are backed up; tick “Back up screenshots” to collect theirs. To back up saves, change their management to “Saves and screenshots”.",
+  "ui.backup.excludedSavesOnly": "Saves only, screenshots not collected ({n})",
+  "ui.backup.excludedSavesOnlyHint": "These games only back up saves. To collect their screenshots, change their management to “Saves and screenshots”."
 }

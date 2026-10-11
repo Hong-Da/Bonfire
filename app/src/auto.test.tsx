@@ -57,9 +57,13 @@ describe("备份确认", () => {
     expect(screen.getByRole("checkbox", { name: /备份截图/ })).toBeChecked();
     expect(screen.getByText(/2 个游戏的存档有变化或还没备份；1 个已是最新，会跳过/)).toBeInTheDocument();
     expect(screen.getByText(/从 3 个游戏收集新截图/)).toBeInTheDocument();
+    expect(screen.getByText(/1 个只管理截图，不备份存档/)).toBeInTheDocument();
+    expect(screen.getByText(/1 个只管理存档，不收集截图/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "下一步" }));
     // 第 2 步：确认存档，移除 D。
     expect(screen.getByText("已是最新，将跳过（1）")).toBeInTheDocument();
+    // 只管理截图的游戏单独列出：不备份存档。
+    expect(screen.getByRole("region", { name: "只管理截图，不备份存档（1）" })).toHaveTextContent("只管理截图");
     fireEvent.click(screen.getByRole("button", { name: "这次不备份「D」" }));
     expect(screen.queryByLabelText("「D」的备注")).toBeNull();
     // 移出的游戏列在下方，可以恢复。
@@ -73,6 +77,7 @@ describe("备份确认", () => {
     // 每个游戏显示已有与本次新增的数量（按磁盘重新数）。
     expect(await screen.findByText("本次新增 4 张")).toBeInTheDocument();
     expect(screen.getByText("本次将从 3 个游戏新增 4 张截图")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "只管理存档，不收集截图（1）" })).toHaveTextContent("只管理存档");
     expect(screen.getAllByText(/没有新截图/).length).toBe(2);
     fireEvent.click(screen.getByRole("button", { name: "这次不备份「B」" }));
     fireEvent.click(screen.getByRole("button", { name: "备份 2 个游戏" }));

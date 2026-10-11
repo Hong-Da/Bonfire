@@ -1211,5 +1211,12 @@
   "ui.fresh.hint": "最近 {days} 天内加入游戏库；打开详情后不再标记",
   "ui.fresh.head": "新加入",
   "ui.fresh.only": "只看新加入的（{n}）",
-  "ui.fresh.markAll": "全部标为已看过（{n}）"
+  "ui.fresh.markAll": "全部标为已看过（{n}）",
+  "ui.backup.kindSavesShotsOnly": "；{n} 个只管理截图，不备份存档",
+  "ui.backup.kindShotsSavesOnly": "；{n} 个只管理存档，不收集截图",
+  "ui.backup.excludedShotsOnly": "只管理截图，不备份存档（{n}）",
+  "ui.backup.excludedShotsOnlyHint": "这些游戏只收集截图，在下一步确认。要备份它们的存档，把管理方式改为“存档和截图”。",
+  "ui.backup.excludedShotsOnlyHintNoShots": "这些游戏只管理截图，这次不备份存档；勾选“备份截图”可以收集它们的截图。要备份存档，把管理方式改为“存档和截图”。",
+  "ui.backup.excludedSavesOnly": "只管理存档，不收集截图（{n}）",
+  "ui.backup.excludedSavesOnlyHint": "这些游戏只备份存档。要收集它们的截图，把管理方式改为“存档和截图”。"
 }
