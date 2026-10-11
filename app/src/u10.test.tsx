@@ -533,6 +533,9 @@ describe("U-34 新加入的游戏", () => {
     expect(noteGames(["a", "b", "c"], 2_000)).toEqual({ c: 2_000 });
     // 超过 7 天不再算新加入。
     expect(noteGames(["a", "b", "c"], 2_000 + 8 * 86_400_000)).toEqual({});
+    // 移出游戏库后重新加入：同样标为新加入。
+    expect(noteGames(["a", "c"], 3_000)).toEqual({ c: 2_000 });
+    expect(noteGames(["a", "b", "c"], 4_000)).toEqual({ b: 4_000, c: 2_000 });
 
     seed([row({ id: "a", name: "Alpha", nameZh: null }), row({ id: "c", name: "Gamma", nameZh: null })]);
     useStore.setState({ fresh: { c: Date.now() } });

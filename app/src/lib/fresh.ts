@@ -3,6 +3,7 @@ import { prefGet, prefSet } from "./uiState";
 /**
  * 新加入游戏库的游戏（U-34）：记录每个游戏在本机第一次出现在游戏库中的时间，
  * 7 天内、且还没打开过详情的标为“新加入”。第一次使用时已有的游戏不算新加入。
+ * 移出游戏库的游戏不再记录，之后重新加入时同样标为新加入。
  * 只是界面提示，记在本机；读写失败时不标记。
  */
 const KEY = "bonfire.library.seen";
@@ -45,6 +46,14 @@ export function noteGames(ids: string[], now = Date.now()): Record<string, numbe
   const first = stored === null;
   const s: Seen = stored ?? {};
   let changed = first;
+  // 已移出游戏库的不再记录。
+  const present = new Set(ids);
+  for (const id of Object.keys(s)) {
+    if (!present.has(id)) {
+      delete s[id];
+      changed = true;
+    }
+  }
   for (const id of ids) {
     if (!(id in s)) {
       s[id] = first ? 0 : now;

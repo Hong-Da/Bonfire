@@ -24,27 +24,15 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 153 项，更新于 2026-10-11 03:17。需要改动的项请在对话中告诉 Claude（附编号）。</p>
-<nav><a href="#s-0">M3</a><a href="#s-1">界面</a><a href="#s-2">导入</a><a href="#s-3">导出</a><a href="#s-4">开发</a><a href="#s-5">缺陷修复</a><a href="#s-6">用户修改</a><a href="#s-7">M3 GUI MVP</a><a href="#s-8">M2 存档发现</a><a href="#s-9">M1 核心库</a><a href="#s-10">全局</a></nav>
-<section id="s-0"><h2>M3<small>3 项</small></h2>
-      <article id="M3-6c">
-        <header><code>M3-6c</code><h3>安装、升级、卸载如何验收</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">脚本静默安装到临时目录自动检查，再由用户本机安装按清单验收 P0（推荐） <b>✓ 采用</b></li><li class="">只做手工验收</li></ul>
-        <p class="reason"><span>理由</span>自动检查可重复；桌面程序与开发版标识相同，测试中不启动，界面由用户本机验收。</p><p class="impact"><span>影响</span>tests/installer/check-installer.ps1；本机已安装篝火时脚本不运行。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 154 项，更新于 2026-10-11 11:04。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<nav><a href="#s-0">界面</a><a href="#s-1">M3</a><a href="#s-2">导入</a><a href="#s-3">导出</a><a href="#s-4">开发</a><a href="#s-5">缺陷修复</a><a href="#s-6">用户修改</a><a href="#s-7">M3 GUI MVP</a><a href="#s-8">M2 存档发现</a><a href="#s-9">M1 核心库</a><a href="#s-10">全局</a></nav>
+<section id="s-0"><h2>界面<small>5 项</small></h2>
+      <article id="U-53a">
+        <header><code>U-53a</code><h3>移出后重新加入游戏库的游戏是否显示“新加入”</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">显示：移出游戏库时不再记录该游戏，重新加入后按新加入处理（7 天内、未打开详情）（推荐） <b>✓ 采用</b></li><li class="">不显示：只看第一次出现的时间</li></ul>
+        <p class="reason"><span>理由</span>用户要求。</p><p class="impact"><span>影响</span>加载游戏库时清掉已不在库中的游戏的记录；只影响界面标记。</p>
         <footer>2026-10-11</footer>
       </article>
-      <article id="M3-6b">
-        <header><code>M3-6b</code><h3>卸载时是否删除数据（配置与备份仓库）</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">保留 &lt;安装目录&gt;\data（推荐） <b>✓ 采用</b></li><li class="">一并删除</li></ul>
-        <p class="reason"><span>理由</span>备份仓库是用户的存档历史，卸载或重装不应丢失；已测试升级与卸载后数据都保留。</p><p class="impact"><span>影响</span>彻底清除需手动删除安装目录。</p>
-        <footer>2026-10-11</footer>
-      </article>
-      <article id="M3-6a">
-        <header><code>M3-6a</code><h3>安装包中命令行 bonfire.exe 与桌面程序 Bonfire.exe 同名冲突怎么办</h3><span class="status">默认推荐</span></header>
-        <ul><li class="chosen">命令行放在 &lt;安装目录&gt;\cli\bonfire.exe，数据与规则库与桌面程序共用（推荐） <b>✓ 采用</b></li><li class="">桌面程序改名（如 Bonfire-Desktop.exe）</li><li class="">命令行改名（如 bonfire-cli.exe）</li></ul>
-        <p class="reason"><span>理由</span>Windows 文件名不区分大小写，安装后命令行覆盖了桌面程序；放到子目录后两个名字都不变，命令仍是 bonfire。</p><p class="impact"><span>影响</span>使用命令行需把 &lt;安装目录&gt;\cli 加入 PATH；开发时 cli.bat 不受影响。</p>
-        <footer>2026-10-11</footer>
-      </article></section><section id="s-1"><h2>界面<small>4 项</small></h2>
       <article id="U-51a">
         <header><code>U-51a</code><h3>图库的导出能否导出全部</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">导出改为菜单：导出所选截图 / 导出全部截图（相册全部，不受筛选影响）（推荐） <b>✓ 采用</b></li><li class="">只能导出所选</li></ul>
@@ -67,6 +55,24 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <header><code>U-49d</code><h3>导出成功后对话框怎么变化</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">换成导出完成页：文件名、内容、大小、所在文件夹、打开位置与怎么用（推荐） <b>✓ 采用</b></li><li class="">保留原页面，只改底部按钮</li></ul>
         <p class="reason"><span>理由</span>用户反馈导出后还停在“导出xxx的存档”页面。</p><p class="impact"><span>影响</span>详情页导出与游戏库导出共用 ExportDone 组件。</p>
+        <footer>2026-10-11</footer>
+      </article></section><section id="s-1"><h2>M3<small>3 项</small></h2>
+      <article id="M3-6c">
+        <header><code>M3-6c</code><h3>安装、升级、卸载如何验收</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">脚本静默安装到临时目录自动检查，再由用户本机安装按清单验收 P0（推荐） <b>✓ 采用</b></li><li class="">只做手工验收</li></ul>
+        <p class="reason"><span>理由</span>自动检查可重复；桌面程序与开发版标识相同，测试中不启动，界面由用户本机验收。</p><p class="impact"><span>影响</span>tests/installer/check-installer.ps1；本机已安装篝火时脚本不运行。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M3-6b">
+        <header><code>M3-6b</code><h3>卸载时是否删除数据（配置与备份仓库）</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">保留 &lt;安装目录&gt;\data（推荐） <b>✓ 采用</b></li><li class="">一并删除</li></ul>
+        <p class="reason"><span>理由</span>备份仓库是用户的存档历史，卸载或重装不应丢失；已测试升级与卸载后数据都保留。</p><p class="impact"><span>影响</span>彻底清除需手动删除安装目录。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M3-6a">
+        <header><code>M3-6a</code><h3>安装包中命令行 bonfire.exe 与桌面程序 Bonfire.exe 同名冲突怎么办</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">命令行放在 &lt;安装目录&gt;\cli\bonfire.exe，数据与规则库与桌面程序共用（推荐） <b>✓ 采用</b></li><li class="">桌面程序改名（如 Bonfire-Desktop.exe）</li><li class="">命令行改名（如 bonfire-cli.exe）</li></ul>
+        <p class="reason"><span>理由</span>Windows 文件名不区分大小写，安装后命令行覆盖了桌面程序；放到子目录后两个名字都不变，命令仍是 bonfire。</p><p class="impact"><span>影响</span>使用命令行需把 &lt;安装目录&gt;\cli 加入 PATH；开发时 cli.bat 不受影响。</p>
         <footer>2026-10-11</footer>
       </article></section><section id="s-2"><h2>导入<small>6 项</small></h2>
       <article id="U-49c">
