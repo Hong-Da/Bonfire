@@ -1206,9 +1206,11 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
             to,
             shots,
             no_saves,
+            zip,
         } => {
-            // 多个游戏（或 --all）、或只导出截图时，导出为篝火包（合集包格式），每个游戏全部分支。
-            if all || games.len() > 1 || no_saves {
+            // 多个游戏（或 --all）、或只导出截图时，导出为篝火包（合集包格式），每个游戏全部分支；
+            // --zip 时导出为篝火的 zip 格式（U-49）。
+            if all || games.len() > 1 || no_saves || zip {
                 if !branches.is_empty() || to.is_some() {
                     return Err(AppError::Invalid(
                         out.t("cli.error.collection_scope").into(),
@@ -1222,15 +1224,16 @@ fn bundle(app: &mut App, cmd: BundleCmd, out: &Out) -> Result<()> {
                         .map(|k| app.find_game(k))
                         .collect::<Result<Vec<_>>>()?
                 };
-                let r = app.export_package(
-                    &list,
-                    &out_file,
-                    &PackageOptions {
-                        saves: !no_saves,
-                        shots,
-                        shot_ids: Default::default(),
-                    },
-                )?;
+                let opts = PackageOptions {
+                    saves: !no_saves,
+                    shots,
+                    shot_ids: Default::default(),
+                };
+                let r = if zip {
+                    app.export_package_zip(&list, &out_file, &opts)?
+                } else {
+                    app.export_package(&list, &out_file, &opts)?
+                };
                 out.emit(serde_json::to_value(&r).unwrap());
                 out.line(out.tf(
                     "cli.out.collection_exported",

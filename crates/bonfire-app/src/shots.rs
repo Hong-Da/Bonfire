@@ -797,6 +797,47 @@ impl App {
     }
 
     /// 截图内容：备份中的原图，早期版本从对象库中取出。
+    /// 把截图原图（附 readme.txt）写入压缩包的 `prefix` 目录，按拍摄时间排序，返回字节数。
+    pub(crate) fn write_shots_zip(
+        &self,
+        zip: &mut zip::ZipWriter<std::fs::File>,
+        prefix: &str,
+        game_name: &str,
+        chosen: &[&ShotRecord],
+        tmp: &Path,
+    ) -> Result<u64> {
+        let mut sorted = chosen.to_vec();
+        sorted.sort_by(|a, b| a.taken_at.cmp(&b.taken_at));
+        let names = file_names(&sorted);
+        let mut total = 0;
+        for (s, name) in sorted.iter().zip(&names) {
+            // 图片本身已压缩，原样存放。
+            let opts = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored)
+                .large_file(true)
+                .last_modified_time(zip_time(Some(&s.taken_at)));
+            let data = self.shot_bytes(s)?;
+            total += data.len() as u64;
+            zip.start_file(format!("{prefix}{name}"), opts)
+                .map_err(|e| zip_err(tmp, e))?;
+            zip.write_all(&data).map_err(|e| AppError::io(tmp, e))?;
+        }
+        zip.start_file(
+            format!("{prefix}{}", crate::branding::README_NAME),
+            zip::write::SimpleFileOptions::default(),
+        )
+        .map_err(|e| zip_err(tmp, e))?;
+        zip.write_all(&crate::branding::readme(
+            &crate::branding::ReadmeKind::Shots {
+                game: game_name,
+                count: sorted.len(),
+            },
+            &now_local_rfc3339(),
+        ))
+        .map_err(|e| AppError::io(tmp, e))?;
+        Ok(total)
+    }
+
     pub(crate) fn shot_bytes(&self, s: &ShotRecord) -> Result<Vec<u8>> {
         if let Some(p) = self.shot_path(s) {
             return std::fs::read(&p).map_err(|e| AppError::io(&p, e));
@@ -961,32 +1002,7 @@ impl App {
                 let result = (|| -> Result<u64> {
                     let file = std::fs::File::create(&tmp).map_err(|e| AppError::io(&tmp, e))?;
                     let mut zip = zip::ZipWriter::new(file);
-                    let mut total = 0;
-                    for (s, name) in chosen.iter().zip(&names) {
-                        // 图片本身已压缩，原样存放。
-                        let opts = zip::write::SimpleFileOptions::default()
-                            .compression_method(zip::CompressionMethod::Stored)
-                            .large_file(true)
-                            .last_modified_time(zip_time(Some(&s.taken_at)));
-                        let data = self.shot_bytes(s)?;
-                        total += data.len() as u64;
-                        zip.start_file(name.as_str(), opts)
-                            .map_err(|e| zip_err(&tmp, e))?;
-                        zip.write_all(&data).map_err(|e| AppError::io(&tmp, e))?;
-                    }
-                    zip.start_file(
-                        crate::branding::README_NAME,
-                        zip::write::SimpleFileOptions::default(),
-                    )
-                    .map_err(|e| zip_err(&tmp, e))?;
-                    zip.write_all(&crate::branding::readme(
-                        &crate::branding::ReadmeKind::Shots {
-                            game: &game.name,
-                            count: chosen.len(),
-                        },
-                        &crate::util::now_local_rfc3339(),
-                    ))
-                    .map_err(|e| AppError::io(&tmp, e))?;
+                    let total = self.write_shots_zip(&mut zip, "", &game.name, &chosen, &tmp)?;
                     let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
                     f.sync_all().map_err(|e| AppError::io(&tmp, e))?;
                     Ok(total)

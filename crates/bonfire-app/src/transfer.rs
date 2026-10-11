@@ -474,6 +474,8 @@ impl BundlePlan {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FilesSource {
+    /// 存档文件夹在来源中的相对路径（在根目录时为空；zip 格式的篝火导出可含多个游戏，U-49）。
+    pub dir: String,
     pub manifest: ExportManifest,
     /// 游戏库中对应的游戏；没有时导入会新建（未安装）。
     pub game_id: Option<String>,
@@ -499,6 +501,45 @@ type ExportItems = Vec<(String, u64, Source)>;
 enum Source {
     Blob(ObjectId),
     Disk(PathBuf),
+}
+
+/// 要导出的存档文件（导出存档文件、zip 格式的篝火导出共用）。
+struct FilesPlan {
+    items: ExportItems,
+    manifest: ExportManifest,
+    /// 每个存档位置在导出中的文件夹名。
+    folders: Vec<String>,
+}
+
+impl FilesPlan {
+    /// 清单路径（`序号/相对路径`）在导出中的路径（`文件夹名/相对路径`）。
+    fn out_name(&self, tree_path: &str) -> String {
+        let (ord, rel) = tree_path.split_once('/').unwrap_or(("0", tree_path));
+        let folder = ord
+            .parse::<usize>()
+            .ok()
+            .and_then(|i| self.folders.get(i))
+            .cloned()
+            .unwrap_or_else(|| format!("location-{ord}"));
+        format!("{folder}/{rel}")
+    }
+
+    fn readme(&self) -> Vec<u8> {
+        let m = &self.manifest;
+        crate::branding::readme(
+            &crate::branding::ReadmeKind::Files {
+                game: &m.game_name,
+                snapshot: m.snapshot.as_ref().map(|s| s.short(12)).as_deref(),
+                comment: m.comment.as_deref(),
+                locations: m
+                    .locations
+                    .iter()
+                    .map(|l| (l.folder.clone(), l.path_template.clone()))
+                    .collect(),
+            },
+            &m.exported_at,
+        )
+    }
 }
 
 impl App {
@@ -534,6 +575,71 @@ impl App {
         dest: &Path,
         format: ExportFormat,
     ) -> Result<ExportReport> {
+        let mut plan = self.plan_files(game, spec)?;
+        let target = match format {
+            ExportFormat::Zip => dest.to_path_buf(),
+            ExportFormat::Folder => unique_child(dest, &self.export_default_name(game, spec)?),
+        };
+        self.check_export_target(&target)?;
+
+        let mut bytes = 0u64;
+        match format {
+            ExportFormat::Zip => {
+                let tmp = with_suffix(&target, ".bonfire-tmp");
+                let result = (|| -> Result<()> {
+                    let file = std::fs::File::create(&tmp).map_err(|e| AppError::io(&tmp, e))?;
+                    let mut zip = zip::ZipWriter::new(file);
+                    bytes = self.write_files_zip(&mut zip, "", &mut plan, &tmp)?;
+                    let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
+                    f.sync_all().map_err(|e| AppError::io(&tmp, e))?;
+                    Ok(())
+                })();
+                if let Err(e) = result {
+                    let _ = std::fs::remove_file(&tmp);
+                    return Err(e);
+                }
+                replace_file(&tmp, &target)?;
+            }
+            ExportFormat::Folder => {
+                let tmp = with_suffix(&target, ".bonfire-tmp");
+                let result = (|| -> Result<()> {
+                    let mut digest = crate::integrity::Digest::default();
+                    for (path, _, src) in &plan.items {
+                        let name = plan.out_name(path);
+                        let out = safe_join(&tmp, &name)?;
+                        if let Some(dir) = out.parent() {
+                            std::fs::create_dir_all(dir).map_err(|e| AppError::io(dir, e))?;
+                        }
+                        let f = std::fs::File::create(&out).map_err(|e| AppError::io(&out, e))?;
+                        let mut w = crate::integrity::HashWriter::new(f);
+                        bytes += self.write_source(src, &mut w, &out)?;
+                        digest.add(&name, w.hasher.finalize());
+                    }
+                    plan.manifest.content_hash = Some(digest.finish());
+                    let manifest_json =
+                        serde_json::to_vec_pretty(&plan.manifest).expect("说明文件可以序列化");
+                    let m = tmp.join(EXPORT_MANIFEST);
+                    std::fs::write(&m, &manifest_json).map_err(|e| AppError::io(&m, e))?;
+                    let r = tmp.join(crate::branding::README_NAME);
+                    std::fs::write(&r, plan.readme()).map_err(|e| AppError::io(&r, e))
+                })();
+                if let Err(e) = result {
+                    let _ = std::fs::remove_dir_all(&tmp);
+                    return Err(e);
+                }
+                std::fs::rename(&tmp, &target).map_err(|e| AppError::io(&target, e))?;
+            }
+        }
+        Ok(ExportReport {
+            dest: target,
+            files: plan.items.len() as u64,
+            bytes,
+            snapshot: plan.manifest.snapshot,
+        })
+    }
+
+    /// 要导出的存档文件与说明（导出存档文件、zip 格式的篝火导出共用）。
+    fn plan_files(&self, game: &GameRecord, spec: Option<&str>) -> Result<FilesPlan> {
         let locations = self.locations(&game.id)?;
         let folders = location_folders(&locations);
         let (items, snapshot): (ExportItems, Option<(ObjectId, Snapshot)>) = match spec {
@@ -563,7 +669,7 @@ impl App {
                 game.name
             )));
         }
-        let mut manifest = ExportManifest {
+        let manifest = ExportManifest {
             format: FILES_FORMAT.into(),
             version: 1,
             generator: Some(crate::branding::generator()),
@@ -590,126 +696,59 @@ impl App {
                 })
                 .collect(),
         };
-        let out_name = |tree_path: &str| -> String {
-            let (ord, rel) = tree_path.split_once('/').unwrap_or(("0", tree_path));
-            let folder = ord
-                .parse::<usize>()
-                .ok()
-                .and_then(|i| folders.get(i))
-                .cloned()
-                .unwrap_or_else(|| format!("location-{ord}"));
-            format!("{folder}/{rel}")
-        };
-        let target = match format {
-            ExportFormat::Zip => dest.to_path_buf(),
-            ExportFormat::Folder => unique_child(dest, &self.export_default_name(game, spec)?),
-        };
-        self.check_export_target(&target)?;
+        Ok(FilesPlan {
+            items,
+            manifest,
+            folders,
+        })
+    }
 
-        let mut bytes = 0u64;
-        let mut digest = crate::integrity::Digest::default();
-        let write_item = |src: &Source, out: &mut dyn Write, label: &Path| -> Result<u64> {
-            match src {
-                Source::Blob(b) => Ok(self.repo.read_blob_to(b, out, label)?),
-                Source::Disk(p) => {
-                    let mut f = std::fs::File::open(p).map_err(|e| AppError::io(p, e))?;
-                    std::io::copy(&mut f, out).map_err(|e| AppError::io(p, e))
-                }
-            }
-        };
-        let readme = crate::branding::readme(
-            &crate::branding::ReadmeKind::Files {
-                game: &manifest.game_name,
-                snapshot: manifest.snapshot.as_ref().map(|s| s.short(12)).as_deref(),
-                comment: manifest.comment.as_deref(),
-                locations: manifest
-                    .locations
-                    .iter()
-                    .map(|l| (l.folder.clone(), l.path_template.clone()))
-                    .collect(),
-            },
-            &manifest.exported_at,
-        );
-        match format {
-            ExportFormat::Zip => {
-                let tmp = with_suffix(&target, ".bonfire-tmp");
-                let result = (|| -> Result<()> {
-                    let file = std::fs::File::create(&tmp).map_err(|e| AppError::io(&tmp, e))?;
-                    let mut zip = zip::ZipWriter::new(file);
-                    let when = zip_time(snapshot.as_ref().map(|(_, s)| s.created_at.as_str()));
-                    for (path, size, src) in &items {
-                        let opts = zip::write::SimpleFileOptions::default()
-                            .compression_method(zip::CompressionMethod::Deflated)
-                            .large_file(*size >= u32::MAX as u64)
-                            .last_modified_time(when);
-                        let name = out_name(path);
-                        zip.start_file(name.as_str(), opts)
-                            .map_err(|e| zip_err(&tmp, e))?;
-                        let mut w = crate::integrity::HashWriter::new(&mut zip);
-                        bytes += write_item(src, &mut w, &tmp)?;
-                        digest.add(&name, w.hasher.finalize());
-                    }
-                    manifest.content_hash = Some(digest.finish());
-                    let manifest_json =
-                        serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化");
-                    zip.start_file(
-                        EXPORT_MANIFEST,
-                        zip::write::SimpleFileOptions::default().last_modified_time(when),
-                    )
-                    .map_err(|e| zip_err(&tmp, e))?;
-                    zip.write_all(&manifest_json)
-                        .map_err(|e| AppError::io(&tmp, e))?;
-                    zip.start_file(
-                        crate::branding::README_NAME,
-                        zip::write::SimpleFileOptions::default().last_modified_time(when),
-                    )
-                    .map_err(|e| zip_err(&tmp, e))?;
-                    zip.write_all(&readme).map_err(|e| AppError::io(&tmp, e))?;
-                    let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
-                    f.sync_all().map_err(|e| AppError::io(&tmp, e))?;
-                    Ok(())
-                })();
-                if let Err(e) = result {
-                    let _ = std::fs::remove_file(&tmp);
-                    return Err(e);
-                }
-                replace_file(&tmp, &target)?;
-            }
-            ExportFormat::Folder => {
-                let tmp = with_suffix(&target, ".bonfire-tmp");
-                let result = (|| -> Result<()> {
-                    for (path, _, src) in &items {
-                        let name = out_name(path);
-                        let out = safe_join(&tmp, &name)?;
-                        if let Some(dir) = out.parent() {
-                            std::fs::create_dir_all(dir).map_err(|e| AppError::io(dir, e))?;
-                        }
-                        let f = std::fs::File::create(&out).map_err(|e| AppError::io(&out, e))?;
-                        let mut w = crate::integrity::HashWriter::new(f);
-                        bytes += write_item(src, &mut w, &out)?;
-                        digest.add(&name, w.hasher.finalize());
-                    }
-                    manifest.content_hash = Some(digest.finish());
-                    let manifest_json =
-                        serde_json::to_vec_pretty(&manifest).expect("说明文件可以序列化");
-                    let m = tmp.join(EXPORT_MANIFEST);
-                    std::fs::write(&m, &manifest_json).map_err(|e| AppError::io(&m, e))?;
-                    let r = tmp.join(crate::branding::README_NAME);
-                    std::fs::write(&r, &readme).map_err(|e| AppError::io(&r, e))
-                })();
-                if let Err(e) = result {
-                    let _ = std::fs::remove_dir_all(&tmp);
-                    return Err(e);
-                }
-                std::fs::rename(&tmp, &target).map_err(|e| AppError::io(&target, e))?;
+    /// 写出一个待导出文件的内容，返回字节数。
+    fn write_source(&self, src: &Source, out: &mut dyn Write, label: &Path) -> Result<u64> {
+        match src {
+            Source::Blob(b) => Ok(self.repo.read_blob_to(b, out, label)?),
+            Source::Disk(p) => {
+                let mut f = std::fs::File::open(p).map_err(|e| AppError::io(p, e))?;
+                std::io::copy(&mut f, out).map_err(|e| AppError::io(p, e))
             }
         }
-        Ok(ExportReport {
-            dest: target,
-            files: items.len() as u64,
-            bytes,
-            snapshot: snapshot.map(|(id, _)| id),
-        })
+    }
+
+    /// 把存档文件（导出存档文件的格式：每个存档位置一个文件夹，附说明与 readme.txt）写入压缩包的
+    /// `prefix` 目录，返回字节数。说明中的校验值只覆盖这个目录。
+    fn write_files_zip(
+        &self,
+        zip: &mut zip::ZipWriter<std::fs::File>,
+        prefix: &str,
+        plan: &mut FilesPlan,
+        tmp: &Path,
+    ) -> Result<u64> {
+        let when = zip_time(plan.manifest.snapshot_created_at.as_deref());
+        let mut digest = crate::integrity::Digest::default();
+        let mut bytes = 0;
+        for (path, size, src) in &plan.items {
+            let opts = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated)
+                .large_file(*size >= u32::MAX as u64)
+                .last_modified_time(when);
+            let name = plan.out_name(path);
+            zip.start_file(format!("{prefix}{name}"), opts)
+                .map_err(|e| zip_err(tmp, e))?;
+            let mut w = crate::integrity::HashWriter::new(&mut *zip);
+            bytes += self.write_source(src, &mut w, tmp)?;
+            digest.add(&name, w.hasher.finalize());
+        }
+        plan.manifest.content_hash = Some(digest.finish());
+        let opts = zip::write::SimpleFileOptions::default().last_modified_time(when);
+        zip.start_file(format!("{prefix}{EXPORT_MANIFEST}"), opts)
+            .map_err(|e| zip_err(tmp, e))?;
+        zip.write_all(&serde_json::to_vec_pretty(&plan.manifest).expect("说明文件可以序列化"))
+            .map_err(|e| AppError::io(tmp, e))?;
+        zip.start_file(format!("{prefix}{}", crate::branding::README_NAME), opts)
+            .map_err(|e| zip_err(tmp, e))?;
+        zip.write_all(&plan.readme())
+            .map_err(|e| AppError::io(tmp, e))?;
+        Ok(bytes)
     }
 
     /// 导出目标不能在任何游戏的存档目录或仓库中（导出绝不写入存档目录）。
@@ -929,6 +968,169 @@ impl App {
             bytes: std::fs::metadata(dest).map(|m| m.len()).unwrap_or(0),
             games: entries,
             objects: plans.iter().map(BundlePlan::objects).sum(),
+            skipped,
+        })
+    }
+
+    /// 导出 zip 格式的篝火导出（U-49）：存档为每个游戏当前快照的存档文件（与“导出存档文件”相同，
+    /// 带说明与校验值，可在篝火中导入，也可手动复制），截图为原图。
+    /// 一个游戏时放在根目录，多个游戏时每个游戏一个文件夹；同时导出存档与截图时再分“存档 / 截图”两个文件夹。
+    pub fn export_package_zip(
+        &self,
+        games: &[GameRecord],
+        dest: &Path,
+        opts: &PackageOptions,
+    ) -> Result<CollectionReport> {
+        if games.is_empty() {
+            return Err(AppError::Invalid("请至少选择一个游戏".into()));
+        }
+        if !opts.saves && !opts.shots {
+            return Err(AppError::Invalid("请至少选择导出存档或截图".into()));
+        }
+        struct Part<'a> {
+            game: &'a GameRecord,
+            files: Option<FilesPlan>,
+            shots: Vec<ShotRecord>,
+        }
+        let mut parts = Vec::new();
+        let mut skipped = Vec::new();
+        for g in games {
+            let files = if opts.saves && self.repo.resolve(&g.id, "HEAD").is_ok() {
+                Some(self.plan_files(g, Some("HEAD"))?)
+            } else {
+                None
+            };
+            let only: Option<HashSet<ObjectId>> = opts
+                .shot_ids
+                .get(&g.id)
+                .map(|ids| ids.iter().copied().collect());
+            let shots: Vec<ShotRecord> = if opts.shots {
+                self.index
+                    .shots_of(&g.id)?
+                    .into_iter()
+                    .filter(|s| !s.purged && s.deleted_at.is_none())
+                    .filter(|s| only.as_ref().is_none_or(|o| o.contains(&s.blob)))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            if files.is_none() && shots.is_empty() {
+                skipped.push(g.name.clone());
+                continue;
+            }
+            parts.push(Part {
+                game: g,
+                files,
+                shots,
+            });
+        }
+        if parts.is_empty() {
+            return Err(AppError::Invalid(
+                if opts.saves && !opts.shots {
+                    "选中的游戏都还没有快照"
+                } else {
+                    "选中的游戏没有可导出的存档或截图"
+                }
+                .into(),
+            ));
+        }
+        let multi = parts.len() > 1;
+        let split = opts.saves && opts.shots;
+        // 每个游戏的文件夹名（同名时加序号）。
+        let mut used = HashSet::new();
+        let dirs: Vec<String> = parts
+            .iter()
+            .map(|p| {
+                if !multi {
+                    return String::new();
+                }
+                let base = sanitize(&p.game.name);
+                let mut name = base.clone();
+                let mut i = 2;
+                while !used.insert(name.to_lowercase()) {
+                    name = format!("{base} ({i})");
+                    i += 1;
+                }
+                name
+            })
+            .collect();
+        self.check_export_target(dest)?;
+        let tmp = with_suffix(dest, ".bonfire-tmp");
+        let mut entries = Vec::new();
+        let result = (|| -> Result<()> {
+            let file = std::fs::File::create(&tmp).map_err(|e| AppError::io(&tmp, e))?;
+            let mut zip = zip::ZipWriter::new(file);
+            for (p, dir) in parts.iter_mut().zip(&dirs) {
+                let base = if dir.is_empty() {
+                    String::new()
+                } else {
+                    format!("{dir}/")
+                };
+                if let Some(plan) = p.files.as_mut() {
+                    let prefix = if split {
+                        format!("{base}存档/")
+                    } else {
+                        base.clone()
+                    };
+                    self.write_files_zip(&mut zip, &prefix, plan, &tmp)?;
+                }
+                if !p.shots.is_empty() {
+                    let prefix = if split {
+                        format!("{base}截图/")
+                    } else {
+                        base.clone()
+                    };
+                    let refs: Vec<&ShotRecord> = p.shots.iter().collect();
+                    self.write_shots_zip(&mut zip, &prefix, &p.game.name, &refs, &tmp)?;
+                }
+                entries.push(CollectionEntry {
+                    game_id: p.game.id.clone(),
+                    game_name: p.game.name.clone(),
+                    dir: base,
+                    snapshots: usize::from(p.files.is_some()),
+                    shots: p.shots.len(),
+                });
+            }
+            // 内容不在根目录时，根目录另放一份总的说明。
+            if multi || split {
+                zip.start_file(
+                    crate::branding::README_NAME,
+                    zip::write::SimpleFileOptions::default(),
+                )
+                .map_err(|e| zip_err(&tmp, e))?;
+                zip.write_all(&crate::branding::readme(
+                    &crate::branding::ReadmeKind::Zip {
+                        games: parts
+                            .iter()
+                            .zip(&dirs)
+                            .map(|(p, d)| {
+                                (
+                                    d.clone(),
+                                    p.game.name.clone(),
+                                    p.files.is_some(),
+                                    p.shots.len(),
+                                )
+                            })
+                            .collect(),
+                        split,
+                    },
+                    &now_local_rfc3339(),
+                ))
+                .map_err(|e| AppError::io(&tmp, e))?;
+            }
+            let f = zip.finish().map_err(|e| zip_err(&tmp, e))?;
+            f.sync_all().map_err(|e| AppError::io(&tmp, e))
+        })();
+        if let Err(e) = result {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e);
+        }
+        replace_file(&tmp, dest)?;
+        Ok(CollectionReport {
+            dest: dest.to_path_buf(),
+            bytes: std::fs::metadata(dest).map(|m| m.len()).unwrap_or(0),
+            games: entries,
+            objects: 0,
             skipped,
         })
     }
@@ -1870,7 +2072,7 @@ impl App {
             .join("import")
             .join(format!("inspect-{}", now_compact()));
         let result = (|| {
-            let (files, manifest) = gather_source(src, &staging)?;
+            let (files, manifest) = gather_source(src, &staging, Want::Game(&game.id))?;
             let (preview, _) = self.map_files(game, &files, manifest)?;
             Ok(preview)
         })();
@@ -1878,36 +2080,61 @@ impl App {
         result
     }
 
-    /// 读取存档文件附带的说明（篝火导出的 zip 或文件夹），找出属于游戏库中的哪个游戏。
-    pub fn inspect_files_source(&self, src: &Path) -> Result<FilesSource> {
+    /// 读取存档文件附带的说明（篝火导出的 zip 或文件夹），找出各属于游戏库中的哪个游戏。
+    /// zip 格式的篝火导出可含多个游戏（U-49），每个游戏一项。
+    pub fn inspect_files_sources(&self, src: &Path) -> Result<Vec<FilesSource>> {
         let staging = self
             .paths
             .cache_dir
             .join("import")
             .join(format!("source-{}", now_compact()));
         let result = (|| {
-            let (files, manifest) = gather_source(src, &staging)?;
-            let manifest = manifest.ok_or_else(|| {
-                AppError::Invalid(
+            let root = extract_source(src, &staging)?;
+            let dirs = manifest_dirs(&root)?;
+            if dirs.is_empty() {
+                return Err(AppError::Invalid(
                     "这些存档文件没有篝火的导出说明，无法判断属于哪个游戏；请在对应游戏的详情页中导入".into(),
-                )
-            })?;
-            let game = self
-                .index
-                .game(&manifest.game_id)?
-                .or_else(|| self.find_game(&manifest.game_name).ok());
-            let preview = match &game {
-                Some(g) => Some(self.map_files(g, &files, Some(manifest.clone()))?.0),
-                None => None,
-            };
-            Ok(FilesSource {
-                game_id: game.map(|g| g.id),
-                manifest,
-                preview,
-            })
+                ));
+            }
+            let mut out = Vec::new();
+            for dir in dirs {
+                let (files, manifest) = files_at(&root.join(&dir))?;
+                let manifest = manifest.expect("找到说明的文件夹");
+                let game = self
+                    .index
+                    .game(&manifest.game_id)?
+                    .or_else(|| self.find_game(&manifest.game_name).ok());
+                let preview = match &game {
+                    Some(g) => Some(self.map_files(g, &files, Some(manifest.clone()))?.0),
+                    None => None,
+                };
+                out.push(FilesSource {
+                    dir,
+                    game_id: game.map(|g| g.id),
+                    manifest,
+                    preview,
+                });
+            }
+            Ok(out)
         })();
         let _ = std::fs::remove_dir_all(&staging);
         result
+    }
+
+    /// 只有一个游戏时的 [`App::inspect_files_sources`]；`dir` 指定其中一个。
+    pub fn inspect_files_source(&self, src: &Path, dir: Option<&str>) -> Result<FilesSource> {
+        let all = self.inspect_files_sources(src)?;
+        let n = all.len();
+        match dir {
+            Some(d) => all
+                .into_iter()
+                .find(|s| s.dir == d)
+                .ok_or_else(|| AppError::Invalid(format!("来源中没有存档文件夹「{d}」"))),
+            None if n == 1 => Ok(all.into_iter().next().expect("有一项")),
+            None => Err(AppError::Invalid(format!(
+                "来源中有 {n} 个游戏的存档，请指定要导入哪一个"
+            ))),
+        }
     }
 
     /// 在游戏库中导入存档文件：游戏库中没有这个游戏时新建（未安装），放在 main 分支上；
@@ -1916,10 +2143,11 @@ impl App {
         &mut self,
         lock: &RepoLock,
         src: &Path,
+        dir: Option<&str>,
         comment: Option<String>,
         dry_run: bool,
     ) -> Result<FilesAutoReport> {
-        let source = self.inspect_files_source(src)?;
+        let source = self.inspect_files_source(src, dir)?;
         let m = &source.manifest;
         let (game, created_game) = match &source.game_id {
             Some(id) => (self.find_game(id)?, false),
@@ -1975,7 +2203,7 @@ impl App {
         opts: &ImportFilesOptions,
         staging: &Path,
     ) -> Result<ImportFilesReport> {
-        let (files, manifest) = gather_source(src, staging)?;
+        let (files, manifest) = gather_source(src, staging, Want::Game(&game.id))?;
         let (mut preview, mapped) = self.map_files(game, &files, manifest)?;
         if !preview.unmapped.is_empty() {
             return Err(AppError::Invalid(format!(
@@ -2342,7 +2570,73 @@ pub fn location_folders(locations: &[LocationRecord]) -> Vec<String> {
 }
 
 /// 来源中的全部文件：(相对路径, 磁盘文件)，以及附带的说明。zip 先解压到 `staging`。
-fn gather_source(src: &Path, staging: &Path) -> Result<(SourceFiles, Option<ExportManifest>)> {
+/// 导入存档文件时要哪个游戏的存档文件夹（来源中可能有多个游戏，U-49）。
+enum Want<'a> {
+    /// 这个游戏的；来源中只有一个存档文件夹时就用它。
+    Game(&'a str),
+}
+
+fn gather_source(
+    src: &Path,
+    staging: &Path,
+    want: Want<'_>,
+) -> Result<(SourceFiles, Option<ExportManifest>)> {
+    let root = extract_source(src, staging)?;
+    let dirs = manifest_dirs(&root)?;
+    let root = match dirs.as_slice() {
+        [] => root,
+        [one] => root.join(one),
+        many => {
+            let Want::Game(id) = want;
+            let found = many
+                .iter()
+                .find(|d| read_files_manifest(&root.join(d)).is_some_and(|m| m.game_id == id));
+            match found {
+                Some(d) => root.join(d),
+                None => {
+                    return Err(AppError::Invalid(format!(
+                        "这里有 {} 个游戏的存档，其中没有这个游戏的；请在游戏库中用“添加 / 导入”导入",
+                        many.len()
+                    )));
+                }
+            }
+        }
+    };
+    files_at(&root)
+}
+
+/// 来源中带篝火导出说明的文件夹（相对路径，根目录为空），最多找 4 层。
+fn manifest_dirs(root: &Path) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    let mut stack = vec![(root.to_path_buf(), 0)];
+    while let Some((dir, depth)) = stack.pop() {
+        if read_files_manifest(&dir).is_some() {
+            out.push(
+                dir.strip_prefix(root)
+                    .map(|r| r.to_string_lossy().replace('\\', "/"))
+                    .unwrap_or_default(),
+            );
+            // 存档文件夹里不会再有另一个导出。
+            continue;
+        }
+        if depth >= 4 {
+            continue;
+        }
+        for e in std::fs::read_dir(&dir)
+            .map_err(|err| AppError::io(&dir, err))?
+            .flatten()
+        {
+            if e.file_type().is_ok_and(|t| t.is_dir()) {
+                stack.push((e.path(), depth + 1));
+            }
+        }
+    }
+    out.sort();
+    Ok(out)
+}
+
+/// 把来源（文件夹或 zip）准备为一个文件夹：zip 解压到 `staging`。
+fn extract_source(src: &Path, staging: &Path) -> Result<PathBuf> {
     let meta = std::fs::metadata(src).map_err(|e| AppError::io(src, e))?;
     let root = if meta.is_dir() {
         src.to_path_buf()
@@ -2369,11 +2663,12 @@ fn gather_source(src: &Path, staging: &Path) -> Result<(SourceFiles, Option<Expo
         }
         staging.to_path_buf()
     };
-    // 来源只有一个顶层文件夹且其中有说明文件时（解压出的导出文件夹），以它为根。
-    let root = match single_child_with_manifest(&root) {
-        Some(inner) => inner,
-        None => root,
-    };
+    Ok(root)
+}
+
+/// 一个存档文件夹中的文件与说明（篝火导出的先核对校验值）。
+fn files_at(root: &Path) -> Result<(SourceFiles, Option<ExportManifest>)> {
+    let root = root.to_path_buf();
     let manifest = read_files_manifest(&root);
     // 篝火导出的：核对校验值，不一致时不按篝火导出的导入（U-48）。
     if let Some(m) = &manifest
@@ -2473,19 +2768,6 @@ fn verify_package_or_err(zip: &mut zip::ZipArchive<std::fs::File>, path: &Path) 
         )));
     }
     Ok(())
-}
-
-fn single_child_with_manifest(root: &Path) -> Option<PathBuf> {
-    if root.join(EXPORT_MANIFEST).is_file() {
-        return None;
-    }
-    let entries: Vec<_> = std::fs::read_dir(root).ok()?.flatten().collect();
-    match entries.as_slice() {
-        [only] if only.path().is_dir() && only.path().join(EXPORT_MANIFEST).is_file() => {
-            Some(only.path())
-        }
-        _ => None,
-    }
 }
 
 fn walkdir_files(root: &Path) -> Result<Vec<PathBuf>> {
@@ -3314,27 +3596,33 @@ mod tests {
             .unwrap();
 
         let mut b = Env::new();
-        let src = b.app.inspect_files_source(&zip).unwrap();
+        let src = b.app.inspect_files_source(&zip, None).unwrap();
         assert_eq!(
             (src.game_id.as_deref(), src.manifest.game_name.as_str()),
             (None, "Shared")
         );
         let lock = b.app.repo.lock().unwrap();
-        let r = b.app.import_files_auto(&lock, &zip, None, false).unwrap();
+        let r = b
+            .app
+            .import_files_auto(&lock, &zip, None, None, false)
+            .unwrap();
         assert!(r.created_game && r.report.snapshot.is_some());
         assert_eq!(r.report.branch.as_deref(), Some("main"));
         let gb = b.app.find_game(&g.id).unwrap();
         assert_eq!(b.app.history_view(&gb).unwrap().nodes.len(), 1);
         assert!(b.app.fsck(false).unwrap().ok());
         // 再导入一次：内容相同，不重复生成。
-        let r = b.app.import_files_auto(&lock, &zip, None, false).unwrap();
+        let r = b
+            .app
+            .import_files_auto(&lock, &zip, None, None, false)
+            .unwrap();
         assert!(!r.created_game && r.report.preview.identical.is_some());
 
         // 没有导出说明的文件夹：无法判断游戏。
         let plain = b.dir.path().join("plain");
         std::fs::create_dir_all(&plain).unwrap();
         std::fs::write(plain.join("a.sav"), b"x").unwrap();
-        assert!(b.app.inspect_files_source(&plain).is_err());
+        assert!(b.app.inspect_files_source(&plain, None).is_err());
     }
 
     /// 导入的游戏在这台电脑上找不到存档位置：不显示“已删除”，也不会备份出空快照。
@@ -3431,6 +3719,109 @@ mod tests {
     }
 
     /// 勾选“包含截图”时，截图相册随历史包导出，导入后加入本地相册。
+    #[test]
+    fn package_zip_holds_saves_and_shots_and_imports_back() {
+        let mut a = Env::new();
+        a.write("slot1/a.sav", b"v1");
+        let g = a.add_game("Shots");
+        backup(&mut a, &g, "x");
+        let shots = a.dir.path().join("shots");
+        std::fs::create_dir_all(&shots).unwrap();
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::RgbImage::from_pixel(8, 8, image::Rgb([1, 2, 3]))
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+        std::fs::write(shots.join("one.png"), png.get_ref()).unwrap();
+        a.app.add_shot_dir(&g, &shots).unwrap();
+        let lock = a.app.repo.lock().unwrap();
+        a.app.sync_shots(&lock, &g).unwrap();
+        drop(lock);
+        let h = a.add_game("Other");
+        backup(&mut a, &h, "y");
+        let out = tempfile::tempdir().unwrap();
+        let both = PackageOptions {
+            saves: true,
+            shots: true,
+            shot_ids: HashMap::new(),
+        };
+
+        // 一个游戏、存档与截图：分“存档 / 截图”两个文件夹，根目录有总的说明。
+        let one = out.path().join("one.zip");
+        let r = a
+            .app
+            .export_package_zip(std::slice::from_ref(&g), &one, &both)
+            .unwrap();
+        assert_eq!((r.games[0].snapshots, r.games[0].shots), (1, 1));
+        let names = zip_names(&one);
+        for want in [
+            "readme.txt",
+            "存档/bonfire-export.json",
+            "存档/readme.txt",
+            "截图/one.png",
+            "截图/readme.txt",
+        ] {
+            assert!(names.contains(&want.to_string()), "{want} {names:?}");
+        }
+        // 只导出存档：与“导出存档文件”相同，在根目录。
+        let saves_only = out.path().join("saves.zip");
+        a.app
+            .export_package_zip(
+                std::slice::from_ref(&g),
+                &saves_only,
+                &PackageOptions {
+                    shots: false,
+                    ..both.clone()
+                },
+            )
+            .unwrap();
+        assert!(zip_names(&saves_only).contains(&EXPORT_MANIFEST.to_string()));
+
+        // 多个游戏：每个游戏一个文件夹；没有截图的游戏没有“截图”文件夹。
+        let multi = out.path().join("multi.zip");
+        a.app
+            .export_package_zip(&[g.clone(), h.clone()], &multi, &both)
+            .unwrap();
+        let names = zip_names(&multi);
+        assert!(
+            names.contains(&"Shots/存档/bonfire-export.json".to_string()),
+            "{names:?}"
+        );
+        assert!(
+            names.contains(&"Other/存档/bonfire-export.json".to_string()),
+            "{names:?}"
+        );
+        assert!(
+            names.contains(&"Shots/截图/one.png".to_string()),
+            "{names:?}"
+        );
+        assert!(
+            !names.iter().any(|n| n.starts_with("Other/截图/")),
+            "{names:?}"
+        );
+
+        // 导入：游戏库中列出两个游戏；详情页按游戏挑出它的存档文件夹；拖进“导入下载的存档”识别为篝火导出。
+        let srcs = a.app.inspect_files_sources(&multi).unwrap();
+        assert_eq!(
+            srcs.iter().map(|s| s.dir.as_str()).collect::<Vec<_>>(),
+            vec!["Other/存档", "Shots/存档"]
+        );
+        assert!(srcs.iter().all(|s| s.game_id.is_some()));
+        let p = a.app.inspect_files(&g, &multi).unwrap();
+        assert!(p.unmapped.is_empty() && p.identical.is_some(), "{p:?}");
+        assert!(a.app.inspect_files_source(&multi, None).is_err());
+        assert_eq!(
+            a.app.inspect_download(&g, &one, None).unwrap().kind,
+            crate::downloads::DownloadKind::Bonfire
+        );
+        let mut b = Env::new();
+        let lock = b.app.repo.lock().unwrap();
+        let r = b
+            .app
+            .import_files_auto(&lock, &multi, Some("Other/存档"), None, false)
+            .unwrap();
+        assert!(r.created_game && r.game_name == "Other");
+    }
+
     #[test]
     fn bundle_can_carry_the_screenshot_album() {
         let mut a = Env::new();

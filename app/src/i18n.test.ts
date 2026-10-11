@@ -26,6 +26,7 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.download.step.": ["pick", "map", "finish"],
   "ui.download.mode.": ["overlay", "replace"],
   "ui.download.modeHint.": ["overlay", "replace"],
+  "ui.export.kind.": ["saves", "shots", "both"],
   "ui.backup.stepHint.": ["pick", "saves", "shots"],
   "ui.mode.": ["both", "saves", "shots", "bothHint", "savesHint", "shotsHint"],
   "ui.gallery.group.": ["game", "month", "day", "source"],

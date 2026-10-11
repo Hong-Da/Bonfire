@@ -136,18 +136,21 @@ describe("在游戏库中导入", () => {
 
   it("存档文件：按说明找到游戏，没有时提示会加入游戏库", async () => {
     dialog.open.mockResolvedValue("D:/in/share.zip");
-    api.inspectFilesSource.mockResolvedValue({
-      manifest: { gameId: "steam-9", gameName: "Hades", snapshot: "b3:eeeeeeee", snapshotCreatedAt: null, comment: null, exportedAt: "2026-10-09T12:00:00+08:00", host: "FRIEND-PC" },
-      gameId: null,
-      preview: null,
-    });
+    api.inspectFilesSources.mockResolvedValue([
+      {
+        dir: "",
+        manifest: { gameId: "steam-9", gameName: "Hades", snapshot: "b3:eeeeeeee", snapshotCreatedAt: null, comment: null, exportedAt: "2026-10-09T12:00:00+08:00", host: "FRIEND-PC" },
+        gameId: null,
+        preview: null,
+      },
+    ]);
     api.importFilesAuto.mockResolvedValue({ gameId: "steam-9", gameName: "Hades", createdGame: true, report: {} });
     render(<CollectionImportDialog onClose={() => {}} onDone={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: /zip 存档/ }));
     expect(await screen.findByText("这些存档属于「Hades」")).toBeInTheDocument();
     expect(screen.getByText(/游戏库中没有这个游戏/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^导入$/ }));
-    await waitFor(() => expect(api.importFilesAuto).toHaveBeenCalledWith("D:/in/share.zip", null));
+    await waitFor(() => expect(api.importFilesAuto).toHaveBeenCalledWith("D:/in/share.zip", null, null));
     expect(await screen.findByRole("button", { name: "查看" })).toBeInTheDocument();
   });
 });
@@ -226,6 +229,32 @@ describe("篝火包：存档与截图（U-16）", () => {
     expect(screen.getByText("1 个游戏，0 个快照，3 张截图")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /选择位置并导出/ }));
     await waitFor(() => expect(api.exportPackage).toHaveBeenCalledWith(["steam-367520"], "D:/out/p.bonfire", { saves: false, shots: true }));
+  });
+
+  it("可导出为 zip，并把存档和截图分成两个文件；导出后换成导出完成页", async () => {
+    const rows = [row({ shots: 3 })];
+    dialog.open.mockResolvedValue("D:\\out");
+    api.exportPackageZip
+      .mockResolvedValueOnce({ dest: "D:\\out\\a.zip", bytes: 2048, games: [{ gameId: "steam-367520", gameName: "Hollow Knight", dir: "", snapshots: 1, shots: 0 }], objects: 0, skipped: [] })
+      .mockResolvedValueOnce({ dest: "D:\\out\\b.zip", bytes: 4096, games: [{ gameId: "steam-367520", gameName: "Hollow Knight", dir: "", snapshots: 0, shots: 3 }], objects: 0, skipped: [] });
+    render(<CollectionExportDialog rows={rows} initial={["steam-367520"]} onClose={() => {}} />);
+    expect(screen.getByRole("dialog", { name: "导出存档和截图" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: /zip 压缩包/ }));
+    expect(screen.getByText("1 个游戏，1 份最新存档，3 张截图")).toBeInTheDocument();
+    expect(screen.getByText("最新存档 · 3 张")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "存档、截图各一个文件" }));
+    expect(screen.getByText(/2 个文件/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /选择文件夹并导出/ }));
+    await waitFor(() => expect(api.exportPackageZip).toHaveBeenCalledTimes(2));
+    expect(api.exportPackageZip).toHaveBeenNthCalledWith(1, ["steam-367520"], expect.stringMatching(/^D:\\out\\Bonfire-.+-存档-\d{8}-\d{4}\.zip$/), { saves: true, shots: false });
+    expect(api.exportPackageZip).toHaveBeenNthCalledWith(2, ["steam-367520"], expect.stringMatching(/-截图-.+\.zip$/), { saves: false, shots: true });
+    expect(api.exportPackage).not.toHaveBeenCalled();
+    // 导出完成页：标题、两个文件与所在文件夹。
+    expect(await screen.findByRole("dialog", { name: "导出完成" })).toBeInTheDocument();
+    expect(screen.getByText("已导出 2 个文件")).toBeInTheDocument();
+    expect(screen.getByText("保存在 D:\\out")).toBeInTheDocument();
+    expect(screen.getByText("a.zip")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /在资源管理器中显示/ })).toHaveLength(2);
   });
 
   it("导入时可只导入截图，并把新导入的截图写到磁盘", async () => {

@@ -257,17 +257,6 @@ export default function Gallery() {
       else n.add(k);
       return n;
     });
-  const toggleGroup = (keys: string[]) =>
-    setPicked((s) => {
-      const n = new Set(s);
-      const every = keys.every((k) => n.has(k));
-      for (const k of keys) {
-        if (every) n.delete(k);
-        else n.add(k);
-      }
-      return n;
-    });
-
   if (!data) return <div className="empty">{t("ui.loading")}</div>;
   const inTrash = tab === "trash";
   const gameList: GalleryGame[] = [...data.games].filter((g) => all.some((s) => s.gameId === g.id)).sort((a, b) => displayName(a, i18n.language).localeCompare(displayName(b, i18n.language)));
@@ -391,20 +380,32 @@ export default function Gallery() {
                   >
                     <Icon name="chevron" size={14} />
                   </button>
-                  <label className="day-pick">
-                    <input
-                      type="checkbox"
-                      className="check"
-                      checked={n === keys.length}
-                      ref={(el) => {
-                        if (el) el.indeterminate = n > 0 && n < keys.length;
-                      }}
-                      onChange={() => toggleGroup(keys)}
-                      aria-label={t("ui.gallery.pickGroup", { name: g.label })}
-                    />
-                    {g.label}
-                  </label>
-                  <span className="muted num">{t("ui.shots.dayCount", { n: keys.length })}</span>
+                  <span className="day-label">{g.label}</span>
+                  <span className="muted num">
+                    {t("ui.shots.dayCount", { n: keys.length })}
+                    {n > 0 && <span className="day-picked"> · {t("ui.gallery.groupPicked", { n })}</span>}
+                  </span>
+                  {/* 这一组的全选与反选（U-49）：折叠时也能整组勾选。 */}
+                  <SelectSeg
+                    compact
+                    total={keys.length}
+                    picked={n}
+                    onAll={() => setPicked((s) => new Set([...s, ...keys]))}
+                    onNone={() => setPicked((s) => new Set([...s].filter((k) => !keys.includes(k))))}
+                    onInvert={() =>
+                      setPicked((s) => {
+                        const next = new Set(s);
+                        for (const k of keys) {
+                          if (next.has(k)) next.delete(k);
+                          else next.add(k);
+                        }
+                        return next;
+                      })
+                    }
+                    label={t("ui.gallery.groupSelect", { name: g.label })}
+                    hint={t("ui.gallery.pickGroup", { name: g.label })}
+                    checkLabel={t("ui.gallery.pickGroup", { name: g.label })}
+                  />
                   {/* 折叠时：日期范围与最新 3 张叠放的缩略图，点这一条展开。 */}
                   {isFolded && (
                     <button type="button" className="fold-peek" onClick={toggleFold} tabIndex={-1} aria-hidden="true">

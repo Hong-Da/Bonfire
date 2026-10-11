@@ -396,6 +396,24 @@ stdout_contains = ["已导出 1 个游戏", "空洞骑士", "1 个快照"]
 in_docs = true
 
 [[case]]
+id = "bundle-export-zip"
+title = { zh-CN = "导出为 zip（存档文件与截图原图）", en = "Export as a zip (save files and original screenshots)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["bundle", "export", "空洞骑士", "--zip", "-o", "{tmp}/hk.zip"]
+expect_exit = 0
+stdout_contains = ["已导出 1 个游戏", "空洞骑士"]
+in_docs = true
+
+[[case]]
+id = "bundle-export-zip-scope"
+title = { zh-CN = "zip 只导出最新存档，不能选分支", en = "A zip holds the latest save only, no branch choice" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["bundle", "export", "空洞骑士", "--zip", "--branch", "main", "-o", "{tmp}/hk.zip"]
+expect_exit = 2
+
+[[case]]
 id = "bundle-export-collection-scope"
 title = { zh-CN = "合集包只能导出全部分支", en = "Collections export all branches only" }
 fixture = "basic"

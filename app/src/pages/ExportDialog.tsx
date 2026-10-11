@@ -4,6 +4,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
 import Timeline, { type Mark } from "../components/Timeline";
 import { Icon, Modal } from "../components/ui";
+import ExportDone, { type ExportedFile } from "../components/ExportDone";
 import { bytes, dateTime, firstLine, shortId } from "../lib/format";
 import { ancestors, rangeOf } from "../lib/timeline";
 import { useStore } from "../store";
@@ -40,7 +41,8 @@ export default function ExportDialog({ hist, gameName, kind: initialKind, snapsh
       .then((a) => setAlbum({ n: a.shots.length, bytes: a.bytes }))
       .catch(() => setAlbum(null));
   }, [gameId]);
-  const [done, setDone] = useState<string | null>(null);
+  // 导出完成后换成结果页（U-49）。
+  const [done, setDone] = useState<ExportedFile | null>(null);
 
   const included = useMemo(() => {
     if (kind !== "bundle") return null;
@@ -86,8 +88,7 @@ export default function ExportDialog({ hist, gameName, kind: initialKind, snapsh
             : await open({ directory: true, title: t("ui.transfer.pickParent") });
         if (!dest || Array.isArray(dest)) return;
         const r = await api.exportFiles(gameId, spec, dest, format);
-        setDone(r.dest);
-        store.toast("success", t("ui.transfer.exportedFiles", { n: r.files, size: bytes(r.bytes) }));
+        setDone({ path: r.dest, bytes: r.bytes, label: t("ui.export.filesLabel", { n: r.files, what: spec ? shortId(spec) : t("ui.export.currentSave") }) });
       } else {
         const s: BundleScope =
           scope === "all" ? { kind: "all" } : scope === "branches" ? { kind: "branches", names: [...names] } : { kind: "range", from: range.from, to: range.to! };
@@ -95,8 +96,7 @@ export default function ExportDialog({ hist, gameName, kind: initialKind, snapsh
         const dest = await save({ defaultPath: `${name}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
         if (!dest) return;
         const r = await api.exportBundle(gameId, s, dest, withShots);
-        setDone(r.dest);
-        store.toast("success", t("ui.transfer.exportedBundle", { n: r.snapshots, size: bytes(r.bytes) }));
+        setDone({ path: r.dest, bytes: r.bytes, label: [t("ui.library.snapshots", { n: r.snapshots }), r.shots > 0 && t("ui.shots.countN", { n: r.shots })].filter(Boolean).join(" · ") });
       }
     } catch (e) {
       store.toast("error", errorMessage(e));
@@ -105,16 +105,23 @@ export default function ExportDialog({ hist, gameName, kind: initialKind, snapsh
     }
   };
 
-  const footer = done ? (
-    <>
-      <button className="btn" onClick={() => api.openPath(done)}>
-        <Icon name="folder" /> {t("ui.transfer.showFile")}
-      </button>
-      <button className="btn primary" onClick={onClose}>
-        {t("ui.done")}
-      </button>
-    </>
-  ) : (
+  if (done) {
+    return (
+      <Modal
+        title={t("ui.export.doneTitle")}
+        onClose={onClose}
+        footer={
+          <button className="btn primary" onClick={onClose}>
+            {t("ui.done")}
+          </button>
+        }
+      >
+        <ExportDone files={[done]} hint={t(kind === "files" ? "ui.export.nextFiles" : "ui.export.nextBonfire")} />
+      </Modal>
+    );
+  }
+
+  const footer = (
     <>
       <button className="btn ghost" onClick={onClose}>
         {t("ui.cancel")}

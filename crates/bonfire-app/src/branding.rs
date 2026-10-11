@@ -43,6 +43,12 @@ pub enum ReadmeKind<'a> {
     Package { games: Vec<(String, usize, usize)> },
     /// 截图。
     Shots { game: &'a str, count: usize },
+    /// zip 格式的篝火导出（U-49）：(文件夹, 游戏名, 有没有存档, 截图数)；文件夹为空表示在根目录。
+    /// `split` 时每个游戏的存档与截图分在“存档 / 截图”两个文件夹中。
+    Zip {
+        games: Vec<(String, String, bool, usize)>,
+        split: bool,
+    },
 }
 
 /// 生成 readme.txt：中英双语，UTF-8（带 BOM，记事本也能正确显示）、Windows 换行。
@@ -108,6 +114,57 @@ pub fn readme(kind: &ReadmeKind<'_>, exported_at: &str) -> Vec<u8> {
             en.push(String::new());
             en.push("How to use: in Bonfire's library choose Add / Import -> Import exported files / Bonfire package. No need to unpack.".into());
             en.push("Moving to a new PC? Choose \"My old PC's saves\" on the import page to make the old line this PC's primary.".into());
+        }
+        ReadmeKind::Zip { games, split } => {
+            zh.push(format!(
+                "这是用篝火导出的 zip，包含 {} 个游戏：",
+                games.len()
+            ));
+            en.push(format!(
+                "A Bonfire zip export with {} game(s):",
+                games.len()
+            ));
+            for (dir, name, saves, shots) in games {
+                let head = if dir.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{dir}/ ({name})")
+                };
+                let mut zh_parts = Vec::new();
+                let mut en_parts = Vec::new();
+                if *saves {
+                    zh_parts.push(if *split {
+                        "存档/ 中是存档".to_string()
+                    } else {
+                        "存档".into()
+                    });
+                    en_parts.push(if *split {
+                        "saves in 存档/".to_string()
+                    } else {
+                        "saves".into()
+                    });
+                }
+                if *shots > 0 {
+                    zh_parts.push(if *split {
+                        format!("截图/ 中是 {shots} 张截图")
+                    } else {
+                        format!("{shots} 张截图")
+                    });
+                    en_parts.push(if *split {
+                        format!("{shots} screenshots in 截图/")
+                    } else {
+                        format!("{shots} screenshots")
+                    });
+                }
+                zh.push(format!("  {head}：{}", zh_parts.join("，")));
+                en.push(format!("  {head}: {}", en_parts.join(", ")));
+            }
+            zh.push(String::new());
+            zh.push("存档是导出时各游戏最新快照的存档文件，每个存档文件夹里另有 readme.txt 说明对应的存档位置；截图都是原图。".into());
+            zh.push("怎么用：有篝火时在游戏库中选“添加 / 导入 → 导入存档文件 / 篝火包”，选择这个 zip（不用解压）；没有篝火时按存档文件夹里的 readme.txt 手动复制。".into());
+            en.push(String::new());
+            en.push("Saves are each game's latest snapshot; every save folder has its own readme.txt listing the save locations. Screenshots are originals.".into());
+            en.push("How to use: in Bonfire's library choose Add / Import -> Import exported files / Bonfire package and pick this zip (no need to unpack). Without Bonfire, copy files by hand as each save folder's readme.txt describes.".into());
         }
         ReadmeKind::Shots { game, count } => {
             zh.push(format!(

@@ -119,7 +119,7 @@ describe("导入下载的存档（U-42）", () => {
 
   it("原来的导入中选到不是篝火导出的存档：提示并改用导入下载的存档", async () => {
     dialog.open.mockResolvedValue("D:/dl/hk.zip");
-    api.inspectFilesSource.mockRejectedValue(new Error("这些存档文件没有篝火的导出说明，无法判断属于哪个游戏；请在对应游戏的详情页中导入"));
+    api.inspectFilesSources.mockRejectedValue(new Error("这些存档文件没有篝火的导出说明，无法判断属于哪个游戏；请在对应游戏的详情页中导入"));
     const use = vi.fn();
     render(<CollectionImportDialog onClose={() => {}} onDone={() => {}} onUseDownload={use} />);
     fireEvent.click(screen.getByRole("button", { name: /存档文件（zip）|zip/ }));
@@ -149,7 +149,7 @@ describe("导入下载的存档（U-42）", () => {
 
   it("原来的导入中选到校验不通过的篝火导出存档：说明原因并改用导入下载的存档", async () => {
     dialog.open.mockResolvedValue("D:/dl/hk.zip");
-    api.inspectFilesSource.mockRejectedValue(new Error("这份篝火导出的存档校验不通过：内容与导出时不一致"));
+    api.inspectFilesSources.mockRejectedValue(new Error("这份篝火导出的存档校验不通过：内容与导出时不一致"));
     const use = vi.fn();
     render(<CollectionImportDialog onClose={() => {}} onDone={() => {}} onUseDownload={use} />);
     fireEvent.click(screen.getByRole("button", { name: /存档文件（zip）|zip/ }));

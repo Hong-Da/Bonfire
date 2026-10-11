@@ -577,6 +577,8 @@ export interface ArchiveImportItem {
 }
 
 export interface FilesSource {
+  /** 存档文件夹在来源中的相对路径（根目录为空；zip 格式的篝火导出可含多个游戏） */
+  dir: string;
   manifest: ExportManifest;
   gameId: string | null;
   preview: FilesPreview | null;

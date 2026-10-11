@@ -322,6 +322,8 @@ pub enum BundleCmd {
         shots: bool,
         #[arg(long, requires = "shots", conflicts_with_all = ["branches", "from", "to"])]
         no_saves: bool,
+        #[arg(long, conflicts_with_all = ["branches", "from", "to"])]
+        zip: bool,
     },
     Import {
         file: PathBuf,

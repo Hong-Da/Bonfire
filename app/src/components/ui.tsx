@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { imageSrc } from "../api";
 import { useStore } from "../store";
@@ -81,7 +82,8 @@ export function Modal({ title, subtitle, children, footer, onClose, wide }: { ti
       prev?.focus?.();
     };
   }, [onClose]);
-  return (
+  // 挂到 body 上：对话框不继承所在位置的样式（如详情页带封面的页头中的浅色文字）。
+  return createPortal(
     <div className="backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`dialog${wide ? " wide" : ""}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <header>
@@ -91,7 +93,8 @@ export function Modal({ title, subtitle, children, footer, onClose, wide }: { ti
         <div className="body">{children}</div>
         <footer>{footer}</footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

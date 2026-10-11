@@ -38,6 +38,7 @@
 | `bonfire import <game> <zip或文件夹> [--branch <名称>] [--parent <ref>] [--onto <分支>] [-m <备注>] [--dry-run]` | 导入存档文件为新快照（触发方式“导入”），**不写入存档目录**；默认新分支、独立起点，`--parent` 从某个快照分出，`--onto` 接在分支之后；内容与已有快照相同时不重复生成 |
 | `bonfire bundle export <game> -o <文件.bonfire> [--branch <分支>]... [--from <ref>] [--to <ref>]` | 导出历史包：默认全部分支与标签；`--branch` 指定分支；`--from`/`--to` 导出一段历史（含两端，导入方需已有更早的快照） |
 | `bonfire bundle export (<game> <game>... \| --all) -o <文件.bonfire>` | 导出合集包：多个游戏（或游戏库中全部游戏）的全部分支放在一个文件里；没有可导出内容的游戏跳过。历史包与合集包加 `--shots` 时同时导出截图相册（默认不包含），导入时合并到本地相册；`--shots --no-saves` 只导出截图（单个游戏也导出为篝火包格式） |
+| `bonfire bundle export (<game>... \| --all) -o <文件.zip> --zip [--shots [--no-saves]]` | 导出为篝火的 zip 格式：存档为各游戏当前快照的存档文件（与 `export` 相同，带说明与校验值），截图为原图；一个游戏时在根目录，多个游戏时每个游戏一个文件夹，同时有存档与截图时分为 `存档/`、`截图/`；可在游戏库中导入，也可按其中的 readme.txt 手动复制 |
 | `bonfire bundle import <文件> [--game <game>] [--only <game>]... [--dry-run]` | 导入历史包或合集包：按快照 ID 判断每个分支与本地的关系——新建、相同、后续更新（快进）、本地已包含、分叉（另建 `<分支>-<来源电脑>`，不覆盖本地）；不移动当前快照，不写入存档目录；自定义游戏在不同电脑上 ID 不同时用 `--game` 指定。合集包默认导入全部游戏，`--only` 只导入指定的（ID 或名称）；某个游戏失败不影响其他游戏（退出码 2）。游戏库中没有的游戏自动加入并标为“未安装”：能在本机确定的存档位置照常使用，需要安装目录的位置等装好游戏、扫描后确定（之前恢复会报错）。`--no-saves` 只导入截图、`--no-shots` 只导入存档；`--shots-to-disk` 把新导入的截图写到本机这个游戏的截图文件夹（只写入不存在的文件） |
 | `bonfire shots list <game>` | 列出游戏已备份的截图（ID、拍摄时间、来源、大小、原文件名）与磁盘上还没收集的数量 |
 | `bonfire shots sync [<game>...]` | 收集新截图（省略游戏时收集全部游戏）；每次 `backup` 后也会自动收集。来源：Steam 截图、Windows 游戏栏“捕获”文件夹（按文件名中的标题对应）、`game shots-dir` 添加的文件夹；**只读取，不写入截图目录**；内容相同的不重复收集，磁盘上删掉的截图备份中仍保留 |
@@ -233,6 +234,14 @@ bonfire bundle import D:/Temp/hk.bonfire --dry-run
 
 ```bat
 bonfire bundle export --all -o D:/Temp/all.bonfire
+```
+
+退出码：0
+
+### 导出为 zip（存档文件与截图原图）
+
+```bat
+bonfire bundle export 空洞骑士 --zip -o D:/Temp/hk.zip
 ```
 
 退出码：0

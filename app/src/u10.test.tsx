@@ -231,6 +231,13 @@ describe("图库", () => {
     render(<Gallery />);
     expect(await screen.findByText("3 张截图，2.9 KB，来自 2 个游戏")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "选择「空洞骑士」中的全部截图" })).toBeInTheDocument();
+    // 每组都有全选与反选（U-49）：反选只作用于这一组。
+    const hk = screen.getByRole("group", { name: "「空洞骑士」的选择" });
+    fireEvent.click(within(hk).getByRole("button", { name: "反选" }));
+    expect(screen.getByText("· 已选 2", { exact: false, selector: ".day-picked" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "选择「Celeste」中的全部截图" })).not.toBeChecked();
+    fireEvent.click(within(hk).getByRole("checkbox", { name: "选择「空洞骑士」中的全部截图" }));
+    expect(document.querySelector(".day-picked")).toBeNull();
     expect(screen.getAllByText("已移出游戏库").length).toBeGreaterThan(0);
     // 分组、排序与筛选都在一个“整理”菜单中，工具栏只占一行。
     const arrange = () => screen.getByRole("button", { name: "分组、排序与按来源 / 游戏筛选" });

@@ -171,9 +171,12 @@ export const api = {
   renameBranch: (gameId: string, from: string, to: string) => invoke<void>("rename_branch", { gameId, from, to }),
   importArchive: (path: string, picks: { key: string; target: string | null; saves?: boolean; shots?: boolean; adoptMain?: boolean }[]) => invoke<ArchiveImportItem[]>("import_archive", { path, picks }),
   exportPackage: (gameIds: string[], dest: string, options: PackageOptions) => invoke<CollectionReport>("export_package", { gameIds, dest, options }),
+  /** zip 格式的篝火导出（U-49）：各游戏最新快照的存档文件与截图原图。 */
+  exportPackageZip: (gameIds: string[], dest: string, options: PackageOptions) => invoke<CollectionReport>("export_package_zip", { gameIds, dest, options }),
   syncShotsToDisk: (gameId: string, blobs: string[]) => invoke<WriteBackReport>("sync_shots_to_disk", { gameId, blobs }),
-  inspectFilesSource: (src: string) => invoke<FilesSource>("inspect_files_source", { src }),
-  importFilesAuto: (src: string, comment: string | null) => invoke<FilesAutoReport>("import_files_auto", { src, comment }),
+  /** 篝火导出的存档文件（zip 或文件夹）中的各个游戏（zip 格式的篝火导出可含多个，U-49）。 */
+  inspectFilesSources: (src: string) => invoke<FilesSource[]>("inspect_files_sources", { src }),
+  importFilesAuto: (src: string, dir: string | null, comment: string | null) => invoke<FilesAutoReport>("import_files_auto", { src, dir, comment }),
   deleteBranch: (gameId: string, name: string, dryRun: boolean) => invoke<DeleteReport>("delete_branch", { gameId, name, dryRun }),
   deleteTag: (gameId: string, name: string) => invoke<void>("delete_tag", { gameId, name }),
   deleteSnapshot: (gameId: string, snapshot: string, dryRun: boolean) => invoke<DeleteReport>("delete_snapshot", { gameId, snapshot, dryRun }),

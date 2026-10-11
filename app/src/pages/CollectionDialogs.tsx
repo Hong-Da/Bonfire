@@ -4,28 +4,54 @@ import { useTranslation } from "react-i18next";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
 import { Cover, Icon, Modal, displayName } from "../components/ui";
-import { bytes, dateTime, shortId } from "../lib/format";
+import ExportDone, { FileBadge, type ExportedFile } from "../components/ExportDone";
+import { dateTime, shortId } from "../lib/format";
 import { useStore } from "../store";
 import type { ArchiveImportItem, ArchivePreview, BundlePreview, FilesSource, GameRow } from "../types";
 import { MAX_COMMENT } from "./BackupDialog";
 
+/** 导出格式（U-49）：篝火包（完整历史）或篝火的 zip（最新存档文件与截图原图）。 */
+type PackageFormat = "bonfire" | "zip";
+
+/** 导出文件名中的时间：年月日-时分（两个文件分开导出时避免与已有文件重名）。 */
+const stampOf = (withTime: boolean) => {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  const day = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+  return withTime ? `${day}-${p(d.getHours())}${p(d.getMinutes())}` : day;
+};
+
+/** 在文件夹路径后接文件名（沿用路径中的分隔符）。 */
+const joinPath = (dir: string, name: string) => {
+  const sep = dir.includes("\\") ? "\\" : "/";
+  return dir.endsWith(sep) ? dir + name : dir + sep + name;
+};
+
 /**
- * 导出篝火包（.bonfire，U-16）：一个或多个游戏，选择导出存档历史（全部分支）和 / 或截图（相册，不含回收站）。
- * 没有可导出内容的游戏不能选。游戏库、详情页共用；图库中选中的截图直接导出（见图库页）。
+ * 导出存档和截图（U-16、U-49）：一个或多个游戏，选择内容（存档 / 截图）、格式（篝火包 / zip），
+ * 同时导出存档与截图时可合成一个文件或分成两个文件。没有可导出内容的游戏不能选。
+ * 游戏库、详情页共用；图库中选中的截图直接导出（见图库页）。导出后换成导出完成的页面。
  */
 export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameRow[]; initial: string[]; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const store = useStore();
   const [saves, setSaves] = useState(true);
   const [shots, setShots] = useState(true);
+  const [format, setFormat] = useState<PackageFormat>("bonfire");
+  const [split, setSplit] = useState(false);
   const has = (r: GameRow) => (saves && r.snapshots > 0) || (shots && r.shots > 0);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(initial));
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{ files: ExportedFile[]; skipped: string[] } | null>(null);
   const chosen = rows.filter((r) => picked.has(r.id) && has(r));
   const exportable = rows.filter(has);
   const snapshots = saves ? chosen.reduce((n, r) => n + r.snapshots, 0) : 0;
+  const latest = saves ? chosen.filter((r) => r.snapshots > 0).length : 0;
   const shotCount = shots ? chosen.reduce((n, r) => n + r.shots, 0) : 0;
+  const both = saves && shots;
+  // 两个文件：只在同时导出存档与截图、且两样都有内容时。
+  const twoFiles = both && split && latest > 0 && shotCount > 0;
+  const ext = format === "zip" ? "zip" : "bonfire";
 
   const toggle = (id: string) =>
     setPicked((s) => {
@@ -35,60 +61,130 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
       return n;
     });
 
+  /** 导出一个文件，返回导出结果的说明。 */
+  const exportOne = async (dest: string, part: { saves: boolean; shots: boolean }): Promise<{ file: ExportedFile; skipped: string[] }> => {
+    const ids = chosen.filter((r) => (part.saves && r.snapshots > 0) || (part.shots && r.shots > 0)).map((x) => x.id);
+    const r = format === "zip" ? await api.exportPackageZip(ids, dest, part) : await api.exportPackage(ids, dest, part);
+    const kind = part.saves && part.shots ? "both" : part.saves ? "saves" : "shots";
+    const label = [t(`ui.export.kind.${kind}`), t("ui.export.gamesN", { n: r.games.length })].join(" · ");
+    return { file: { path: r.dest, bytes: r.bytes, label }, skipped: r.skipped };
+  };
+
   const run = async () => {
-    const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
     const base = chosen.length === 1 ? displayName(chosen[0], i18n.language) : t("ui.collection.fileName");
-    const dest = await save({ defaultPath: `Bonfire-${base}-${stamp}.bonfire`, filters: [{ name: t("ui.transfer.bundle"), extensions: ["bonfire"] }] });
-    if (!dest) return;
+    let jobs: { dest: string; part: { saves: boolean; shots: boolean } }[];
+    if (twoFiles) {
+      const dir = await open({ directory: true, title: t("ui.package.pickFolder") });
+      if (!dir || Array.isArray(dir)) return;
+      const stamp = stampOf(true);
+      jobs = [
+        { dest: joinPath(dir, `Bonfire-${base}-${t("ui.export.kind.saves")}-${stamp}.${ext}`), part: { saves: true, shots: false } },
+        { dest: joinPath(dir, `Bonfire-${base}-${t("ui.export.kind.shots")}-${stamp}.${ext}`), part: { saves: false, shots: true } },
+      ];
+    } else {
+      const dest = await save({
+        defaultPath: `Bonfire-${base}-${stampOf(false)}.${ext}`,
+        filters: [format === "zip" ? { name: "Zip", extensions: ["zip"] } : { name: t("ui.transfer.bundle"), extensions: ["bonfire"] }],
+      });
+      if (!dest) return;
+      jobs = [{ dest, part: { saves, shots } }];
+    }
     setBusy(true);
+    const files: ExportedFile[] = [];
+    const skipped = new Set<string>();
     try {
-      const r = await api.exportPackage(
-        chosen.map((x) => x.id),
-        dest,
-        { saves, shots },
-      );
-      setDone(r.dest);
-      store.toast("success", t("ui.package.exported", { n: r.games.length, s: r.games.reduce((a, e) => a + e.snapshots, 0), p: r.games.reduce((a, e) => a + (e.shots ?? 0), 0), size: bytes(r.bytes) }));
+      for (const j of jobs) {
+        const r = await exportOne(j.dest, j.part);
+        files.push(r.file);
+        r.skipped.forEach((g) => skipped.add(g));
+      }
+      setDone({ files, skipped: [...skipped] });
     } catch (e) {
       store.toast("error", errorMessage(e));
+      if (files.length > 0) setDone({ files, skipped: [...skipped] });
     } finally {
       setBusy(false);
     }
   };
 
   const footer = done ? (
-    <>
-      <button className="btn" onClick={() => api.openPath(done)}>
-        <Icon name="folder" /> {t("ui.transfer.showFile")}
-      </button>
-      <button className="btn primary" onClick={onClose}>
-        {t("ui.done")}
-      </button>
-    </>
+    <button className="btn primary" onClick={onClose}>
+      {t("ui.done")}
+    </button>
   ) : (
     <>
-      <span className="count num">{t("ui.package.summary", { n: chosen.length, s: snapshots, p: shotCount })}</span>
+      <span className="count num">
+        <span>{format === "zip" ? t("ui.package.summaryZip", { n: chosen.length, s: latest, p: shotCount }) : t("ui.package.summary", { n: chosen.length, s: snapshots, p: shotCount })}</span>
+        {chosen.length > 0 && <span className="muted"> → {t("ui.package.fileCount", { n: twoFiles ? 2 : 1 })}</span>}
+      </span>
       <div className="grow" />
       <button className="btn ghost" onClick={onClose}>
         {t("ui.cancel")}
       </button>
       <button className="btn primary" onClick={() => void run()} disabled={busy || chosen.length === 0}>
-        <Icon name="export" /> {t("ui.transfer.exportTo")}
+        <Icon name="export" /> {busy ? t("ui.export.working") : twoFiles ? t("ui.package.exportToFolder") : t("ui.transfer.exportTo")}
       </button>
     </>
   );
 
+  if (done) {
+    return (
+      <Modal title={t("ui.export.doneTitle")} onClose={onClose} footer={footer}>
+        <ExportDone files={done.files} skipped={done.skipped} hint={t(format === "zip" ? "ui.export.nextZip" : "ui.export.nextBonfire")} />
+      </Modal>
+    );
+  }
+
   return (
     <Modal title={t("ui.package.exportTitle")} subtitle={t("ui.package.exportIntro")} onClose={onClose} footer={footer}>
-      <div className="package-parts" role="group" aria-label={t("ui.package.parts")}>
-        <label className="radio">
-          <input type="checkbox" checked={saves} onChange={(e) => setSaves(e.target.checked)} />
-          <Icon name="backup" size={14} /> {t("ui.package.saves")}
-        </label>
-        <label className="radio">
-          <input type="checkbox" checked={shots} onChange={(e) => setShots(e.target.checked)} />
-          <Icon name="camera" size={14} /> {t("ui.package.shots")}
-        </label>
+      <div className="export-opts">
+        <span className="export-opt-label" id="pkg-parts">
+          {t("ui.package.parts")}
+        </span>
+        <div className="package-parts" role="group" aria-labelledby="pkg-parts">
+          <label className="radio">
+            <input type="checkbox" checked={saves} onChange={(e) => setSaves(e.target.checked)} />
+            <Icon name="backup" size={14} /> {t(format === "zip" ? "ui.package.savesZip" : "ui.package.saves")}
+          </label>
+          <label className="radio">
+            <input type="checkbox" checked={shots} onChange={(e) => setShots(e.target.checked)} />
+            <Icon name="camera" size={14} /> {t(format === "zip" ? "ui.package.shotsZip" : "ui.package.shots")}
+          </label>
+        </div>
+
+        <span className="export-opt-label" id="pkg-format">
+          {t("ui.package.format")}
+        </span>
+        <div className="format-tiles" role="radiogroup" aria-labelledby="pkg-format">
+          {(["bonfire", "zip"] as const).map((f) => (
+            <button key={f} type="button" role="radio" aria-checked={format === f} className="format-tile" onClick={() => setFormat(f)}>
+              <FileBadge ext={f} />
+              <span>
+                <b>{t(f === "zip" ? "ui.package.formatZip" : "ui.package.formatBonfire")}</b>
+                <small>{t(f === "zip" ? "ui.package.formatZipHint" : "ui.package.formatBonfireHint")}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {both && (
+          <>
+            <span className="export-opt-label" id="pkg-files">
+              {t("ui.package.files")}
+            </span>
+            <div>
+              <div className="seg" role="radiogroup" aria-labelledby="pkg-files">
+                <button type="button" role="radio" aria-checked={!split} onClick={() => setSplit(false)}>
+                  {t("ui.package.oneFile")}
+                </button>
+                <button type="button" role="radio" aria-checked={split} onClick={() => setSplit(true)}>
+                  {t("ui.package.twoFiles")}
+                </button>
+              </div>
+              {split && <p className="hint">{t("ui.package.twoFilesHint")}</p>}
+            </div>
+          </>
+        )}
       </div>
       <div className="pick-head">
         <label className="radio">
@@ -106,6 +202,7 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
       <ul className="pick-list">
         {rows.map((r) => {
           const disabled = !has(r);
+          const savesText = format === "zip" ? t("ui.package.latestSave") : t("ui.library.snapshots", { n: r.snapshots });
           return (
             <li key={r.id} className={disabled ? "disabled" : picked.has(r.id) ? "on" : undefined}>
               <label>
@@ -116,7 +213,7 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
                   <small>{t(`ui.platform.${r.platform}`, { defaultValue: r.platform })}</small>
                 </span>
                 <span className="muted num">
-                  {disabled ? t("ui.package.nothing") : [saves && r.snapshots > 0 && t("ui.library.snapshots", { n: r.snapshots }), shots && r.shots > 0 && t("ui.shots.countN", { n: r.shots })].filter(Boolean).join(" · ")}
+                  {disabled ? t("ui.package.nothing") : [saves && r.snapshots > 0 && savesText, shots && r.shots > 0 && t("ui.shots.countN", { n: r.shots })].filter(Boolean).join(" · ")}
                 </span>
               </label>
             </li>
@@ -127,7 +224,14 @@ export function CollectionExportDialog({ rows, initial, onClose }: { rows: GameR
   );
 }
 
-type Loaded = { kind: "archive"; path: string; preview: ArchivePreview } | { kind: "files"; path: string; source: FilesSource };
+type Loaded =
+  | { kind: "archive"; path: string; preview: ArchivePreview }
+  | { kind: "files"; path: string; source: FilesSource }
+  // zip 格式的篝火导出中有多个游戏的存档（U-49）：逐个勾选导入。
+  | { kind: "multi"; path: string; sources: FilesSource[] };
+
+/** 存档文件能否导入（与本地快照相同或有对不上的文件时不能）。 */
+const filesImportable = (s: FilesSource) => !s.preview?.identical && (s.preview?.unmapped.length ?? 0) === 0;
 
 /** 合集包中的游戏能否导入、导入后有没有变化。 */
 function importable(p: BundlePreview): boolean {
@@ -153,6 +257,8 @@ export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onC
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<ArchiveImportItem[] | null>(null);
   const [filesDone, setFilesDone] = useState<string | null>(null);
+  // 多个游戏的存档文件：每个存档文件夹的导入结果。
+  const [multiDone, setMultiDone] = useState<Record<string, { gameId?: string; error?: string }> | null>(null);
   const [comment, setComment] = useState("");
   // 每个游戏导入哪些内容（默认包内有的都导入），以及是否把新导入的截图写到磁盘（默认不写）。
   const [parts, setParts] = useState<Record<string, { saves: boolean; shots: boolean }>>({});
@@ -167,6 +273,7 @@ export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onC
     setNotBonfire(null);
     setResults(null);
     setFilesDone(null);
+    setMultiDone(null);
     const path =
       what === "folder"
         ? await open({ directory: true, title: t("ui.transfer.pickFolder") })
@@ -179,7 +286,12 @@ export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onC
         setLoaded({ kind: "archive", path, preview });
         setPicked(new Set(preview.games.filter((g) => importable(g.preview)).map((g) => g.key)));
       } else {
-        setLoaded({ kind: "files", path, source: await api.inspectFilesSource(path) });
+        const sources = await api.inspectFilesSources(path);
+        if (sources.length === 1) setLoaded({ kind: "files", path, source: sources[0] });
+        else {
+          setLoaded({ kind: "multi", path, sources });
+          setPicked(new Set(sources.filter(filesImportable).map((s) => s.dir)));
+        }
       }
     } catch (e) {
       setLoaded(null);
@@ -244,8 +356,21 @@ export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onC
         const failed = items.filter((i) => i.error).length;
         if (failed > 0) store.toast("error", t("ui.collection.importFailed", { n: failed }));
         else store.toast("success", t("ui.collection.importDone", { ok: items.length }));
+      } else if (loaded.kind === "multi") {
+        const out: Record<string, { gameId?: string; error?: string }> = {};
+        for (const dir of [...picked]) {
+          try {
+            out[dir] = { gameId: (await api.importFilesAuto(loaded.path, dir, comment.trim() || null)).gameId };
+          } catch (e) {
+            out[dir] = { error: errorMessage(e) };
+          }
+        }
+        setMultiDone(out);
+        const failed = Object.values(out).filter((x) => x.error).length;
+        if (failed > 0) store.toast("error", t("ui.collection.importFailed", { n: failed }));
+        else store.toast("success", t("ui.collection.importDone", { ok: Object.keys(out).length }));
       } else {
-        const r = await api.importFilesAuto(loaded.path, comment.trim() || null);
+        const r = await api.importFilesAuto(loaded.path, loaded.source.dir || null, comment.trim() || null);
         setFilesDone(r.gameId);
         store.toast("success", t("ui.collection.filesDone", { name: r.gameName }));
       }
@@ -257,12 +382,16 @@ export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onC
     }
   };
 
-  const finished = results !== null || filesDone !== null;
+  const finished = results !== null || filesDone !== null || multiDone !== null;
   const canImport =
     !busy &&
     !!loaded &&
     !finished &&
-    (loaded.kind === "archive" ? picked.size > 0 && [...picked].every((k) => { const g = loaded.preview.games.find((x) => x.key === k); return !g || partsOf(k, g.preview).saves || partsOf(k, g.preview).shots; }) : !loaded.source.preview?.identical && (loaded.source.preview?.unmapped.length ?? 0) === 0 && [...comment].length <= MAX_COMMENT);
+    (loaded.kind === "archive"
+      ? picked.size > 0 && [...picked].every((k) => { const g = loaded.preview.games.find((x) => x.key === k); return !g || partsOf(k, g.preview).saves || partsOf(k, g.preview).shots; })
+      : loaded.kind === "multi"
+        ? picked.size > 0 && [...comment].length <= MAX_COMMENT
+        : filesImportable(loaded.source) && [...comment].length <= MAX_COMMENT);
 
   const footer = finished ? (
     <>
@@ -287,7 +416,7 @@ export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onC
         {t("ui.cancel")}
       </button>
       <button className="btn primary" onClick={() => void run()} disabled={!canImport}>
-        <Icon name="import" /> {loaded?.kind === "archive" ? t("ui.collection.importPicked", { n: picked.size }) : t("ui.transfer.import")}
+        <Icon name="import" /> {loaded?.kind === "archive" || loaded?.kind === "multi" ? t("ui.collection.importPicked", { n: picked.size }) : t("ui.transfer.import")}
       </button>
     </>
   );
@@ -445,6 +574,57 @@ export function CollectionImportDialog({ onClose, onDone, onUseDownload }: { onC
               <input className="field" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ui.transfer.commentPlaceholder")} aria-label={t("ui.history.comment")} />
             )}
           </div>
+        )}
+
+        {loaded?.kind === "multi" && (
+          <>
+            <p className="hint">
+              {t("ui.transfer.bundleFrom", { host: loaded.sources[0].manifest.host, time: dateTime(loaded.sources[0].manifest.exportedAt, i18n.language) })}
+            </p>
+            <div className="pick-head">
+              <span className="muted">{t("ui.collection.filesGames", { n: loaded.sources.length })}</span>
+            </div>
+            <ul className="pick-list">
+              {loaded.sources.map((s) => {
+                const ok = filesImportable(s);
+                const res = multiDone?.[s.dir];
+                return (
+                  <li key={s.dir} className={!ok ? "disabled" : picked.has(s.dir) ? "on" : undefined}>
+                    <label>
+                      <input type="checkbox" checked={picked.has(s.dir)} disabled={!ok || finished} onChange={() => toggle(s.dir)} aria-label={s.manifest.gameName} />
+                      <span className="pick-name">
+                        <b>{s.manifest.gameName}</b>
+                        <small>
+                          {s.gameId ? <span className="tag found-managed">{t("ui.collection.stateLocal")}</span> : <span className="tag found-new">{t("ui.collection.stateNew")}</span>}
+                          <span className="muted num"> {s.dir}/</span>
+                        </small>
+                      </span>
+                      <span className="pick-state num">
+                        {res ? (
+                          res.error ? (
+                            <span className="danger-text" title={res.error}>
+                              {res.error}
+                            </span>
+                          ) : (
+                            <span className="ok-text">
+                              <Icon name="check" size={14} /> {t("ui.collection.filesImported")}
+                            </span>
+                          )
+                        ) : s.preview?.identical ? (
+                          <span className="muted">{t("ui.collection.upToDate")}</span>
+                        ) : (s.preview?.unmapped.length ?? 0) > 0 ? (
+                          <span className="muted">{t("ui.collection.filesUnmapped", { n: s.preview!.unmapped.length })}</span>
+                        ) : (
+                          t(s.gameId ? "ui.collection.filesNewBranch" : "ui.collection.filesWillAdd")
+                        )}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+            {!finished && <input className="field" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ui.transfer.commentPlaceholder")} aria-label={t("ui.history.comment")} />}
+          </>
         )}
       </div>
     </Modal>

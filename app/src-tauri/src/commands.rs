@@ -1180,6 +1180,24 @@ pub async fn export_package(
     .await
 }
 
+/// 导出 zip 格式的篝火导出（U-49）：存档文件与截图原图。
+#[tauri::command]
+pub async fn export_package_zip(
+    h: AppHandle,
+    game_ids: Vec<String>,
+    dest: PathBuf,
+    options: PackageOptions,
+) -> CmdResult<CollectionReport> {
+    with_app(h, move |app, _| {
+        let games = game_ids
+            .iter()
+            .map(|id| find(app, id))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(app.export_package_zip(&games, &dest, &options)?)
+    })
+    .await
+}
+
 /// 把相册中的截图（如刚导入的）写到本机这个游戏的截图文件夹（U-16）。
 #[tauri::command]
 pub async fn sync_shots_to_disk(
@@ -1214,19 +1232,20 @@ pub async fn import_archive(
 }
 
 #[tauri::command]
-pub async fn inspect_files_source(h: AppHandle, src: PathBuf) -> CmdResult<FilesSource> {
-    with_app(h, move |app, _| Ok(app.inspect_files_source(&src)?)).await
+pub async fn inspect_files_sources(h: AppHandle, src: PathBuf) -> CmdResult<Vec<FilesSource>> {
+    with_app(h, move |app, _| Ok(app.inspect_files_sources(&src)?)).await
 }
 
 #[tauri::command]
 pub async fn import_files_auto(
     h: AppHandle,
     src: PathBuf,
+    dir: Option<String>,
     comment: Option<String>,
 ) -> CmdResult<FilesAutoReport> {
     with_app(h, move |app, _| {
         let lock = app.repo.lock()?;
-        Ok(app.import_files_auto(&lock, &src, comment, false)?)
+        Ok(app.import_files_auto(&lock, &src, dir.as_deref(), comment, false)?)
     })
     .await
 }
