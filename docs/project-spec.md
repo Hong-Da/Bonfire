@@ -2,7 +2,7 @@
 
 > 生成日期：2026-10-09
 > 读取日期：2026-10-08（任务文档）
-> last_synced_commit：（阶段三生成初始版本后填写 v0.1.0）
+> last_synced_commit：v0.1.0
 > 每条决定后标注【默认】【建议：原因】或【用户修改】。
 > 选项记录：DevelopDocs/project-config/config.json（确认方式：网页）
 
@@ -14,9 +14,10 @@
 
 | 文件 | 用途 | 说明 |
 |---|---|---|
-| `DevelopDocs/游戏存档备份软件 · 开发设计文档.md` | 任务文档 | 主文档（唯一），需求以此为准 |
-| `DevelopDocs/project-config/` | 选项记录 | 三轮确认的建议值与用户选择 |
-| `DevelopDocs/review/<…>/` | 盘点 | 需求盘点结果（阶段三及之后生成） |
+| `DevelopDocs/review/v0.1.0_2026-10-11/TASK_merged.md` | 任务文档 | 合并后的最终开发文档（2026-10-11 起，决策 R3-REV），需求以此为准 |
+| `DevelopDocs/游戏存档备份软件 · 开发设计文档.md` | 相关文件（历史版本） | 原始任务文档，文件保持不动 |
+| `DevelopDocs/project-config/` | 选项记录 | 三轮确认的建议值与用户选择；开发中的决定见 `decisions.json` / `decisions.html` |
+| `DevelopDocs/review/v0.1.0_2026-10-11/` | 盘点 | 第一次需求盘点：`completed.md`、`added.md`、`pending.md`、`TASK_merged.md` |
 
 验收标准：任务文档没有独立的“验收标准”一章，经用户确认（2026-10-08）以 **10.1 非功能指标 + 10.4 各里程碑验收 + P0 全部交付** 为准。
 
@@ -24,20 +25,20 @@
 
 | 编号 | 需求 | 来源 | 里程碑 | 对应功能 | 状态 | 备注 |
 |---|---|---|---|---|---|---|
-| REQ-001 | 存档扫描：识别平台与游戏、定位存档路径、手动添加自定义游戏/路径、自动获取游戏信息 | 任务文档 §2 F1、§4 | M1（手动部分）、M2、M4（其余平台） | （阶段三补齐） | 已完成（Steam/Epic/GOG、游戏信息；其余平台 M4-1） | P0 |
-| REQ-002 | 更新检测：已修改/新增/已删除/未变化/从未备份 | §2 F2、§5 | M1 | | 已完成（CLI；GUI 随 M3） | P0 |
-| REQ-003 | 选择性备份：勾选、全选/反选、按平台筛选、备份方案 | §2 F3、§8.1 | M1、M3 | | 开发中（核心与 CLI 已完成；GUI 随 M3） | P0 |
-| REQ-004 | 版本历史：时间线、快照差异、分支与标签 | §2 F4、§6 | M1、M3 | | 开发中（核心与 CLI 已完成；GUI 随 M3） | P0 |
-| REQ-005 | 快照备注：逐游戏备注、事后修改、全文搜索 | §2 F5、§6.3、§8.3 | M1、M3 | | 开发中（核心与 CLI 已完成；GUI 随 M3） | P0 |
-| REQ-006 | 存档恢复：全部/部分恢复、保护快照、一键撤销 | §2 F6、§8.2 | M1、M3 | | 开发中（核心与 CLI 已完成；GUI 随 M3） | P0 |
-| REQ-007 | 游戏运行保护：运行中警告或阻止恢复 | §2 F7 | M1（简化版）、M4 | | 已完成（M4-2） | P1；简化版提前到 M1（R2-Q3） |
-| REQ-008 | 自动备份：定时或游戏退出后自动备份 | §2 F8 | M4 | | 已完成（U-9c、M4-3） | P1 |
-| REQ-009 | 历史清理：保留策略、标签永不清理、垃圾回收 | §2 F9、§6.6 | M4 | | 已完成（M4-4） | P1 |
-| REQ-010 | 导入/导出单游戏历史 | §2 F10 | M5 | U-3、U-7 提前实现（含合集包与未安装游戏） | 已完成 | P2 |
-| REQ-011 | 仓库可选 AES-256-GCM 加密 | §10.1 | M5 | `bonfire-core/src/crypt.rs`、`bonfire-app/src/security.rs` | 已完成（M5-2） | P2 |
-| REQ-012 | VSS 卷影复制读取独占锁定文件 | §5 | M5 | `bonfire-app/src/vss.rs` | 已完成（M5-3） | P2 |
+| REQ-001 | 存档扫描：识别平台与游戏、定位存档路径、手动添加自定义游戏/路径、自动获取游戏信息 | 任务文档 §2 F1、§4 | M1（手动部分）、M2、M4（其余平台） | GAME | 已完成（Steam/Epic/GOG、游戏信息；其余平台 M4-1） | P0 |
+| REQ-002 | 更新检测：已修改/新增/已删除/未变化/从未备份 | §2 F2、§5 | M1 | SCAN | 已完成（M1 核心与 CLI、M3 界面） | P0 |
+| REQ-003 | 选择性备份：勾选、全选/反选、按平台筛选、备份方案 | §2 F3、§8.1 | M1、M3 | BAK、UI | 已完成（M1、M3） | P0 |
+| REQ-004 | 版本历史：时间线、快照差异、分支与标签 | §2 F4、§6 | M1、M3 | HIS | 已完成（M1、M3） | P0 |
+| REQ-005 | 快照备注：逐游戏备注、事后修改、全文搜索 | §2 F5、§6.3、§8.3 | M1、M3 | HIS | 已完成（M1、M3） | P0 |
+| REQ-006 | 存档恢复：全部/部分恢复、保护快照、一键撤销 | §2 F6、§8.2 | M1、M3 | RES | 已完成（M1、M3） | P0 |
+| REQ-007 | 游戏运行保护：运行中警告或阻止恢复 | §2 F7 | M1（简化版）、M4 | AUTO | 已完成（M4-2） | P1；简化版提前到 M1（R2-Q3） |
+| REQ-008 | 自动备份：定时或游戏退出后自动备份 | §2 F8 | M4 | AUTO | 已完成（U-9c、M4-3） | P1 |
+| REQ-009 | 历史清理：保留策略、标签永不清理、垃圾回收 | §2 F9、§6.6 | M4 | CLEAN | 已完成（M4-4） | P1 |
+| REQ-010 | 导入/导出单游戏历史 | §2 F10 | M5 | XFER（U-3、U-7 提前实现，含合集包与未安装游戏） | 已完成 | P2 |
+| REQ-011 | 仓库可选 AES-256-GCM 加密 | §10.1 | M5 | SEC（`crypt.rs`、`security.rs`） | 已完成（M5-2） | P2 |
+| REQ-012 | VSS 卷影复制读取独占锁定文件 | §5 | M5 | SEC（`vss.rs`） | 已完成（M5-3；真实卷影复制待用户验收） | P2 |
 | REQ-013 | Linux / Steam Deck（Proton）支持 | §1、§10.4 M5 | 推迟到后续版本 | | 推迟（决策 M5-4a） | P2 |
-| REQ-014 | 游戏截图备份：Steam、Windows 游戏栏、手动文件夹；单独成相册并与时间线关联；随备份与定时收集；导出 | 用户新增（2026-10-09，决策 U-5） | 用户插入（U-5） | `bonfire-app/src/shots.rs` | 已完成 | P1 |
+| REQ-014 | 游戏截图备份：Steam、Windows 游戏栏、手动文件夹；单独成相册并与时间线关联；随备份与定时收集；导出 | 用户新增（2026-10-09，决策 U-5） | 用户插入（U-5） | SHOT（`shots.rs`） | 已完成 | P1 |
 
 ## 待确认
 
@@ -188,7 +189,7 @@
 - A4 文本编码：UTF-8（bat 文件 UTF-8 无 BOM + `chcp 65001` + CRLF；`.ps1` UTF-8 带 BOM）【默认】
 - A5 编码行为准则：Karpathy guidelines（已安装：插件 andrej-karpathy-skills）【默认】
 - A6 一键运行脚本：`start.bat`（检查 Rust/MSVC/Node/pnpm → 安装前端依赖 → 构建 → 启动；首次运行由 GUI 向导引导）【默认】
-- A7 版本号：语义化版本，初始 0.1.0（用户已确认），写在 Cargo workspace 的 `workspace.package.version` 与 `app/package.json`、`tauri.conf.json`，三处一致【默认】
+- A7 版本号：语义化版本，初始 0.1.0（用户已确认），写在 Cargo workspace 的 `workspace.package.version` 与 `app/package.json` 两处（`tauri.conf.json` 不写版本，跟随 Cargo）【默认】
 - A8 文档语言：跟随对话语言（当前为中文）【默认】
 
 ## B 项目形态
@@ -401,12 +402,23 @@ Cargo workspace，引擎层不感知界面：
 | `start.sh` / `test.sh` | 首版只提供 `.bat`；M5 Linux 支持时补齐 `.sh` | 首版仅 Windows |
 | `scripts/gen_docs.py` 生成文档示例 | 文档测试自带生成：`test.bat --bless` 改写 `docs/cli.md` 示例与 `config/config.example.toml` | 不引入 Python 依赖 |
 | 文案放在 `src/<包名>/i18n/locales/` | `crates/bonfire-app/locales/*.json`，CLI 内嵌、前端直接导入同一份文件 | CLI 与 GUI 共用文案 |
-| `config/config.toml` 在项目目录 | 运行时配置在 `%APPDATA%\Bonfire\`（便携模式在程序目录旁） | 桌面应用惯例（R2-Q4） |
+| `config/config.toml` 在项目目录 | 运行时配置与仓库在程序目录的 `data\` 中（安装版为 `<安装目录>\data`，开发时为项目根目录的 `data\`） | 卸载保留数据、整体可迁移（M3-6） |
 
 ## F 收尾辅助
 
-（开发完成后第三轮确认。第一轮初选：F1 打包迁移脚本——需要，默认不包含数据/配置/日志；F2 迁移与部署——在线部署；F3 Docker——不需要。）
+第三轮确认（2026-10-11，按第一轮初选，决策 R3-F1–F3）：
+
+- F1 打包迁移脚本：需要。`pack.bat`（调用 `scripts/pack.ps1`）把安装包、迁移说明与（可选）数据目录中的配置、备份仓库、日志打成 `dist\Bonfire_<版本>_<日期>.zip`；默认不包含数据，逐项询问并列出大小后确认；始终不包含本机记住的密码（`keys\`）与缓存。【默认】
+- F2 迁移与部署：在线部署，部署即运行安装包；说明见 `docs/migration.md`（安装、升级、网盘仓库 / 打包脚本 / 篝火包三种搬家方式）。【默认】
+- F3 Docker：不需要（读取本机存档的桌面程序）。【默认】
 
 ## K 项目专属 skill
 
-（开发完成后第三轮确认。第一轮初选：K1 CLI 调用 skill、K3 测试 skill、K4 项目更新 skill 生成；K2 不适用。）
+第三轮确认（2026-10-11，决策 R3-K）：
+
+- K1 `.claude/skills/bonfire-cli/`：通过命令行操作篝火。
+- K3 `.claude/skills/bonfire-test/`：运行与维护测试，功能清单 `references/features/`（12 类 46 项）。
+- K4 `.claude/skills/bonfire-update/`：需求或代码变更后的同步更新、版本号、更新记录与需求盘点。
+- K2 不适用（没有远程 API）。
+
+初始版本记录：`docs/changelog/v0/v0.1/v0.1.0.md`、`SUMMARY.md`、`CHANGELOG.md`；标签 `v0.1.0`（决策 R3-VER）。

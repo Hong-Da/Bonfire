@@ -2501,5 +2501,89 @@
     "impact": "REQ-013 标为推迟；代码保持跨平台写法（非 Windows 时注册表、DPAPI、卷影复制等功能自动关闭）。M5 以 M5-1–M5-3 结束，进入阶段三收尾。",
     "status": "用户要求",
     "date": "2026-10-11"
+  },
+  {
+    "id": "R3-F1",
+    "stage": "第三轮 收尾",
+    "question": "F1 打包迁移脚本",
+    "options": [
+      "需要：pack.bat 把安装包、迁移说明与（可选）数据目录中的配置、备份仓库、日志打成 dist\\Bonfire_<版本>_<日期>.zip；默认不包含数据，逐项询问并列出大小后确认；始终不包含本机记住的密码与缓存（推荐）",
+      "不需要"
+    ],
+    "chosen": "需要：pack.bat 把安装包、迁移说明与（可选）数据目录中的配置、备份仓库、日志打成 dist\\Bonfire_<版本>_<日期>.zip；默认不包含数据，逐项询问并列出大小后确认；始终不包含本机记住的密码与缓存（推荐）",
+    "reason": "第一轮初选：需要，默认不包含数据 / 配置 / 日志。桌面程序的部署单位是安装包，数据随 data 文件夹迁移。",
+    "impact": "新增 pack.bat、scripts/pack.ps1；记住的密码与 Windows 账户绑定，换电脑无效，所以不打包。",
+    "status": "默认推荐",
+    "date": "2026-10-11"
+  },
+  {
+    "id": "R3-F2",
+    "stage": "第三轮 收尾",
+    "question": "F2 迁移与部署",
+    "options": [
+      "在线部署：部署即运行安装包；docs/migration.md 说明安装、升级、三种搬家方式（网盘仓库、打包脚本、篝火包）与新电脑上的注意事项（推荐）",
+      "离线部署"
+    ],
+    "chosen": "在线部署：部署即运行安装包；docs/migration.md 说明安装、升级、三种搬家方式（网盘仓库、打包脚本、篝火包）与新电脑上的注意事项（推荐）",
+    "reason": "第一轮初选：在线部署。安装包已内置规则库快照，离线也能安装使用。",
+    "impact": "迁移说明同时放进打包的 zip。",
+    "status": "默认推荐",
+    "date": "2026-10-11"
+  },
+  {
+    "id": "R3-F3",
+    "stage": "第三轮 收尾",
+    "question": "F3 Docker",
+    "options": [
+      "不需要（推荐）",
+      "需要"
+    ],
+    "chosen": "不需要（推荐）",
+    "reason": "第一轮初选；篝火是读取本机游戏存档的 Windows 桌面程序，不适合放在容器中运行。",
+    "impact": "不生成 Dockerfile 与 docker-build 脚本。",
+    "status": "默认推荐",
+    "date": "2026-10-11"
+  },
+  {
+    "id": "R3-K",
+    "stage": "第三轮 收尾",
+    "question": "项目专属 skill",
+    "options": [
+      "生成 bonfire-cli（K1）、bonfire-test（K3，功能清单 12 类 46 项）、bonfire-update（K4）；K2 不适用（没有远程 API）（推荐）",
+      "不生成"
+    ],
+    "chosen": "生成 bonfire-cli（K1）、bonfire-test（K3，功能清单 12 类 46 项）、bonfire-update（K4）；K2 不适用（没有远程 API）（推荐）",
+    "reason": "第一轮初选。",
+    "impact": "放在 .claude/skills/，在 README 与 CLAUDE.md 中列出；版本号在 Cargo.toml 与 app/package.json 两处（tauri.conf.json 跟随 Cargo）。",
+    "status": "默认推荐",
+    "date": "2026-10-11"
+  },
+  {
+    "id": "R3-REV",
+    "stage": "第三轮 收尾",
+    "question": "需求盘点与今后的任务文档",
+    "options": [
+      "生成 DevelopDocs/review/v0.1.0_2026-10-11/（已完成、新增、待开发、合并后的最终开发文档）；今后以 TASK_merged.md 为任务文档，原设计文档改为“相关文件（历史版本）”，文件不动（推荐）",
+      "仍以原设计文档为任务文档"
+    ],
+    "chosen": "生成 DevelopDocs/review/v0.1.0_2026-10-11/（已完成、新增、待开发、合并后的最终开发文档）；今后以 TASK_merged.md 为任务文档，原设计文档改为“相关文件（历史版本）”，文件不动（推荐）",
+    "reason": "开发中新增了大量用户需求（截图、导入导出、清理说明等），合并后的文档反映当前状态，项目更新 skill 以它为基准。",
+    "impact": "待开发：Linux / Steam Deck（推迟）、packs（推迟）；待用户验收：M3、M4 清单与真实卷影复制。",
+    "status": "默认推荐",
+    "date": "2026-10-11"
+  },
+  {
+    "id": "R3-VER",
+    "stage": "第三轮 收尾",
+    "question": "初始版本",
+    "options": [
+      "生成 v0.1.0 更新记录、SUMMARY.md 与 CHANGELOG.md，提交并打本地标签 v0.1.0（不推送）；项目规范 last_synced_commit 设为 v0.1.0（推荐）",
+      "暂不打标签"
+    ],
+    "chosen": "生成 v0.1.0 更新记录、SUMMARY.md 与 CHANGELOG.md，提交并打本地标签 v0.1.0（不推送）；项目规范 last_synced_commit 设为 v0.1.0（推荐）",
+    "reason": "A7 已确认初始版本 0.1.0；标签是项目更新 skill 的比较基准。",
+    "impact": "标签只在本地，推送到 Gitee / GitHub 由用户决定。",
+    "status": "默认推荐",
+    "date": "2026-10-11"
   }
 ]

@@ -111,9 +111,9 @@ export function SecuritySection() {
         {s.encrypted ? (
           <>
             <button className="btn" onClick={() => setDialog("change")}>
-              {t("ui.security.change")}
+              <Icon name="shield" /> {t("ui.security.change")}
             </button>
-            <button className="btn ghost" onClick={() => setDialog("decrypt")}>
+            <button className="btn danger-ghost" onClick={() => setDialog("decrypt")}>
               {t("ui.security.decrypt")}
             </button>
           </>

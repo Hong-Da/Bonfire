@@ -4,7 +4,7 @@
 
 Windows 桌面端游戏存档备份工具：自动扫描各平台的游戏存档，判断哪些有更新，按 Git 式快照保存完整历史，随时恢复到任意版本。
 
-> 开发中：M1（核心库 + 命令行）、M2（存档发现）、M3（桌面应用与安装包）、M4（其余平台、运行保护、自动备份、历史清理、性能）已完成；M5（扩展）待开始。
+> 当前版本 0.1.0（[更新记录](CHANGELOG.md)）。只支持 Windows 10/11；Linux / Steam Deck 推迟到后续版本。
 
 ## 代码仓库
 
@@ -31,6 +31,8 @@ Windows 桌面端游戏存档备份工具：自动扫描各平台的游戏存档
 - 数据（配置、备份仓库、日志、缓存）都在 `<安装目录>\data`。**卸载不会删除 `data`**，重新安装或升级后备份历史仍在。
 - 命令行在 `<安装目录>\cli\bonfire.exe`，与桌面应用共用同一份数据；把 `<安装目录>\cli` 加入 PATH 后即可直接使用 `bonfire`。
 - 内置 Ludusavi 规则库快照，首次启动不联网也能识别游戏，联网时自动增量更新。
+
+换电脑、升级与打包迁移见 [docs/migration.md](docs/migration.md)：`pack.bat` 把安装包、迁移说明与（可选）配置和备份仓库打成一个 zip。
 
 ## 使用方式
 
@@ -72,8 +74,13 @@ bonfire/
 ├── .gitignore / .gitattributes
 ├── start.bat                   一键运行
 ├── build.bat                   构建安装包（NSIS）
+├── pack.bat                    打包迁移：安装包 + 迁移说明 +（可选）数据 → dist\*.zip
 ├── cli.bat                     CLI 包装脚本
 ├── test.bat                    一键测试
+├── CHANGELOG.md                更新记录总览
+├── .claude/skills/             项目专属 skill：bonfire-cli、bonfire-test、bonfire-update
+├── scripts/
+│   └── pack.ps1                pack.bat 的实现
 ├── config/
 │   └── config.example.toml     应用配置示例（实际配置在程序目录的 data\ 中）
 ├── crates/
@@ -88,15 +95,26 @@ bonfire/
 ├── assets/
 │   └── brand/                  Logo 源文件
 ├── DevelopDocs/                开发文档：任务文档与相关文件（只读）
-│   └── project-config/         选项页面与用户的选择（history/ 不入库）
+│   ├── project-config/         选项页面、用户的选择与开发中的决定（history/ 不入库）
+│   └── review/                 需求盘点（v0.1.0_2026-10-11/：已完成、新增、待开发、合并后的任务文档）
 ├── docs/
 │   ├── project-spec.md         项目规范
 │   ├── cli.md                  CLI 调用文档
+│   ├── migration.md            安装、升级与迁移说明
+│   ├── changelog/              各版本更新记录（v0/v0.1/v0.1.0.md…）
 │   └── acceptance/             里程碑验收报告
 ├── tests/                      测试：输入、用例数据、CLI 与文档测试（见 tests/README.md）
 ├── target/                     Rust 构建输出（不入库）
 └── dist/                       打包结果（不入库）
 ```
+
+## 项目专属 skill
+
+在本项目中使用 Claude Code 时可用（`.claude/skills/`）：
+
+- `bonfire-cli`：用命令行操作篝火（备份、恢复、查历史、导出、清理等）。
+- `bonfire-test`：全量或按功能运行测试、解读失败、新增用例、验收核对。
+- `bonfire-update`：需求或代码变更后判断要同步更新的部分，确定版本号，生成更新记录与需求盘点。
 
 ## 测试
 
