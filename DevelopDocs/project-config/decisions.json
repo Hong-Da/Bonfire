@@ -2064,11 +2064,11 @@
     "stage": "M3",
     "question": "安装包中命令行 bonfire.exe 与桌面程序 Bonfire.exe 同名冲突怎么办",
     "options": [
-      "命令行放在 <安装目录>\\cli\bonfire.exe，数据与规则库与桌面程序共用（推荐）",
+      "命令行放在 <安装目录>\\cli\\bonfire.exe，数据与规则库与桌面程序共用（推荐）",
       "桌面程序改名（如 Bonfire-Desktop.exe）",
       "命令行改名（如 bonfire-cli.exe）"
     ],
-    "chosen": "命令行放在 <安装目录>\\cli\bonfire.exe，数据与规则库与桌面程序共用（推荐）",
+    "chosen": "命令行放在 <安装目录>\\cli\\bonfire.exe，数据与规则库与桌面程序共用（推荐）",
     "reason": "Windows 文件名不区分大小写，安装后命令行覆盖了桌面程序；放到子目录后两个名字都不变，命令仍是 bonfire。",
     "impact": "使用命令行需把 <安装目录>\\cli 加入 PATH；开发时 cli.bat 不受影响。",
     "status": "默认推荐",
