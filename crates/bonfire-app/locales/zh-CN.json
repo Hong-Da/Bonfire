@@ -1167,5 +1167,8 @@
   "ui.auto.quick.checkOff": "先开启“存档变化后自动备份”",
   "ui.auto.quick.changeEvery": "变化后（每 {n} 分钟检查）",
   "ui.settings.autoCheckSuffix": "分钟检查一次",
-  "ui.settings.autoQuietSuffix": "分钟后再备份"
+  "ui.settings.autoQuietSuffix": "分钟后再备份",
+  "ui.shotAuto.change": "截图变化后自动收集",
+  "ui.shotAuto.changeHint": "定期检查截图文件夹，有新截图就收集到图库（相当于截图后自动备份）。",
+  "ui.shotAuto.checkHead": "检查新截图"
 }

@@ -18,6 +18,8 @@ export const PLATFORMS = ["steam", "epic", "gog"] as const;
 export default function Settings() {
   const { t, i18n } = useTranslation();
   const store = useStore();
+  // 从快捷菜单“更多设置”进入时跳到对应分组并短暂高亮。
+  const section = store.view.name === "settings" ? store.view.section : undefined;
   const [cfg, setCfg] = useState<Config | null>(null);
   const [auto, setAuto] = useState<AutoStatus | null>(null);
   const [saved, setSaved] = useState<Config | null>(null);
@@ -38,6 +40,11 @@ export default function Settings() {
     api.ignoredGames().then(setIgnored).catch(() => setIgnored([]));
     api.capturesDir().then(setCaptures).catch(() => setCaptures(null));
   }, []);
+
+  useEffect(() => {
+    if (!cfg || !section) return;
+    document.getElementById(`settings-${section}`)?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+  }, [!!cfg, section]);
 
   if (!cfg) return <div className="empty">{t("ui.loading")}</div>;
   const dirty = JSON.stringify(cfg) !== JSON.stringify(saved);
@@ -140,7 +147,7 @@ export default function Settings() {
               <label>{t("ui.settings.platforms")}</label>
               <div className="inline">
                 {PLATFORMS.map((p) => (
-                  <label key={p} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <label key={p} className="opt">
                     <input
                       type="checkbox"
                       className="check"
@@ -158,7 +165,7 @@ export default function Settings() {
             </div>
             <div className="row">
               <label>{t("ui.settings.includeConfig")}</label>
-              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <label className="opt">
                 <input type="checkbox" className="check" checked={cfg.backup.include_config_files} onChange={(e) => update((c) => (c.backup.include_config_files = e.target.checked))} />
                 {t("ui.settings.includeConfigHint")}
               </label>
@@ -172,7 +179,7 @@ export default function Settings() {
             </div>
           </section>
 
-          <section>
+          <section id="settings-auto" className={section === "auto" ? "flash" : undefined}>
             <h2>{t("ui.settings.auto")}</h2>
             <div className="row">
               <label htmlFor="auto-schedule">{t("ui.settings.autoSchedule")}</label>
@@ -197,7 +204,7 @@ export default function Settings() {
                   <input className="field num" type="time" value={cfg.auto_backup.at} onChange={(e) => update((c) => (c.auto_backup.at = e.target.value))} aria-label={t("ui.settings.autoAt")} />
                 )}
                 {cfg.auto_backup.schedule === "hours" && (
-                  <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <label className="opt">
                     <input className="field num" type="number" min={1} max={168} style={{ width: 80 }} value={cfg.auto_backup.every_hours} onChange={(e) => update((c) => (c.auto_backup.every_hours = Number(e.target.value)))} aria-label={t("ui.settings.autoEveryHours")} />
                     {t("ui.settings.autoEveryHoursUnit")}
                   </label>
@@ -207,17 +214,17 @@ export default function Settings() {
             <div className="row">
               <label>{t("ui.settings.autoChange")}</label>
               <div>
-                <label style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                <label className="opt">
                   <input type="checkbox" className="check" checked={cfg.auto_backup.on_change} onChange={(e) => update((c) => (c.auto_backup.on_change = e.target.checked))} />
                   {t("ui.settings.autoChangeHint")}
                 </label>
-                <div className={`inline auto-check${cfg.auto_backup.on_change ? "" : " off"}`} style={{ marginTop: 8 }}>
-                  <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div className={`inline auto-check${cfg.auto_backup.on_change ? "" : " off"}`}>
+                  <label className="opt">
                     {t("ui.settings.autoCheckEvery")}
                     <input className="field num" type="number" min={1} max={120} style={{ width: 70 }} disabled={!cfg.auto_backup.on_change} value={cfg.auto_backup.check_minutes} onChange={(e) => update((c) => (c.auto_backup.check_minutes = Number(e.target.value)))} aria-label={t("ui.settings.autoCheckEvery")} />
                     {t("ui.settings.autoCheckSuffix")}
                   </label>
-                  <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <label className="opt">
                     {t("ui.settings.autoQuiet")}
                     <input className="field num" type="number" min={0} max={60} style={{ width: 70 }} disabled={!cfg.auto_backup.on_change} value={cfg.auto_backup.quiet_minutes} onChange={(e) => update((c) => (c.auto_backup.quiet_minutes = Number(e.target.value)))} aria-label={t("ui.settings.autoQuiet")} />
                     {t("ui.settings.autoQuietSuffix")}
@@ -235,11 +242,11 @@ export default function Settings() {
             )}
           </section>
 
-          <section>
+          <section id="settings-shots" className={section === "shots" ? "flash" : undefined}>
             <h2>{t("ui.settings.shots")}</h2>
             <div className="row">
               <label>{t("ui.settings.shotsEnabled")}</label>
-              <label style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+              <label className="opt">
                 <input type="checkbox" className="check" checked={cfg.shots.enabled} onChange={(e) => update((c) => (c.shots.enabled = e.target.checked))} />
                 {t("ui.settings.shotsEnabledHint")}
               </label>
@@ -290,16 +297,32 @@ export default function Settings() {
                   <input className="field num" type="time" value={cfg.shots.at} onChange={(e) => update((c) => (c.shots.at = e.target.value))} aria-label={t("ui.settings.at")} />
                 )}
                 {cfg.shots.schedule === "hours" && (
-                  <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <label className="opt">
                     <input className="field num" type="number" min={1} max={168} style={{ width: 80 }} value={cfg.shots.every_hours} onChange={(e) => update((c) => (c.shots.every_hours = Number(e.target.value)))} />
                     {t("ui.settings.everyHours", { n: cfg.shots.every_hours })}
                   </label>
                 )}
               </div>
             </div>
+            <div className="row">
+              <label>{t("ui.shotAuto.change")}</label>
+              <div>
+                <label className="opt">
+                  <input type="checkbox" className="check" checked={!!cfg.shots.on_change} onChange={(e) => update((c) => (c.shots.on_change = e.target.checked))} />
+                  {t("ui.shotAuto.changeHint")}
+                </label>
+                <div className={`inline auto-check${cfg.shots.on_change ? "" : " off"}`}>
+                  <label className="opt">
+                    {t("ui.settings.autoCheckEvery")}
+                    <input className="field num" type="number" min={1} max={120} style={{ width: 70 }} disabled={!cfg.shots.on_change} value={cfg.shots.check_minutes ?? 5} onChange={(e) => update((c) => (c.shots.check_minutes = Number(e.target.value)))} aria-label={t("ui.shotAuto.checkHead")} />
+                    {t("ui.settings.autoCheckSuffix")}
+                  </label>
+                </div>
+              </div>
+            </div>
             <p className="hint">{t("ui.settings.scheduleHint")}</p>
             <button
-              className="btn"
+              className="btn row-indent"
               disabled={busy === "shots" || !saved?.shots.enabled}
               onClick={() =>
                 run("shots", async () => {
@@ -317,7 +340,7 @@ export default function Settings() {
             <h2>{t("ui.settings.safety")}</h2>
             <div className="row">
               <label>{t("ui.settings.protectLocal")}</label>
-              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <label className="opt">
                 <input
                   type="checkbox"
                   className="check"
@@ -364,7 +387,7 @@ export default function Settings() {
             <h2>{t("ui.settings.info")}</h2>
             <div className="row">
               <label>{t("ui.settings.online")}</label>
-              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <label className="opt">
                 <input type="checkbox" className="check" checked={cfg.metadata.online} onChange={(e) => update((c) => (c.metadata.online = e.target.checked))} />
                 {t("ui.settings.onlineHint")}
               </label>

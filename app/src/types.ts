@@ -39,6 +39,10 @@ export interface ShotsConfig {
   /** 1 = 周一 … 7 = 周日 */
   weekday: number;
   every_hours: number;
+  /** 截图变化后自动收集 */
+  on_change?: boolean;
+  /** 检查新截图的间隔（分钟） */
+  check_minutes?: number;
 }
 
 /** 自动备份：定时备份与存档变化后自动备份。 */

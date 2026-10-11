@@ -1167,5 +1167,8 @@
   "ui.auto.quick.checkOff": "Turn on backing up after saves change first",
   "ui.auto.quick.changeEvery": "on change (every {n} min)",
   "ui.settings.autoCheckSuffix": "minutes",
-  "ui.settings.autoQuietSuffix": "minutes, back up"
+  "ui.settings.autoQuietSuffix": "minutes, back up",
+  "ui.shotAuto.change": "Collect when new screenshots appear",
+  "ui.shotAuto.changeHint": "Check the screenshot folders regularly and add new screenshots to the gallery.",
+  "ui.shotAuto.checkHead": "Check for new screenshots"
 }

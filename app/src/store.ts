@@ -3,7 +3,8 @@ import { api, errorMessage } from "./api";
 import type { AppInfo, GameRow, GameState, ManageMode, Phase, ScanReport } from "./types";
 import { fuzzyMatch } from "./lib/search";
 
-export type View = { name: "library" } | { name: "gallery" } | { name: "scan" } | { name: "game"; id: string } | { name: "settings" };
+/** `section`：打开设置时跳到的分组（如快捷菜单中的“更多设置”）。 */
+export type View = { name: "library" } | { name: "gallery" } | { name: "scan" } | { name: "game"; id: string } | { name: "settings"; section?: "auto" | "shots" };
 export type StateFilter = "all" | GameState;
 export type ModeFilter = "all" | ManageMode;
 

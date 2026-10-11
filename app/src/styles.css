@@ -451,10 +451,25 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .settings { max-width: 780px; display: grid; gap: 14px; }
 .settings section { padding: 16px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
 .settings h2 { font: 600 16px var(--font-sign); margin: 0 0 8px; }
-.row { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: center; padding: 6px 0; }
-.row label { color: var(--muted); }
+/* 设置行：左侧名称与右侧控件第一行对齐（多行说明时名称在顶部），说明文字与控件列左对齐 */
+.row { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; align-items: start; padding: 6px 0; }
+.row > label:first-child { color: var(--muted); padding-top: 6px; line-height: 20px; }
 .row .inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row .field { width: 100%; }
+.row .inline .field:not([style*="flex"]), .row select.field { width: auto; min-width: 180px; }
+.row .inline .field.num { min-width: 0; }
+.opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; line-height: 20px; color: var(--ink); cursor: pointer; }
+.opt > .check { flex: none; margin: 2px 0 0; }
+.opt:has(> .field) { align-items: center; padding: 0; color: var(--muted); cursor: default; }
+.row .inline > .opt { padding: 0; align-items: center; }
+.row .auto-check { margin-top: 6px; }
+.settings section > .hint, .settings section > .row-indent { margin-left: 192px; }
+.settings section > .hint { margin-top: 2px; margin-bottom: 8px; }
+.settings section > .row-indent { margin-top: 4px; }
+.settings section { scroll-margin-top: 16px; }
+.settings section.flash { animation: settings-flash 1.6s ease-out; }
+@keyframes settings-flash { 0%, 30% { box-shadow: 0 0 0 2px var(--ember); } 100% { box-shadow: 0 0 0 2px transparent; } }
+@media (prefers-reduced-motion: reduce) { .settings section.flash { animation: none; box-shadow: 0 0 0 2px var(--ember); } }
 .hint { font-size: 12px; color: var(--muted); margin: 2px 0 0; }
 
 /* 卡片固定在上方，每一步高度不同时标题与按钮不会上下跳动 */
@@ -874,3 +889,9 @@ button.link:hover { text-decoration: underline; }
 
 /* 设置页：存档变化后自动备份未开启时，间隔设置变淡 */
 .auto-check.off { opacity: 0.55; }
+
+/* 设置页在窄窗口中改为上下排列，说明不再缩进 */
+@media (max-width: 720px) {
+  .row { grid-template-columns: 1fr; gap: 4px; }
+  .settings section > .hint, .settings section > .row-indent { margin-left: 0; }
+}

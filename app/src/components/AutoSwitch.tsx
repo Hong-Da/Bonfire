@@ -77,7 +77,7 @@ export default function AutoSwitch() {
             onClick: () => void apply({ check_minutes: n }),
           })),
         "divider",
-        { label: t("ui.auto.quick.more"), onClick: () => store.go({ name: "settings" }) },
+        { label: t("ui.auto.quick.more"), onClick: () => store.go({ name: "settings", section: "auto" }) },
       ]}
     />
   );

@@ -24,9 +24,33 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 100 项，更新于 2026-10-10 22:30。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 104 项，更新于 2026-10-10 22:36。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>51 项</small></h2>
+<section id="s-0"><h2>开发<small>55 项</small></h2>
+      <article id="U-25c">
+        <header><code>U-25c</code><h3>设置中有些元素没有对齐</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">名称与控件第一行对齐、复选框与文字顶端对齐、说明与控件列左对齐、下拉框按内容宽度；窄窗口改为上下排列（推荐） <b>✓ 采用</b></li><li class="">保持原样</li></ul>
+        <p class="reason"><span>理由</span>用户反馈。</p><p class="impact"><span>影响</span>仅样式与标签结构调整。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-25b">
+        <header><code>U-25b</code><h3>快捷菜单“更多设置”没有跳到对应位置</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">跳到设置页对应分组（自动备份 / 截图备份）并短暂高亮（推荐） <b>✓ 采用</b></li><li class="">只打开设置页</li></ul>
+        <p class="reason"><span>理由</span>用户反馈。</p><p class="impact"><span>影响</span>减少动画偏好时只显示高亮框。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-25a">
+        <header><code>U-25a</code><h3>图库也添加变化后自动备份</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">新增“截图变化后自动收集”：每隔 N 分钟（默认 5）检查截图文件夹，有新截图就收集；图库快捷菜单与设置页都可设置，默认关闭（推荐） <b>✓ 采用</b></li><li class="">只保留定时收集</li></ul>
+        <p class="reason"><span>理由</span>与游戏库的“存档变化后自动备份”对应。</p><p class="impact"><span>影响</span>新增配置 shots.on_change、shots.check_minutes（旧配置缺省时使用默认值）；在托盘中运行时也执行。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-24a">
+        <header><code>U-24a</code><h3>存档变化后自动备份可以设置检查的时间</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">游戏库“自动备份”快捷菜单中选择检查间隔（1 / 5 / 15 / 30 分钟，配置中的其他值也列出），按钮显示间隔；设置页的间隔与静止时间一直显示（未开启时变淡），文案写成完整句子（推荐） <b>✓ 采用</b></li><li class="">只在设置页调整</li></ul>
+        <p class="reason"><span>理由</span>设置页原来就能调，但只在勾选后出现，快捷菜单中没有。</p><p class="impact"><span>影响</span>无配置变化。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-23b">
         <header><code>U-23b</code><h3>备份所选游戏的“上一步”按钮样式</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">上一步为普通按钮带向左箭头、放在左侧；下一步为主按钮带向右箭头（推荐） <b>✓ 采用</b></li><li class="">保持无边框文字按钮</li></ul>

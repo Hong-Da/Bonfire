@@ -412,5 +412,15 @@ describe("U-21 底栏与图库自动备份", () => {
     await waitFor(() => expect(api.saveSettings).toHaveBeenCalled());
     expect(api.saveSettings.mock.calls[0][0].shots).toMatchObject({ enabled: true, schedule: "daily" });
     await waitFor(() => expect(btn).toHaveTextContent("自动收集：每天 21:00"));
+    // 截图变化后自动收集，并选择检查间隔。
+    fireEvent.click(btn);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /截图变化后自动收集/ }));
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalledTimes(2));
+    expect(api.saveSettings.mock.calls[1][0].shots).toMatchObject({ schedule: "daily", on_change: true, check_minutes: 5 });
+    await waitFor(() => expect(btn).toHaveTextContent("自动收集：每天 21:00 + 变化后（每 5 分钟检查）"));
+    // 更多设置：跳到设置中的截图备份。
+    fireEvent.click(btn);
+    fireEvent.click(screen.getByRole("menuitem", { name: /更多设置/ }));
+    expect(useStore.getState().view).toEqual({ name: "settings", section: "shots" });
   });
 });

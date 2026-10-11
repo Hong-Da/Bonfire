@@ -1221,10 +1221,18 @@ impl App {
     }
 }
 
-/// 定时收集是否到期：`last` 为上次收集时间（规则见 [`crate::auto::schedule_due`]）。
+/// 定时收集是否到期：`last` 为上次收集时间（规则见 [`crate::auto::schedule_due`]）；
+/// 开启“截图变化后自动收集”时，距上次收集满 `check_minutes` 分钟也到期。
 pub fn shots_due(cfg: &Shots, last: Option<jiff::Timestamp>, now: &jiff::Zoned) -> bool {
-    cfg.enabled
-        && crate::auto::schedule_due(
+    if !cfg.enabled {
+        return false;
+    }
+    let changed = cfg.on_change
+        && last.is_none_or(|t| {
+            now.timestamp().as_second() - t.as_second() >= i64::from(cfg.check_minutes.max(1)) * 60
+        });
+    changed
+        || crate::auto::schedule_due(
             cfg.schedule,
             &cfg.at,
             cfg.weekday,
@@ -1740,6 +1748,16 @@ mod tests {
         let ts = |s: &str| at(s).timestamp();
         let mut c = Shots::default();
         assert!(!shots_due(&c, None, &at("2026-10-09T22:00")));
+        // 截图变化后自动收集：满检查间隔才到期。
+        c.on_change = true;
+        c.check_minutes = 10;
+        assert!(shots_due(&c, None, &at("2026-10-09T22:00")));
+        assert!(!shots_due(&c, Some(ts("2026-10-09T21:55")), &at("2026-10-09T22:00")));
+        assert!(shots_due(&c, Some(ts("2026-10-09T21:50")), &at("2026-10-09T22:00")));
+        c.enabled = false;
+        assert!(!shots_due(&c, None, &at("2026-10-09T22:00")));
+        c.enabled = true;
+        c.on_change = false;
         c.schedule = ShotSchedule::Daily;
         c.at = "21:00".into();
         assert!(shots_due(

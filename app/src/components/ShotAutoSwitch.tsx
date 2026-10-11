@@ -4,6 +4,7 @@ import { api, errorMessage } from "../api";
 import { scheduleText } from "../lib/auto";
 import { useStore } from "../store";
 import type { Config, ShotSchedule, ShotsConfig } from "../types";
+import type { TFunction } from "i18next";
 import { Menu } from "./ui";
 
 /**
@@ -26,8 +27,8 @@ export default function ShotAutoSwitch({ onSynced }: { onSynced: () => void }) {
   }, [info]);
 
   if (!info || info.firstRun || !cfg) return null;
-  const sh = cfg.shots;
-  const summary = !sh.enabled ? t("ui.shotAuto.off") : sh.schedule === "off" ? t("ui.shotAuto.withBackup") : t("ui.shotAuto.on", { what: scheduleText(t, sh) });
+  const sh = { on_change: false, check_minutes: 5, ...cfg.shots };
+  const summary = shotSummary(t, sh);
 
   const apply = async (patch: Partial<ShotsConfig>) => {
     setBusy(true);
@@ -35,8 +36,7 @@ export default function ShotAutoSwitch({ onSynced }: { onSynced: () => void }) {
       const next: Config = { ...cfg, shots: { ...sh, ...patch } };
       store.setInfo(await api.saveSettings(next));
       setCfg(next);
-      const s = next.shots;
-      store.toast("success", t("ui.shotAuto.saved", { what: !s.enabled ? t("ui.shotAuto.off") : s.schedule === "off" ? t("ui.shotAuto.withBackup") : t("ui.shotAuto.on", { what: scheduleText(t, s) }) }));
+      store.toast("success", t("ui.shotAuto.saved", { what: shotSummary(t, { on_change: false, check_minutes: 5, ...next.shots }) }));
     } catch (e) {
       store.toast("error", errorMessage(e));
     } finally {
@@ -67,7 +67,7 @@ export default function ShotAutoSwitch({ onSynced }: { onSynced: () => void }) {
 
   return (
     <Menu
-      className={`btn protect auto-switch ${sh.enabled && sh.schedule !== "off" ? "on" : "off"}`}
+      className={`btn protect auto-switch ${sh.enabled && (sh.schedule !== "off" || sh.on_change) ? "on" : "off"}`}
       icon="clock"
       label={<span className="bar-label">{summary}</span>}
       title={t("ui.shotAuto.tip")}
@@ -80,9 +80,29 @@ export default function ShotAutoSwitch({ onSynced }: { onSynced: () => void }) {
         sched("weekly"),
         sched("hours"),
         "divider",
+        { label: t("ui.shotAuto.change"), hint: t("ui.shotAuto.changeHint"), checked: sh.enabled && sh.on_change, disabled: busy || !sh.enabled, onClick: () => void apply({ on_change: !sh.on_change }) },
+        { label: <b className="menu-head">{t("ui.shotAuto.checkHead")}</b>, onClick: () => {}, disabled: true },
+        ...[...new Set([1, 5, 15, 30, sh.check_minutes])]
+          .sort((x, y) => x - y)
+          .map((n) => ({
+            label: t("ui.auto.quick.checkEvery", { n }),
+            checked: sh.check_minutes === n,
+            disabled: busy || !sh.enabled || !sh.on_change,
+            onClick: () => void apply({ check_minutes: n }),
+          })),
+        "divider",
         { label: t("ui.shotAuto.syncNow"), onClick: () => void syncNow(), disabled: busy || !sh.enabled },
-        { label: t("ui.auto.quick.more"), onClick: () => store.go({ name: "settings" }) },
+        { label: t("ui.auto.quick.more"), onClick: () => store.go({ name: "settings", section: "shots" }) },
       ]}
     />
   );
+}
+
+/** 按钮上的状态：截图备份关闭 / 只随备份收集 / 定时与变化后收集。 */
+function shotSummary(t: TFunction, sh: Required<Pick<ShotsConfig, "on_change" | "check_minutes">> & ShotsConfig): string {
+  if (!sh.enabled) return t("ui.shotAuto.off");
+  const parts: string[] = [];
+  if (sh.schedule !== "off") parts.push(scheduleText(t, sh));
+  if (sh.on_change) parts.push(t("ui.auto.quick.changeEvery", { n: sh.check_minutes }));
+  return parts.length ? t("ui.shotAuto.on", { what: parts.join(" + ") }) : t("ui.shotAuto.withBackup");
 }

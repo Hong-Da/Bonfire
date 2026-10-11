@@ -136,6 +136,10 @@ pub struct Shots {
     pub weekday: u8,
     /// 每隔几小时收集（1–168）。
     pub every_hours: u32,
+    /// 截图变化后自动收集：每隔 `check_minutes` 分钟检查截图文件夹，有新截图就收集。
+    pub on_change: bool,
+    /// 检查新截图的间隔（分钟，1–120）。
+    pub check_minutes: u32,
 }
 
 impl Default for Shots {
@@ -147,6 +151,8 @@ impl Default for Shots {
             at: "21:00".into(),
             weekday: 7,
             every_hours: 6,
+            on_change: false,
+            check_minutes: 5,
         }
     }
 }
@@ -308,6 +314,12 @@ impl Config {
                 message: format!("{}（1 = 周一 … 7 = 周日）", self.shots.weekday),
             });
         }
+        if !(1..=120).contains(&self.shots.check_minutes) {
+            return Err(ConfigError::Invalid {
+                key: "shots.check_minutes",
+                message: format!("{}（范围 1–120）", self.shots.check_minutes),
+            });
+        }
         if !(1..=168).contains(&self.shots.every_hours) {
             return Err(ConfigError::Invalid {
                 key: "shots.every_hours",
@@ -421,6 +433,10 @@ at = "{at}"
 weekday = {weekday}
 # schedule = "hours" 时每隔几小时收集（1–168）
 every_hours = {hours}
+# 截图变化后自动收集：每隔 check_minutes 分钟检查截图文件夹，有新截图就收集
+on_change = {s_change}
+# 检查新截图的间隔（分钟，1–120）
+check_minutes = {s_check}
 
 [auto_backup]
 # 自动备份在篝火运行（含托盘中）时执行，只备份有变化、已经手动备份过的游戏，同时收集截图。
@@ -462,6 +478,8 @@ keep_days = {keep}
             at = d.shots.at,
             weekday = d.shots.weekday,
             hours = d.shots.every_hours,
+            s_change = d.shots.on_change,
+            s_check = d.shots.check_minutes,
             a_at = d.auto_backup.at,
             a_weekday = d.auto_backup.weekday,
             a_hours = d.auto_backup.every_hours,
