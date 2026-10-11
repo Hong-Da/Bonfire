@@ -75,11 +75,18 @@ export interface RetentionConfig {
   scope: "auto" | "all";
 }
 
+/** 可释放空间的一个来源。 */
+export interface GcSource {
+  kind: "planned" | "unreachable" | "deleted" | "shots" | "other" | "tmp";
+  objects: number;
+  bytes: number;
+}
+
 /** 清理历史的结果（预览时为预计）。 */
 export interface CleanupReport {
   games: { gameId: string; name: string; snapshots: number; removed: string[]; rewritten: number; items?: { id: string; createdAt: string; trigger: string; comment: string }[] }[];
   removed: number;
-  gc: { chunks: number; blobs: number; trees: number; snapshots: string[]; bytes: number; tmpFiles: number; dryRun: boolean };
+  gc: { chunks: number; blobs: number; trees: number; snapshots: string[]; bytes: number; tmpFiles: number; sources?: GcSource[]; dryRun: boolean };
   dryRun: boolean;
 }
 
@@ -630,6 +637,7 @@ export interface BulkDeleteReport {
   headBranch: string | null;
   currentRemoved: boolean;
   bytes: number;
+  sources?: GcSource[];
   dryRun: boolean;
 }
 

@@ -24,9 +24,21 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 172 项，更新于 2026-10-11 13:08。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 174 项，更新于 2026-10-11 13:27。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">界面</a><a href="#s-1">M4-5 性能与资源</a><a href="#s-2">M4-1 其余平台</a><a href="#s-3">M4-3 自动备份</a><a href="#s-4">M4-2 游戏运行保护</a><a href="#s-5">M4-4 历史清理</a><a href="#s-6">M3</a><a href="#s-7">导入</a><a href="#s-8">导出</a><a href="#s-9">开发</a><a href="#s-10">缺陷修复</a><a href="#s-11">用户修改</a><a href="#s-12">M3 GUI MVP</a><a href="#s-13">M2 存档发现</a><a href="#s-14">M1 核心库</a><a href="#s-15">全局</a></nav>
-<section id="s-0"><h2>界面<small>10 项</small></h2>
+<section id="s-0"><h2>界面<small>12 项</small></h2>
+      <article id="U-57b">
+        <header><code>U-57b</code><h3>可释放空间的来源明细</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">清理历史与多选删除的对话框列出空间来源：这次删除的快照、不在任何路线上的快照、之前删除的快照留下的内容、早期版本留下的截图、其他（中断的备份等）、临时文件，各写大小、占比条与说明（推荐） <b>✓ 采用</b></li><li class="">只显示总数</li></ul>
+        <p class="reason"><span>理由</span>用户问“0 个清理为什么还会释放空间”并要求加上来源明细。</p><p class="impact"><span>影响</span>垃圾回收按来源归类每个被释放的对象（每个只算一次）：先归这次删除的快照，再按不在路线上的快照 → 之前删除的快照的清单 → 与相册截图相同的文件 → 其他；临时文件计入总大小。命令行 bonfire gc --json 的 gc.sources 同样给出明细。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="U-57a">
+        <header><code>U-57a</code><h3>多选删除时路线变化的提示</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">删除前单独一块“N 条路线会改变”：路线会变短的写明退回到哪个快照（时间与备注）；路线会被删除的用红色标出，并须另外勾选“我知道路线「…」会被删除”才能删除；单个删除分支最新的快照时，确认框也说明路线会退回（推荐） <b>✓ 采用</b></li><li class="">只在影响列表中写一行</li></ul>
+        <p class="reason"><span>理由</span>用户要求两种情况都要提示。</p><p class="impact"><span>影响</span>路线退回、删除的规则不变（带分支的快照可以删除）。</p>
+        <footer>2026-10-11</footer>
+      </article>
       <article id="U-56a">
         <header><code>U-56a</code><h3>开启自动清理时是否弹出确认</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">勾选“自动清理”时弹出确认框：说明开启后每次自动备份都会直接删除多余快照、当前的保留规则与清理范围、永远保留的快照、删除无法找回的风险；确认“开启自动清理”后才勾上，取消则保持关闭；关闭时不需要确认（推荐） <b>✓ 采用</b></li><li class="">不确认，只显示警告文字</li></ul>

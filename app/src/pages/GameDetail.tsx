@@ -675,6 +675,8 @@ function SnapshotPanel({
       const plan = await api.deleteSnapshot(gameId, node.id, true);
       const lines: string[] = [];
       if (plan.rewritten > 0) lines.push(t("ui.history.deleteRewire", { n: plan.rewritten }));
+      const shortened = branchNames.filter((b) => !plan.branchesDeleted.includes(b));
+      if (shortened.length > 0) lines.push(t("ui.history.deleteBranchShort", { names: shortened.map((b) => `「${b}」`).join("") }));
       if (plan.branchesDeleted.length > 0) lines.push(t("ui.history.deleteBranchGone", { names: plan.branchesDeleted.join("、") }));
       if (plan.headBranch) lines.push(t("ui.history.deleteHeadSwitch", { name: plan.headBranch }));
       if (isHead) lines.push(t("ui.history.deleteHereNote"));

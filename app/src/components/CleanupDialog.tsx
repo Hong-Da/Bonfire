@@ -6,6 +6,7 @@ import { useStore } from "../store";
 import type { CleanupReport } from "../types";
 import { Modal } from "./ui";
 import { RetentionSafety } from "./RetentionGuide";
+import { SpaceSources } from "./SpaceSources";
 
 /** 清理历史（M4-4）：先预览要压掉的快照与能释放的空间，确认后执行。 */
 export function CleanupDialog({ onClose }: { onClose: () => void }) {
@@ -95,6 +96,7 @@ export function CleanupDialog({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           )}
+          <SpaceSources sources={shown.gc.sources ?? []} total={shown.gc.bytes} />
           {!done && plan && plan.removed > 0 && (
             <>
               <p className="hint">{t("ui.cleanup.expandHint")}</p>

@@ -740,6 +740,13 @@ impl Index {
     }
 
     /// 游戏的全部截图，最新拍摄的在前。
+    /// 相册中所有截图的文件 ID（垃圾回收归类早期版本留下的截图对象用）。
+    pub fn all_shot_blobs(&self) -> Result<Vec<ObjectId>> {
+        let mut stmt = self.conn.prepare("SELECT DISTINCT blob FROM screenshots")?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        Ok(rows.flatten().filter_map(|s| s.parse().ok()).collect())
+    }
+
     pub fn shots_of(&self, game_id: &str) -> Result<Vec<ShotRecord>> {
         let mut st = self.conn.prepare(&format!(
             "SELECT {SHOT_COLUMNS} FROM screenshots WHERE game_id = ?1 ORDER BY taken_at DESC, blob"

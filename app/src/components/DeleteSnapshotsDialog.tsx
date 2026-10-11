@@ -5,6 +5,7 @@ import { bytes, dateTime, firstLine } from "../lib/format";
 import { useStore } from "../store";
 import type { BulkDeleteReport, SnapshotNode } from "../types";
 import { Icon, Modal } from "./ui";
+import { SpaceSources } from "./SpaceSources";
 
 /**
  * 删除多个快照（详情页 Ctrl / Shift 多选）：先检查哪些不能删除、删除后分支与当前存档会怎样，
@@ -15,6 +16,7 @@ export function DeleteSnapshotsDialog({ gameId, ids, nodes, onClose, onDone }: {
   const store = useStore();
   const [plan, setPlan] = useState<BulkDeleteReport | null>(null);
   const [ack, setAck] = useState(false);
+  const [ackBranch, setAckBranch] = useState(false);
   const [busy, setBusy] = useState(false);
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
@@ -47,6 +49,8 @@ export function DeleteSnapshotsDialog({ gameId, ids, nodes, onClose, onDone }: {
   };
   const what = (id: string) => firstLine(byId.get(id)?.comment ?? "") || t("ui.history.noComment");
   const none = !!plan && plan.removed.length === 0;
+  const gone = plan?.branches.filter((b) => !b.to) ?? [];
+  const shortened = plan?.branches.filter((b) => b.to) ?? [];
 
   return (
     <Modal
@@ -63,7 +67,7 @@ export function DeleteSnapshotsDialog({ gameId, ids, nodes, onClose, onDone }: {
             <button className="btn ghost" onClick={onClose} disabled={busy}>
               {t("ui.cancel")}
             </button>
-            <button className="btn danger" onClick={() => void run()} disabled={!plan || !ack || busy}>
+            <button className="btn danger" onClick={() => void run()} disabled={!plan || !ack || (gone.length > 0 && !ackBranch) || busy}>
               <Icon name="trash" /> {t("ui.bulkDelete.confirm", { n: plan?.removed.length ?? 0 })}
             </button>
           </>
@@ -116,22 +120,43 @@ export function DeleteSnapshotsDialog({ gameId, ids, nodes, onClose, onDone }: {
                   ))}
                 </ul>
               </section>
+              {plan.branches.length > 0 && (
+                <section className={`bd-branches${gone.length > 0 ? " danger" : ""}`} role="note">
+                  <h3>
+                    <Icon name="branch" size={14} /> {t("ui.bulkDelete.branchTitle", { n: plan.branches.length })}
+                  </h3>
+                  <ul>
+                    {shortened.map((b) => (
+                      <li key={b.name}>
+                        <b>{t("ui.bulkDelete.branchShort", { name: b.name })}</b>
+                        <span>{t("ui.bulkDelete.branchBack", { name: b.name, when: b.toCreatedAt ? dateTime(b.toCreatedAt, i18n.language) : (b.to ?? "").slice(0, 12), what: what(b.to ?? "") })}</span>
+                      </li>
+                    ))}
+                    {gone.map((b) => (
+                      <li key={b.name} className="gone">
+                        <b>{t("ui.bulkDelete.branchGoneTitle", { name: b.name })}</b>
+                        <span>{t("ui.bulkDelete.branchGone", { name: b.name })}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {gone.length > 0 && (
+                    <label className="opt">
+                      <input type="checkbox" className="check" checked={ackBranch} onChange={(e) => setAckBranch(e.target.checked)} />
+                      {t("ui.bulkDelete.ackBranch", { names: gone.map((b) => `「${b.name}」`).join("") })}
+                    </label>
+                  )}
+                </section>
+              )}
               <section>
                 <h3>{t("ui.bulkDelete.effectsTitle")}</h3>
                 <ul className="bd-effects">
                   {plan.rewritten > 0 && <li>{t("ui.bulkDelete.rewire", { n: plan.rewritten })}</li>}
-                  {plan.branches.map((b) =>
-                    b.to ? (
-                      <li key={b.name}>{t("ui.bulkDelete.branchBack", { name: b.name, when: b.toCreatedAt ? dateTime(b.toCreatedAt, i18n.language) : b.to.slice(0, 12), what: what(b.to) })}</li>
-                    ) : (
-                      <li key={b.name} className="warn">{t("ui.bulkDelete.branchGone", { name: b.name })}</li>
-                    ),
-                  )}
                   {plan.headBranch && <li>{t("ui.history.deleteHeadSwitch", { name: plan.headBranch })}</li>}
                   {plan.currentRemoved && <li className="warn">{t("ui.bulkDelete.current")}</li>}
                   <li>{t("ui.bulkDelete.diskSafe")}</li>
                 </ul>
               </section>
+              <SpaceSources sources={plan.sources ?? []} total={plan.bytes} />
               <div className="callout error bd-safety" role="note">
                 <b>{t("ui.bulkDelete.safetyTitle")}</b>
                 <span>{t("ui.bulkDelete.safety")}</span>

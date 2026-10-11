@@ -303,6 +303,7 @@ impl App {
                 Duration::from_secs(3600)
             },
             extra_roots: extra,
+            shot_blobs: self.index.all_shot_blobs()?.into_iter().collect(),
             assume_removed: if dry_run {
                 assume_removed
             } else {

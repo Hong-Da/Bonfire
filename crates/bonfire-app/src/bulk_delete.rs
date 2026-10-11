@@ -63,6 +63,8 @@ pub struct BulkDeleteReport {
     pub current_removed: bool,
     /// 释放（预览时为预计）的空间。
     pub bytes: u64,
+    /// 释放空间的来源明细。
+    pub sources: Vec<bonfire_core::gc::GcSource>,
     pub dry_run: bool,
 }
 
@@ -172,10 +174,11 @@ impl App {
         let rewritten = self.descendants_of_pub(&game.id, &removed)?;
 
         if dry_run {
-            let gc = if removed.is_empty() {
-                0
+            let (gc, sources) = if removed.is_empty() {
+                (0, Vec::new())
             } else {
-                self.collect_garbage(lock, true, gone.clone())?.bytes
+                let r = self.collect_garbage(lock, true, gone.clone())?;
+                (r.bytes, r.sources)
             };
             return Ok(BulkDeleteReport {
                 removed,
@@ -185,6 +188,7 @@ impl App {
                 head_branch,
                 current_removed,
                 bytes: gc,
+                sources,
                 dry_run,
             });
         }
@@ -208,6 +212,7 @@ impl App {
             },
             current_removed,
             bytes: gc.bytes,
+            sources: gc.sources,
             dry_run,
         })
     }

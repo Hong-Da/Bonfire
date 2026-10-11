@@ -628,7 +628,7 @@ describe("M4-4 历史清理", () => {
   it("设置保留规则并保存；立即清理先预览，确认后执行", async () => {
     useStore.setState({ info, toasts: [], view: { name: "settings" } });
     api.saveSettings.mockResolvedValue(info);
-    const plan = { games: [{ gameId: "g", name: "Alpha", snapshots: 9, removed: ["1", "2", "3"], rewritten: 2 }], removed: 3, gc: { chunks: 3, blobs: 3, trees: 3, snapshots: [], bytes: 3 * 1024 * 1024, tmpFiles: 0, dryRun: true }, dryRun: true };
+    const plan = { games: [{ gameId: "g", name: "Alpha", snapshots: 9, removed: ["1", "2", "3"], rewritten: 2 }], removed: 3, gc: { chunks: 3, blobs: 3, trees: 3, snapshots: [], bytes: 3 * 1024 * 1024, tmpFiles: 0, sources: [{ kind: "planned", objects: 6, bytes: 2 * 1024 * 1024 }, { kind: "shots", objects: 2, bytes: 1024 * 1024 }], dryRun: true }, dryRun: true };
     api.cleanHistory.mockImplementation(async (dry: boolean) => ({ ...plan, dryRun: dry }));
     render(<Settings />);
     // 规则说明默认展开，按当前设置写出数字。
@@ -658,6 +658,10 @@ describe("M4-4 历史清理", () => {
     expect(api.cleanHistory).toHaveBeenCalledWith(true);
     expect(within(dlg).getByText("3.0 MB")).toBeInTheDocument();
     expect(within(dlg).getByText("3 / 9 个快照")).toBeInTheDocument();
+    // 空间来源明细。
+    expect(within(dlg).getByText("可释放的空间来自")).toBeInTheDocument();
+    expect(within(dlg).getByText("早期版本留下的截图")).toBeInTheDocument();
+    expect(within(dlg).getByText("2.0 MB")).toBeInTheDocument();
     // 安全提示：勾选确认前不能清理。
     expect(within(dlg).getByText("删除后无法撤销")).toBeInTheDocument();
     expect(within(dlg).getByRole("button", { name: "清理" })).toBeDisabled();
@@ -703,7 +707,11 @@ describe("多选删除快照", () => {
       removed: ids.filter((i) => i !== "bbb"),
       blocked: dry ? [{ id: "bbb", reason: "tag", detail: "boss" }] : [],
       rewritten: 1,
-      branches: [{ name: "main", to: "aaa", toCreatedAt: "2026-10-01T10:00:00+08:00" }],
+      branches: [
+        { name: "main", to: "aaa", toCreatedAt: "2026-10-01T10:00:00+08:00" },
+        { name: "支线", to: null, toCreatedAt: null },
+      ],
+      sources: [{ kind: "planned", objects: 3, bytes: 2048 }],
       headBranch: null,
       currentRemoved: true,
       bytes: 2048,
@@ -714,11 +722,17 @@ describe("多选删除快照", () => {
     const dlg = await screen.findByRole("dialog", { name: "删除所选的 2 个快照" });
     await within(dlg).findByText("1 个快照不能删除，会跳过");
     expect(within(dlg).getByText("带有标签「boss」，先删除标签才能删除")).toBeInTheDocument();
-    expect(within(dlg).getByText(/路线「main」的最新快照被删除，路线退回到 .*「第一章」/)).toBeInTheDocument();
+    expect(within(dlg).getByText("路线「main」会变短")).toBeInTheDocument();
+    expect(within(dlg).getByText(/路线退回到 .*「第一章」/)).toBeInTheDocument();
+    expect(within(dlg).getByText("路线「支线」会被删除")).toBeInTheDocument();
+    expect(within(dlg).getByText("这次删除的快照")).toBeInTheDocument();
     expect(within(dlg).getByText(/当前存档对应的快照会被删除/)).toBeInTheDocument();
     const del = within(dlg).getByRole("button", { name: /删除 1 个快照/ });
     expect(del).toBeDisabled();
     fireEvent.click(within(dlg).getByRole("checkbox", { name: /我已确认要删除这 1 个快照/ }));
+    // 有路线会被删除时还要单独确认。
+    expect(del).toBeDisabled();
+    fireEvent.click(within(dlg).getByRole("checkbox", { name: "我知道路线「支线」会被删除" }));
     fireEvent.click(del);
     await waitFor(() => expect(api.deleteSnapshots).toHaveBeenLastCalledWith("g", ["ccc"], false));
     expect(onDone).toHaveBeenCalled();
