@@ -2876,6 +2876,34 @@ mod tests {
                 .iter()
                 .any(|f| f.rel == "saves/slot1/a.sav" && f.target.is_some())
         );
+        // zip 同样：往导出的 zip 里加一个文件，按普通下载的存档处理并提示。
+        let f = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&zip_path)
+            .unwrap();
+        let mut z = zip::ZipWriter::new_append(f).unwrap();
+        z.start_file(
+            "saves/slot1/b.sav",
+            zip::write::SimpleFileOptions::default(),
+        )
+        .unwrap();
+        z.write_all(b"x").unwrap();
+        z.finish().unwrap();
+        assert!(env.app.inspect_files(&g, &zip_path).is_err());
+        let d = env.app.inspect_download(&g, &zip_path, None).unwrap();
+        assert_eq!(
+            (d.kind, d.notice),
+            (
+                crate::downloads::DownloadKind::Download,
+                Some(crate::downloads::DownloadNotice::Modified)
+            )
+        );
+        assert!(
+            d.files.iter().any(|f| f.rel == "saves/slot1/b.sav"),
+            "{:?}",
+            d.files
+        );
         // 多了文件也算被修改。
         std::fs::write(r.dest.join("saves/slot1/a.sav"), b"two!").unwrap();
         assert!(env.app.inspect_files(&g, &r.dest).is_ok());
