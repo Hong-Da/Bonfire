@@ -138,6 +138,7 @@ export const api = {
   addShotDir: (gameId: string, dir: string) => invoke<string>("add_shot_dir", { gameId, dir }),
   removeShotDir: (gameId: string, dir: string) => invoke<boolean>("remove_shot_dir", { gameId, dir }),
   capturesDir: () => invoke<string | null>("captures_dir"),
+  shotSourceDirs: () => invoke<{ steamUserdata: string | null; captures: string | null }>("shot_source_dirs"),
   restoreShots: (gameId: string, blobs: string[]) => invoke<number>("restore_shots", { gameId, blobs }),
   /** 彻底删除；`blobs` 为空时清空回收站。 */
   purgeShots: (gameId: string, blobs: string[], originals = false) => invoke<PurgeReport>("purge_shots", { gameId, blobs, originals }),

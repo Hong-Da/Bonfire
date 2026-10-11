@@ -28,6 +28,7 @@ export default function Settings() {
   const [ignored, setIgnored] = useState<GameRecord[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [captures, setCaptures] = useState<string | null>(null);
+  const [dirs, setDirs] = useState<{ steamUserdata: string | null; captures: string | null } | null>(null);
 
   useEffect(() => {
     api.getSettings().then((c) => {
@@ -39,6 +40,7 @@ export default function Settings() {
     api.rulesInfo().then(setRules).catch(() => setRules(null));
     api.ignoredGames().then(setIgnored).catch(() => setIgnored([]));
     api.capturesDir().then(setCaptures).catch(() => setCaptures(null));
+    api.shotSourceDirs().then(setDirs).catch(() => setDirs(null));
   }, []);
 
   useEffect(() => {
@@ -251,29 +253,101 @@ export default function Settings() {
                 {t("ui.settings.shotsEnabledHint")}
               </label>
             </div>
+            {/* 截图来源：每种来源的文件夹与对应游戏的规则。 */}
             <div className="row">
-              <label htmlFor="captures">{t("ui.settings.capturesDir")}</label>
-              <div className="inline">
-                <input
-                  id="captures"
-                  className="field"
-                  style={{ flex: 1 }}
-                  value={cfg.shots.captures_dir ?? ""}
-                  placeholder={captures ?? ""}
-                  onChange={(e) => update((c) => (c.shots.captures_dir = e.target.value || undefined))}
-                />
-                <button
-                  className="btn"
-                  onClick={async () => {
-                    const r = await open({ directory: true, multiple: false, title: t("ui.settings.capturesDir") });
-                    if (typeof r === "string") update((c) => (c.shots.captures_dir = r));
-                  }}
-                >
-                  {t("ui.settings.browse")}
-                </button>
-              </div>
+              <label>{t("ui.settings.shotSources")}</label>
+              <ul className="shot-sources">
+                <li>
+                  <span className="src-icon">
+                    <Icon name="game" size={16} />
+                  </span>
+                  <div>
+                    <b>{t("ui.shots.source.steam")}</b>
+                    <code className="src-path">{dirs?.steamUserdata ? `${dirs.steamUserdata}\\<${t("ui.settings.srcAccount")}>\\760\\remote\\<AppID>\\screenshots` : t("ui.settings.srcSteamNone")}</code>
+                    <small>{t("ui.settings.srcSteamRule")}</small>
+                  </div>
+                </li>
+                <li>
+                  <span className="src-icon">
+                    <Icon name="camera" size={16} />
+                  </span>
+                  <div>
+                    <b>{t("ui.shots.source.capture")}</b>
+                    <div className="inline">
+                      <input
+                        id="captures"
+                        className="field"
+                        style={{ flex: 1 }}
+                        value={cfg.shots.captures_dir ?? ""}
+                        placeholder={dirs?.captures ?? captures ?? ""}
+                        onChange={(e) => update((c) => (c.shots.captures_dir = e.target.value || undefined))}
+                        aria-label={t("ui.settings.capturesDir")}
+                      />
+                      <button
+                        className="btn"
+                        onClick={async () => {
+                          const r = await open({ directory: true, multiple: false, title: t("ui.settings.capturesDir") });
+                          if (typeof r === "string") update((c) => (c.shots.captures_dir = r));
+                        }}
+                      >
+                        {t("ui.settings.browse")}
+                      </button>
+                    </div>
+                    <small>{t("ui.settings.srcCaptureRule", { dir: captures ?? "—" })}</small>
+                  </div>
+                </li>
+                <li>
+                  <span className="src-icon">
+                    <Icon name="stack" size={16} />
+                  </span>
+                  <div>
+                    <b>{t("ui.shots.source.shared")}</b>
+                    {(cfg.shots.shared_dirs ?? []).length > 0 && (
+                      <ul className="src-dirs" aria-label={t("ui.shots.source.shared")}>
+                        {(cfg.shots.shared_dirs ?? []).map((d) => (
+                          <li key={d}>
+                            <span className="path" title={d}>
+                              {d}
+                            </span>
+                            <button
+                              className="btn ghost small icon-only"
+                              onClick={() => update((c) => (c.shots.shared_dirs = (c.shots.shared_dirs ?? []).filter((x) => x !== d)))}
+                              aria-label={t("ui.settings.srcSharedRemove", { dir: d })}
+                              title={t("ui.settings.srcSharedRemove", { dir: d })}
+                            >
+                              <Icon name="close" size={14} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <button
+                      className="btn small"
+                      onClick={async () => {
+                        const r = await open({ directory: true, multiple: false, title: t("ui.settings.srcSharedAdd") });
+                        if (typeof r === "string")
+                          update((c) => {
+                            const list = c.shots.shared_dirs ?? [];
+                            if (!list.some((x) => x.toLowerCase() === r.toLowerCase())) c.shots.shared_dirs = [...list, r];
+                          });
+                      }}
+                    >
+                      <Icon name="plus" size={14} /> {t("ui.settings.srcSharedAdd")}
+                    </button>
+                    <small>{t("ui.settings.srcSharedRule")}</small>
+                  </div>
+                </li>
+                <li>
+                  <span className="src-icon">
+                    <Icon name="folder" size={16} />
+                  </span>
+                  <div>
+                    <b>{t("ui.settings.srcFolder")}</b>
+                    <small>{t("ui.settings.srcFolderRule")}</small>
+                  </div>
+                </li>
+              </ul>
             </div>
-            <p className="hint">{t("ui.settings.capturesDirHint", { dir: captures ?? "—" })}</p>
             <div className="row">
               <label htmlFor="schedule">{t("ui.settings.schedule")}</label>
               <div className="inline">

@@ -14,6 +14,7 @@ import i18n from "./i18n";
 import { useStore, defaultSelection, initialView } from "./store";
 import Library from "./pages/Library";
 import Gallery from "./pages/Gallery";
+import Settings from "./pages/Settings";
 import ScanPage from "./pages/ScanPage";
 import ShotDiffDialog from "./pages/ShotDiffDialog";
 import CloseDialog from "./components/CloseDialog";
@@ -422,5 +423,50 @@ describe("U-21 底栏与图库自动备份", () => {
     fireEvent.click(btn);
     fireEvent.click(screen.getByRole("menuitem", { name: /更多设置/ }));
     expect(useStore.getState().view).toEqual({ name: "settings", section: "shots" });
+  });
+});
+
+describe("U-27 / U-28", () => {
+  it("设置：截图来源说明，添加与移除公用截图文件夹", async () => {
+    useStore.setState({ info, toasts: [], view: { name: "settings" } });
+    dialog.open.mockResolvedValue("D:/Screenshots");
+    api.saveSettings.mockResolvedValue(info);
+    render(<Settings />);
+    expect(await screen.findByText(/C:\/Steam\/userdata\\<账号>\\760\\remote\\<AppID>\\screenshots/)).toBeInTheDocument();
+    expect(screen.getByText(/按文件名开头的窗口标题对应游戏/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "添加公用截图文件夹…" }));
+    expect(await screen.findByText("D:/Screenshots")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalled());
+    expect(api.saveSettings.mock.calls[0][0].shots.shared_dirs).toEqual(["D:/Screenshots"]);
+    fireEvent.click(screen.getByRole("button", { name: "移除 D:/Screenshots" }));
+    expect(screen.queryByText("D:/Screenshots")).toBeNull();
+  });
+
+  it("图库：分组可折叠，一键全部折叠 / 展开并记住", async () => {
+    localStorage.removeItem("bonfire.gallery.folded");
+    api.gallery.mockResolvedValue({
+      games: [
+        { id: "g1", name: "Hollow Knight", nameZh: null, platform: "steam", inLibrary: true, mode: "both" },
+        { id: "g2", name: "Celeste", nameZh: null, platform: "steam", inLibrary: true, mode: "both" },
+      ],
+      shots: [shot("g1", "b3:111111", "2026-10-09T21:00:00+08:00"), shot("g2", "b3:222222", "2026-10-08T21:00:00+08:00")],
+      trash: [],
+      bytes: 2000,
+      trashBytes: 0,
+      dir: "D:/Repo/screenshots",
+    });
+    const { container } = render(<Gallery />);
+    await screen.findByText(/2 张截图/);
+    expect(container.querySelectorAll("[data-key]")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "折叠「Hollow Knight」" }));
+    expect(container.querySelectorAll("[data-key]")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "展开「Hollow Knight」" })).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(screen.getByRole("button", { name: "全部折叠" }));
+    expect(container.querySelectorAll("[data-key]")).toHaveLength(0);
+    expect(localStorage.getItem("bonfire.gallery.folded")).toContain("Hollow Knight".length ? "game:" : "");
+    fireEvent.click(screen.getByRole("button", { name: "全部展开" }));
+    expect(container.querySelectorAll("[data-key]")).toHaveLength(2);
+    localStorage.removeItem("bonfire.gallery.folded");
   });
 });

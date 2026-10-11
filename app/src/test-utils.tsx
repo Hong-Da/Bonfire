@@ -77,6 +77,7 @@ export function mockApi() {
     syncShotsToDisk: vi.fn(),
     onCloseRequested: vi.fn().mockResolvedValue(() => {}),
     syncShots: vi.fn(),
+    shotSourceDirs: vi.fn().mockResolvedValue({ steamUserdata: "C:/Steam/userdata", captures: "C:/Users/me/Videos/Captures" }),
     shotThumb: vi.fn().mockResolvedValue("C:/cache/t.webp"),
     shotImage: vi.fn().mockResolvedValue("C:/cache/full.png"),
     deleteShots: vi.fn(),

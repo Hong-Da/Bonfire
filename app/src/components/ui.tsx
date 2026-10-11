@@ -6,7 +6,7 @@ import type { GameRow } from "../types";
 
 export type IconName =
   | "library" | "settings" | "scan" | "backup" | "restore" | "branch" | "tag" | "search" | "folder"
-  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next" | "shield" | "camera" | "info" | "expand" | "image" | "clock" | "stack" | "gallery" | "filter" | "grid3" | "grid2" | "square" | "list";
+  | "close" | "plus" | "undo" | "cloud" | "edit" | "trash" | "check" | "export" | "import" | "more" | "game" | "chevron" | "next" | "shield" | "camera" | "info" | "expand" | "image" | "clock" | "stack" | "gallery" | "filter" | "grid3" | "grid2" | "square" | "list" | "fold" | "unfold";
 
 const PATHS: Record<IconName, string> = {
   library: "M4 5h4v14H4zM10 5h4v14h-4zM16.5 5.5l3.8 1-3.6 13.5-3.8-1z",
@@ -34,6 +34,8 @@ const PATHS: Record<IconName, string> = {
   camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
   shield: "M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6zM9 12l2 2 4-4",
   info: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5",
+  fold: "M7 4l5 5 5-5M7 20l5-5 5 5M4 12h16",
+  unfold: "M7 9l5-5 5 5M7 15l5 5 5-5M4 12h16",
   expand: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
   image: "M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M15 9.5a1.5 1.5 0 1 0 0-.01",
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",

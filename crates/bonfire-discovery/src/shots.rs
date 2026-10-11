@@ -19,6 +19,8 @@ pub enum ShotSource {
     Steam,
     Capture,
     Folder,
+    /// 公用截图文件夹：多个游戏的截图放在一起（NVIDIA、ShareX 等的截图目录）。
+    Shared,
 }
 
 impl ShotSource {
@@ -27,6 +29,7 @@ impl ShotSource {
             ShotSource::Steam => "steam",
             ShotSource::Capture => "capture",
             ShotSource::Folder => "folder",
+            ShotSource::Shared => "shared",
         }
     }
 }
@@ -66,7 +69,7 @@ fn shot_file(path: PathBuf, source: ShotSource) -> Option<ShotFile> {
     let taken_local = match source {
         ShotSource::Steam => parse_steam_time(&name),
         ShotSource::Capture => parse_capture_name(&name).map(|(_, t)| t),
-        ShotSource::Folder => {
+        ShotSource::Folder | ShotSource::Shared => {
             parse_steam_time(&name).or_else(|| parse_capture_name(&name).map(|(_, t)| t))
         }
     };
@@ -101,6 +104,95 @@ pub fn steam_shots(steam_root: &Path, app_id: &str) -> Vec<ShotFile> {
     }
     out.sort_by(|a, b| a.path.cmp(&b.path));
     out
+}
+
+/// 公用截图文件夹（含子文件夹）中的图片及其可对应游戏的名称：各级子文件夹名、文件名中的标题
+/// （游戏栏格式“标题 日期 时间”时取标题，否则为整个文件名，如 NVIDIA 的“Hollow Knight Screenshot 2026.10.10 …”）。
+fn shared_files(dir: &Path) -> Vec<(PathBuf, Vec<String>)> {
+    let mut out = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&d) else {
+            continue;
+        };
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if is_image(&p) {
+                let mut titles: Vec<String> = p
+                    .parent()
+                    .and_then(|parent| parent.strip_prefix(dir).ok())
+                    .map(|rel| {
+                        rel.components()
+                            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let stem = p
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                titles.push(parse_capture_name(&stem).map(|(t, _)| t).unwrap_or(stem));
+                out.push((p, titles));
+            }
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+fn titles_score(titles: &[String], wanted: &[String]) -> u8 {
+    titles
+        .iter()
+        .map(|t| best_score(t, wanted))
+        .max()
+        .unwrap_or(0)
+}
+
+/// 公用截图文件夹中对应这个游戏的截图：子文件夹名或文件名与游戏名对应，
+/// 同一张对应多个游戏时只归到对应得最好的（`others` 为游戏库中其他游戏的名称）。
+pub fn shared_shots(dir: &Path, names: &[&str], others: &[&str]) -> Vec<ShotFile> {
+    let wanted = wanted_names(names);
+    let others = wanted_names(others);
+    shared_files(dir)
+        .into_iter()
+        .filter(|(_, titles)| {
+            let own = titles_score(titles, &wanted);
+            own > 0 && own >= titles_score(titles, &others)
+        })
+        .filter_map(|(p, _)| shot_file(p, ShotSource::Shared))
+        .collect()
+}
+
+/// 公用截图文件夹中没有对应游戏库中游戏的截图，按“游戏”分组：(名称, 张数)。
+/// 在第一级子文件夹中的以文件夹名为名称，直接放在文件夹中的按游戏栏格式的文件名标题，其余不列出。
+pub fn shared_titles(dir: &Path, names: &[&str]) -> Vec<(String, usize)> {
+    let wanted = wanted_names(names);
+    let mut groups: std::collections::BTreeMap<String, (String, usize)> = Default::default();
+    for (p, titles) in shared_files(dir) {
+        if titles_score(&titles, &wanted) > 0 {
+            continue;
+        }
+        let name = if titles.len() > 1 {
+            titles[0].clone()
+        } else {
+            let stem = p
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            match parse_capture_name(&stem) {
+                Some((t, _)) => t,
+                None => continue,
+            }
+        };
+        let key = normalize(&name);
+        if key.is_empty() {
+            continue;
+        }
+        groups.entry(key).or_insert((name, 0)).1 += 1;
+    }
+    groups.into_values().collect()
 }
 
 /// 捕获文件夹中标题与游戏名对应的截图（不进入子文件夹）。`names` 为游戏的各种名称（英文名、中文名等）。
@@ -375,6 +467,49 @@ mod tests {
     }
 
     #[test]
+    fn shared_folder_matches_by_subfolder_or_file_name() {
+        let d = tempfile::tempdir().unwrap();
+        let shared = d.path().join("Screenshots");
+        // NVIDIA：每个游戏一个子文件夹；ShareX 等：文件名带游戏名；游戏栏格式。
+        touch(&shared.join("Hollow Knight/Hollow Knight Screenshot 2026.10.10 - 21.30.12.62.png"));
+        touch(&shared.join("Hollow Knight/sub/a.jpg"));
+        touch(&shared.join("Hades II Screenshot 2026.10.10.png"));
+        touch(&shared.join("Minishoot 2026_7_18 0_02_36.png"));
+        touch(&shared.join("Celeste/img001.png"));
+        touch(&shared.join("IMG_0001.png"));
+        touch(&shared.join("notes.txt"));
+        let names = |v: Vec<ShotFile>| -> Vec<String> {
+            v.iter()
+                .map(|f| {
+                    f.path
+                        .strip_prefix(&shared)
+                        .unwrap()
+                        .to_string_lossy()
+                        .replace('\\', "/")
+                })
+                .collect()
+        };
+        let hk = shared_shots(&shared, &["Hollow Knight", "空洞骑士"], &["Hades II"]);
+        assert!(hk.iter().all(|f| f.source == ShotSource::Shared));
+        assert_eq!(
+            names(hk),
+            [
+                "Hollow Knight/Hollow Knight Screenshot 2026.10.10 - 21.30.12.62.png",
+                "Hollow Knight/sub/a.jpg"
+            ]
+        );
+        assert_eq!(
+            names(shared_shots(&shared, &["Hades II"], &["Hollow Knight"])),
+            ["Hades II Screenshot 2026.10.10.png"]
+        );
+        // 发现页：子文件夹名与游戏栏格式的标题；认不出游戏的散图不列出。
+        assert_eq!(
+            shared_titles(&shared, &["Hollow Knight", "Hades II"]),
+            [("Celeste".to_string(), 1), ("Minishoot".to_string(), 1)]
+        );
+    }
+
+    #[test]
     fn capture_title_shorter_than_game_name() {
         let d = tempfile::tempdir().unwrap();
         let cap = d.path().join("Captures");
@@ -389,7 +524,11 @@ mod tests {
         };
         // 游戏名带后缀：标题较短也对应。
         assert_eq!(
-            names(capture_shots(&cap, &["Grand Theft Auto V Enhanced"], &["Hades"])),
+            names(capture_shots(
+                &cap,
+                &["Grand Theft Auto V Enhanced"],
+                &["Hades"]
+            )),
             ["Grand Theft Auto V 2026_7_18 11_23_09.png"]
         );
         // 两个游戏都在库中：各自只拿到对应最好的截图；过短的标题不误配。

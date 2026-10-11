@@ -1170,5 +1170,20 @@
   "ui.settings.autoQuietSuffix": "分钟后再备份",
   "ui.shotAuto.change": "截图变化后自动收集",
   "ui.shotAuto.changeHint": "定期检查截图文件夹，有新截图就收集到图库（相当于截图后自动备份）。",
-  "ui.shotAuto.checkHead": "检查新截图"
+  "ui.shotAuto.checkHead": "检查新截图",
+  "ui.shots.source.shared": "公用截图文件夹",
+  "ui.settings.shotSources": "截图来源",
+  "ui.settings.srcAccount": "账号",
+  "ui.settings.srcSteamNone": "本机没有找到 Steam",
+  "ui.settings.srcSteamRule": "在 Steam 中按 F12 截的图。按 AppID 对应游戏，自动找到，不需要设置。",
+  "ui.settings.srcCaptureRule": "按 Win + Alt + PrtScn 或在游戏栏（Win + G）中截的图。按文件名开头的窗口标题对应游戏；留空时使用系统设置中的“捕获”文件夹：{dir}",
+  "ui.settings.srcSharedAdd": "添加公用截图文件夹…",
+  "ui.settings.srcSharedRemove": "移除 {dir}",
+  "ui.settings.srcSharedRule": "放有多个游戏截图的文件夹（例如 NVIDIA、ShareX 的截图目录），包括子文件夹。按子文件夹名或文件名中的游戏名对应游戏；对应不上的在发现页“只有截图的游戏”中列出。只读取，不改动其中的文件。",
+  "ui.settings.srcFolder": "游戏自己的截图文件夹",
+  "ui.settings.srcFolderRule": "在游戏详情页的“截图”中为某个游戏添加，文件夹里的截图都归这个游戏。",
+  "ui.gallery.fold": "折叠「{name}」",
+  "ui.gallery.unfold": "展开「{name}」",
+  "ui.gallery.foldAll": "全部折叠",
+  "ui.gallery.unfoldAll": "全部展开"
 }

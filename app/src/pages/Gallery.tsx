@@ -53,6 +53,26 @@ function writePrefs(p: Prefs) {
   }
 }
 
+const FOLD_KEY = "bonfire.gallery.folded";
+
+/** 折叠的分组（按“分组方式:分组”记住）。 */
+function readFolded(): Set<string> {
+  try {
+    const v = JSON.parse(localStorage.getItem(FOLD_KEY) ?? "[]");
+    return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeFolded(s: Set<string>) {
+  try {
+    localStorage.setItem(FOLD_KEY, JSON.stringify([...s]));
+  } catch {
+    // 无法保存时只影响本次。
+  }
+}
+
 /** 截图的唯一键（不同游戏中可能有内容相同的截图）。 */
 const keyOf = (s: ShotRecord) => `${s.gameId}/${s.blob}`;
 
@@ -67,6 +87,12 @@ export default function Gallery() {
   const [data, setData] = useState<GalleryView | null>(null);
   const [tab, setTab] = useState<Tab>("album");
   const [prefs, setPrefs] = useState<Prefs>(readPrefs);
+  const [folded, setFoldedState] = useState<Set<string>>(readFolded);
+  const setFolded = (next: Set<string>) => {
+    setFoldedState(next);
+    writeFolded(next);
+  };
+  const foldKey = (k: string) => `${prefs.group}:${k}`;
   const [game, setGame] = useState("all");
   const [source, setSource] = useState("all");
   const [query, setQuery] = useState("");
@@ -288,6 +314,23 @@ export default function Gallery() {
             </button>
           ))}
         </div>
+        {/* 一键全部展开 / 折叠：有展开的分组时全部折叠，否则全部展开。 */}
+        {groups.length > 1 && (
+          <button
+            className="btn icon-only"
+            onClick={() => {
+              const keys = groups.map((g) => foldKey(g.key));
+              const anyOpen = keys.some((k) => !folded.has(k));
+              const next = new Set(folded);
+              keys.forEach((k) => (anyOpen ? next.add(k) : next.delete(k)));
+              setFolded(next);
+            }}
+            title={groups.some((g) => !folded.has(foldKey(g.key))) ? t("ui.gallery.foldAll") : t("ui.gallery.unfoldAll")}
+            aria-label={groups.some((g) => !folded.has(foldKey(g.key))) ? t("ui.gallery.foldAll") : t("ui.gallery.unfoldAll")}
+          >
+            <Icon name={groups.some((g) => !folded.has(foldKey(g.key))) ? "fold" : "unfold"} size={16} />
+          </button>
+        )}
         <input className="field fill" type="search" placeholder={t("ui.gallery.search")} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t("ui.gallery.search")} />
         <button className="btn icon-only" onClick={() => setImportOpen(true)} title={t("ui.package.importHint")} aria-label={t("ui.package.importHint")}>
           <Icon name="import" />
@@ -322,9 +365,25 @@ export default function Gallery() {
             const keys = g.shots.map(keyOf);
             const n = keys.filter((k) => picked.has(k)).length;
             const gameInfo = prefs.group === "game" ? games.get(g.key) : undefined;
+            const isFolded = folded.has(foldKey(g.key));
+            const toggleFold = () => {
+              const next = new Set(folded);
+              if (isFolded) next.delete(foldKey(g.key));
+              else next.add(foldKey(g.key));
+              setFolded(next);
+            };
             return (
-              <section key={g.key} className="shot-day">
+              <section key={g.key} className={`shot-day${isFolded ? " folded" : ""}`}>
                 <h3>
+                  <button
+                    className="fold"
+                    onClick={toggleFold}
+                    aria-expanded={!isFolded}
+                    aria-label={isFolded ? t("ui.gallery.unfold", { name: g.label }) : t("ui.gallery.fold", { name: g.label })}
+                    title={isFolded ? t("ui.gallery.unfold", { name: g.label }) : t("ui.gallery.fold", { name: g.label })}
+                  >
+                    <Icon name="chevron" size={14} />
+                  </button>
                   <label className="day-pick">
                     <input
                       type="checkbox"
@@ -346,7 +405,7 @@ export default function Gallery() {
                   )}
                   {gameInfo && !gameInfo.inLibrary && <span className="tag">{t("ui.gallery.removed")}</span>}
                 </h3>
-                {prefs.look === "list" ? (
+                {isFolded ? null : prefs.look === "list" ? (
                   <ul className="shot-list">
                     {g.shots.map((s) => {
                       const k = keyOf(s);

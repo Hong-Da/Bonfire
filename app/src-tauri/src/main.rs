@@ -108,6 +108,7 @@ fn main() {
             commands::add_shot_dir,
             commands::remove_shot_dir,
             commands::captures_dir,
+            commands::shot_source_dirs,
             commands::get_settings,
             commands::save_settings,
             commands::load_library,

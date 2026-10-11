@@ -206,11 +206,22 @@ impl App {
     }
 
     /// Steam 安装目录（伪造根目录下为 `<root>/Steam`）。
-    pub(crate) fn steam_root(&self) -> Option<PathBuf> {
+    pub fn steam_root(&self) -> Option<PathBuf> {
         match &self.fake_root {
             Some(root) => Some(root.join("Steam")).filter(|p| p.is_dir()),
             None => bonfire_discovery::platforms::SteamAdapter::detect().map(|s| s.root),
         }
+    }
+
+    /// 存在的公用截图文件夹（设置中添加的；伪造根目录下测试时同样按配置）。
+    pub fn shared_dirs(&self) -> Vec<PathBuf> {
+        self.config
+            .shots
+            .shared_dirs
+            .iter()
+            .filter(|d| d.is_dir())
+            .cloned()
+            .collect()
     }
 
     /// “捕获”文件夹：配置优先，其次系统设置中的实际位置，最后 `<用户目录>\Videos\Captures`。
@@ -256,6 +267,9 @@ impl App {
             }
             let other_refs: Vec<&str> = others.iter().map(String::as_str).collect();
             out.extend(src::capture_shots(&dir, &refs, &other_refs));
+            for d in self.shared_dirs() {
+                out.extend(src::shared_shots(&d, &refs, &other_refs));
+            }
         }
         for d in self.index.shot_settings(&game.id)?.dirs {
             out.extend(src::folder_shots(Path::new(&d)));
@@ -270,6 +284,9 @@ impl App {
         }
         if self.captures_dir().is_some_and(|d| d.is_dir()) {
             v.push("capture".to_string());
+        }
+        if !self.shared_dirs().is_empty() {
+            v.push("shared".to_string());
         }
         if !self.index.shot_settings(&game.id)?.dirs.is_empty() {
             v.push("folder".to_string());
@@ -1048,6 +1065,34 @@ impl App {
                 });
             }
         }
+        let shared = self.shared_dirs();
+        if !shared.is_empty() {
+            let mut names = Vec::new();
+            for g in &games {
+                names.extend(self.shot_names(g)?);
+            }
+            let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+            for d in shared {
+                for (title, count) in src::shared_titles(&d, &refs) {
+                    // 与游戏栏截图同名的合并为一个候选。
+                    if let Some(c) = out
+                        .iter_mut()
+                        .find(|c| c.app_id.is_none() && c.name.eq_ignore_ascii_case(&title))
+                    {
+                        c.count += count;
+                        continue;
+                    }
+                    out.push(ShotCandidate {
+                        key: format!("shared:{title}"),
+                        name: title,
+                        source: "shared".into(),
+                        app_id: None,
+                        count,
+                        dir: d.clone(),
+                    });
+                }
+            }
+        }
         out.sort_by(|a, b| b.count.cmp(&a.count).then(a.name.cmp(&b.name)));
         Ok(out)
     }
@@ -1752,8 +1797,16 @@ mod tests {
         c.on_change = true;
         c.check_minutes = 10;
         assert!(shots_due(&c, None, &at("2026-10-09T22:00")));
-        assert!(!shots_due(&c, Some(ts("2026-10-09T21:55")), &at("2026-10-09T22:00")));
-        assert!(shots_due(&c, Some(ts("2026-10-09T21:50")), &at("2026-10-09T22:00")));
+        assert!(!shots_due(
+            &c,
+            Some(ts("2026-10-09T21:55")),
+            &at("2026-10-09T22:00")
+        ));
+        assert!(shots_due(
+            &c,
+            Some(ts("2026-10-09T21:50")),
+            &at("2026-10-09T22:00")
+        ));
         c.enabled = false;
         assert!(!shots_due(&c, None, &at("2026-10-09T22:00")));
         c.enabled = true;

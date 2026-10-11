@@ -1170,5 +1170,20 @@
   "ui.settings.autoQuietSuffix": "minutes, back up",
   "ui.shotAuto.change": "Collect when new screenshots appear",
   "ui.shotAuto.changeHint": "Check the screenshot folders regularly and add new screenshots to the gallery.",
-  "ui.shotAuto.checkHead": "Check for new screenshots"
+  "ui.shotAuto.checkHead": "Check for new screenshots",
+  "ui.shots.source.shared": "Shared screenshot folders",
+  "ui.settings.shotSources": "Screenshot sources",
+  "ui.settings.srcAccount": "account",
+  "ui.settings.srcSteamNone": "Steam was not found on this PC",
+  "ui.settings.srcSteamRule": "Taken with F12 in Steam. Matched to games by AppID automatically.",
+  "ui.settings.srcCaptureRule": "Taken with Win + Alt + PrtScn or the Game Bar (Win + G). Matched by the window title at the start of the file name; when empty, the Captures folder from Windows settings is used: {dir}",
+  "ui.settings.srcSharedAdd": "Add a shared folder…",
+  "ui.settings.srcSharedRemove": "Remove {dir}",
+  "ui.settings.srcSharedRule": "Folders holding screenshots of several games (NVIDIA, ShareX, …), including subfolders. Matched by subfolder name or the game name in the file name; unmatched ones appear on the Discover page. Files are only read, never changed.",
+  "ui.settings.srcFolder": "A game's own screenshot folders",
+  "ui.settings.srcFolderRule": "Added for one game on its details page; every screenshot in the folder belongs to that game.",
+  "ui.gallery.fold": "Collapse \"{name}\"",
+  "ui.gallery.unfold": "Expand \"{name}\"",
+  "ui.gallery.foldAll": "Collapse all",
+  "ui.gallery.unfoldAll": "Expand all"
 }

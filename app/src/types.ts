@@ -39,6 +39,8 @@ export interface ShotsConfig {
   /** 1 = 周一 … 7 = 周日 */
   weekday: number;
   every_hours: number;
+  /** 公用截图文件夹：多个游戏的截图放在一起，按子文件夹名或文件名对应游戏 */
+  shared_dirs?: string[];
   /** 截图变化后自动收集 */
   on_change?: boolean;
   /** 检查新截图的间隔（分钟） */

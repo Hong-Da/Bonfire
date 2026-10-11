@@ -1442,6 +1442,25 @@ pub async fn remove_shot_dir(h: AppHandle, game_id: String, dir: String) -> CmdR
     .await
 }
 
+/// 截图来源的位置（设置页说明用）：Steam 截图所在的 `userdata` 文件夹与“捕获”文件夹。
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShotSourceDirs {
+    steam_userdata: Option<PathBuf>,
+    captures: Option<PathBuf>,
+}
+
+#[tauri::command]
+pub async fn shot_source_dirs(h: AppHandle) -> CmdResult<ShotSourceDirs> {
+    with_app(h, move |app, _| {
+        Ok(ShotSourceDirs {
+            steam_userdata: app.steam_root().map(|r| r.join("userdata")),
+            captures: app.captures_dir(),
+        })
+    })
+    .await
+}
+
 /// “捕获”文件夹的实际位置（设置页显示）。
 #[tauri::command]
 pub async fn captures_dir(h: AppHandle) -> CmdResult<Option<PathBuf>> {

@@ -136,6 +136,9 @@ pub struct Shots {
     pub weekday: u8,
     /// 每隔几小时收集（1–168）。
     pub every_hours: u32,
+    /// 公用截图文件夹：多个游戏的截图放在一起（NVIDIA、ShareX 等），按子文件夹名或文件名对应游戏。
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub shared_dirs: Vec<PathBuf>,
     /// 截图变化后自动收集：每隔 `check_minutes` 分钟检查截图文件夹，有新截图就收集。
     pub on_change: bool,
     /// 检查新截图的间隔（分钟，1–120）。
@@ -151,6 +154,7 @@ impl Default for Shots {
             at: "21:00".into(),
             weekday: 7,
             every_hours: 6,
+            shared_dirs: Vec::new(),
             on_change: false,
             check_minutes: 5,
         }
@@ -425,6 +429,8 @@ protect_local = {protect}
 enabled = {shots}
 # Windows 游戏栏 / Xbox 应用的“捕获”文件夹；不写时读取系统设置中的实际位置
 # captures_dir = 'D:\Videos\Captures'
+# 公用截图文件夹：多个游戏的截图放在一起（NVIDIA、ShareX 等的截图目录），按子文件夹名或文件名中的游戏名对应游戏
+# shared_dirs = ['D:\Screenshots']
 # 定时收集截图：off（只随备份收集）/ daily / weekly / hours；在托盘中运行时执行
 schedule = "{schedule}"
 # 每天 / 每周收集的时刻
