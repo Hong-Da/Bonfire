@@ -1028,3 +1028,10 @@ button.link:hover { text-decoration: underline; }
 .dl-drop .dl-file { display: grid; gap: 2px; width: 100%; min-width: 0; }
 .dl-drop .dl-file b { color: var(--ink); font: 600 15px var(--font-sign); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dl-drop .dl-file small { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; }
+
+/* 导入不了时：手工替换的步骤（U-43） */
+.manual-guide { border-left-color: var(--ember); background: color-mix(in srgb, var(--ember) 6%, var(--surface)); }
+.manual-guide .manual-warn { display: flex; align-items: flex-start; gap: 6px; color: var(--danger); font-weight: 600; }
+.manual-guide .manual-warn svg { flex: none; margin-top: 3px; }
+.manual-guide ol { display: grid; gap: 6px; }
+.manual-guide li .btn { margin-left: 8px; vertical-align: middle; }

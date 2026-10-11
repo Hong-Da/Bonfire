@@ -1340,5 +1340,18 @@
   "ui.download.replaced": "存档可能被手动替换",
   "ui.download.replacedHint": "变化的文件修改时间都早于上次备份，像是复制进来的下载存档。备份时默认另开新路线；以后请用“导入下载的存档”。",
   "ui.download.backupReplaced": "存档可能被手动替换成了下载的存档；替换前的进度如果没备份过就找不回了。",
-  "ui.download.backupNewBranch": "另开新路线备份，不接在当前路线上："
+  "ui.download.backupNewBranch": "另开新路线备份，不接在当前路线上：",
+  "ui.manual.title": "导入不了？也可以手工替换文件再备份",
+  "ui.manual.warn": "替换前一定要先备份当前存档：替换后原来的进度会被覆盖，没备份过就找不回了。",
+  "ui.manual.step1": "先备份当前存档。",
+  "ui.manual.backup": "立即备份",
+  "ui.manual.done": "已备份",
+  "ui.manual.backedUp": "已备份当前存档，可以放心替换了",
+  "ui.manual.alreadyBacked": "当前存档已经备份过，没有变化",
+  "ui.manual.step2": "关闭游戏。",
+  "ui.manual.step3": "打开存档文件夹，把下载的存档文件复制进去，按提示覆盖。",
+  "ui.manual.open": "打开存档文件夹",
+  "ui.manual.openN": "打开存档位置 {n}",
+  "ui.manual.step4": "回到篝火点“检查更新”，游戏会标出“存档可能被手动替换”。",
+  "ui.manual.step5": "备份时保持勾选“另开新路线备份”，下载的存档就单独存成一条路线，不会混进你自己的进度；想回去时点“回到主存档”。"
 }

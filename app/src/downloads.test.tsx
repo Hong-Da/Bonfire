@@ -85,6 +85,22 @@ describe("导入下载的存档（U-42）", () => {
     expect(useBonfire).toHaveBeenCalledWith("D:/dl/exported");
   });
 
+  it("导入失败时提示手工替换：先备份当前存档，打开存档文件夹", async () => {
+    dialog.open.mockResolvedValue("D:/dl/broken.zip");
+    api.inspectDownload.mockRejectedValue(new Error("读取压缩包失败：invalid Zip archive"));
+    api.runBackup.mockResolvedValue([{ gameId: "steam-367520", ok: true, result: { result: "created" }, error: null, shots: 0, shotsOnly: false }]);
+    api.openLocation.mockResolvedValue(undefined);
+    render(<DownloadImportDialog gameId="steam-367520" onClose={() => {}} onDone={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "选择压缩包…" }));
+    expect(await screen.findByText("导入不了？也可以手工替换文件再备份")).toBeInTheDocument();
+    expect(screen.getByText(/替换前一定要先备份当前存档/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /立即备份/ }));
+    await waitFor(() => expect(api.runBackup).toHaveBeenCalledWith([{ gameId: "steam-367520" }], false, { mode: "new" }));
+    expect(await screen.findByRole("button", { name: /已备份/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /打开存档文件夹/ }));
+    expect(api.openLocation).toHaveBeenCalledWith("steam-367520", 0);
+  });
+
   it("原来的导入中选到不是篝火导出的存档：提示并改用导入下载的存档", async () => {
     dialog.open.mockResolvedValue("D:/dl/hk.zip");
     api.inspectFilesSource.mockRejectedValue(new Error("这些存档文件没有篝火的导出说明，无法判断属于哪个游戏；请在对应游戏的详情页中导入"));

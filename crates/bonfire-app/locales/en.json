@@ -1340,5 +1340,18 @@
   "ui.download.replaced": "Save may have been replaced",
   "ui.download.replacedHint": "Changed files are older than the last backup, like a copied-in download. Backups go to a new branch by default.",
   "ui.download.backupReplaced": "This save may have been replaced by a download; progress before that is lost if it wasn't backed up.",
-  "ui.download.backupNewBranch": "Back up to a new branch instead:"
+  "ui.download.backupNewBranch": "Back up to a new branch instead:",
+  "ui.manual.title": "Can't import? Replace the files by hand, then back up",
+  "ui.manual.warn": "Back up your current save first: replacing overwrites your progress, and it can't be recovered without a backup.",
+  "ui.manual.step1": "Back up your current save.",
+  "ui.manual.backup": "Back up now",
+  "ui.manual.done": "Backed up",
+  "ui.manual.backedUp": "Current save backed up; safe to replace",
+  "ui.manual.alreadyBacked": "Already backed up; no changes",
+  "ui.manual.step2": "Close the game.",
+  "ui.manual.step3": "Open the save folder and copy the downloaded files in, overwriting when asked.",
+  "ui.manual.open": "Open save folder",
+  "ui.manual.openN": "Open location {n}",
+  "ui.manual.step4": "Back in Bonfire, check for updates; the game is flagged as possibly replaced.",
+  "ui.manual.step5": "When backing up, keep “Back up to a new branch” ticked so the download stays separate; use “Back to primary” to return."
 }

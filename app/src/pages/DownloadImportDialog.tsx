@@ -244,6 +244,7 @@ export default function DownloadImportDialog({
               <p>{t("ui.download.emptyHint")}</p>
             </div>
           )}
+          {(error || (preview?.kind === "download" && saveFiles.length === 0)) && gameId && <ManualReplaceGuide gameId={gameId} locations={locs.map((l) => l.ord)} />}
           {ready && (
             <p className="dl-found">
               <Icon name="check" size={16} /> {t("ui.download.found", { n: saveFiles.length, ok: placed.length, ignored: ignored.length })}
@@ -275,6 +276,7 @@ export default function DownloadImportDialog({
               </ol>
             </div>
           )}
+          {placed.length === 0 && <ManualReplaceGuide gameId={gameId} locations={locs.map((l) => l.ord)} />}
           <ul className="dl-map">
             {saveFiles.map((f) => {
               const tg = targets[f.rel];
@@ -408,4 +410,58 @@ export function useFileDrop(onDrop: (path: string) => void) {
       off?.();
     };
   }, []);
+}
+
+/**
+ * 导入不了时的退路：手工替换文件再备份（U-43）。强调先备份当前存档，替换后备份会默认另开新路线。
+ */
+export function ManualReplaceGuide({ gameId, locations }: { gameId: string; locations: number[] }) {
+  const { t } = useTranslation();
+  const store = useStore();
+  const [backedUp, setBackedUp] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const backupNow = async () => {
+    setBusy(true);
+    try {
+      const [r] = await api.runBackup([{ gameId }], false, { mode: "new" });
+      if (r && !r.ok) throw new Error(r.error?.message ?? "");
+      setBackedUp(true);
+      await store.refreshRow(gameId);
+      store.toast("success", r?.result?.result === "created" ? t("ui.manual.backedUp") : t("ui.manual.alreadyBacked"));
+    } catch (e) {
+      store.toast("error", errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ords = locations.length > 0 ? locations : [0];
+  return (
+    <div className="dl-guide manual-guide" role="note">
+      <h3>{t("ui.manual.title")}</h3>
+      <p className="manual-warn">
+        <Icon name="shield" size={15} /> {t("ui.manual.warn")}
+      </p>
+      <ol>
+        <li>
+          {t("ui.manual.step1")}
+          <button className={`btn small${backedUp ? "" : " primary"}`} onClick={() => void backupNow()} disabled={busy || backedUp}>
+            {backedUp ? <><Icon name="check" size={14} /> {t("ui.manual.done")}</> : <><Icon name="backup" size={14} /> {t("ui.manual.backup")}</>}
+          </button>
+        </li>
+        <li>{t("ui.manual.step2")}</li>
+        <li>
+          {t("ui.manual.step3")}
+          {ords.map((o) => (
+            <button key={o} className="btn small" onClick={() => void api.openLocation(gameId, o).catch((e) => store.toast("error", errorMessage(e)))}>
+              <Icon name="folder" size={14} /> {ords.length > 1 ? t("ui.manual.openN", { n: o + 1 }) : t("ui.manual.open")}
+            </button>
+          ))}
+        </li>
+        <li>{t("ui.manual.step4")}</li>
+        <li>{t("ui.manual.step5")}</li>
+      </ol>
+    </div>
+  );
 }
