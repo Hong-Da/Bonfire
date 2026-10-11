@@ -228,6 +228,19 @@ pub enum Cmd {
         dry_run: bool,
     },
     Reindex,
+    Activity {
+        #[arg(long, value_enum)]
+        category: Option<ActivityCategoryArg>,
+        #[arg(long)]
+        failed: bool,
+        #[arg(long)]
+        game: Option<String>,
+        #[arg(long)]
+        grep: Option<String>,
+        #[arg(long, default_value_t = 50)]
+        limit: usize,
+    },
+    Stats,
     Repo {
         #[command(subcommand)]
         cmd: RepoCmd,
@@ -236,6 +249,17 @@ pub enum Cmd {
         #[command(subcommand)]
         cmd: SyncCmd,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ActivityCategoryArg {
+    Backup,
+    Restore,
+    History,
+    Sync,
+    Shots,
+    Transfer,
+    Maintain,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -406,6 +430,10 @@ pub enum ShotsCmd {
     },
     Recollect {
         game: String,
+    },
+    Compare {
+        #[arg(long)]
+        write_back: bool,
     },
 }
 

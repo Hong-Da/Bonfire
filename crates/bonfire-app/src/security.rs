@@ -114,7 +114,12 @@ impl App {
     }
 
     /// 加密整个仓库。索引移到本机缓存目录，仓库中的旧索引删除；`games.toml` 改为加密保存。
-    pub fn encrypt_repo(&mut self, lock: &RepoLock, password: &str, remember: bool) -> Result<()> {
+    pub(crate) fn encrypt_repo_raw(
+        &mut self,
+        lock: &RepoLock,
+        password: &str,
+        remember: bool,
+    ) -> Result<()> {
         check_password(password)?;
         let old_index = self.repo.root().join("bonfire.db");
         let repo = crypt::encrypt_repo(&self.repo, lock, password)?;
@@ -128,7 +133,7 @@ impl App {
     }
 
     /// 取消加密：数据改回明文，索引移回仓库，删除本机记住的密钥。
-    pub fn decrypt_repo(&mut self, lock: &RepoLock, password: &str) -> Result<()> {
+    pub(crate) fn decrypt_repo_raw(&mut self, lock: &RepoLock, password: &str) -> Result<()> {
         self.repo.unlock(password)?;
         let old_index = index_path(&self.paths, &self.repo);
         let key = self.key_file();
@@ -143,7 +148,12 @@ impl App {
     }
 
     /// 修改密码；本机记住的密钥不变（数据密钥没变）。
-    pub fn change_password(&mut self, lock: &RepoLock, old: &str, new: &str) -> Result<()> {
+    pub(crate) fn change_password_raw(
+        &mut self,
+        lock: &RepoLock,
+        old: &str,
+        new: &str,
+    ) -> Result<()> {
         check_password(new)?;
         let repo = crypt::change_password(&self.repo, lock, old, new)?;
         self.repo = repo;

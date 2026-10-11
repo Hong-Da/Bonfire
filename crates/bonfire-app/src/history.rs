@@ -189,7 +189,7 @@ impl App {
     }
 
     /// 在指定快照（默认当前状态）上创建分支或标签。
-    pub fn create_ref(
+    pub(crate) fn create_ref_raw(
         &mut self,
         lock: &RepoLock,
         game: &GameRecord,
@@ -211,7 +211,7 @@ impl App {
         Ok(self.repo.list_refs(&game.id)?)
     }
 
-    pub fn fsck(&self, deep: bool) -> Result<bonfire_core::fsck::FsckReport> {
+    pub(crate) fn fsck_raw(&self, deep: bool) -> Result<bonfire_core::fsck::FsckReport> {
         Ok(bonfire_core::fsck::fsck(&self.repo, deep)?)
     }
 }

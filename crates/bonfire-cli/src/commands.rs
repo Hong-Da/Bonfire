@@ -21,9 +21,9 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 use crate::cli::{
-    BundleCmd, Cmd, GameCmd, ModeArg, OnOff, OutputFormat, ProfileCmd, RepoCmd, RulesCmd,
-    ShotSwitch, ShotsCmd, ShotsDirCmd, SyncCmd, SyncContentArg, SyncIgnoreArg, SyncKindArg,
-    SyncScheduleArg,
+    ActivityCategoryArg, BundleCmd, Cmd, GameCmd, ModeArg, OnOff, OutputFormat, ProfileCmd,
+    RepoCmd, RulesCmd, ShotSwitch, ShotsCmd, ShotsDirCmd, SyncCmd, SyncContentArg, SyncIgnoreArg,
+    SyncKindArg, SyncScheduleArg,
 };
 
 type Result<T> = std::result::Result<T, AppError>;
@@ -344,6 +344,14 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
         Cmd::Bundle { cmd } => bundle(app, cmd, out),
         Cmd::Shots { cmd } => shots(app, cmd, out),
         Cmd::Fsck { deep } => fsck(app, deep, out),
+        Cmd::Activity {
+            category,
+            failed,
+            game,
+            grep,
+            limit,
+        } => activity(app, category, failed, game, grep, limit, out),
+        Cmd::Stats => stats(app, out),
         Cmd::Gc {
             games,
             objects_only,
@@ -2156,6 +2164,110 @@ fn repo(app: &mut App, cmd: RepoCmd, out: &Out) -> Result<()> {
     Ok(())
 }
 
+fn activity(
+    app: &App,
+    category: Option<ActivityCategoryArg>,
+    failed: bool,
+    game: Option<String>,
+    grep: Option<String>,
+    limit: usize,
+    out: &Out,
+) -> Result<()> {
+    let game = match game {
+        Some(g) => Some(app.find_game(&g)?.id),
+        None => None,
+    };
+    let category = category.map(|c| {
+        match c {
+            ActivityCategoryArg::Backup => "backup",
+            ActivityCategoryArg::Restore => "restore",
+            ActivityCategoryArg::History => "history",
+            ActivityCategoryArg::Sync => "sync",
+            ActivityCategoryArg::Shots => "shots",
+            ActivityCategoryArg::Transfer => "transfer",
+            ActivityCategoryArg::Maintain => "maintain",
+        }
+        .to_string()
+    });
+    let page = app.activities(&bonfire_app::activity::ActivityQuery {
+        category,
+        failed,
+        game,
+        text: grep,
+        limit: limit.max(1),
+        before: None,
+    })?;
+    out.emit(serde_json::to_value(&page).unwrap());
+    if page.items.is_empty() {
+        out.line(out.t("cli.out.activity_none"));
+    }
+    for a in &page.items {
+        let what = out.t(&format!("cli.activity.{}", a.action)).to_string();
+        let mut line = format!(
+            "{}  {}",
+            a.at.get(..16).unwrap_or(&a.at).replace('T', " "),
+            what
+        );
+        if !a.name.is_empty() {
+            line.push_str(&format!("  {}", a.name));
+        }
+        if a.n > 0 {
+            line.push_str(&format!("  ×{}", a.n));
+        }
+        if a.bytes > 0 {
+            line.push_str(&format!("  {}", bonfire_app::util::human_bytes(a.bytes)));
+        }
+        if !a.detail.is_empty() {
+            line.push_str(&format!("  ({})", a.detail));
+        }
+        if let Some(e) = &a.error {
+            line.push_str(&format!("  {}{e}", out.t("cli.out.activity_failed")));
+        }
+        out.line(line);
+    }
+    if page.more {
+        out.line(out.t("cli.out.activity_more"));
+    }
+    Ok(())
+}
+
+fn stats(app: &App, out: &Out) -> Result<()> {
+    let s = app.storage_stats()?;
+    out.emit(serde_json::to_value(&s).unwrap());
+    let h = bonfire_app::util::human_bytes;
+    out.line(out.tf(
+        "cli.out.stats_total",
+        &[
+            ("dir", &s.repo_dir),
+            ("total", &h(s.total)),
+            ("saves", &h(s.saves)),
+            ("shots", &h(s.shots)),
+            ("other", &h(s.other)),
+        ],
+    ));
+    out.line(out.tf(
+        "cli.out.stats_dedup",
+        &[
+            ("snapshots", &s.snapshots),
+            ("logical", &h(s.logical)),
+            ("saved", &h(s.logical.saturating_sub(s.saves))),
+        ],
+    ));
+    if let Some(f) = s.free {
+        out.line(out.tf("cli.out.stats_free", &[("free", &h(f))]));
+    }
+    for g in &s.games {
+        out.line(format!(
+            "  {:<24} {:>10} {:>10}  {}",
+            g.name,
+            h(g.saves),
+            h(g.shots),
+            out.tf("cli.out.stats_snapshots", &[("n", &g.snapshots)])
+        ));
+    }
+    Ok(())
+}
+
 fn fsck(app: &App, deep: bool, out: &Out) -> Result<()> {
     let r = app.fsck(deep)?;
     out.emit(json!({ "ok": r.ok(), "report": r }));
@@ -2436,6 +2548,52 @@ fn shots(app: &mut App, cmd: ShotsCmd, out: &Out) -> Result<()> {
                     x.name,
                     x.count,
                     x.dir.display()
+                ));
+            }
+            Ok(())
+        }
+        ShotsCmd::Compare { write_back } => {
+            let c = app.compare_disk()?;
+            let new: usize = c.games.iter().map(|g| g.new).sum();
+            let missing: usize = c.games.iter().map(|g| g.missing).sum();
+            if !write_back {
+                out.emit(serde_json::to_value(&c).unwrap());
+            }
+            out.line(out.tf(
+                "cli.out.shots_compare",
+                &[("games", &c.compared), ("new", &new), ("missing", &missing)],
+            ));
+            for g in &c.games {
+                out.line(format!(
+                    "  {}: +{} -{}{}",
+                    g.name,
+                    g.new,
+                    g.missing,
+                    g.error
+                        .as_deref()
+                        .map(|e| format!("  {e}"))
+                        .unwrap_or_default()
+                ));
+            }
+            if write_back {
+                if missing == 0 {
+                    out.emit(json!({ "written": 0 }));
+                    out.line(out.t("cli.out.shots_nothing_missing"));
+                    return Ok(());
+                }
+                if !out.confirm(out.tf("cli.confirm.shots_write_back_all", &[("n", &missing)]))? {
+                    return Err(AppError::Invalid(out.t("cli.out.cancelled").into()));
+                }
+                let r = app.write_back_all()?;
+                out.emit(serde_json::to_value(&r).unwrap());
+                out.line(out.tf(
+                    "cli.out.shots_written",
+                    &[
+                        ("n", &r.written),
+                        ("size", &bonfire_app::util::human_bytes(r.bytes)),
+                        ("exists", &r.exists),
+                        ("nodir", &r.no_dir),
+                    ],
                 ));
             }
             Ok(())

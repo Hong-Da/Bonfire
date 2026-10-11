@@ -1278,3 +1278,114 @@ button.link:hover { text-decoration: underline; }
 .sync-parts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
 .sync-parts li { display: flex; justify-content: space-between; gap: 12px; }
 .sync-remedies { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 2px; font-size: 13px; }
+
+/* 总览页（0.3.0，设计稿 docs/design/overview-2026-10-11） */
+.rail button { position: relative; }
+.rail-badge { position: absolute; top: 3px; right: 9px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--danger); color: #fff; font: 600 10px/16px var(--font-sign); text-align: center; }
+.overview { --amber: #b7791f; --sky: #3d6fa8; display: grid; gap: 22px; align-content: start; }
+:root[data-theme="dark"] .overview { --amber: #e0b05a; --sky: #7aa7d8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .overview { --amber: #e0b05a; --sky: #7aa7d8; } }
+.ov-chain { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 22px 20px; }
+.ov-verdict { font: 600 18px/1.4 var(--font-sign); margin: 0 0 16px; }
+.ov-links { display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, 140px) minmax(0, 1fr) minmax(90px, 140px) minmax(0, 1fr); align-items: center; }
+.ov-stop { display: grid; gap: 2px; min-width: 0; }
+.ov-stop small { color: var(--muted); font-size: 12px; }
+.ov-stop b { font: 600 30px/1.1 var(--font-sign); }
+.ov-stop b em { font-size: 14px; font-weight: 400; font-style: normal; color: var(--muted); margin-left: 4px; }
+.ov-state { font-size: 13px; }
+.ov-state.ok { color: var(--moss); }
+.ov-state.warn { color: var(--amber); }
+.ov-state.bad { color: var(--danger); }
+.ov-wire { position: relative; height: 34px; }
+.ov-wire::before { content: ""; position: absolute; left: 6px; right: 6px; top: 16px; border-top: 3px solid var(--moss); border-radius: 2px; }
+.ov-wire.gap::before { border-top-style: dashed; border-top-color: var(--amber); }
+.ov-wire.cut::before { border-top-style: dashed; border-top-color: var(--danger); }
+.ov-wire span { position: absolute; left: 50%; top: -2px; transform: translateX(-50%); font-size: 11px; padding: 0 6px; background: var(--surface); color: var(--muted); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.ov-wire.gap span { color: var(--amber); }
+.ov-wire.cut span { color: var(--danger); }
+.ov-block h2, .ov-panel h2 { font: 600 16px var(--font-sign); margin: 0 0 8px; display: flex; align-items: baseline; gap: 10px; }
+.ov-block h2 small { font-size: 12px; font-weight: 400; color: var(--muted); }
+.ov-clear { margin: 0; padding: 12px 16px; border: 1px dashed var(--line); border-radius: 10px; color: var(--moss); font-size: 13px; }
+.ov-todo { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.ov-todo li { display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 10px 14px 10px 0; }
+.ov-todo li + li { border-top: 1px solid var(--line); }
+.ov-todo .rail-mark { align-self: stretch; border-radius: 0 3px 3px 0; background: var(--line); }
+.ov-todo li.bad .rail-mark { background: var(--danger); }
+.ov-todo li.warn .rail-mark { background: var(--amber); }
+.ov-todo li.info .rail-mark { background: var(--ember); }
+.ov-todo .what { min-width: 0; }
+.ov-todo .what b { font-weight: 600; }
+.ov-todo .what p { margin: 1px 0 0; font-size: 12px; color: var(--muted); }
+.ov-todo .acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.ov-todo .later { font-size: 12px; color: var(--muted); margin-left: 4px; }
+.ov-foot { font-size: 12px; color: var(--muted); margin: 6px 2px 0; }
+.ov-pair { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.ov-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.ov-panel h2 { margin: 0; }
+.ov-small { font-size: 12px; margin: 0; }
+.ov-bigline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.ov-bigline b { font: 600 26px var(--font-sign); }
+.ov-bigline .muted { overflow-wrap: anywhere; }
+.ov-stack { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--smoke); }
+.ov-stack i, .ov-rank .bar i { display: block; height: 100%; }
+.ov-stack .seg-saves, .ov-rank .seg-saves { background: var(--ember); }
+.ov-stack .seg-shots, .ov-rank .seg-shots { background: var(--sky); }
+.ov-stack .seg-other, .ov-rank .seg-other { background: var(--muted); }
+.ov-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; }
+.ov-legend span { display: inline-flex; align-items: center; }
+.ov-legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--muted); }
+.ov-legend .seg-saves::before { background: var(--ember); }
+.ov-legend .seg-shots::before { background: var(--sky); }
+.ov-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ov-facts > div { background: var(--raised); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: grid; align-content: start; gap: 2px; min-width: 0; }
+.ov-facts small { font-size: 12px; color: var(--muted); }
+.ov-facts b { font: 600 17px var(--font-sign); }
+.ov-facts .muted, .ov-facts .link { font-size: 12px; }
+.ov-spark { width: 100%; height: 30px; }
+.ov-spark polyline { fill: none; stroke: var(--ember); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.ov-subh { font-size: 13px; font-weight: 600; margin: 2px 0 -4px; }
+.ov-rank, .ov-remotes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.ov-rank li { display: grid; grid-template-columns: minmax(80px, 140px) minmax(0, 1fr) 72px; gap: 10px; align-items: center; }
+.ov-rank .name, .ov-remotes .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-rank .bar { height: 8px; border-radius: 4px; background: var(--smoke); overflow: hidden; display: flex; }
+.ov-rank .size { text-align: right; }
+.ov-remotes li { display: grid; grid-template-columns: minmax(80px, 140px) minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.ov-remote-state.ok { color: var(--moss); }
+.ov-remote-state.bad { color: var(--danger); }
+.ov-disk { display: grid; gap: 10px; }
+.ov-disk .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; background: var(--raised); border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+.ov-disk .row b { font: 600 20px var(--font-sign); margin-right: 6px; }
+.ov-disk .row p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.ov-disk .row.saves { border-style: dashed; }
+.ov-links-inline { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.ov-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ov-log-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ov-log-tools .chips { flex-wrap: wrap; }
+.ov-log-tools input[type="search"] { width: 200px; }
+.ov-log { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px 0; }
+.ov-log-empty { margin: 0; padding: 14px 16px; font-size: 13px; }
+.ov-day { padding: 8px 16px 2px; font: 600 12px var(--font-sign); color: var(--muted); }
+.ov-ev { display: grid; grid-template-columns: 48px 12px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 5px 16px; font-size: 13px; }
+.ov-ev time { color: var(--muted); }
+.ov-ev .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; background: var(--moss); }
+.ov-ev.fail .dot { background: var(--danger); }
+.ov-ev.auto .dot { background: transparent; border: 2px solid var(--moss); width: 9px; height: 9px; box-sizing: border-box; }
+.ov-ev.sync .dot { background: var(--sky); }
+.ov-ev.pics .dot { background: var(--sky); opacity: .6; }
+.ov-ev.restore .dot { background: var(--ember); }
+.ov-ev.maint .dot { background: var(--muted); }
+.ov-ev p { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.ov-ev p small { color: var(--muted); }
+.ov-ev.fail p b { color: var(--danger); font-weight: 600; }
+.ov-ev .ov-err { display: block; }
+.ov-ev .link { font-size: 12px; white-space: nowrap; }
+.ov-more { margin: 4px 16px 6px; }
+@media (max-width: 900px) {
+  .ov-pair, .ov-facts { grid-template-columns: 1fr; }
+  .ov-links { grid-template-columns: 1fr; gap: 6px; }
+  .ov-wire { height: 26px; width: 3px; margin-left: 20px; }
+  .ov-wire::before { left: 0; right: auto; top: 0; bottom: 0; border-top: 0; border-left: 3px solid var(--moss); }
+  .ov-wire.gap::before { border-left: 3px dashed var(--amber); }
+  .ov-wire.cut::before { border-left: 3px dashed var(--danger); }
+  .ov-wire span { left: 14px; top: 4px; transform: none; }
+}

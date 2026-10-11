@@ -14,6 +14,7 @@ pub mod refs;
 pub mod repo;
 pub mod scan;
 pub mod store;
+pub mod usage;
 
 pub use error::{CoreError, Result};
 pub use id::ObjectId;

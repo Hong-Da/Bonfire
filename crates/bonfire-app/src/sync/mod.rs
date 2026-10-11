@@ -337,6 +337,7 @@ impl App {
             run.issue = plan.blocked_issue.or(Some(SyncIssue::Size));
             state.retry = None;
             self.record_run(&t.id, &mut state, run.clone())?;
+            self.note_sync(&t, &run);
             return Err(AppError::Invalid(why.clone()));
         }
         let result = (|| -> Result<()> {
@@ -384,6 +385,7 @@ impl App {
             Ok(()) => state.retry = None,
         }
         self.record_run(&t.id, &mut state, run.clone())?;
+        self.note_sync(&t, &run);
         result.map(|_| run)
     }
 

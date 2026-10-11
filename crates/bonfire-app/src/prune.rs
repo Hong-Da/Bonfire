@@ -37,7 +37,7 @@ pub struct DeleteReport {
 
 impl App {
     /// 删除分支。只属于这个分支的快照一并删除；删除的是当前分支时切换到 main（或其他分支）。
-    pub fn delete_branch(
+    pub(crate) fn delete_branch_raw(
         &mut self,
         lock: &RepoLock,
         game: &GameRecord,
@@ -134,7 +134,12 @@ impl App {
     }
 
     /// 删除标签（只删指针，快照保留）。
-    pub fn delete_tag(&mut self, lock: &RepoLock, game: &GameRecord, name: &str) -> Result<()> {
+    pub(crate) fn delete_tag_raw(
+        &mut self,
+        lock: &RepoLock,
+        game: &GameRecord,
+        name: &str,
+    ) -> Result<()> {
         let r = RefName::tag(name);
         if self.repo.read_ref(&game.id, &r)?.is_none() {
             return Err(AppError::Invalid(format!("找不到标签「{name}」")));

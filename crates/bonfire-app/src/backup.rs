@@ -232,7 +232,7 @@ impl App {
     }
 
     /// 备份一个游戏。调用方持有仓库锁。
-    pub fn backup(
+    pub(crate) fn backup_raw(
         &mut self,
         lock: &RepoLock,
         game: &GameRecord,

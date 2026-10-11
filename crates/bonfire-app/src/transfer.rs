@@ -568,7 +568,7 @@ impl App {
 
     /// 导出存档文件：`spec` 为快照（分支、标签、ID）时导出该快照，为空时导出当前磁盘上的存档。
     /// zip：`dest` 是要生成的文件；文件夹：`dest` 是上级目录，在其中新建以默认名称命名的文件夹。
-    pub fn export_files(
+    pub(crate) fn export_files_raw(
         &self,
         game: &GameRecord,
         spec: Option<&str>,
@@ -787,7 +787,7 @@ impl App {
     // ---------- 历史包 ----------
 
     /// 导出历史包；`include_shots` 时一并导出截图相册。
-    pub fn export_bundle(
+    pub(crate) fn export_bundle_raw(
         &self,
         game: &GameRecord,
         scope: &BundleScope,
@@ -862,7 +862,7 @@ impl App {
     }
 
     /// 导出篝火包（U-16）：一个或多个游戏的存档历史和 / 或截图。没有可导出内容的游戏跳过。
-    pub fn export_package(
+    pub(crate) fn export_package_raw(
         &self,
         games: &[GameRecord],
         dest: &Path,
@@ -975,7 +975,7 @@ impl App {
     /// 导出 zip 格式的篝火导出（U-49）：存档为每个游戏当前快照的存档文件（与“导出存档文件”相同，
     /// 带说明与校验值，可在篝火中导入，也可手动复制），截图为原图。
     /// 一个游戏时放在根目录，多个游戏时每个游戏一个文件夹；同时导出存档与截图时再分“存档 / 截图”两个文件夹。
-    pub fn export_package_zip(
+    pub(crate) fn export_package_zip_raw(
         &self,
         games: &[GameRecord],
         dest: &Path,
@@ -1718,7 +1718,7 @@ impl App {
 
     /// 导入历史包：写入对象并校验，再按预览中的关系更新分支与标签。不移动当前所在的快照，不写入存档目录。
     /// 游戏库中没有这个游戏时加入游戏库（未安装）。选中的是合集包时导入其中与 `target` 对应的游戏。
-    pub fn import_bundle(
+    pub(crate) fn import_bundle_raw(
         &mut self,
         lock: &RepoLock,
         path: &Path,
@@ -2048,7 +2048,7 @@ impl App {
     // ---------- 导入存档文件 ----------
 
     /// 导入存档文件（zip 或文件夹）为一个新快照。不写入存档目录。
-    pub fn import_files(
+    pub(crate) fn import_files_raw(
         &mut self,
         lock: &RepoLock,
         game: &GameRecord,

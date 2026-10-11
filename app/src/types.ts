@@ -25,7 +25,7 @@ export interface AppInfo {
 }
 
 export interface Config {
-  general: { language?: string; theme: Theme; repo?: string; close_to_tray: boolean; close_asked?: boolean; remember_filters?: boolean; remember_selection?: boolean };
+  general: { language?: string; theme: Theme; repo?: string; close_to_tray: boolean; close_asked?: boolean; remember_filters?: boolean; remember_selection?: boolean; notify_failures?: boolean };
   backup: { include_config_files: boolean; size_warning_gb: number; disabled_platforms: string[]; protect_local: boolean; use_vss?: boolean };
   shots: ShotsConfig;
   auto_backup: AutoBackupConfig;
@@ -76,6 +76,94 @@ export interface RetentionConfig {
   keep_daily: number;
   keep_weekly: number;
   scope: "auto" | "all";
+}
+
+/** 本机操作记录（总览页）。 */
+export interface Activity {
+  at: string;
+  action: string;
+  ok: boolean;
+  game?: string;
+  name?: string;
+  snapshot?: string;
+  n?: number;
+  bytes?: number;
+  detail?: string;
+  error?: string;
+  issue?: string;
+}
+
+export interface ActivityQuery {
+  category?: string | null;
+  failed?: boolean;
+  game?: string | null;
+  text?: string | null;
+  limit?: number;
+  before?: string | null;
+}
+
+export interface ActivityPage {
+  items: Activity[];
+  more: boolean;
+  failed: number;
+}
+
+/** 需要处理的问题（红点）。 */
+export interface AttentionItem {
+  key: string;
+  kind: "sync" | "backup" | "fsck";
+  name: string;
+  game: string | null;
+  target: string | null;
+  issue: string | null;
+  error: string | null;
+  at: string;
+  retry: { attempt: number; at: string } | null;
+}
+
+export interface Attention {
+  items: AttentionItem[];
+  snoozed: number;
+}
+
+export interface GameUsage {
+  id: string;
+  name: string;
+  snapshots: number;
+  saves: number;
+  shots: number;
+}
+
+export interface StorageStats {
+  repoDir: string;
+  total: number;
+  saves: number;
+  shots: number;
+  other: number;
+  free: number | null;
+  logical: number;
+  snapshots: number;
+  games: GameUsage[];
+  trend: [string, number][];
+}
+
+export interface GameDiskDiff {
+  id: string;
+  name: string;
+  new: number;
+  duplicates: number;
+  missing: number;
+  restorable: number;
+  toHome: number;
+  noPlace: number;
+  ignored: number;
+  error: string | null;
+}
+
+export interface DiskCompare {
+  at: string;
+  games: GameDiskDiff[];
+  compared: number;
 }
 
 /** 同步失败（或提醒）的原因。 */

@@ -3,6 +3,7 @@ import { loadUiState } from "./lib/uiState";
 import { useTranslation } from "react-i18next";
 import { UnlockScreen } from "./components/Security";
 import SyncPage from "./pages/SyncPage";
+import OverviewPage from "./pages/OverviewPage";
 import { api, errorMessage } from "./api";
 import logo from "./assets/logo.svg";
 import { Icon, Toasts } from "./components/ui";
@@ -24,6 +25,13 @@ export default function App() {
   const { info, setInfo, view, go, loadLibrary, startScan, toast } = useStore();
   const [ready, setReady] = useState(false);
   const [closeAsk, setCloseAsk] = useState(false);
+  const attentionCount = useStore((s) => s.attention?.items.length ?? 0);
+
+  // 需要处理的问题：后台有变化时推送（同步、自动备份后，每分钟检查）。
+  useEffect(() => {
+    const off = api.onAttention((a) => useStore.getState().setAttention(a));
+    return () => void off.then((f) => f());
+  }, []);
 
   useEffect(() => {
     // 先读入界面状态（筛选、图库查看方式等），再加载游戏库。
@@ -36,7 +44,10 @@ export default function App() {
         if (!i.firstRun) {
           setLanguage(i.locale);
           // 加密仓库还没解锁时先输入密码，解锁后再加载游戏库。
-          if (!i.locked) void loadLibrary(true);
+          if (!i.locked) {
+            void loadLibrary(true);
+            void api.attention().then((a) => useStore.getState().setAttention(a)).catch(() => {});
+          }
         }
         if (i.configError) toast("error", t("ui.configError", { msg: i.configError }));
       })
@@ -132,6 +143,15 @@ export default function App() {
     <div className="shell">
       <nav className="rail" aria-label={t("ui.nav.label")}>
         <img className="mark" src={logo} alt={t("app.name")} />
+        <button aria-current={view.name === "overview" ? "page" : undefined} onClick={() => go({ name: "overview" })} title={attentionCount > 0 ? t("ui.ov.badge", { n: attentionCount }) : undefined}>
+          <Icon name="home" size={22} />
+          {t("ui.nav.overview")}
+          {attentionCount > 0 && (
+            <span className="rail-badge num" aria-label={t("ui.ov.badge", { n: attentionCount })}>
+              {attentionCount > 99 ? "99+" : attentionCount}
+            </span>
+          )}
+        </button>
         <button aria-current={view.name === "library" || view.name === "game" ? "page" : undefined} onClick={() => go({ name: "library" })}>
           <Icon name="library" size={22} />
           {t("ui.nav.library")}
@@ -155,6 +175,7 @@ export default function App() {
         </button>
       </nav>
       <main className="main">
+        {view.name === "overview" && <OverviewPage />}
         {view.name === "library" && <Library />}
         {view.name === "gallery" && <Gallery />}
         {view.name === "scan" && <ScanPage />}

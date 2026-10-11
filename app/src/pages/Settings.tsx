@@ -178,6 +178,16 @@ export default function Settings() {
                 </label>
               </div>
             </div>
+            <div className="row">
+              <label>{t("ui.settings.notify")}</label>
+              <div>
+                <label className="opt">
+                  <input type="checkbox" className="check" checked={cfg.general.notify_failures ?? true} onChange={(e) => update((c) => (c.general.notify_failures = e.target.checked))} />
+                  {t("ui.settings.notifyFailures")}
+                </label>
+                <p className="hint">{t("ui.settings.notifyHint")}</p>
+              </div>
+            </div>
           </section>
 
           <section id="settings-auto" className={section === "auto" ? "flash" : undefined}>

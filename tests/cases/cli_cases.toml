@@ -905,6 +905,44 @@ expect_exit = 0
 expect_stdout_json = { "level" = "ok", "limitBytes" = 0, "delete" = 0 }
 
 [[case]]
+id = "activity-after-backup"
+title = { zh-CN = "查看操作记录", en = "Show activity" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士", "-m", "打 Boss 前"]]
+args = ["activity", "--category", "backup"]
+expect_exit = 0
+stdout_contains = ["手动备份", "空洞骑士", "打 Boss 前"]
+in_docs = true
+
+[[case]]
+id = "activity-failed-none"
+title = { zh-CN = "只看失败的操作记录（JSON 输出）", en = "Only failed activity (JSON output)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["activity", "--failed", "--json"]
+expect_exit = 0
+expect_stdout_json = { "failed" = 0, "more" = false }
+
+[[case]]
+id = "stats"
+title = { zh-CN = "仓库空间统计", en = "Repository space" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["stats"]
+expect_exit = 0
+stdout_contains = ["存档快照", "1 个快照"]
+in_docs = true
+
+[[case]]
+id = "shots-compare-empty"
+title = { zh-CN = "对比全部游戏的截图与磁盘", en = "Compare screenshots with disk for all games" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"]]
+args = ["shots", "compare"]
+expect_exit = 0
+stdout_contains = ["对比了"]
+
+[[case]]
 id = "sync-unknown-target"
 title = { zh-CN = "同步不存在的目标", en = "Sync an unknown target" }
 args = ["sync", "push", "不存在"]

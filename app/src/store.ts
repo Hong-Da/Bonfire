@@ -2,18 +2,18 @@ import { create } from "zustand";
 import { prefGet, prefRemove, prefSet } from "./lib/uiState";
 import { markSeen, noteGames } from "./lib/fresh";
 import { api, errorMessage } from "./api";
-import type { AppInfo, GameRow, GameState, ManageMode, Phase, ScanReport } from "./types";
+import type { AppInfo, GameRow, GameState, ManageMode, Phase, ScanReport, Attention } from "./types";
 import { fuzzyMatch } from "./lib/search";
 
 /** `section`：打开设置时跳到的分组（如快捷菜单中的“更多设置”）。 */
-export type View = { name: "library" } | { name: "gallery" } | { name: "scan" } | { name: "sync" } | { name: "game"; id: string } | { name: "settings"; section?: "auto" | "shots" | "retention" };
+export type View = { name: "overview" } | { name: "library" } | { name: "gallery" } | { name: "scan" } | { name: "sync" } | { name: "game"; id: string } | { name: "settings"; section?: "auto" | "shots" | "retention" };
 export type StateFilter = "all" | GameState;
 export type ModeFilter = "all" | ManageMode;
 
 /** 启动时的页面：地址中的 `#/gallery`、`#/scan`、`#/settings`、`#/game/<id>`，没有时为游戏库。 */
 export function initialView(hash: string): View {
   const [name, id] = hash.replace(/^#\/?/, "").split("/");
-  if (name === "gallery" || name === "scan" || name === "sync" || name === "settings") return { name };
+  if (name === "overview" || name === "gallery" || name === "scan" || name === "sync" || name === "settings") return { name };
   if (name === "game" && id) return { name: "game", id: decodeURIComponent(id) };
   return { name: "library" };
 }
@@ -47,6 +47,8 @@ interface Store {
   fresh: Record<string, number>;
   query: string;
   toasts: Toast[];
+  /** 需要处理的问题（导航“总览”的红色数字）。 */
+  attention: Attention | null;
   /** 恢复后常驻的“撤销本次恢复”提示（按游戏）。 */
   undoable: Record<string, string>;
   /** 最近一次扫描（发现游戏）的结果，离开扫描页后保留。 */
@@ -56,6 +58,7 @@ interface Store {
 
   setInfo: (info: AppInfo) => void;
   go: (view: View) => void;
+  setAttention: (a: Attention | null) => void;
   loadLibrary: (fetchInfo: boolean) => Promise<void>;
   startScan: () => Promise<void>;
   upsertRow: (row: GameRow) => void;
@@ -168,11 +171,13 @@ export const useStore = create<Store>((set, get) => ({
   fresh: {},
   query: "",
   toasts: [],
+  attention: null,
   undoable: {},
   scan: null,
   scanning: false,
   scanPhase: "idle",
 
+  setAttention: (attention) => set({ attention }),
   setInfo: (info) => {
     // 关闭“记住”时清除已保存的选择，之后也不再保存。
     if (info.rememberFilters === false) prefRemove(FILTER_KEY);

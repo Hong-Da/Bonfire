@@ -212,7 +212,7 @@ impl App {
     }
 
     /// 分支改名。
-    pub fn rename_branch(
+    pub(crate) fn rename_branch_raw(
         &mut self,
         lock: &RepoLock,
         game: &GameRecord,

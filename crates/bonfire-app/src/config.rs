@@ -73,6 +73,8 @@ pub struct General {
     pub remember_filters: bool,
     /// 已不再使用（U-58：重启后全部不勾选，切换页面时保留）；保留这一项以兼容旧配置文件。
     pub remember_selection: bool,
+    /// 同步失败、自动备份失败时（篝火窗口不在前台）弹出 Windows 系统通知（决策 OV-4）。
+    pub notify_failures: bool,
 }
 
 impl Default for General {
@@ -85,6 +87,7 @@ impl Default for General {
             close_asked: false,
             remember_filters: true,
             remember_selection: true,
+            notify_failures: true,
         }
     }
 }
@@ -498,6 +501,8 @@ close_to_tray = {tray}
 close_asked = {asked}
 # 记住游戏库的筛选（状态、管理方式、平台、筛选方案），重新打开时恢复
 remember_filters = {rem_filters}
+# 同步失败、自动备份失败时（篝火窗口不在前台）弹出系统通知；同一个问题只通知一次
+notify_failures = {notify}
 
 [backup]
 # 是否同时备份游戏的配置文件（画质、按键等设置）
@@ -586,6 +591,7 @@ keep_days = {keep}
             tray = d.general.close_to_tray,
             asked = d.general.close_asked,
             rem_filters = d.general.remember_filters,
+            notify = d.general.notify_failures,
             protect = d.backup.protect_local,
             vss = d.backup.use_vss,
             shots = d.shots.enabled,

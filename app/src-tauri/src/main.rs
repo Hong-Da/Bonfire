@@ -3,6 +3,7 @@
 // 发布版不弹出控制台窗口。
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod attention;
 mod commands;
 mod sync_cmds;
 mod tray;
@@ -50,6 +51,7 @@ fn main() {
             tray::show_main(app)
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(shared)
         .on_window_event(tray::on_window_event)
         .setup(move |app| {
@@ -63,6 +65,7 @@ fn main() {
                     tracing::error!("打开仓库失败：{e}");
                     *shared.config_error.lock().unwrap() = Some(e.to_string());
                 }
+                attention::spawn_refresh(h.clone());
             }
             Ok(())
         })
@@ -154,6 +157,13 @@ fn main() {
             commands::save_profile,
             commands::delete_profile,
             commands::fsck,
+            commands::attention,
+            commands::snooze_attention,
+            commands::activity_list,
+            commands::storage_stats,
+            commands::compare_disk,
+            commands::write_back_all,
+            commands::collect_all_shots,
             sync_cmds::sync_status,
             sync_cmds::sync_save,
             sync_cmds::sync_remove,

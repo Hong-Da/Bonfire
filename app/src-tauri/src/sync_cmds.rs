@@ -30,7 +30,7 @@ pub struct SyncDone {
 static RUNNING: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
 
 /// 在界面实例上取出独立的同步实例。
-fn worker(h: &AppHandle) -> CmdResult<App> {
+pub fn worker(h: &AppHandle) -> CmdResult<App> {
     let shared = h.state::<Shared>();
     let guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
     let app = guard.as_ref().ok_or_else(CmdError::not_ready)?;
@@ -81,6 +81,7 @@ pub fn run_one(h: &AppHandle, id: &str) -> SyncDone {
         },
     };
     let _ = h.emit("sync-done", done.clone());
+    crate::attention::refresh(h);
     done
 }
 

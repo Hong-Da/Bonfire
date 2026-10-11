@@ -393,7 +393,7 @@ impl App {
     }
 
     /// 从对象库重建索引，并在游戏表为空时从 `games.toml` 恢复游戏。
-    pub fn reindex(&mut self, _lock: &RepoLock) -> Result<ReindexStats> {
+    pub(crate) fn reindex_raw(&mut self, _lock: &RepoLock) -> Result<ReindexStats> {
         if self.index.games()?.is_empty() {
             self.restore_games_file()?;
         }

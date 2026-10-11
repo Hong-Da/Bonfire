@@ -695,7 +695,7 @@ impl App {
     }
 
     /// 导入下载的存档为一条新路线（接在当前快照之后）。不写入存档目录。
-    pub fn import_download(
+    pub(crate) fn import_download_raw(
         &mut self,
         lock: &RepoLock,
         game: &GameRecord,

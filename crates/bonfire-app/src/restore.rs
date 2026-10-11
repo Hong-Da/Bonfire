@@ -173,7 +173,7 @@ impl App {
     }
 
     /// 恢复到指定快照。
-    pub fn restore(
+    pub(crate) fn restore_raw(
         &mut self,
         lock: &RepoLock,
         game: &GameRecord,
@@ -296,7 +296,11 @@ impl App {
     }
 
     /// 撤销最近一次恢复：恢复到恢复前的状态，并还原 HEAD。仅当之后没有再备份时可用。
-    pub fn undo_restore(&mut self, lock: &RepoLock, game: &GameRecord) -> Result<RestoreReport> {
+    pub(crate) fn undo_restore_raw(
+        &mut self,
+        lock: &RepoLock,
+        game: &GameRecord,
+    ) -> Result<RestoreReport> {
         let op = self
             .index
             .last_op(&game.id)?

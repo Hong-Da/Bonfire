@@ -2,6 +2,7 @@
 //!
 //! CLI 与 Tauri 命令层只调用本 crate，不直接实现业务逻辑。
 
+pub mod activity;
 pub mod app;
 pub mod auto;
 pub mod backup;
@@ -18,6 +19,7 @@ pub mod integrity;
 pub mod library;
 pub mod logging;
 pub mod metadata;
+pub mod overview;
 pub mod paths;
 pub mod primary;
 pub mod process;

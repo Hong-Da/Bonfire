@@ -244,7 +244,7 @@ impl App {
 
     /// 把备份中有、磁盘上没有的截图写回（`blobs` 为空表示全部缺失的）。
     /// `dest` 为空时写回原位置（原文件夹不存在则跳过），否则写入 `dest` 文件夹。只写入不存在的文件，不覆盖。
-    pub fn write_back_shots(
+    pub(crate) fn write_back_shots_raw(
         &self,
         game: &GameRecord,
         blobs: &[ObjectId],
@@ -335,7 +335,7 @@ impl App {
     /// 把相册中的截图（如刚导入的）同步到磁盘（U-16）：原位置的文件夹在本机存在时写回原位置，
     /// 否则写到本机这个游戏的截图文件夹（[`App::shot_home`]）；写到新位置时记录的原位置改为新位置，
     /// 之后不会被当作新截图。只写入不存在的文件，不覆盖。
-    pub fn sync_shots_to_disk(
+    pub(crate) fn sync_shots_to_disk_raw(
         &mut self,
         game: &GameRecord,
         blobs: &[ObjectId],

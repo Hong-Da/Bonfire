@@ -221,7 +221,7 @@ impl App {
     }
 
     /// 清理历史：按保留策略压掉多余的快照，再做垃圾回收。`dry_run` 时只预览。
-    pub fn clean_history(
+    pub(crate) fn clean_history_raw(
         &mut self,
         lock: &RepoLock,
         opts: &CleanupOptions,

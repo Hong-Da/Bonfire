@@ -542,7 +542,10 @@ fn network_failures_retry_with_backoff() {
             env.app.sync_due(&later(mins - 1)).is_empty(),
             "还没到重试时间"
         );
-        assert_eq!(env.app.sync_due(&later(mins + 1)), std::slice::from_ref(&t.id));
+        assert_eq!(
+            env.app.sync_due(&later(mins + 1)),
+            std::slice::from_ref(&t.id)
+        );
     }
     // 第 4 次失败后不再重试，等下一次备份。
     assert!(env.app.sync_push(&t.id, &mut |_, _| {}).is_err());

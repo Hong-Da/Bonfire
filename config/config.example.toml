@@ -15,6 +15,8 @@ close_to_tray = true
 close_asked = false
 # 记住游戏库的筛选（状态、管理方式、平台、筛选方案），重新打开时恢复
 remember_filters = true
+# 同步失败、自动备份失败时（篝火窗口不在前台）弹出系统通知；同一个问题只通知一次
+notify_failures = true
 
 [backup]
 # 是否同时备份游戏的配置文件（画质、按键等设置）

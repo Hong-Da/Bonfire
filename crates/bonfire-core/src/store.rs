@@ -37,6 +37,11 @@ impl Repo {
             .join(&hex[2..])
     }
 
+    /// 对象文件在磁盘上的大小（不存在为 0）。
+    pub fn object_size(&self, kind: Kind, id: &ObjectId) -> u64 {
+        std::fs::metadata(self.object_path(kind, id)).map_or(0, |m| m.len())
+    }
+
     pub fn has(&self, kind: Kind, id: &ObjectId) -> bool {
         self.object_path(kind, id).is_file()
     }

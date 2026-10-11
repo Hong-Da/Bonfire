@@ -592,6 +592,7 @@ pub async fn run_backup(
         if out.iter().any(|r| r.ok) {
             crate::sync_cmds::spawn_sync(h.clone(), app.sync_after_backup_targets());
         }
+        crate::attention::spawn_refresh(h.clone());
         Ok(out)
     })
     .await
@@ -1715,6 +1716,8 @@ pub fn start_scheduler(h: AppHandle) {
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(std::time::Duration::from_secs(60));
+            // 需要处理的问题（红点、通知）：每分钟检查一次。
+            crate::attention::refresh(&h);
             let shared = h.state::<Shared>();
             let report: Option<AutoReport> = {
                 let mut guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
@@ -1738,6 +1741,7 @@ pub fn start_scheduler(h: AppHandle) {
                     crate::sync_cmds::after_backup(&h);
                 }
                 let _ = h.emit("auto-backup", r);
+                crate::attention::refresh(&h);
             }
             // 定时同步（每天 / 每隔几小时）。
             let due = {
@@ -1814,9 +1818,82 @@ fn start_exit_watcher(h: AppHandle) {
             };
             if let Some(r) = report.filter(|r| !r.items.is_empty()) {
                 let _ = h.emit("auto-backup", r);
+                crate::attention::refresh(&h);
             }
         }
     });
+}
+
+// ---------- 总览（0.3.0） ----------
+
+/// 需要处理的问题（同时更新红点）。
+#[tauri::command]
+pub async fn attention(h: AppHandle) -> CmdResult<bonfire_app::overview::Attention> {
+    let hh = h.clone();
+    let a = with_app(h, move |app, _| Ok(app.attention()?)).await?;
+    crate::attention::spawn_refresh(hh);
+    Ok(a)
+}
+
+/// 稍后提醒：直到这个问题再次发生。
+#[tauri::command]
+pub async fn snooze_attention(h: AppHandle, key: String, at: String) -> CmdResult<()> {
+    let hh = h.clone();
+    with_app(h, move |app, _| Ok(app.snooze(&key, &at)?)).await?;
+    crate::attention::spawn_refresh(hh);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn activity_list(
+    h: AppHandle,
+    query: bonfire_app::activity::ActivityQuery,
+) -> CmdResult<bonfire_app::activity::ActivityPage> {
+    with_app(h, move |app, _| Ok(app.activities(&query)?)).await
+}
+
+/// 仓库空间（在独立实例上统计，不占用界面使用的实例）。
+#[tauri::command]
+pub async fn storage_stats(h: AppHandle) -> CmdResult<bonfire_app::overview::StorageStats> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let w = crate::sync_cmds::worker(&h)?;
+        Ok(w.storage_stats()?)
+    })
+    .await
+    .map_err(|e| CmdError {
+        kind: "general",
+        message: e.to_string(),
+    })?
+}
+
+/// 全部游戏的截图与磁盘对比（只读，在独立实例上进行）。
+#[tauri::command]
+pub async fn compare_disk(h: AppHandle) -> CmdResult<bonfire_app::overview::DiskCompare> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let w = crate::sync_cmds::worker(&h)?;
+        Ok(w.compare_disk()?)
+    })
+    .await
+    .map_err(|e| CmdError {
+        kind: "general",
+        message: e.to_string(),
+    })?
+}
+
+/// 全部游戏：图库中有、磁盘上没有的截图写到磁盘。
+#[tauri::command]
+pub async fn write_back_all(h: AppHandle) -> CmdResult<bonfire_app::gallery::WriteBackReport> {
+    with_app(h, move |app, _| Ok(app.write_back_all()?)).await
+}
+
+/// 全部游戏：收集磁盘上的新截图，返回张数。
+#[tauri::command]
+pub async fn collect_all_shots(h: AppHandle) -> CmdResult<usize> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(app.collect_all_shots(&lock)?)
+    })
+    .await
 }
 
 /// 游戏程序：运行检测用的进程名。

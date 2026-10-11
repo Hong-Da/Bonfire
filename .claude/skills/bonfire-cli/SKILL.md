@@ -39,6 +39,8 @@ description: 通过命令行 bonfire 操作篝火（Bonfire）游戏存档备份
 | 游戏信息 | `bonfire info <游戏> [--refresh]` |
 | 规则库 | `bonfire rules info`、`bonfire rules update` |
 | 校验 / 重建索引 | `bonfire fsck [--deep]`、`bonfire reindex` |
+| 操作记录 / 空间 | `bonfire activity --json [--failed] [--category backup] [--game <游戏>]`、`bonfire stats --json` |
+| 全部游戏的截图与磁盘 | `bonfire shots compare --json`；写回缺少的：`bonfire shots compare --write-back`（需确认） |
 | 同步到远程 | `bonfire sync list`、`bonfire sync add <名称> --kind folder|webdav|github|gitee --url <地址>`、`bonfire sync preview <目标> --json`、`bonfire sync push [<目标>...]`；令牌用环境变量 `BONFIRE_SYNC_SECRET` 传入，不要写在命令行 |
 | 仓库加密 | `bonfire repo status`、`bonfire repo unlock [--remember]`；加密 / 改密码 / 取消加密见 `docs/cli.md` |
 

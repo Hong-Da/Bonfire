@@ -70,7 +70,7 @@ pub struct BulkDeleteReport {
 
 impl App {
     /// 删除多个快照。`dry_run` 时只检查与预览；执行时跳过不能删除的快照，一个都不能删时报错。
-    pub fn delete_snapshots(
+    pub(crate) fn delete_snapshots_raw(
         &mut self,
         lock: &RepoLock,
         game: &GameRecord,

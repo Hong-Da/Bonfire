@@ -321,7 +321,11 @@ impl App {
     }
 
     /// 收集新截图：原样复制到仓库的截图目录。来源目录只读；内容与已收集的相同时不重复存。
-    pub fn sync_shots(&mut self, _lock: &RepoLock, game: &GameRecord) -> Result<ShotSyncReport> {
+    pub(crate) fn sync_shots_raw(
+        &mut self,
+        _lock: &RepoLock,
+        game: &GameRecord,
+    ) -> Result<ShotSyncReport> {
         let mut report = ShotSyncReport {
             game_id: game.id.clone(),
             ..Default::default()
@@ -519,7 +523,7 @@ impl App {
     // ---------- 删除、回收站 ----------
 
     /// 把截图移入回收站（只动备份，不碰磁盘上的原图）。返回移入的数量。
-    pub fn delete_shots(
+    pub(crate) fn delete_shots_raw(
         &mut self,
         _lock: &RepoLock,
         game: &GameRecord,
@@ -580,7 +584,7 @@ impl App {
 
     /// 彻底删除截图；`originals` 时同时删除磁盘上的原图（U-11）：
     /// 只删除内容与备份一致的原图（内容变了的保留），移到系统回收站（伪造根目录下直接删除）。
-    pub fn purge_shots_with(
+    pub(crate) fn purge_shots_with_raw(
         &mut self,
         _lock: &RepoLock,
         game: &GameRecord,
@@ -935,7 +939,7 @@ impl App {
     }
 
     /// 导出截图（`blobs` 为空表示相册中全部）到 zip 或新文件夹，文件名用原文件名（重名加序号）。
-    pub fn export_shots(
+    pub(crate) fn export_shots_raw(
         &self,
         game: &GameRecord,
         blobs: &[ObjectId],

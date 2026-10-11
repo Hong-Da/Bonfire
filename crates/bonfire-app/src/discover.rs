@@ -143,7 +143,7 @@ impl App {
     }
 
     /// 下载最新规则库到缓存目录。`bundle_to` 指定时同时写出一份内置快照（打包用）。
-    pub fn update_rules(
+    pub(crate) fn update_rules_raw(
         &self,
         url: &str,
         bundle_to: Option<&std::path::Path>,
@@ -250,7 +250,7 @@ impl App {
 
     /// 扫描（发现游戏）：不会把游戏加入游戏库，由用户选择加入或忽略。
     /// 已在游戏库中的游戏会更新其存档位置（新出现的位置追加）。
-    pub fn scan_with(
+    pub(crate) fn scan_with_raw(
         &mut self,
         _lock: &RepoLock,
         adapters: &[Box<dyn PlatformAdapter>],
