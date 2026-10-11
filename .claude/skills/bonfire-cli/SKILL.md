@@ -39,6 +39,7 @@ description: 通过命令行 bonfire 操作篝火（Bonfire）游戏存档备份
 | 游戏信息 | `bonfire info <游戏> [--refresh]` |
 | 规则库 | `bonfire rules info`、`bonfire rules update` |
 | 校验 / 重建索引 | `bonfire fsck [--deep]`、`bonfire reindex` |
+| 同步到远程 | `bonfire sync list`、`bonfire sync add <名称> --kind folder|webdav|github|gitee --url <地址>`、`bonfire sync preview <目标> --json`、`bonfire sync push [<目标>...]`；令牌用环境变量 `BONFIRE_SYNC_SECRET` 传入，不要写在命令行 |
 | 仓库加密 | `bonfire repo status`、`bonfire repo unlock [--remember]`；加密 / 改密码 / 取消加密见 `docs/cli.md` |
 
 参数、示例与输出字段以 `docs/cli.md` 为准；上表不全或参数不确定时先读它（快照引用：哈希前缀 ≥6 位、`HEAD`、`HEAD~n`、分支名、标签名）。
@@ -60,7 +61,7 @@ description: 通过命令行 bonfire 操作篝火（Bonfire）游戏存档备份
 
 ## 安全约束
 
-- 以下操作执行前**必须先向用户确认**，即使命令支持 `--yes`：`restore`、`undo-restore`、`rm`、`gc`、`branch -d`、`tag -d`、`game rm --delete-snapshots/--delete-shots`、`shots rm --purge/--delete-originals`、`repo decrypt`、`repo encrypt`。能 `--dry-run` 的先 dry-run 给用户看结果。
+- 以下操作执行前**必须先向用户确认**，即使命令支持 `--yes`：`restore`、`undo-restore`、`rm`、`gc`、`branch -d`、`tag -d`、`game rm --delete-snapshots/--delete-shots`、`shots rm --purge/--delete-originals`、`repo decrypt`、`repo encrypt`、`sync compact`（改写远程历史）、`sync pull`。同步前先 `sync preview` 给用户看要上传的内容与大小。能 `--dry-run` 的先 dry-run 给用户看结果。
 - 恢复会改写真实存档目录：先 `--dry-run`，并提醒用户关闭游戏。
 - 测试或演示时绝不对真实游戏存档做恢复、写回；用 `BONFIRE_HOME`、`--repo` 指向临时目录。
 - 不读取、不保存、不打印用户的密码；只通过 `BONFIRE_PASSWORD` 环境变量传入。
