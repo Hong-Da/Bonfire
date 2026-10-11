@@ -29,6 +29,7 @@ rayon.workspace = true
 getrandom.workspace = true
 walkdir.workspace = true
 ureq.workspace = true
+git2.workspace = true
 trash.workspace = true
 
 [target.'cfg(windows)'.dependencies]

@@ -42,6 +42,8 @@ sys-locale = "0.3"
 zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
 sevenz-rust2 = { version = "0.20", default-features = false, features = ["aes256", "bzip2", "ppmd", "util", "deflate"] }
 unrar = "0.5"
+# 同步到 GitHub / Gitee（0.2.0）：内置 libgit2，HTTPS 推送（Windows 用 WinHTTP），不需要 SSH
+git2 = { version = "0.20", default-features = false, features = ["https"] }
 # 仓库加密（M5-2）
 aes-gcm = "0.10"
 argon2 = "0.5"

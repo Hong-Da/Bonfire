@@ -388,3 +388,76 @@ fn webdav_sync_and_restore() {
     let restored = bonfire_core::Repo::open(&dest).unwrap();
     assert!(bonfire_core::fsck::fsck(&restored, true).unwrap().ok());
 }
+
+/// 远程裸仓库中分支上的文件。
+fn bare_files(path: &std::path::Path, branch: &str) -> Vec<String> {
+    let repo = git2::Repository::open_bare(path).unwrap();
+    let Ok(r) = repo.find_reference(&format!("refs/heads/{branch}")) else {
+        return Vec::new();
+    };
+    let tree = r.peel_to_commit().unwrap().tree().unwrap();
+    let mut out = Vec::new();
+    tree.walk(git2::TreeWalkMode::PreOrder, |dir, e| {
+        if e.kind() == Some(git2::ObjectType::Blob) {
+            out.push(format!("{dir}{}", e.name().unwrap()));
+        }
+        git2::TreeWalkResult::Ok
+    })
+    .unwrap();
+    out
+}
+
+fn commit_count(path: &std::path::Path, branch: &str) -> usize {
+    let repo = git2::Repository::open_bare(path).unwrap();
+    let mut walk = repo.revwalk().unwrap();
+    walk.push_ref(&format!("refs/heads/{branch}")).unwrap();
+    walk.count()
+}
+
+#[test]
+fn git_sync_push_restore_and_compact() {
+    let mut env = Env::new();
+    env.write("a.sav", b"one");
+    let g = env.add_game("Hades");
+    backup(&mut env, &g);
+    let bare = env.dir.path().join("remote.git");
+    git2::Repository::init_bare(&bare).unwrap();
+    let mut t = SyncTarget::new(SyncKind::Gitee, "码云", &bare.to_string_lossy());
+    t.branch = "saves".into();
+    let t = env.app.save_sync_target(t, None).unwrap();
+    assert_eq!((t.max_file_mb, t.max_total_mb, t.shots), (50, 500, false));
+    assert!(env.app.sync_test(&t).unwrap().contains("还没有内容"));
+
+    let run = env.app.sync_push(&t.id, &mut |_, _| {}).unwrap();
+    assert!(run.error.is_none() && run.uploaded > 0);
+    let files = bare_files(&bare, "saves");
+    assert!(files.contains(&"config.toml".to_string()));
+    assert!(files.iter().any(|f| f.starts_with("objects/")));
+    assert!(files.contains(&SETTINGS_FILE.to_string()));
+    assert_eq!(commit_count(&bare, "saves"), 1);
+
+    // 增量：新的备份只提交新增的文件。
+    env.write("a.sav", b"two");
+    backup(&mut env, &g);
+    let (p2, _, _) = env.app.sync_plan(&t).unwrap();
+    assert!(
+        p2.remote_bytes > p2.upload_bytes,
+        "Git 远程含历史：已推送的加上新增的"
+    );
+    env.app.sync_push(&t.id, &mut |_, _| {}).unwrap();
+    assert_eq!(commit_count(&bare, "saves"), 2);
+
+    // 另一台电脑：缓存不同（换一个目标 ID），从远程恢复完整仓库。
+    let dest = env.dir.path().join("from-git");
+    std::fs::remove_dir_all(env.app.paths.cache_dir.join("sync")).unwrap();
+    let n = env.app.sync_restore(&t.id, &dest).unwrap();
+    assert_eq!(n, bare_files(&bare, "saves").len());
+    let restored = bonfire_core::Repo::open(&dest).unwrap();
+    assert!(bonfire_core::fsck::fsck(&restored, true).unwrap().ok());
+
+    // 压缩远程：只剩一个提交，内容不变。
+    let before = bare_files(&bare, "saves");
+    env.app.sync_compact(&t.id).unwrap();
+    assert_eq!(commit_count(&bare, "saves"), 1);
+    assert_eq!(bare_files(&bare, "saves"), before);
+}

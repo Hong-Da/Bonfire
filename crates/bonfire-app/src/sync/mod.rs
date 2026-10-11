@@ -11,6 +11,7 @@
 
 mod content;
 mod folder;
+mod git;
 pub mod target;
 mod webdav;
 
@@ -275,10 +276,14 @@ impl App {
                 &t.user,
                 self.sync_secret(&t.id).as_deref(),
             )?)),
-            _ => Err(AppError::Invalid(format!(
-                "暂不支持的同步目标：{:?}",
-                t.kind
-            ))),
+            SyncKind::Github | SyncKind::Gitee => Ok(Box::new(git::GitRemote::open(
+                &git::cache_dir(&self.paths.cache_dir, &t.id),
+                t.kind,
+                &t.url,
+                &t.branch,
+                &t.user,
+                self.sync_secret(&t.id),
+            )?)),
         }
     }
 
@@ -298,6 +303,7 @@ impl App {
             return Err(AppError::Invalid(why.clone()));
         }
         let result = (|| -> Result<()> {
+            self.check_git_private(&t)?;
             let mut remote = self.sync_remote(&t)?;
             let batch = remote.batch_bytes();
             let mut in_batch = 0u64;
@@ -347,9 +353,48 @@ impl App {
         self.save_sync_state(id, state)
     }
 
-    /// 测试连接。
+    /// 测试连接（GitHub / Gitee 同时检查仓库是否私有）。
     pub fn sync_test(&self, t: &SyncTarget) -> Result<String> {
+        self.check_git_private(t)?;
         self.sync_remote(t)?.test()
+    }
+
+    /// GitHub / Gitee 的公开仓库不同步。本机的测试仓库不检查。
+    fn check_git_private(&self, t: &SyncTarget) -> Result<()> {
+        if !t.kind.is_git() || git::local(&t.url) {
+            return Ok(());
+        }
+        let token = self
+            .sync_secret(&t.id)
+            .ok_or_else(|| AppError::Invalid("请先填写访问令牌".into()))?;
+        if !git::check_private(t.kind, &t.url, &token)? {
+            return Err(AppError::Invalid(
+                "这是公开仓库，所有人都能看到同步的存档；请在网站上改为私有仓库后再同步".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// 压缩远程仓库（GitHub / Gitee）：只保留当前内容，去掉已删除内容的旧版本。改写远程历史，调用方先确认。
+    pub fn sync_compact(&mut self, id: &str) -> Result<()> {
+        let t = self.sync_target(id)?;
+        if !t.kind.is_git() {
+            return Err(AppError::Invalid("只有 GitHub / Gitee 目标需要压缩".into()));
+        }
+        self.check_git_private(&t)?;
+        let mut g = git::GitRemote::open(
+            &git::cache_dir(&self.paths.cache_dir, &t.id),
+            t.kind,
+            &t.url,
+            &t.branch,
+            &t.user,
+            self.sync_secret(&t.id),
+        )?;
+        g.compact()?;
+        let mut state = self.sync_state(&t.id);
+        let (plan, _, _) = self.sync_plan(&t)?;
+        state.pushed_bytes = plan.remote_bytes.saturating_sub(plan.upload_bytes);
+        self.save_sync_state(&t.id, &state)
     }
 
     /// 从远程恢复完整仓库到空文件夹 `dest`，返回恢复的文件数。之后可把仓库位置改为 `dest`。
