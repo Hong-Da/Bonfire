@@ -1206,5 +1206,10 @@
   "ui.backup.shotsNew": "本次新增 {n} 张",
   "ui.backup.shotsNoNew": "没有新截图",
   "ui.backup.shotsNewTotal": "本次将从 {games} 个游戏新增 {n} 张截图",
-  "ui.backup.shotsNewNone": "这些游戏目前没有新截图，收集时会再检查一次"
+  "ui.backup.shotsNewNone": "这些游戏目前没有新截图，收集时会再检查一次",
+  "ui.fresh.tag": "新加入",
+  "ui.fresh.hint": "最近 {days} 天内加入游戏库；打开详情后不再标记",
+  "ui.fresh.head": "新加入",
+  "ui.fresh.only": "只看新加入的（{n}）",
+  "ui.fresh.markAll": "全部标为已看过（{n}）"
 }

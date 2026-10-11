@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { markSeen, noteGames } from "./lib/fresh";
 import { api, errorMessage } from "./api";
 import type { AppInfo, GameRow, GameState, ManageMode, Phase, ScanReport } from "./types";
 import { fuzzyMatch } from "./lib/search";
@@ -37,6 +38,10 @@ interface Store {
   modeFilter: ModeFilter;
   /** 当前使用的筛选方案：只列出方案中的游戏。 */
   profileFilter: { name: string; ids: string[] } | null;
+  /** 只看新加入的游戏 */
+  newOnly: boolean;
+  /** 新加入的游戏：ID → 加入时间（见 lib/fresh.ts） */
+  fresh: Record<string, number>;
   query: string;
   toasts: Toast[];
   /** 恢复后常驻的“撤销本次恢复”提示（按游戏）。 */
@@ -60,6 +65,9 @@ interface Store {
   setStateFilter: (s: StateFilter) => void;
   setModeFilter: (m: ModeFilter) => void;
   setProfileFilter: (p: { name: string; ids: string[] } | null) => void;
+  setNewOnly: (on: boolean) => void;
+  /** 标为已看过（不再显示“新加入”） */
+  markSeen: (ids: string[]) => void;
   setQuery: (q: string) => void;
   toast: (kind: Toast["kind"], text: string, action?: Toast["action"]) => void;
   dismiss: (id: number) => void;
@@ -70,12 +78,12 @@ let toastSeq = 0;
 
 /** 游戏库的筛选（状态、管理方式、平台、筛选方案）记在本机，重新打开时恢复。 */
 const FILTER_KEY = "bonfire.library.filters";
-type SavedFilters = { stateFilter: StateFilter; modeFilter: ModeFilter; platformFilter: string; profileFilter: { name: string; ids: string[] } | null };
+type SavedFilters = { stateFilter: StateFilter; modeFilter: ModeFilter; platformFilter: string; profileFilter: { name: string; ids: string[] } | null; newOnly: boolean };
 const STATE_VALUES: StateFilter[] = ["all", "has-changes", "never-backed-up", "up-to-date", "shots-only"];
 const MODE_VALUES: ModeFilter[] = ["all", "both", "saves", "shots"];
 
 export function readFilters(): SavedFilters {
-  const none: SavedFilters = { stateFilter: "all", modeFilter: "all", platformFilter: "all", profileFilter: null };
+  const none: SavedFilters = { stateFilter: "all", modeFilter: "all", platformFilter: "all", profileFilter: null, newOnly: false };
   try {
     const v = JSON.parse(localStorage.getItem(FILTER_KEY) ?? "{}");
     const p = v.profileFilter;
@@ -84,6 +92,7 @@ export function readFilters(): SavedFilters {
       modeFilter: MODE_VALUES.includes(v.modeFilter) ? v.modeFilter : "all",
       platformFilter: typeof v.platformFilter === "string" && v.platformFilter ? v.platformFilter : "all",
       profileFilter: p && typeof p.name === "string" && Array.isArray(p.ids) ? { name: p.name, ids: p.ids.filter((x: unknown) => typeof x === "string") } : null,
+      newOnly: v.newOnly === true,
     };
   } catch {
     return none;
@@ -106,7 +115,12 @@ export function defaultSelection(rows: GameRow[]): Set<string> {
 }
 
 export function visibleRows(
-  s: Pick<Store, "rows" | "order" | "platformFilter" | "stateFilter" | "query"> & { modeFilter?: ModeFilter; profileFilter?: Store["profileFilter"] },
+  s: Pick<Store, "rows" | "order" | "platformFilter" | "stateFilter" | "query"> & {
+    modeFilter?: ModeFilter;
+    profileFilter?: Store["profileFilter"];
+    newOnly?: boolean;
+    fresh?: Record<string, number>;
+  },
 ): GameRow[] {
   const q = s.query.trim().toLowerCase();
   return s.order
@@ -116,6 +130,7 @@ export function visibleRows(
     .filter((r) => s.stateFilter === "all" || r.state === s.stateFilter)
     .filter((r) => !s.modeFilter || s.modeFilter === "all" || r.mode === s.modeFilter)
     .filter((r) => !s.profileFilter || s.profileFilter.ids.includes(r.id))
+    .filter((r) => !s.newOnly || !!s.fresh?.[r.id])
     // 模糊搜索：中文名、英文名、拼音（首字母）、按顺序出现的字母；游戏 ID 按包含匹配。
     .filter((r) => !q || r.id.includes(q) || fuzzyMatch(q, [r.name, r.nameZh]));
 }
@@ -140,6 +155,8 @@ export const useStore = create<Store>((set, get) => ({
   stateFilter: savedFilters?.stateFilter ?? "all",
   modeFilter: savedFilters?.modeFilter ?? "all",
   profileFilter: savedFilters?.profileFilter ?? null,
+  newOnly: savedFilters?.newOnly ?? false,
+  fresh: {},
   query: "",
   toasts: [],
   undoable: {},
@@ -148,7 +165,11 @@ export const useStore = create<Store>((set, get) => ({
   scanPhase: "idle",
 
   setInfo: (info) => set({ info }),
-  go: (view) => set({ view }),
+  go: (view) => {
+    // 打开游戏详情后不再标为“新加入”。
+    if (view.name === "game" && get().fresh[view.id]) get().markSeen([view.id]);
+    set({ view });
+  },
 
   startScan: async () => {
     if (get().scanning) return;
@@ -174,7 +195,7 @@ export const useStore = create<Store>((set, get) => ({
       const map = Object.fromEntries(rows.map((r) => [r.id, r]));
       // 用户在加载过程中已经勾选过时保留其选择；否则默认勾选有更新与未备份的游戏。
       const keep = get().selected.size > 0 && [...get().selected].every((id) => map[id]);
-      set({ rows: map, order: sortIds(map), selected: keep ? get().selected : defaultSelection(rows) });
+      set({ rows: map, order: sortIds(map), selected: keep ? get().selected : defaultSelection(rows), fresh: noteGames(rows.map((r) => r.id)) });
     } catch (e) {
       get().toast("error", errorMessage(e));
     } finally {
@@ -237,6 +258,19 @@ export const useStore = create<Store>((set, get) => ({
     set({ profileFilter });
     persistFilters(get());
   },
+  setNewOnly: (newOnly) => {
+    set({ newOnly });
+    persistFilters(get());
+  },
+  markSeen: (ids) => {
+    markSeen(ids);
+    set((s) => {
+      const fresh = { ...s.fresh };
+      for (const id of ids) delete fresh[id];
+      return { fresh, newOnly: Object.keys(fresh).length > 0 && s.newOnly };
+    });
+    persistFilters(get());
+  },
   setQuery: (query) => set({ query }),
 
   toast: (kind, text, action) => {
@@ -256,5 +290,5 @@ export const useStore = create<Store>((set, get) => ({
 }));
 
 function persistFilters(s: SavedFilters) {
-  saveFilters({ stateFilter: s.stateFilter, modeFilter: s.modeFilter, platformFilter: s.platformFilter, profileFilter: s.profileFilter });
+  saveFilters({ stateFilter: s.stateFilter, modeFilter: s.modeFilter, platformFilter: s.platformFilter, profileFilter: s.profileFilter, newOnly: s.newOnly });
 }

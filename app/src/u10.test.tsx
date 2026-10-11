@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import ScanPage from "./pages/ScanPage";
 import ShotDiffDialog from "./pages/ShotDiffDialog";
 import CloseDialog from "./components/CloseDialog";
+import { noteGames } from "./lib/fresh";
 import type { Config, GalleryView, GameRow, ShotRecord } from "./types";
 
 const info = { version: "0.1.0", portable: false, firstRun: false, locale: "zh-CN", theme: "auto" as const, configPath: "C:/c.toml", defaultRepoDir: "C:/repo", repoDir: "C:/repo", configError: null, host: "PC", protectLocal: true };
@@ -40,6 +41,8 @@ function seed(rows: GameRow[]) {
     stateFilter: "all",
     modeFilter: "all",
     profileFilter: null,
+    newOnly: false,
+    fresh: {},
     platformFilter: "all",
     query: "",
     loading: false,
@@ -505,7 +508,32 @@ describe("U-33 记住游戏库的筛选", () => {
     expect(saved).toMatchObject({ modeFilter: "shots", stateFilter: "all", platformFilter: "all", profileFilter: null });
     expect(readFilters()).toMatchObject({ modeFilter: "shots" });
     localStorage.setItem("bonfire.library.filters", JSON.stringify({ modeFilter: "bogus", stateFilter: "has-changes", profileFilter: { name: "周末", ids: ["a", 3] } }));
-    expect(readFilters()).toEqual({ modeFilter: "all", stateFilter: "has-changes", platformFilter: "all", profileFilter: { name: "周末", ids: ["a"] } });
+    expect(readFilters()).toEqual({ modeFilter: "all", stateFilter: "has-changes", platformFilter: "all", profileFilter: { name: "周末", ids: ["a"] }, newOnly: false });
+    localStorage.removeItem("bonfire.library.filters");
+  });
+});
+
+describe("U-34 新加入的游戏", () => {
+  it("第一次使用时已有的不算；之后出现的标为新加入，可筛选、打开或全部标为已看过", async () => {
+    localStorage.removeItem("bonfire.library.seen");
+    expect(noteGames(["a", "b"], 1_000)).toEqual({});
+    expect(noteGames(["a", "b", "c"], 2_000)).toEqual({ c: 2_000 });
+    // 超过 7 天不再算新加入。
+    expect(noteGames(["a", "b", "c"], 2_000 + 8 * 86_400_000)).toEqual({});
+
+    seed([row({ id: "a", name: "Alpha", nameZh: null }), row({ id: "c", name: "Gamma", nameZh: null })]);
+    useStore.setState({ fresh: { c: Date.now() } });
+    render(<Library />);
+    expect(screen.getAllByText("新加入")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: /按筛选方案、状态与平台筛选/ }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "只看新加入的（1）" }));
+    expect(screen.queryByText("Alpha")).toBeNull();
+    expect(screen.getByRole("button", { name: /按筛选方案、状态与平台筛选/ })).toHaveTextContent("筛选：新加入");
+    // 打开详情后不再标记。
+    useStore.getState().go({ name: "game", id: "c" });
+    expect(useStore.getState().fresh).toEqual({});
+    expect(useStore.getState().newOnly).toBe(false);
+    localStorage.removeItem("bonfire.library.seen");
     localStorage.removeItem("bonfire.library.filters");
   });
 });

@@ -939,3 +939,9 @@ button.link:hover { text-decoration: underline; }
 /* 备份确认页：本次新增的截图数 */
 .shots-total { margin: 0 0 6px; font-weight: 600; }
 .shots-new { color: var(--ember); font-weight: 600; }
+
+/* 游戏库：新加入的游戏 */
+.tag.fresh {
+  margin-left: 8px; vertical-align: 2px; padding: 0 7px; border-radius: 9px; font: 600 11px/18px var(--font-ui);
+  color: var(--ember-ink); background: var(--ember); border: 0;
+}

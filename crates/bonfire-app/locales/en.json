@@ -1206,5 +1206,10 @@
   "ui.backup.shotsNew": "{n} new this time",
   "ui.backup.shotsNoNew": "no new screenshots",
   "ui.backup.shotsNewTotal": "{n} new screenshots from {games} games this time",
-  "ui.backup.shotsNewNone": "No new screenshots right now; they'll be checked again when collecting"
+  "ui.backup.shotsNewNone": "No new screenshots right now; they'll be checked again when collecting",
+  "ui.fresh.tag": "New",
+  "ui.fresh.hint": "Added to the library in the last {days} days; cleared once you open it",
+  "ui.fresh.head": "Newly added",
+  "ui.fresh.only": "Only newly added ({n})",
+  "ui.fresh.markAll": "Mark all as seen ({n})"
 }

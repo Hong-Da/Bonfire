@@ -24,9 +24,15 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 112 项，更新于 2026-10-10 23:47。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 113 项，更新于 2026-10-10 23:49。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>63 项</small></h2>
+<section id="s-0"><h2>开发<small>64 项</small></h2>
+      <article id="U-34a">
+        <header><code>U-34a</code><h3>游戏库提示哪些是新加入游戏库的</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">名称后显示橙色“新加入”：本机记录第一次出现的时间，7 天内且没打开过详情的标记；筛选菜单可只看新加入的、全部标为已看过（推荐） <b>✓ 采用</b></li><li class="">在后端记录加入时间并按加入时间排序</li></ul>
+        <p class="reason"><span>理由</span>加入后会自动首次备份，“未备份”状态很快消失，需要单独的标记；只做界面提示，不改仓库格式。</p><p class="impact"><span>影响</span>记在本机浏览器存储中，换电脑或清除数据后重新开始记录（届时已有的游戏不算新加入）。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-33a">
         <header><code>U-33a</code><h3>每次打开或关闭重启都记住游戏库的筛选与管理方式选择</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">记住状态、管理方式、平台与筛选方案（本机保存），重新打开时恢复；搜索词不记住（推荐） <b>✓ 采用</b></li><li class="">连搜索词也记住</li></ul>

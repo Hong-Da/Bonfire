@@ -22,13 +22,15 @@ const STATES: StateFilter[] = ["all", "has-changes", "never-backed-up", "up-to-d
 export default function Library() {
   const { t, i18n } = useTranslation();
   const s = useStore();
-  const rows = useMemo(() => visibleRows(s), [s.rows, s.order, s.platformFilter, s.stateFilter, s.modeFilter, s.profileFilter, s.query]);
+  const rows = useMemo(() => visibleRows(s), [s.rows, s.order, s.platformFilter, s.stateFilter, s.modeFilter, s.profileFilter, s.newOnly, s.fresh, s.query]);
   const allRows = useMemo(() => s.order.map((id) => s.rows[id]).filter(Boolean), [s.rows, s.order]);
   const platforms = useMemo(() => [...new Set(allRows.map((r) => r.platform))].sort(), [allRows]);
   const selected = allRows.filter((r) => s.selected.has(r.id));
   // 筛选方案、状态与平台合并在“筛选”菜单中，按钮上显示当前生效的筛选；管理方式单独一组按钮。
-  const filtered = !!s.profileFilter || s.stateFilter !== "all" || s.platformFilter !== "all";
+  const freshIds = allRows.filter((r) => s.fresh[r.id]).map((r) => r.id);
+  const filtered = !!s.profileFilter || s.newOnly || s.stateFilter !== "all" || s.platformFilter !== "all";
   const filterText = [
+    s.newOnly ? t("ui.fresh.tag") : "",
     s.profileFilter ? t("ui.library.profileActive", { name: s.profileFilter.name }) : "",
     s.stateFilter !== "all" ? t(`ui.state.${s.stateFilter}`) : "",
     s.platformFilter !== "all" ? t(`ui.platform.${s.platformFilter}`, { defaultValue: s.platformFilter }) : "",
@@ -143,6 +145,10 @@ export default function Library() {
               checked: s.stateFilter === st,
               onClick: () => s.setStateFilter(st),
             })),
+            "divider" as const,
+            { label: <b className="menu-head">{t("ui.fresh.head")}</b>, onClick: () => {}, disabled: true },
+            { label: t("ui.fresh.only", { n: freshIds.length }), checked: s.newOnly, disabled: freshIds.length === 0 && !s.newOnly, onClick: () => s.setNewOnly(!s.newOnly) },
+            ...(freshIds.length > 0 ? [{ label: t("ui.fresh.markAll", { n: freshIds.length }), onClick: () => s.markSeen(freshIds) }] : []),
             ...(platforms.length > 1
               ? [
                   "divider" as const,
@@ -242,7 +248,7 @@ export default function Library() {
               </li>
             )}
             {rows.map((r) => (
-              <GameLine key={r.id} row={r} lang={i18n.language} selected={s.selected.has(r.id)} onToggle={() => s.toggle(r.id)} onOpen={() => s.go({ name: "game", id: r.id })} />
+              <GameLine key={r.id} row={r} lang={i18n.language} fresh={!!s.fresh[r.id]} selected={s.selected.has(r.id)} onToggle={() => s.toggle(r.id)} onOpen={() => s.go({ name: "game", id: r.id })} />
             ))}
             {rows.length === 0 && (
               <li className="empty">
@@ -253,6 +259,7 @@ export default function Library() {
                     onClick={() => {
                       s.setStateFilter("all");
                       s.setModeFilter("all");
+                      s.setNewOnly(false);
                       if (s.profileFilter) cancelProfile();
                       s.setPlatformFilter("all");
                       s.setQuery("");
@@ -343,7 +350,7 @@ export default function Library() {
   );
 }
 
-function GameLine({ row, lang, selected, onToggle, onOpen }: { row: GameRow; lang: string; selected: boolean; onToggle: () => void; onOpen: () => void }) {
+function GameLine({ row, lang, fresh, selected, onToggle, onOpen }: { row: GameRow; lang: string; fresh: boolean; selected: boolean; onToggle: () => void; onOpen: () => void }) {
   const { t } = useTranslation();
   const name = displayName(row, lang);
   const changed = row.summary.added + row.summary.modified + row.summary.deleted;
@@ -352,7 +359,14 @@ function GameLine({ row, lang, selected, onToggle, onOpen }: { row: GameRow; lan
       <input type="checkbox" className="check" checked={selected} onChange={onToggle} aria-label={t("ui.library.selectGame", { name })} />
       <Cover row={row} />
       <div className="title" onClick={onOpen} onKeyDown={(e) => e.key === "Enter" && onOpen()} role="button" tabIndex={0}>
-        <strong>{name}</strong>
+        <strong>
+          {name}
+          {fresh && (
+            <span className="tag fresh" title={t("ui.fresh.hint", { days: 7 })}>
+              {t("ui.fresh.tag")}
+            </span>
+          )}
+        </strong>
         <span className="sub">
           <span>{t(`ui.platform.${row.platform}`, { defaultValue: row.platform })}</span>
           {!row.installed && !row.shotsOnly && (
