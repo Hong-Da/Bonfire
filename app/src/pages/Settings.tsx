@@ -11,7 +11,6 @@ import { applyTheme } from "../theme";
 import type { AutoBackupConfig, AutoStatus, Config, FsckReport, GameRecord, Theme } from "../types";
 import { DEFAULT_AUTO } from "../lib/auto";
 
-
 export const PLATFORMS = ["steam", "epic", "gog"] as const;
 
 /** 设置（文档 9.1）：仓库位置、界面、平台开关、是否备份配置文件、游戏信息来源与 API Key、规则库、维护。 */
@@ -143,8 +142,8 @@ export default function Settings() {
             </div>
           </section>
 
-          <section>
-            <h2>{t("ui.settings.backup")}</h2>
+          <section id="settings-auto" className={section === "auto" ? "flash" : undefined}>
+            <h2>{t("ui.settings.auto")}</h2>
             <div className="row">
               <label>{t("ui.settings.platforms")}</label>
               <div className="inline">
@@ -179,10 +178,6 @@ export default function Settings() {
                 <span>GB</span>
               </div>
             </div>
-          </section>
-
-          <section id="settings-auto" className={section === "auto" ? "flash" : undefined}>
-            <h2>{t("ui.settings.auto")}</h2>
             <div className="row">
               <label htmlFor="auto-schedule">{t("ui.settings.autoSchedule")}</label>
               <div className="inline">

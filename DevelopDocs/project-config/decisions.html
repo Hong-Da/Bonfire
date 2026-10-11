@@ -24,9 +24,15 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 108 项，更新于 2026-10-10 22:49。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 109 项，更新于 2026-10-10 23:43。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>59 项</small></h2>
+<section id="s-0"><h2>开发<small>60 项</small></h2>
+      <article id="U-30a">
+        <header><code>U-30a</code><h3>设置里“自动备份”改为“存档备份”</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">改名为“存档备份”，并把原“备份”分组（扫描的平台、备份配置文件、存档大小提醒）并入，与“截图备份”并列（推荐） <b>✓ 采用</b></li><li class="">只改名，保留“备份”分组</li></ul>
+        <p class="reason"><span>理由</span>只改名会出现“备份”与“存档备份”两个相近的分组；合并后存档相关设置集中在一处。</p><p class="impact"><span>影响</span>快捷菜单“更多设置”仍跳到这个分组。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-29a">
         <header><code>U-29a</code><h3>游戏栏截图与公用截图文件夹中未识别到游戏的截图怎么备份</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">照常备份到单独的“未识别的截图”相册（默认开启，可在设置中关闭）；加入对应游戏后收集时自动归过去；图库中可把全部或所选“归到游戏…”（现有游戏或新建只管理截图的游戏）（推荐） <b>✓ 采用</b></li><li class="">不备份，只在发现页列出等用户加入游戏</li></ul>
