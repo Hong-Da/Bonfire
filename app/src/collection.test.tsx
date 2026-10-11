@@ -298,8 +298,10 @@ describe("篝火包：存档与截图（U-16）", () => {
     api.exportPackage.mockResolvedValue({ dest: "D:/out/s.bonfire", bytes: 20, games: [], objects: 0, skipped: [] });
     render(<Gallery />);
     await screen.findByText(/2 张截图/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "全选" }));
-    fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    // 没有选中时也能导出全部截图（U-51）。
+    fireEvent.click(screen.getByRole("button", { name: /导出所选或全部截图/ }));
+    expect(screen.getByRole("menuitem", { name: "导出所选截图（0）…" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("menuitem", { name: "导出全部截图（2）…" }));
     // 与游戏库相同的导出对话框（U-50）：默认只导出选中的截图，可选格式。
     const dlg = await screen.findByRole("dialog", { name: "导出存档和截图" });
     expect(within(dlg).getByText(/导出选中的 2 张截图/)).toBeInTheDocument();

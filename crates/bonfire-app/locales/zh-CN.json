@@ -1082,7 +1082,7 @@
   "ui.package.exported": "已导出 {n} 个游戏（{s} 个快照，{p} 张截图），{size}",
   "ui.package.exportOne": "导出存档和截图（篝火包 / zip）",
   "ui.package.galleryExport": "导出",
-  "ui.package.galleryExportHint": "导出选中的截图：可选篝火包或 zip，也可同时导出这些游戏的存档",
+  "ui.package.galleryExportHint": "导出所选或全部截图：可选篝火包或 zip，也可同时导出这些游戏的存档",
   "ui.package.shotsFileName": "篝火截图",
   "ui.package.importHint": "导入篝火包（存档和截图）",
   "ui.package.savesN": "存档（{n} 个快照）",
@@ -1413,5 +1413,7 @@
   "ui.gallery.groupSelect": "「{name}」的选择",
   "ui.gallery.groupPicked": "已选 {n}",
   "cli.arg.bundle.export.zip": "导出为 zip（篝火的 zip 格式：各游戏当前快照的存档文件与截图原图），而不是篝火包",
-  "ui.package.galleryIntro": "导出选中的 {n} 张截图，也可以同时导出这些游戏的存档；选择内容和格式。"
+  "ui.package.galleryIntro": "导出选中的 {n} 张截图，也可以同时导出这些游戏的存档；选择内容和格式。",
+  "ui.gallery.exportSelected": "导出所选截图（{n}）…",
+  "ui.gallery.exportAll": "导出全部截图（{n}）…"
 }

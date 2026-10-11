@@ -538,9 +538,18 @@ export default function Gallery() {
           </>
         ) : (
           <>
-            <button className="btn" onClick={() => void exportSel(sel)} disabled={busy || sel.length === 0} title={t("ui.package.galleryExportHint")}>
-              <Icon name="export" /> {t("ui.package.galleryExport")}
-            </button>
+            {/* 与游戏库相同：导出所选或全部截图（U-51）。 */}
+            <Menu
+              icon="export"
+              label={t("ui.package.galleryExport")}
+              title={t("ui.package.galleryExportHint")}
+              className="btn"
+              align="right"
+              items={[
+                { label: t("ui.gallery.exportSelected", { n: sel.length }), onClick: () => exportSel(sel), disabled: busy || sel.length === 0 },
+                { label: t("ui.gallery.exportAll", { n: data.shots.length }), onClick: () => exportSel(data.shots), disabled: busy || data.shots.length === 0 },
+              ]}
+            />
             <button className="btn" onClick={() => void remove(sel)} disabled={busy || sel.length === 0}>
               <Icon name="trash" /> {t("ui.shots.delete")}
             </button>
