@@ -935,3 +935,7 @@ button.link:hover { text-decoration: underline; }
 
 /* 图库：未识别的截图 */
 .unsorted-hint { margin: -4px 0 8px; }
+
+/* 备份确认页：本次新增的截图数 */
+.shots-total { margin: 0 0 6px; font-weight: 600; }
+.shots-new { color: var(--ember); font-weight: 600; }

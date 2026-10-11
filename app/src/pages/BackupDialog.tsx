@@ -71,6 +71,21 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
       .then(setRunningGames)
       .catch(() => setRunningGames([]));
   }, []);
+  // 截图确认页：每个游戏本次会新增的截图数（先用上次检查的结果，打开截图页时按磁盘重新数）。
+  const [newShots, setNewShots] = useState<Record<string, number>>(() => Object.fromEntries(plan.shots.map((r) => [r.id, r.newShots ?? 0])));
+  useEffect(() => {
+    if (step !== "shots") return;
+    let off = false;
+    for (const r of plan.shots)
+      api
+        .album(r.id)
+        .then((a) => !off && setNewShots((m) => ({ ...m, [r.id]: a.pending })))
+        .catch(() => {});
+    return () => {
+      off = true;
+    };
+  }, [step]);
+  const newTotal = shotRows.reduce((n, r) => n + (newShots[r.id] ?? 0), 0);
   const shownRunning = runningGames.filter((g) => saveRows.some((r) => r.id === g.gameId));
   const detached = saveRows.filter((r) => r.detached);
   const tooLong = saveRows.some((r) => [...(comments[r.id] ?? "")].length > MAX_COMMENT);
@@ -298,6 +313,7 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
           {step === "shots" && (
             <>
               <p className="hint">{t("ui.backup.shotsIntro")}</p>
+              {shotRows.length > 0 && <p className="shots-total">{newTotal > 0 ? t("ui.backup.shotsNewTotal", { n: newTotal, games: shotRows.length }) : t("ui.backup.shotsNewNone")}</p>}
               {shotRows.length === 0 && (
                 <div className="callout same">
                   <p>{t("ui.backup.noneLeft")}</p>
@@ -312,7 +328,11 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
                       <div>
                         <div className="head">
                           <strong>{name}</strong>
-                          <span className="muted">{t("ui.backup.shotsHave", { n: r.shots })}</span>
+                          <span className="muted">
+                            {t("ui.backup.shotsHave", { n: r.shots })}
+                            {" · "}
+                            {(newShots[r.id] ?? 0) > 0 ? <b className="shots-new">{t("ui.backup.shotsNew", { n: newShots[r.id] })}</b> : t("ui.backup.shotsNoNew")}
+                          </span>
                           <RemoveButton name={name} onClick={() => drop("shots", r.id)} />
                         </div>
                       </div>

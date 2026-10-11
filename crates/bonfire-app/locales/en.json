@@ -1202,5 +1202,9 @@
   "ui.backup.skipShort": "Skip",
   "ui.backup.removedTitle": "Skipped this time ({n}):",
   "ui.backup.restoreRow": "Put back \"{name}\"",
-  "ui.backup.restoreAll": "Put all back"
+  "ui.backup.restoreAll": "Put all back",
+  "ui.backup.shotsNew": "{n} new this time",
+  "ui.backup.shotsNoNew": "no new screenshots",
+  "ui.backup.shotsNewTotal": "{n} new screenshots from {games} games this time",
+  "ui.backup.shotsNewNone": "No new screenshots right now; they'll be checked again when collecting"
 }

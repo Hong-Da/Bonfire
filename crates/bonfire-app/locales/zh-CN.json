@@ -1202,5 +1202,9 @@
   "ui.backup.skipShort": "不备份",
   "ui.backup.removedTitle": "这次不备份（{n}）：",
   "ui.backup.restoreRow": "恢复「{name}」",
-  "ui.backup.restoreAll": "全部恢复"
+  "ui.backup.restoreAll": "全部恢复",
+  "ui.backup.shotsNew": "本次新增 {n} 张",
+  "ui.backup.shotsNoNew": "没有新截图",
+  "ui.backup.shotsNewTotal": "本次将从 {games} 个游戏新增 {n} 张截图",
+  "ui.backup.shotsNewNone": "这些游戏目前没有新截图，收集时会再检查一次"
 }
