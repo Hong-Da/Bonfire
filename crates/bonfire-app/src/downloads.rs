@@ -849,5 +849,18 @@ mod tests {
             main_tip
         );
         assert!(!env.app.game_row(&g, false).unwrap().maybe_replaced);
+
+        // 新出现的旧文件（如存档位置变化、新的存档槽）不算手动替换。
+        env.write("slot9.dat", b"old file appears");
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(env.saves().join("slot9.dat"))
+            .unwrap()
+            .set_modified(old)
+            .unwrap();
+        assert!(!env.app.game_row(&g, true).unwrap().maybe_replaced);
+        // 游戏正常写存档（时间往后走）不算。
+        env.write("user1.dat", b"played more");
+        assert!(!env.app.game_row(&g, true).unwrap().maybe_replaced);
     }
 }

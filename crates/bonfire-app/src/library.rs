@@ -52,7 +52,7 @@ pub struct GameRow {
     pub primary: String,
     /// 当前不在本机主存档上。
     pub off_primary: bool,
-    /// 存档可能被手动替换（U-42e）：有变化，但磁盘上最新的文件也早于上次备份（下载的存档通常带着原作者的时间）。
+    /// 存档可能被手动替换（U-42e / U-44）：被修改的文件修改时间倒退，或都早于上次备份。
     pub maybe_replaced: bool,
 }
 
@@ -164,18 +164,7 @@ impl App {
             new_shots: self.pending_shots(game).unwrap_or(0) as u64,
             primary: self.primary_branch(&game.id)?,
             off_primary: self.off_primary(&game.id)?,
-            maybe_replaced: st.state == GameState::HasChanges
-                && match (
-                    st.changed_modified_ns,
-                    snaps
-                        .iter()
-                        .map(|s| s.created_at.as_str())
-                        .max()
-                        .and_then(|t| t.parse::<jiff::Timestamp>().ok()),
-                ) {
-                    (Some(m), Some(at)) => i128::from(m) < at.as_nanosecond(),
-                    _ => false,
-                },
+            maybe_replaced: st.state == GameState::HasChanges && st.looks_replaced,
         })
     }
 

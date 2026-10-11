@@ -47,8 +47,8 @@ pub struct GameStatus {
     pub total_bytes: u64,
     /// 存档文件中最新的修改时间（Unix 纳秒）。
     pub last_modified_ns: Option<i64>,
-    /// 新增或修改的文件中最新的修改时间（判断是否手动替换成了下载的存档）。
-    pub changed_modified_ns: Option<i64>,
+    /// 存档像是被手动替换成了别处的文件（见 status 中的判断）。
+    pub looks_replaced: bool,
 }
 
 /// 从旧快照恢复后再次备份时的分支处理（文档 6.4）。
@@ -134,20 +134,47 @@ impl App {
                 files: 0,
                 total_bytes: 0,
                 last_modified_ns: None,
-                changed_modified_ns: None,
+                looks_replaced: false,
             });
         }
         let (disk, changes) = self.detect(game, force_verify)?;
-        let changed_modified_ns = {
-            let changed: std::collections::HashSet<&str> = changes
+        // 存档是否像被手动替换成了别处的文件（U-42e，U-44 修正）：只看“修改”的文件，新增的不算
+        // （存档位置变化、新出现的存档槽等也会表现为新增）。满足任一条件：
+        // ① 同一个文件的修改时间往回倒退（游戏自己写存档只会往后走，被旧文件覆盖才会倒退）；
+        // ② 被修改的文件，修改时间都早于上次备份。
+        let looks_replaced = {
+            let modified: Vec<&str> = changes
                 .iter()
-                .filter(|c| matches!(c.status, FileStatus::Added | FileStatus::Modified))
+                .filter(|c| c.status == FileStatus::Modified)
                 .map(|c| c.path.as_str())
                 .collect();
-            disk.iter()
-                .filter(|f| changed.contains(f.path.as_str()))
-                .map(|f| f.mtime_ns)
-                .max()
+            if modified.is_empty() {
+                false
+            } else {
+                let before = self.index.scan_entries(&game.id)?;
+                let mtimes: Vec<(i64, Option<i64>)> = disk
+                    .iter()
+                    .filter(|f| modified.contains(&f.path.as_str()))
+                    .map(|f| (f.mtime_ns, before.get(&f.path).map(|e| e.mtime_ns)))
+                    .collect();
+                let backwards = mtimes
+                    .iter()
+                    .any(|(now, old)| old.is_some_and(|o| *now < o));
+                let backup_ns = match head_snap {
+                    Some(id) => self
+                        .repo
+                        .get_snapshot(&id)?
+                        .created_at
+                        .parse::<jiff::Timestamp>()
+                        .ok()
+                        .map(|t| t.as_nanosecond()),
+                    None => None,
+                };
+                let all_older = backup_ns.is_some_and(|b| {
+                    !mtimes.is_empty() && mtimes.iter().all(|(now, _)| i128::from(*now) < b)
+                });
+                backwards || all_older
+            }
         };
         let summary = ChangeSummary::of(&changes);
         let state = match head_snap {
@@ -166,7 +193,7 @@ impl App {
             files: disk.len() as u64,
             total_bytes: disk.iter().map(|f| f.size).sum(),
             last_modified_ns: disk.iter().map(|f| f.mtime_ns).max(),
-            changed_modified_ns,
+            looks_replaced,
         })
     }
 
