@@ -54,6 +54,13 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
   // 本次要处理的游戏（按所选顺序）：备份存档和 / 或收集截图。
   const targets = picked.filter((r) => saveRows.includes(r) || shotRows.includes(r));
   const drop = (kind: "saves" | "shots", id: string) => setRemoved((x) => ({ ...x, [kind]: new Set(x[kind]).add(id) }));
+  const undrop = (kind: "saves" | "shots", id: string | null) =>
+    setRemoved((x) => {
+      const next = new Set(x[kind]);
+      if (id === null) next.clear();
+      else next.delete(id);
+      return { ...x, [kind]: next };
+    });
 
   // 游戏正在运行时只提醒，不阻止备份（U-12）。
   const [runningGames, setRunningGames] = useState<{ gameId: string; processes: string[] }[]>([]);
@@ -269,6 +276,7 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
                   />
                 ))}
               </ul>
+              <RemovedStrip rows={plan.saves.filter((r) => removed.saves.has(r.id))} onRestore={(id) => undrop("saves", id)} />
               {plan.skipped.length > 0 && (
                 <section className="skip-list" aria-label={t("ui.backup.skippedTitle", { n: plan.skipped.length })}>
                   <h3>{t("ui.backup.skippedTitle", { n: plan.skipped.length })}</h3>
@@ -312,6 +320,7 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
                   );
                 })}
               </ul>
+              <RemovedStrip rows={plan.shots.filter((r) => removed.shots.has(r.id))} onRestore={(id) => undrop("shots", id)} />
             </>
           )}
         </>
@@ -320,13 +329,37 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
   );
 }
 
+/** 这一步中移出的游戏：点一下恢复，或全部恢复。 */
+function RemovedStrip({ rows, onRestore }: { rows: GameRow[]; onRestore: (id: string | null) => void }) {
+  const { t, i18n } = useTranslation();
+  if (rows.length === 0) return null;
+  return (
+    <section className="removed-strip" aria-label={t("ui.backup.removedTitle", { n: rows.length })}>
+      <span className="muted">{t("ui.backup.removedTitle", { n: rows.length })}</span>
+      {rows.map((r) => {
+        const name = displayName(r, i18n.language);
+        return (
+          <button key={r.id} type="button" className="removed-chip" onClick={() => onRestore(r.id)} title={t("ui.backup.restoreRow", { name })} aria-label={t("ui.backup.restoreRow", { name })}>
+            <Icon name="undo" size={12} /> {name}
+          </button>
+        );
+      })}
+      {rows.length > 1 && (
+        <button type="button" className="btn ghost small" onClick={() => onRestore(null)}>
+          {t("ui.backup.restoreAll")}
+        </button>
+      )}
+    </section>
+  );
+}
+
 /** 确认页中把一个游戏移出本次备份。 */
 function RemoveButton({ name, onClick }: { name: string; onClick: () => void }) {
   const { t } = useTranslation();
   const label = t("ui.backup.removeRow", { name });
   return (
-    <button type="button" className="btn ghost small icon-only row-remove" onClick={onClick} aria-label={label} title={label}>
-      <Icon name="close" size={14} />
+    <button type="button" className="row-skip" onClick={onClick} aria-label={label} title={label}>
+      <Icon name="close" size={12} /> {t("ui.backup.skipShort")}
     </button>
   );
 }

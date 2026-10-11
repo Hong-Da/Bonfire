@@ -877,8 +877,21 @@ button.link:hover { text-decoration: underline; }
 .backup-kind-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; color: var(--mode); background: color-mix(in srgb, var(--mode) 14%, transparent); }
 .backup-kind b { display: block; font: 600 15px var(--font-sign); }
 .backup-kind small { display: block; margin-top: 2px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
-.note-row .head .row-remove { margin-left: auto; color: var(--muted); }
-.note-row .head .row-remove:hover { color: var(--danger); }
+/* 备份确认页：“不备份”按钮（行右上角，悬停该行时更明显）与移出的游戏 */
+.note-row .head .row-skip {
+  margin-left: auto; align-self: center; display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--raised); color: var(--muted);
+  font: inherit; font-size: 12px; cursor: pointer; opacity: 0.7; transition: opacity 0.12s, color 0.12s, background 0.12s, border-color 0.12s;
+}
+.note-row:hover .head .row-skip, .note-row .head .row-skip:focus-visible { opacity: 1; }
+.note-row .head .row-skip:hover { color: var(--danger); background: var(--danger-soft); border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); }
+.removed-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 8px; font-size: 13px; }
+.removed-chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; text-decoration: line-through;
+}
+.removed-chip:hover { color: var(--ink); text-decoration: none; border-color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .note-row .head .row-skip { transition: none; } }
 
 /* 工具栏搜索框填满空余位置 */
 .toolbar input[type="search"].fill { flex: 1 1 200px; width: auto; min-width: 160px; max-width: none; }

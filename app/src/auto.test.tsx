@@ -61,6 +61,11 @@ describe("备份确认", () => {
     expect(screen.getByText("已是最新，将跳过（1）")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "这次不备份「D」" }));
     expect(screen.queryByLabelText("「D」的备注")).toBeNull();
+    // 移出的游戏列在下方，可以恢复。
+    fireEvent.click(screen.getByRole("button", { name: "恢复「D」" }));
+    expect(screen.getByLabelText("「D」的备注")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "这次不备份「D」" }));
+    expect(screen.getByText("这次不备份（1）：")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "下一步" }));
     // 第 3 步：确认截图，移除 B。
     expect(screen.getByText("第 3 步，共 3 步：确认截图")).toBeInTheDocument();

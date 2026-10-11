@@ -1198,5 +1198,9 @@
   "ui.unsorted.assign": "Assign",
   "ui.unsorted.assigned": "Moved {n} screenshots to \"{name}\"",
   "ui.unsorted.keep": "Also back up screenshots whose game isn't recognized",
-  "ui.unsorted.keepRule": "Game Bar and shared-folder screenshots that match no game go to \"Unrecognized screenshots\" in the gallery; they move to a game once you add it, or you can assign them."
+  "ui.unsorted.keepRule": "Game Bar and shared-folder screenshots that match no game go to \"Unrecognized screenshots\" in the gallery; they move to a game once you add it, or you can assign them.",
+  "ui.backup.skipShort": "Skip",
+  "ui.backup.removedTitle": "Skipped this time ({n}):",
+  "ui.backup.restoreRow": "Put back \"{name}\"",
+  "ui.backup.restoreAll": "Put all back"
 }

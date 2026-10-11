@@ -24,9 +24,15 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 109 项，更新于 2026-10-10 23:43。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 110 项，更新于 2026-10-10 23:45。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>60 项</small></h2>
+<section id="s-0"><h2>开发<small>61 项</small></h2>
+      <article id="U-31a">
+        <header><code>U-31a</code><h3>备份所选游戏中移除游戏的 × 号优化</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">改为带文字的“不备份”小按钮（悬停时变红）；移出的游戏列在下方，可单个或全部恢复（推荐） <b>✓ 采用</b></li><li class="">只调整 × 的大小与位置</li></ul>
+        <p class="reason"><span>理由</span>单独的 × 含义不明确，误点后也无法找回。</p><p class="impact"><span>影响</span>仅影响备份确认页。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-30a">
         <header><code>U-30a</code><h3>设置里“自动备份”改为“存档备份”</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">改名为“存档备份”，并把原“备份”分组（扫描的平台、备份配置文件、存档大小提醒）并入，与“截图备份”并列（推荐） <b>✓ 采用</b></li><li class="">只改名，保留“备份”分组</li></ul>

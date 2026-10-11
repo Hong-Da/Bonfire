@@ -1198,5 +1198,9 @@
   "ui.unsorted.assign": "归到这个游戏",
   "ui.unsorted.assigned": "已把 {n} 张截图归到「{name}」",
   "ui.unsorted.keep": "也备份没有识别出游戏的截图",
-  "ui.unsorted.keepRule": "游戏栏与公用截图文件夹中对应不上游戏库中任何游戏的截图，放在图库的“未识别的截图”中；之后加入对应的游戏时自动归过去，也可以在图库中手动归到游戏。"
+  "ui.unsorted.keepRule": "游戏栏与公用截图文件夹中对应不上游戏库中任何游戏的截图，放在图库的“未识别的截图”中；之后加入对应的游戏时自动归过去，也可以在图库中手动归到游戏。",
+  "ui.backup.skipShort": "不备份",
+  "ui.backup.removedTitle": "这次不备份（{n}）：",
+  "ui.backup.restoreRow": "恢复「{name}」",
+  "ui.backup.restoreAll": "全部恢复"
 }
