@@ -309,6 +309,14 @@ bonfire import 空洞骑士 tests/inputs/downloads/hk-allcollect --download -m �
 
 退出码：0
 
+### 导入加密的 7z 存档包
+
+```bat
+bonfire import 空洞骑士 tests/inputs/downloads/hk-7z-加密.7z --download --password pw7z
+```
+
+退出码：0
+
 ### 删除分支
 
 ```bat

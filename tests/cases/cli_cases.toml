@@ -622,6 +622,25 @@ expect_files = { "slot1.sav" = "level 1" }
 in_docs = true
 
 [[case]]
+id = "import-download-7z"
+title = { zh-CN = "导入加密的 7z 存档包", en = "Import a password-protected 7z save" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["import", "空洞骑士", "{inputs}/downloads/hk-7z-加密.7z", "--download", "--password", "pw7z"]
+expect_exit = 0
+stdout_contains = ["slot1.sav", "存为新路线 下载-"]
+in_docs = true
+
+[[case]]
+id = "import-download-7z-no-password"
+title = { zh-CN = "加密的 7z 没给密码", en = "Encrypted 7z without a password" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["import", "空洞骑士", "{inputs}/downloads/hk-7z-加密.7z", "--download"]
+expect_exit = 2
+stderr_contains = ["需要解压密码"]
+
+[[case]]
 id = "branch-delete"
 title = { zh-CN = "删除分支", en = "Delete a branch" }
 fixture = "basic"

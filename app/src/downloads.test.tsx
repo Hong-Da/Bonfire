@@ -43,7 +43,7 @@ describe("导入下载的存档（U-42）", () => {
     api.importDownload.mockResolvedValue({ snapshot: "b3:new", identical: null, branch: "下载-20261011", files: 1 });
     const done = vi.fn();
     render(<DownloadImportDialog gameId="steam-367520" onClose={() => {}} onDone={done} />);
-    expect(screen.getByText(/把下载的存档包（通常是 zip）选进来/)).toBeInTheDocument();
+    expect(screen.getByText(/把下载的存档包（zip、7z、rar）选进来/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "选择压缩包…" }));
     expect(await screen.findByText("这个压缩包需要解压密码")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("解压密码"), { target: { value: "pw123" } });
@@ -69,14 +69,14 @@ describe("导入下载的存档（U-42）", () => {
     expect(done).toHaveBeenCalledWith("steam-367520", "b3:new");
   });
 
-  it("7z / rar 与篝火导出的存档：给出操作指引", async () => {
-    dialog.open.mockResolvedValue("D:/dl/a.7z");
+  it("tar.gz 等与篝火导出的存档：给出操作指引", async () => {
+    dialog.open.mockResolvedValue("D:/dl/a.tar.gz");
     api.inspectDownload.mockResolvedValueOnce(preview({ kind: "needs-extract", files: [] }));
     const useBonfire = vi.fn();
     render(<DownloadImportDialog gameId="steam-367520" onClose={() => {}} onDone={() => {}} onUseBonfireImport={useBonfire} />);
     fireEvent.click(screen.getByRole("button", { name: "选择压缩包…" }));
-    expect(await screen.findByText("7z / rar 压缩包请先解压")).toBeInTheDocument();
-    expect(screen.getByText(/选解压出来的文件夹/)).toBeInTheDocument();
+    expect(await screen.findByText("这种压缩包请先解压")).toBeInTheDocument();
+    expect(screen.getByText(/篝火可以直接读取 zip、7z、rar/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /下一步/ })).toBeDisabled();
     api.inspectDownload.mockResolvedValueOnce(preview({ kind: "bonfire", files: [] }));
     dialog.open.mockResolvedValue("D:/dl/exported");

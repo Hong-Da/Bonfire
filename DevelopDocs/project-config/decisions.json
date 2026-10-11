@@ -1862,5 +1862,20 @@
     "impact": "只新增了存档文件（如下载的新存档槽）时不再提示；仍可能漏判：解压工具把修改时间设为当前时间的下载存档。",
     "status": "默认推荐",
     "date": "2026-10-11"
+  },
+  {
+    "id": "U-45a",
+    "stage": "开发",
+    "question": "7z 或 rar 压缩包能不能内置解压",
+    "options": [
+      "都内置：7z 用纯 Rust 的 sevenz-rust2，rar 用 unrar（内含 RarLab unRAR 解压源码），都支持加密（推荐）",
+      "只内置 7z，rar 仍提示先解压",
+      "调用用户电脑上已安装的 7-Zip"
+    ],
+    "chosen": "都内置：7z 用纯 Rust 的 sevenz-rust2，rar 用 unrar（内含 RarLab unRAR 解压源码），都支持加密（推荐）",
+    "reason": "网上存档包大量使用 7z 与 rar；内置后用户无需另装工具。rar 没有可靠的纯 Rust 实现。",
+    "impact": "新增依赖：sevenz-rust2（Apache-2.0）、unrar（MIT/Apache，含 unRAR 许可的 C++ 源码，只能解压、不得用于做 RAR 压缩器；发布时需在第三方声明中列出）；构建需要 C++ 编译器（Windows 构建环境已有）。",
+    "status": "默认推荐",
+    "date": "2026-10-11"
   }
 ]

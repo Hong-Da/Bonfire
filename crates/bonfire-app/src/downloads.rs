@@ -136,7 +136,7 @@ fn gather(
     if !meta.is_dir() {
         match ext.as_str() {
             "bonfire" => return Ok(Err(DownloadKind::Bonfire)),
-            "7z" | "rar" | "tar" | "gz" | "tgz" | "xz" | "bz2" => {
+            "tar" | "gz" | "tgz" | "xz" | "bz2" => {
                 return Ok(Err(DownloadKind::NeedsExtract));
             }
             _ => {}
@@ -145,7 +145,13 @@ fn gather(
     let root = if meta.is_dir() {
         src.to_path_buf()
     } else {
-        match extract_zip(src, staging, password)? {
+        // 7z 与 rar 也内置解压（U-45）；其余按 zip 读取。
+        let r = match ext.as_str() {
+            "7z" => extract_7z(src, staging, password)?,
+            "rar" => extract_rar(src, staging, password)?,
+            _ => extract_zip(src, staging, password)?,
+        };
+        match r {
             Some(kind) => return Ok(Err(kind)),
             None => staging.to_path_buf(),
         }
@@ -207,6 +213,137 @@ fn collect(
         out.push((rel, p));
     }
     Ok(())
+}
+
+/// 压缩包内的相对路径（`/` 或 `\` 分隔）转为安全的相对路径：拒绝盘符与 `..`，防止解压到临时文件夹外。
+fn safe_rel(name: &str) -> Option<PathBuf> {
+    let mut out = PathBuf::new();
+    for part in name.split(['/', '\\']) {
+        match part {
+            "" | "." => continue,
+            ".." => return None,
+            p if p.contains(':') => return None,
+            p => out.push(p),
+        }
+    }
+    (!out.as_os_str().is_empty()).then_some(out)
+}
+
+fn bad_password() -> AppError {
+    AppError::Invalid("解压密码不对，请重新输入".into())
+}
+
+/// 解压 7z 到 `dest`（纯 Rust，支持 AES 加密）。需要密码而没有给时返回 `NeedsPassword`。
+fn extract_7z(src: &Path, dest: &Path, password: Option<&str>) -> Result<Option<DownloadKind>> {
+    use sevenz_rust2::{Error as SzError, Password};
+    let pw = password.filter(|p| !p.is_empty());
+    let file = std::fs::File::open(src).map_err(|e| AppError::io(src, e))?;
+    let res = sevenz_rust2::decompress_with_extract_fn_and_password(
+        file,
+        dest,
+        pw.map(Password::from).unwrap_or_else(Password::empty),
+        |entry, reader, _| {
+            let Some(rel) = safe_rel(entry.name()) else {
+                return Err(SzError::from(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("压缩包中有不安全的路径：{}", entry.name()),
+                )));
+            };
+            let out = dest.join(rel);
+            if entry.is_directory() {
+                std::fs::create_dir_all(&out)?;
+            } else {
+                if let Some(dir) = out.parent() {
+                    std::fs::create_dir_all(dir)?;
+                }
+                let mut f = std::fs::File::create(&out)?;
+                std::io::copy(reader, &mut f)?;
+            }
+            Ok(true)
+        },
+    );
+    match res {
+        Ok(()) => Ok(None),
+        Err(SzError::PasswordRequired) if pw.is_none() => Ok(Some(DownloadKind::NeedsPassword)),
+        Err(SzError::PasswordRequired | SzError::MaybeBadPassword(_)) => Err(bad_password()),
+        // 文件名也加密的 7z：密码不对时解出的目录是乱码，表现为“没有目录”等错误。
+        Err(_) if pw.is_some() && seven_zip_needs_password(src) => Err(bad_password()),
+        Err(e) => Err(AppError::Invalid(format!(
+            "读取 7z 压缩包失败：{e}。如果压缩包没问题，可以先用解压工具解压，再导入解压出来的文件夹"
+        ))),
+    }
+}
+
+/// 这个 7z 是否需要密码（不带密码读取时要求密码）。只读取，不写文件。
+fn seven_zip_needs_password(src: &Path) -> bool {
+    let Ok(file) = std::fs::File::open(src) else {
+        return false;
+    };
+    matches!(
+        sevenz_rust2::ArchiveReader::new(file, sevenz_rust2::Password::empty()).and_then(
+            |mut r| {
+                r.for_each_entries(|_, reader| {
+                    std::io::copy(reader, &mut std::io::sink())?;
+                    Ok(true)
+                })
+            }
+        ),
+        Err(sevenz_rust2::Error::PasswordRequired)
+    )
+}
+
+/// 解压 rar 到 `dest`（内置 RarLab 的 unRAR 解压代码，支持加密）。需要密码而没有给时返回 `NeedsPassword`。
+fn extract_rar(src: &Path, dest: &Path, password: Option<&str>) -> Result<Option<DownloadKind>> {
+    use unrar::error::Code;
+    let pw = password.filter(|p| !p.is_empty());
+    let map = |e: unrar::error::UnrarError| -> Result<Option<DownloadKind>> {
+        match e.code {
+            Code::MissingPassword if pw.is_none() => Ok(Some(DownloadKind::NeedsPassword)),
+            Code::MissingPassword | Code::BadPassword | Code::BadData if pw.is_some() => {
+                Err(bad_password())
+            }
+            _ => Err(AppError::Invalid(format!(
+                "读取 rar 压缩包失败：{e}。如果压缩包没问题，可以先用解压工具解压，再导入解压出来的文件夹"
+            ))),
+        }
+    };
+    let archive = match pw {
+        Some(p) => unrar::Archive::with_password(src, p.as_bytes()),
+        None => unrar::Archive::new(src),
+    };
+    let mut cursor = match archive.open_for_processing() {
+        Ok(c) => c,
+        Err(e) => return map(e),
+    };
+    loop {
+        let header = match cursor.read_header() {
+            Ok(Some(h)) => h,
+            Ok(None) => break,
+            Err(e) => return map(e),
+        };
+        let entry = header.entry();
+        if entry.is_encrypted() && pw.is_none() {
+            return Ok(Some(DownloadKind::NeedsPassword));
+        }
+        let step = if entry.is_file() {
+            let name = entry.filename.to_string_lossy().into_owned();
+            let Some(rel) = safe_rel(&name) else {
+                return Err(AppError::Invalid(format!("压缩包中有不安全的路径：{name}")));
+            };
+            let out = dest.join(rel);
+            if let Some(dir) = out.parent() {
+                std::fs::create_dir_all(dir).map_err(|e| AppError::io(dir, e))?;
+            }
+            header.extract_to(&out)
+        } else {
+            header.skip()
+        };
+        cursor = match step {
+            Ok(c) => c,
+            Err(e) => return map(e),
+        };
+    }
+    Ok(None)
 }
 
 /// 解压 zip 到 `dest`。需要密码而没有给时返回 `NeedsPassword`；密码不对时报错。
@@ -786,8 +923,13 @@ mod tests {
         // 7z 与篝火导出的存档：提示改用其他方式。
         let seven = env.dir.path().join("a.7z");
         std::fs::write(&seven, b"7z").unwrap();
+        // 损坏的 7z：说明读取失败，可以先用解压工具解压。
+        let err = env.app.inspect_download(&g, &seven, None).unwrap_err();
+        assert!(err.to_string().contains("7z"), "{err}");
+        let tgz = env.dir.path().join("a.tar.gz");
+        std::fs::write(&tgz, b"gz").unwrap();
         assert_eq!(
-            env.app.inspect_download(&g, &seven, None).unwrap().kind,
+            env.app.inspect_download(&g, &tgz, None).unwrap().kind,
             DownloadKind::NeedsExtract
         );
         let bf = env.dir.path().join("exported");
@@ -796,6 +938,97 @@ mod tests {
         assert_eq!(
             env.app.inspect_download(&g, &bf, None).unwrap().kind,
             DownloadKind::Bonfire
+        );
+    }
+
+    /// tests/inputs/downloads 中的压缩包（复制到临时目录再读，输入只读）。
+    fn input_copy(env: &crate::testutil::Env, name: &str) -> PathBuf {
+        let src = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/inputs/downloads")
+            .join(name);
+        let dst = env.dir.path().join(name);
+        std::fs::copy(&src, &dst).unwrap();
+        dst
+    }
+
+    #[test]
+    fn seven_zip_and_rar_are_unpacked_built_in() {
+        use crate::testutil::Env;
+        let mut env = Env::new();
+        let g = env.add_game("Hollow Knight");
+        env.write("slot1.sav", b"mine");
+
+        // 7z（AES 加密，文件名也加密）：先要密码，密码不对报错，对了自动对应。
+        let seven = input_copy(&env, "hk-7z-加密.7z");
+        assert_eq!(
+            env.app.inspect_download(&g, &seven, None).unwrap().kind,
+            DownloadKind::NeedsPassword
+        );
+        let err = env
+            .app
+            .inspect_download(&g, &seven, Some("wrong"))
+            .unwrap_err();
+        assert!(err.to_string().contains("密码"), "{err}");
+        let p = env.app.inspect_download(&g, &seven, Some("pw7z")).unwrap();
+        assert_eq!(p.kind, DownloadKind::Download);
+        let slot = p
+            .files
+            .iter()
+            .find(|f| f.rel.ends_with("slot1.sav"))
+            .unwrap();
+        assert_eq!(slot.target.as_deref(), Some("0/slot1.sav"));
+        assert!(p.files.iter().any(|f| f.rel.ends_with(".txt") && f.ignored));
+
+        // rar（RAR 4，存储模式）：反斜杠路径、自动对应。
+        let rar = input_copy(&env, "hk-rar.rar");
+        let p = env.app.inspect_download(&g, &rar, None).unwrap();
+        assert_eq!(p.kind, DownloadKind::Download, "{:?}", p.files);
+        let slot = p
+            .files
+            .iter()
+            .find(|f| f.rel.ends_with("slot1.sav"))
+            .unwrap();
+        assert_eq!(slot.rel, "pack/save/slot1.sav");
+        assert_eq!(slot.target.as_deref(), Some("0/slot1.sav"));
+
+        // 导入 rar 中的存档，内容来自压缩包。
+        let lock = env.app.repo.lock().unwrap();
+        let r = env
+            .app
+            .import_download(
+                &lock,
+                &g,
+                &rar,
+                None,
+                &DownloadImport {
+                    mapping: vec![(slot.rel.clone(), "0/slot1.sav".into())],
+                    mode: DownloadMode::Replace,
+                    branch: Some("rar".into()),
+                    comment: None,
+                },
+            )
+            .unwrap();
+        let tree = env
+            .app
+            .repo
+            .get_tree(
+                &env.app
+                    .repo
+                    .get_snapshot(&r.snapshot.unwrap())
+                    .unwrap()
+                    .tree,
+            )
+            .unwrap();
+        let e = tree
+            .entries
+            .iter()
+            .find(|e| e.path == "0/slot1.sav")
+            .unwrap();
+        assert_eq!(e.size, b"level 88 from rar".len() as u64);
+        assert!(safe_rel("../x").is_none() && safe_rel("C:\\x").is_none());
+        assert_eq!(
+            safe_rel("a\\b/c.sav"),
+            Some(PathBuf::from("a").join("b").join("c.sav"))
         );
     }
 

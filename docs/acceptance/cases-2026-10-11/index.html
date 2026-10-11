@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>篝火操作实录</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
+<style>
+/* 布局：左侧固定的场景目录 + 右侧逐步实录（步骤文字在左、截图在下），截图可点开放大 */
+:root {
+  --bg: #eef0f2;
+  --paper: #ffffff;
+  --ink: #1f2429;
+  --muted: #5d6670;
+  --line: #d8dde2;
+  --ember: #e8590c;
+  --ember-soft: #fde9dc;
+  --moss: #3e7d5a;
+  --note: #2f6db5;
+  --note-soft: #e4eef9;
+  --danger: #b8322b;
+  --display: "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  --body: "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15191e; --paper: #1d2329; --ink: #e7ebef; --muted: #9aa5b0; --line: #2e3740;
+    --ember: #ff7a33; --ember-soft: #3a2519; --moss: #6cc08c; --note: #7fb0ec; --note-soft: #1d2c3e; --danger: #f08178;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15191e; --paper: #1d2329; --ink: #e7ebef; --muted: #9aa5b0; --line: #2e3740;
+  --ember: #ff7a33; --ember-soft: #3a2519; --moss: #6cc08c; --note: #7fb0ec; --note-soft: #1d2c3e; --danger: #f08178;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.75 var(--body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 36px; }
+@media (max-width: 900px) { .wrap { grid-template-columns: 1fr; gap: 20px; } nav.toc { position: static; } }
+
+header.top { grid-column: 1 / -1; display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+header.top .brand { display: flex; align-items: center; gap: 10px; color: var(--ember); font: 700 14px var(--display); letter-spacing: 0.06em; }
+header.top .brand i { width: 22px; height: 22px; border-radius: 6px; background: var(--ember); display: inline-block; }
+header.top h1 { margin: 0; font: 900 clamp(28px, 4.2vw, 40px)/1.2 var(--display); text-wrap: balance; }
+header.top p { margin: 0; max-width: 62ch; color: var(--muted); }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 4px; font-size: 13.5px; color: var(--muted); }
+.facts b { color: var(--ink); font-weight: 500; }
+
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); align-self: start; display: grid; gap: 4px; }
+nav.toc h2 { margin: 0 0 6px; font: 700 13px var(--display); color: var(--muted); letter-spacing: 0.04em; }
+nav.toc a { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; padding: 8px 10px; border-radius: 8px; color: var(--ink); text-decoration: none; line-height: 1.45; }
+nav.toc a:hover, nav.toc a:focus-visible { background: var(--paper); outline: none; }
+nav.toc a span.n { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ember-soft); color: var(--ember); font: 700 12px var(--display); }
+nav.toc a small { display: block; color: var(--muted); font-size: 12.5px; }
+
+main { display: grid; gap: 56px; min-width: 0; }
+section.case { display: grid; gap: 22px; scroll-margin-top: 20px; }
+.case-head { display: grid; gap: 6px; }
+.case-head .tag { justify-self: start; padding: 1px 10px; border-radius: 99px; background: var(--ember-soft); color: var(--ember); font: 700 12.5px var(--display); }
+.case-head h2 { margin: 0; font: 700 26px/1.3 var(--display); text-wrap: balance; }
+.case-head p { margin: 0; max-width: 68ch; color: var(--muted); }
+
+ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; counter-reset: step; }
+ol.steps > li { counter-increment: step; display: grid; gap: 10px; }
+.step-text { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; }
+.step-text::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; margin-top: 1px; border-radius: 50%; border: 1.5px solid var(--ember); color: var(--ember); font: 700 13px var(--display); }
+.step-text h3 { margin: 0; font: 700 17px/1.5 var(--display); }
+.step-text p { margin: 2px 0 0; max-width: 72ch; }
+.step-text p + p { margin-top: 6px; }
+figure.shot { margin: 0 0 0 40px; display: grid; gap: 6px; }
+figure.shot button { padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--paper); cursor: zoom-in; display: block; max-width: 100%; }
+figure.shot button:focus-visible { outline: 3px solid var(--ember); outline-offset: 2px; }
+figure.shot img { display: block; width: 100%; height: auto; }
+figure.shot figcaption { font-size: 13px; color: var(--muted); }
+@media (max-width: 640px) { figure.shot { margin-left: 0; } }
+
+.callout { display: grid; gap: 4px; padding: 12px 16px; border-radius: 10px; border-left: 4px solid var(--note); background: var(--note-soft); max-width: 78ch; }
+.callout.warn { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--paper)); }
+.callout b { font-family: var(--display); }
+.callout p { margin: 0; }
+code { font-family: var(--mono); font-size: 0.92em; padding: 0 4px; border-radius: 4px; background: color-mix(in srgb, var(--muted) 14%, transparent); }
+kbd { font-family: var(--body); font-size: 0.9em; padding: 0 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: var(--paper); }
+
+.materials { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; max-width: 900px; }
+.materials div { padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.materials b { display: block; font: 700 14px var(--display); word-break: break-all; }
+.materials span { font-size: 13px; color: var(--muted); }
+
+footer.end { display: grid; gap: 10px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+footer.end h2 { margin: 0; color: var(--ink); font: 700 18px var(--display); }
+footer.end ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; max-width: 80ch; }
+
+dialog.zoom { width: min(1300px, 96vw); max-height: 94vh; padding: 0; border: 0; border-radius: 12px; background: var(--paper); color: var(--ink); }
+dialog.zoom::backdrop { background: rgba(10, 12, 15, 0.72); }
+dialog.zoom img { display: block; width: 100%; height: auto; }
+dialog.zoom form { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 13.5px; }
+dialog.zoom button { font: inherit; padding: 4px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: background 0.15s; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><i aria-hidden="true"></i>篝火 Bonfire</div>
+    <h1>别人的存档，怎么收进篝火</h1>
+    <p>网上分享的存档大多是“把文件复制到存档目录覆盖”。下面 5 个场景都在篝火里真实操作了一遍，每一步都配了当时的截图，点截图可以放大。</p>
+    <div class="facts">
+      <span>操作环境：<b>隔离的检查实例</b>（测试仓库 + 假存档目录，不碰真实存档）</span>
+      <span>示例游戏：<b>余烬之旅</b>（测试用，有 4 条路线）</span>
+      <span>拍摄时间：<b>2026-10-11</b></span>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="场景目录">
+    <h2>场景</h2>
+    <a href="#import"><span class="n">1</span><span>导入加密的下载存档并换上<small>最常见的情况</small></span></a>
+    <a href="#seven"><span class="n">2</span><span>下载的是 7z / rar<small>先解压再导入</small></span></a>
+    <a href="#failed"><span class="n">3</span><span>导入失败，改为手工替换<small>先备份，再覆盖</small></span></a>
+    <a href="#manual"><span class="n">4</span><span>手工替换后再备份<small>单独存成新路线</small></span></a>
+    <a href="#home"><span class="n">5</span><span>玩完回到自己的进度<small>回到主存档</small></span></a>
+  </nav>
+
+  <main>
+    <section class="case" id="import">
+      <div class="case-head">
+        <span class="tag">场景 1</span>
+        <h2>导入加密的下载存档，并直接换上玩</h2>
+        <p>网友分享了一个“二周目全收集”存档：带解压密码的 zip，存档文件套在两层文件夹里，还夹着使用说明、截图预览和一个网页链接。</p>
+      </div>
+      <div class="materials" aria-label="这次用到的下载包">
+        <div><b>余烬之旅-二周目全收集.zip</b><span>AES 加密，密码 ember2026</span></div>
+        <div><b>…/存档/slot1.sav、slot3.sav</b><span>真正的存档文件，套在两层文件夹里</span></div>
+        <div><b>使用说明.txt、截图预览.png、下载更多存档.url</b><span>附带的说明和链接，导入时应忽略</span></div>
+      </div>
+      <ol class="steps">
+        <li>
+          <div class="step-text"><div><h3>打开“导入”菜单，选“导入下载的存档…”</h3><p>在游戏详情页点“导入”。也可以直接把下载的 zip 或文件夹拖到详情页上，这次就是拖进来的。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c1-1-menu.png" aria-label="放大：导入菜单"><img src="shots/c1-1-menu.png" alt="游戏详情页的导入菜单，有“导入下载的存档…”和“导入存档文件 / 篝火包…”两项" loading="lazy"></button><figcaption>“导入”菜单的两项：下载的存档，或者篝火导出的文件 / 篝火包。</figcaption></figure>
+        </li>
+        <li>
+          <div class="step-text"><div><h3>输入解压密码</h3><p>篝火认出这是加密的 zip，提示去下载页面或分享说明里找密码。密码只用于这次读取，不会保存。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c1-2-password.png" aria-label="放大：输入解压密码"><img src="shots/c1-2-password.png" alt="导入对话框提示这个压缩包需要解压密码，下方有密码输入框和解压按钮" loading="lazy"></button><figcaption>第 1 步：选择下载的存档。</figcaption></figure>
+        </li>
+        <li>
+          <div class="step-text"><div><h3>自动解压、扫描全部文件</h3><p>解压后找到 2 个存档文件，并且都按文件名对应到了存档文件夹；说明、图片、链接 3 个文件已自动忽略。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c1-3-found.png" aria-label="放大：读取结果"><img src="shots/c1-3-found.png" alt="显示找到 2 个存档文件，已自动对应 2 个，另有 3 个说明或图片已忽略" loading="lazy"></button><figcaption>读取完会写明找到几个、对应了几个、忽略了几个。</figcaption></figure>
+        </li>
+        <li>
+          <div class="step-text"><div><h3>确认每个文件放在哪里</h3><p>每行是“下载里的文件 → 存档文件夹里的位置”，都可以改，也可以设为“跳过”。会覆盖你现有文件的标着“替换”。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c1-4-map.png" aria-label="放大：确认放置位置"><img src="shots/c1-4-map.png" alt="第 2 步列出 slot1.sav 和 slot3.sav 各自放到的存档位置，slot1.sav 标着替换" loading="lazy"></button><figcaption>第 2 步：确认放置位置。</figcaption></figure>
+        </li>
+        <li>
+          <div class="step-text"><div><h3>选择方式，填写来源，导入并换上</h3><p>下载里只有部分存档槽，所以推荐“叠加到当前存档”：你原来的其他存档文件和设置都会保留。路线名默认“下载-日期”，这里因为之前测试时已经有同名路线，自动加了序号。来源备注写上是谁分享的，以后好认。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c1-5-finish.png" aria-label="放大：方式与路线"><img src="shots/c1-5-finish.png" alt="第 3 步选择叠加到当前存档（推荐）或整体替换，填写路线名称和来源备注，勾选导入后立即换上" loading="lazy"></button><figcaption>第 3 步：方式与路线。“导入后立即换上”默认勾选。</figcaption></figure>
+        </li>
+        <li>
+          <div class="step-text"><div><h3>确认换上</h3><p>弹出恢复确认，写明会覆盖、新建哪些文件。因为当前存档有没备份的变化，篝火会先自动备份一份保护快照，再换上。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c1-6-restore.png" aria-label="放大：恢复确认"><img src="shots/c1-6-restore.png" alt="恢复确认对话框，提示恢复前会先自动备份一份保护快照，列出将覆盖和新建的文件" loading="lazy"></button><figcaption>换上前的最后一次确认。</figcaption></figure>
+        </li>
+        <li>
+          <div class="step-text"><div><h3>完成：下载的存档单独成一条路线</h3><p>分支图里多了一条“下载-20261011-2”，当前就在它上面；你原来的进度留在 <code>main</code>（带小房子标记的本机主存档），顶部还有“撤销本次恢复”。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c1-7-after.png" aria-label="放大：导入完成后"><img src="shots/c1-7-after.png" alt="分支图中出现新路线“下载-20261011-2”，当前在这条路线上，顶部有撤销本次恢复和回到主存档" loading="lazy"></button><figcaption>导入完成后的游戏详情页。</figcaption></figure>
+        </li>
+      </ol>
+    </section>
+
+    <section class="case" id="seven">
+      <div class="case-head">
+        <span class="tag">场景 2</span>
+        <h2>下载的是 7z 或 rar 压缩包</h2>
+        <p>篝火只能直接读取 zip。遇到 7z、rar 时，不会报一个看不懂的错误，而是告诉你怎么先解压。</p>
+      </div>
+      <ol class="steps">
+        <li>
+          <div class="step-text"><div><h3>按提示先解压</h3><p>用 7-Zip、Bandizip 或 WinRAR 解压（有密码就在解压时输入），然后回来点“选择文件夹…”，选解压出来的文件夹，接着走场景 1 的第 3 步。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c2-1-7z.png" aria-label="放大：7z 解压指引"><img src="shots/c2-1-7z.png" alt="对话框提示 7z / rar 压缩包请先解压，列出三步操作" loading="lazy"></button><figcaption>选到 7z 时的指引，“下一步”不可点。</figcaption></figure>
+        </li>
+      </ol>
+    </section>
+
+    <section class="case" id="failed">
+      <div class="case-head">
+        <span class="tag">场景 3</span>
+        <h2>导入失败时，改为手工替换文件</h2>
+        <p>压缩包损坏、格式不认识，或者一个文件都对应不上时，篝火会给出退路：手工替换文件，但一定先备份。</p>
+      </div>
+      <ol class="steps">
+        <li>
+          <div class="step-text"><div><h3>看到错误原因和手工替换的步骤</h3><p>这次选的是一个损坏的 zip。错误下方列出了手工替换的 5 个步骤，最上面用红字提醒：替换前一定要先备份。</p></div></div>
+        </li>
+        <li>
+          <div class="step-text"><div><h3>点“立即备份”，再打开存档文件夹去替换</h3><p>点了“立即备份”后按钮变成“已备份”。这次存档本来就是最新的，所以提示“已经备份过，没有变化”。接着点“打开存档文件夹”，关掉游戏，把下载的文件复制进去覆盖。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c3-2-backedup.png" aria-label="放大：手工替换指引"><img src="shots/c3-2-backedup.png" alt="错误提示下方是手工替换的步骤，第一步的按钮显示已备份，第三步有打开存档文件夹按钮" loading="lazy"></button><figcaption>导入失败后的手工替换指引。</figcaption></figure>
+        </li>
+      </ol>
+      <div class="callout warn"><b>为什么一定要先备份</b><p>手工覆盖会直接改掉你现在的存档文件。如果替换前没备份过，原来的进度就找不回了。</p></div>
+    </section>
+
+    <section class="case" id="manual">
+      <div class="case-head">
+        <span class="tag">场景 4</span>
+        <h2>手工替换之后，再交给篝火备份</h2>
+        <p>模拟手工复制进来一个下载的存档：文件内容变了，但修改时间是 40 天前（下载的存档通常保留着原作者电脑上的时间）。</p>
+      </div>
+      <ol class="steps">
+        <li>
+          <div class="step-text"><div><h3>检查更新，游戏被标出“存档可能被手动替换”</h3><p>只看被修改的文件（新增的不算），满足任一条就提示：同一个文件的修改时间往回倒退了；或者被修改的文件，修改时间都早于上次备份。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c4-1-library.png" aria-label="放大：游戏库标记"><img src="shots/c4-1-library.png" alt="游戏库中余烬之旅显示有更新，下方标着存档可能被手动替换和不在主存档" loading="lazy"></button><figcaption>游戏库：余烬之旅下方出现“存档可能被手动替换”。</figcaption></figure>
+        </li>
+        <li>
+          <div class="step-text"><div><h3>备份时默认另开新路线</h3><p>备份确认页对这个游戏默认勾选“另开新路线备份，不接在当前路线上”，路线名可以改。这样下载的存档单独存成一条线，不会混进你自己的进度。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c4-2-backup.png" aria-label="放大：备份确认"><img src="shots/c4-2-backup.png" alt="备份确认页中余烬之旅一行提示存档可能被手动替换，默认勾选另开新路线备份" loading="lazy"></button><figcaption>备份确认第 2 步：确认存档。</figcaption></figure>
+        </li>
+      </ol>
+      <div class="callout"><b>拍摄时发现并修正的一个误判</b><p>第一次拍摄时，Celeste 也被标成了“可能被手动替换”，其实它没有被替换：测试数据里它的存档位置换过一次，原来的旧文件在篝火看来成了“新增”，修改时间又早于上次备份。现在判断只看被修改的文件，并加上“同一文件时间倒退”这条更可靠的信号；上面的截图是修正后重拍的，Celeste 已经不再被标出。</p></div>
+    </section>
+
+    <section class="case" id="home">
+      <div class="case-head">
+        <span class="tag">场景 5</span>
+        <h2>玩完别人的存档，回到自己的进度</h2>
+        <p>只要当前不在本机主存档上，游戏详情页就有“回到主存档”。</p>
+      </div>
+      <ol class="steps">
+        <li>
+          <div class="step-text"><div><h3>点“回到主存档”</h3><p>它会恢复到主存档（<code>main</code>）的最新快照。当前有没备份的变化时，同样会先自动做一份保护快照，所以在下载存档上玩出来的进度也不会丢。</p></div></div>
+          <figure class="shot"><button type="button" data-full="shots/c5-1-goprimary.png" aria-label="放大：回到主存档"><img src="shots/c5-1-goprimary.png" alt="点回到主存档后弹出恢复确认，提示恢复前会先自动备份保护快照" loading="lazy"></button><figcaption>回到主存档前的确认。</figcaption></figure>
+        </li>
+      </ol>
+    </section>
+
+    <footer class="end">
+      <h2>这次实录的范围</h2>
+      <ul>
+        <li>所有操作都在隔离的检查实例里完成，用的是测试仓库和假存档目录，没有碰你自己的篝火和真实游戏存档。</li>
+        <li>点击和输入由脚本在页面里完成，相当于正常点按钮；拖放是用应用的拖放事件模拟的。</li>
+        <li>场景 1 的路线名带了“-2”，是因为之前测试时已经导入过一次同名路线。</li>
+        <li>命令行也能做同样的导入：<code>bonfire import 游戏 下载的zip或文件夹 --download --password 密码</code>。</li>
+      </ul>
+    </footer>
+  </main>
+</div>
+
+<dialog class="zoom" id="zoom" aria-label="放大的截图">
+  <img id="zoom-img" alt="">
+  <form method="dialog"><span id="zoom-cap"></span><button type="submit">关闭（Esc）</button></form>
+</dialog>
+
+<script>
+(() => {
+  const dlg = document.getElementById("zoom");
+  const img = document.getElementById("zoom-img");
+  const cap = document.getElementById("zoom-cap");
+  document.querySelectorAll("figure.shot button").forEach((b) => {
+    b.addEventListener("click", () => {
+      const inner = b.querySelector("img");
+      img.src = b.dataset.full;
+      img.alt = inner.alt;
+      cap.textContent = b.closest("figure").querySelector("figcaption").textContent;
+      if (typeof dlg.showModal === "function") dlg.showModal();
+    });
+  });
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+})();
+</script>
+
+</body>
+</html>

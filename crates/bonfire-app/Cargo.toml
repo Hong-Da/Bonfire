@@ -21,6 +21,8 @@ globset.workspace = true
 sysinfo.workspace = true
 image.workspace = true
 zip.workspace = true
+sevenz-rust2.workspace = true
+unrar.workspace = true
 zstd.workspace = true
 trash.workspace = true
 
