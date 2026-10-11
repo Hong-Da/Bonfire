@@ -32,6 +32,8 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.sync.tokenHint.": ["github", "gitee"],
   "ui.sync.limitHint.": ["github", "gitee", "other"],
   "ui.sync.part.": ["saves", "shots", "settings"],
+  "ui.sync.covFilter.": ["todo", "none", "problem", "ok", "all"],
+  "ui.sync.covState.": ["ok", "failed", "pending"],
   "ui.sync.remedy.": ["shots", "games", "clean", "compact", "other"],
   "ui.space.kind.": ["planned", "unreachable", "deleted", "shots", "other", "tmp"],
   "ui.security.": ["encryptTitle", "changeTitle", "decryptTitle", "encryptOk", "changeOk", "decryptOk"],

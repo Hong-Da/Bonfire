@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../api";
 import { confirm } from "../lib/confirm";
 import { bytes, relative } from "../lib/format";
+import { fuzzyMatch } from "../lib/search";
 import { useStore } from "../store";
 import { Icon, Menu, Modal, displayName, type IconName } from "../components/ui";
 import type { SyncPlan, SyncTarget, TargetStatus } from "../types";
@@ -210,7 +211,7 @@ export default function SyncPage() {
                 );
               })}
             </ul>
-            <Coverage list={list} games={games.map((g) => ({ id: g.id, name: displayName(g, i18n.language) }))} />
+            <Coverage list={list} games={games.map((g) => ({ id: g.id, name: displayName(g, i18n.language), names: [g.name, g.nameZh, g.id] }))} />
           </>
         )}
       </div>
@@ -245,53 +246,120 @@ export default function SyncPage() {
 }
 
 /** 每个游戏的存档与截图同步到了哪些目标（上次同步成功的）。没有任何远程备份的游戏标出来。 */
-function Coverage({ list, games }: { list: TargetStatus[]; games: { id: string; name: string }[] }) {
+type CovState = "ok" | "failed" | "pending";
+type CovFilter = "todo" | "none" | "problem" | "ok" | "all";
+const COV_FILTERS: CovFilter[] = ["todo", "none", "problem", "ok", "all"];
+const COV_PAGE = 60;
+
+/** 目标对这个游戏的状态：同步成功 / 最近一次失败 / 还没同步成功过（含缺令牌）。 */
+function targetState(s: TargetStatus): CovState {
+  if (s.last?.error) return "failed";
+  if (!s.last || (s.target.kind !== "folder" && !s.hasSecret)) return "pending";
+  return "ok";
+}
+
+/**
+ * 每个游戏备份到了哪里：默认只列需要处理的游戏（还没同步到任何地方、同步有问题），
+ * 可按状态、目标筛选并搜索；游戏多时分页显示。
+ */
+function Coverage({ list, games }: { list: TargetStatus[]; games: { id: string; name: string; names: (string | null | undefined)[] }[] }) {
   const { t } = useTranslation();
-  const ok = list.filter((s) => s.target.enabled && s.last && !s.last.error);
+  const [filter, setFilter] = useState<CovFilter>("todo");
+  const [target, setTarget] = useState("all");
+  const [query, setQuery] = useState("");
+  const [shown, setShown] = useState(COV_PAGE);
+
+  const rows = useMemo(() => {
+    const active = list.filter((s) => s.target.enabled);
+    return games.map((g) => {
+      const on = active
+        .filter((s) => s.target.content !== "shots" && (s.target.games.length === 0 || s.target.games.includes(g.id)))
+        .map((s) => ({ s, state: targetState(s), shots: s.target.shots }));
+      const okCount = on.filter((x) => x.state === "ok").length;
+      const status: "none" | "problem" | "ok" = okCount === 0 ? "none" : on.some((x) => x.state !== "ok") ? "problem" : "ok";
+      return { g, on, status };
+    });
+  }, [list, games]);
+
   if (games.length === 0) return null;
-  const covers = (s: TargetStatus, id: string, what: "saves" | "shots") => {
-    const tg = s.target;
-    if (tg.games.length > 0 && !tg.games.includes(id)) return false;
-    if (what === "saves") return tg.content !== "shots";
-    return tg.content === "shots" || tg.shots;
-  };
-  const none = games.filter((g) => !ok.some((s) => covers(s, g.id, "saves")));
+  const count = (f: CovFilter) => rows.filter((r) => f === "all" || r.status === f || (f === "todo" && r.status !== "ok")).length;
+  const visible = rows.filter(
+    (r) =>
+      (filter === "all" || r.status === filter || (filter === "todo" && r.status !== "ok")) &&
+      (target === "all" || r.on.some((x) => x.s.target.id === target)) &&
+      (!query.trim() || fuzzyMatch(query, r.g.names)),
+  );
+  const todo = count("todo");
+
   return (
     <section className="sync-coverage">
-      <h2>{t("ui.sync.coverage")}</h2>
-      {none.length > 0 ? <p className="warn-hint">{t("ui.sync.uncovered", { n: none.length })}</p> : <p className="muted">{t("ui.sync.allCovered")}</p>}
-      <div className="coverage-scroll">
-        <table className="coverage">
-          <thead>
-            <tr>
-              <th>{t("ui.sync.game")}</th>
-              {list.map((s) => (
-                <th key={s.target.id}>{s.target.name}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {games.map((g) => (
-              <tr key={g.id} className={none.includes(g) ? "none" : undefined}>
-                <td>{g.name}</td>
-                {list.map((s) => {
-                  const done = ok.includes(s);
-                  const sv = covers(s, g.id, "saves");
-                  const sh = covers(s, g.id, "shots");
-                  return (
-                    <td key={s.target.id} className={done ? "" : "pending"}>
-                      {sv && <span title={t("ui.sync.saves")}>{t("ui.sync.saves")}</span>}
-                      {sh && <span title={t("ui.sync.shots")}>{t("ui.sync.shots")}</span>}
-                      {!sv && !sh && <span className="muted">—</span>}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="cov-head">
+        <h2>{t("ui.sync.coverage")}</h2>
+        <p className={todo > 0 ? "warn-hint" : "muted"}>
+          {todo > 0
+            ? [count("none") > 0 && t("ui.sync.covSumNone", { n: count("none") }), count("problem") > 0 && t("ui.sync.covSumProblem", { n: count("problem") })].filter(Boolean).join(t("ui.sync.covSep"))
+            : t("ui.sync.allCovered")}
+        </p>
       </div>
-      <p className="hint">{t("ui.sync.coverageHint")}</p>
+      <div className="cov-tools">
+        <div className="chips" role="group" aria-label={t("ui.sync.covFilter")}>
+          {COV_FILTERS.map((f) => (
+            <button key={f} className="chip" aria-pressed={filter === f} onClick={() => { setFilter(f); setShown(COV_PAGE); }}>
+              {t(`ui.sync.covFilter.${f}`)}
+              <span className="num chip-count">{count(f)}</span>
+            </button>
+          ))}
+        </div>
+        <div className="grow" />
+        {list.length > 1 && (
+          <select className="field" value={target} onChange={(e) => setTarget(e.target.value)} aria-label={t("ui.sync.covTarget")}>
+            <option value="all">{t("ui.sync.covAllTargets")}</option>
+            {list.map((s) => (
+              <option key={s.target.id} value={s.target.id}>
+                {s.target.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <input className="field" type="search" placeholder={t("ui.sync.covSearch")} value={query} onChange={(e) => { setQuery(e.target.value); setShown(COV_PAGE); }} aria-label={t("ui.sync.covSearch")} />
+      </div>
+
+      {visible.length === 0 ? (
+        <div className="cov-empty">
+          <p>{filter === "todo" && !query.trim() && target === "all" ? t("ui.sync.covNothingTodo") : t("ui.sync.covNoMatch")}</p>
+          {filter !== "all" && (
+            <button className="btn ghost" onClick={() => setFilter("all")}>
+              {t("ui.sync.covShowAll", { n: rows.length })}
+            </button>
+          )}
+        </div>
+      ) : (
+        <ul className="cov-list">
+          {visible.slice(0, shown).map(({ g, on, status }) => (
+            <li key={g.id} className={`cov-row cov-${status}`}>
+              <span className="cov-dot" aria-hidden />
+              <span className="cov-name">{g.name}</span>
+              <span className="cov-where">
+                {on.length === 0 ? (
+                  <span className="cov-note">{t("ui.sync.covNoTarget")}</span>
+                ) : (
+                  on.map(({ s, state, shots }) => (
+                    <span key={s.target.id} className={`cov-tag ${state}`} title={`${t(`ui.sync.covState.${state}`)}${shots ? ` · ${t("ui.sync.withShots")}` : ""}`}>
+                      {s.target.name}
+                      {state !== "ok" && <small>{t(`ui.sync.covState.${state}`)}</small>}
+                    </span>
+                  ))
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {visible.length > shown && (
+        <button className="btn ghost cov-more" onClick={() => setShown(shown + COV_PAGE)}>
+          {t("ui.sync.covMore", { n: visible.length - shown })}
+        </button>
+      )}
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { sharedApi as api } from "./test-utils";
+import { sharedApi as api, row } from "./test-utils";
 
 vi.mock("./api", async () => {
   const { sharedApi } = await import("./test-utils");
@@ -89,5 +89,26 @@ describe("同步备份页", () => {
     fireEvent.click(await screen.findByRole("button", { name: "立即同步" }));
     fireEvent.click(await screen.findByRole("button", { name: /开始同步/ }));
     await waitFor(() => expect(api.syncPush).toHaveBeenCalledWith("t1"));
+  });
+
+  it("每个游戏备份到了哪里：默认只列需要处理的游戏，可筛选与搜索", async () => {
+    const ok: TargetStatus = { target: { ...newTarget("local"), id: "d1", name: "移动硬盘", url: "E:/bak", games: ["a", "b"] }, hasSecret: false, last: { at: new Date().toISOString(), uploaded: 1, uploadedBytes: 1, deleted: 0, excluded: [] }, remoteFiles: 1 };
+    const bad: TargetStatus = { ...gitee(), target: { ...gitee().target, games: ["b"] }, last: { at: new Date().toISOString(), uploaded: 0, uploadedBytes: 0, deleted: 0, excluded: [], error: "403" } };
+    api.syncStatus.mockResolvedValue([ok, bad]);
+    const rows = [row({ id: "a", name: "Celeste", nameZh: null }), row({ id: "b", name: "Hades", nameZh: null }), row({ id: "c", name: "Hollow Knight", nameZh: "空洞骑士" })];
+    useStore.setState({ order: rows.map((r) => r.id), rows: Object.fromEntries(rows.map((r) => [r.id, r])) });
+    render(<SyncPage />);
+    // 默认“需要处理”：空洞骑士没同步到任何地方，Hades 的码云同步失败；Celeste 已同步，不显示。
+    expect(await screen.findByText("空洞骑士")).toBeInTheDocument();
+    expect(screen.getByText("Hades")).toBeInTheDocument();
+    expect(screen.queryByText("Celeste")).toBeNull();
+    expect(screen.getByRole("button", { name: /需要处理\s*2/ })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: /已同步\s*1/ }));
+    expect(screen.getByText("Celeste")).toBeInTheDocument();
+    expect(screen.queryByText("Hades")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /全部\s*3/ }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "搜索游戏" }), { target: { value: "hades" } });
+    expect(screen.getByText("Hades")).toBeInTheDocument();
+    expect(screen.queryByText("Celeste")).toBeNull();
   });
 });
