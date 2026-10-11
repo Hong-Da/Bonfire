@@ -50,6 +50,7 @@ pub struct Config {
     pub shots: Shots,
     pub auto_backup: AutoBackup,
     pub retention: Retention,
+    pub sync: SyncConfig,
     pub metadata: Metadata,
     pub log: Log,
 }
@@ -224,6 +225,13 @@ impl Default for AutoBackup {
             on_exit: false,
         }
     }
+}
+
+/// 同步备份（REQ-015）：同步目标在同步页中设置；令牌与密码不在这里。
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SyncConfig {
+    pub targets: Vec<crate::sync::SyncTarget>,
 }
 
 /// 历史清理的范围（M4-4）。

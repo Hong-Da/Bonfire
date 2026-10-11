@@ -26,6 +26,7 @@ pub mod restore;
 pub mod retention;
 pub mod security;
 pub mod shots;
+pub mod sync;
 pub mod transfer;
 pub mod ui_state;
 pub mod unsorted;

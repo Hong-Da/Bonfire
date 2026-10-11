@@ -177,6 +177,15 @@ impl App {
     }
 }
 
+/// 用 Windows 数据保护加密（与当前账户绑定）；不支持时为 None。
+pub(crate) fn protect(data: &[u8]) -> Option<Vec<u8>> {
+    dpapi::protect(data)
+}
+
+pub(crate) fn unprotect(data: &[u8]) -> Option<Vec<u8>> {
+    dpapi::unprotect(data)
+}
+
 fn check_password(p: &str) -> Result<()> {
     if p.chars().count() < 6 {
         return Err(AppError::Invalid("密码至少 6 个字符".into()));

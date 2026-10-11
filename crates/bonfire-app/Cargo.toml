@@ -26,6 +26,8 @@ sevenz-rust2.workspace = true
 unrar.workspace = true
 zstd.workspace = true
 rayon.workspace = true
+getrandom.workspace = true
+walkdir.workspace = true
 trash.workspace = true
 
 [target.'cfg(windows)'.dependencies]
