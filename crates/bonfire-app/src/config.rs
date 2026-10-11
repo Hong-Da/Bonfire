@@ -70,7 +70,7 @@ pub struct General {
     pub close_asked: bool,
     /// 记住游戏库的筛选（状态、管理方式、平台、筛选方案），重新打开时恢复。
     pub remember_filters: bool,
-    /// 记住游戏库中勾选的游戏，重新打开时恢复；关闭时每次按默认勾选有更新与未备份的游戏。
+    /// 已不再使用（U-58：重启后全部不勾选，切换页面时保留）；保留这一项以兼容旧配置文件。
     pub remember_selection: bool,
 }
 
@@ -490,8 +490,6 @@ close_to_tray = {tray}
 close_asked = {asked}
 # 记住游戏库的筛选（状态、管理方式、平台、筛选方案），重新打开时恢复
 remember_filters = {rem_filters}
-# 记住游戏库中勾选的游戏；关闭时每次按默认勾选有更新与未备份的游戏
-remember_selection = {rem_sel}
 
 [backup]
 # 是否同时备份游戏的配置文件（画质、按键等设置）
@@ -580,7 +578,6 @@ keep_days = {keep}
             tray = d.general.close_to_tray,
             asked = d.general.close_asked,
             rem_filters = d.general.remember_filters,
-            rem_sel = d.general.remember_selection,
             protect = d.backup.protect_local,
             vss = d.backup.use_vss,
             shots = d.shots.enabled,

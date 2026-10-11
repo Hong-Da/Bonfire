@@ -575,21 +575,24 @@ describe("U-38 界面状态由后台保存", () => {
   });
 });
 
-describe("U-39 记住勾选的游戏", () => {
-  it("勾选变化时保存，重新加载游戏库时恢复；没有保存过时按默认勾选", async () => {
-    localStorage.removeItem("bonfire.library.selected");
-    seed([row({ id: "a", name: "Alpha", nameZh: null }), row({ id: "b", name: "Beta", nameZh: null, state: "up-to-date" })]);
-    useStore.getState().toggle("b");
-    expect(JSON.parse(localStorage.getItem("bonfire.library.selected") ?? "[]").sort()).toEqual(["a", "b"]);
-    expect(api.uiStateSet).toHaveBeenCalledWith("bonfire.library.selected", expect.any(String));
-    useStore.getState().toggle("a");
-    api.loadLibrary.mockResolvedValue([row({ id: "a", name: "Alpha", nameZh: null }), row({ id: "b", name: "Beta", nameZh: null, state: "up-to-date" })]);
-    useStore.setState({ selected: new Set(), loading: false });
-    localStorage.setItem("bonfire.library.selected", JSON.stringify(["b", "gone"]));
-    resetUiStateForTest();
+describe("U-58 勾选不跨启动保留", () => {
+  it("启动后第一次加载全部不勾选；之后刷新、切换页面保留勾选，去掉已不在库中的游戏", async () => {
+    const rows = [row({ id: "a", name: "Alpha", nameZh: null }), row({ id: "b", name: "Beta", nameZh: null, state: "up-to-date" })];
+    api.loadLibrary.mockResolvedValue(rows);
+    localStorage.setItem("bonfire.library.selected", JSON.stringify(["a"]));
+    useStore.setState({ selected: new Set(), selectionReady: false, loading: false, rows: {}, order: [] });
     await useStore.getState().loadLibrary(false);
-    expect(useStore.getState().selected).toEqual(new Set(["b"]));
-    localStorage.removeItem("bonfire.library.selected");
+    expect(useStore.getState().selected).toEqual(new Set());
+    expect(localStorage.getItem("bonfire.library.selected")).toBeNull();
+    useStore.getState().toggle("a");
+    useStore.getState().toggle("b");
+    // 切换页面不会重置（状态保存在内存中）；再次加载游戏库时保留，去掉已移出的游戏。
+    useStore.getState().go({ name: "gallery" });
+    useStore.getState().go({ name: "library" });
+    api.loadLibrary.mockResolvedValue([rows[0]]);
+    await useStore.getState().loadLibrary(false);
+    expect(useStore.getState().selected).toEqual(new Set(["a"]));
+    api.loadLibrary.mockResolvedValue([]);
   });
 });
 
@@ -610,17 +613,17 @@ describe("U-40 是否记住上次的选择", () => {
     useStore.getState().setInfo(info);
   });
 
-  it("设置页：界面分组中可以关闭记住筛选与勾选", async () => {
+  it("设置页：界面分组中可以关闭记住筛选（勾选不再记住，没有开关）", async () => {
     useStore.setState({ info, toasts: [], view: { name: "settings" } });
     api.saveSettings.mockResolvedValue(info);
     render(<Settings />);
     const box = await screen.findByRole("checkbox", { name: /游戏库的筛选与管理方式/ });
     expect(box).toBeChecked();
     fireEvent.click(box);
-    fireEvent.click(screen.getByRole("checkbox", { name: /游戏库中勾选的游戏/ }));
+    expect(screen.queryByRole("checkbox", { name: /游戏库中勾选的游戏/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(api.saveSettings).toHaveBeenCalled());
-    expect(api.saveSettings.mock.calls[0][0].general).toMatchObject({ remember_filters: false, remember_selection: false });
+    expect(api.saveSettings.mock.calls[0][0].general).toMatchObject({ remember_filters: false });
   });
 });
 

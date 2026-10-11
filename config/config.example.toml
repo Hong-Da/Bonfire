@@ -15,8 +15,6 @@ close_to_tray = true
 close_asked = false
 # 记住游戏库的筛选（状态、管理方式、平台、筛选方案），重新打开时恢复
 remember_filters = true
-# 记住游戏库中勾选的游戏；关闭时每次按默认勾选有更新与未备份的游戏
-remember_selection = true
 
 [backup]
 # 是否同时备份游戏的配置文件（画质、按键等设置）

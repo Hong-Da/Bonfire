@@ -34,6 +34,8 @@ interface Store {
   phase: Phase;
   loading: boolean;
   selected: Set<string>;
+  /** 本次启动后已加载过游戏库（之后保留勾选）。 */
+  selectionReady: boolean;
   platformFilter: string;
   stateFilter: StateFilter;
   modeFilter: ModeFilter;
@@ -112,17 +114,8 @@ function saveFilters(s: SavedFilters) {
 
 const savedFilters = readFilters();
 
-/** 游戏库中勾选的游戏也记住（U-39）：重新打开时恢复；从没保存过时按默认勾选有更新与未备份的游戏。 */
+/** 早期版本保存在本机的勾选（U-39）；U-58 起不再记住，启动时清除。 */
 const SELECTION_KEY = "bonfire.library.selected";
-
-export function readSelection(): string[] | null {
-  try {
-    const v = JSON.parse(prefGet(SELECTION_KEY) ?? "null");
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : null;
-  } catch {
-    return null;
-  }
-}
 
 /** 默认勾选“有更新”和“未备份”的游戏（文档 8.1 第 1 步）。 */
 export function defaultSelection(rows: GameRow[]): Set<string> {
@@ -166,6 +159,7 @@ export const useStore = create<Store>((set, get) => ({
   phase: { phase: "idle", done: 0, total: 0 },
   loading: false,
   selected: new Set(),
+  selectionReady: false,
   platformFilter: savedFilters?.platformFilter ?? "all",
   stateFilter: savedFilters?.stateFilter ?? "all",
   modeFilter: savedFilters?.modeFilter ?? "all",
@@ -182,7 +176,6 @@ export const useStore = create<Store>((set, get) => ({
   setInfo: (info) => {
     // 关闭“记住”时清除已保存的选择，之后也不再保存。
     if (info.rememberFilters === false) prefRemove(FILTER_KEY);
-    if (info.rememberSelection === false) prefRemove(SELECTION_KEY);
     set({ info });
   },
   go: (view) => {
@@ -213,11 +206,11 @@ export const useStore = create<Store>((set, get) => ({
     try {
       const rows = await api.loadLibrary(fetchInfo);
       const map = Object.fromEntries(rows.map((r) => [r.id, r]));
-      // 用户在加载过程中已经勾选过时保留其选择；否则默认勾选有更新与未备份的游戏。
-      const keep = get().selected.size > 0 && [...get().selected].every((id) => map[id]);
-      const saved = get().info?.rememberSelection === false ? null : readSelection();
-      const selected = keep ? get().selected : saved ? new Set(saved.filter((id) => map[id])) : defaultSelection(rows);
-      set({ rows: map, order: sortIds(map), selected, fresh: noteGames(rows.map((r) => r.id)) });
+      // 勾选（U-58）：篝火启动后第一次加载时全部不勾选；之后（切换页面、刷新、备份后）保留当前勾选，去掉已不在库中的游戏。
+      const first = !get().selectionReady;
+      if (first) prefRemove(SELECTION_KEY);
+      const selected = first ? new Set<string>() : new Set([...get().selected].filter((id) => map[id]));
+      set({ rows: map, order: sortIds(map), selected, selectionReady: true, fresh: noteGames(rows.map((r) => r.id)) });
     } catch (e) {
       get().toast("error", errorMessage(e));
     } finally {
@@ -319,8 +312,4 @@ function persistFilters(s: SavedFilters & { info?: Store["info"] }) {
   saveFilters({ stateFilter: s.stateFilter, modeFilter: s.modeFilter, platformFilter: s.platformFilter, profileFilter: s.profileFilter, newOnly: s.newOnly });
 }
 
-// 勾选变化时保存（加载游戏库之前的空勾选不保存）。
-useStore.subscribe((s, prev) => {
-  if (s.selected !== prev.selected && Object.keys(s.rows).length > 0 && s.info?.rememberSelection !== false)
-    prefSet(SELECTION_KEY, JSON.stringify([...s.selected]));
-});
+
