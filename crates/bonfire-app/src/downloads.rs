@@ -77,6 +77,8 @@ pub struct DownloadPreview {
     pub mode: DownloadMode,
     /// 当前存档的文件数。
     pub current_files: usize,
+    /// 当前存档中已有的文件（清单路径，小写）：界面据此标出“覆盖现有文件 / 新增文件”，改了位置也能实时判断。
+    pub existing: Vec<String>,
 }
 
 /// 导入时的选择：每个文件放到哪里（不导入的不列出）。
@@ -571,6 +573,7 @@ impl App {
                     locations: locs,
                     mode: DownloadMode::Overlay,
                     current_files: 0,
+                    existing: Vec::new(),
                 });
             }
         };
@@ -616,6 +619,11 @@ impl App {
             locations: locs,
             mode,
             current_files: disk.len(),
+            existing: {
+                let mut v: Vec<String> = known_set.into_iter().collect();
+                v.sort();
+                v
+            },
         })
     }
 

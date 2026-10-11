@@ -636,6 +636,8 @@ export interface DownloadPreview {
   locations: { ord: number; path: string }[];
   mode: DownloadMode;
   currentFiles: number;
+  /** 当前存档中已有的文件（清单路径，小写） */
+  existing?: string[];
 }
 
 export interface DownloadReport {

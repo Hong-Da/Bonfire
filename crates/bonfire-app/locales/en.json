@@ -1317,7 +1317,6 @@
   "ui.download.placeOf": "Place {name} in",
   "ui.download.innerOf": "Path of {name} inside the folder",
   "ui.download.skip": "Skip",
-  "ui.download.replaces": "Replaces",
   "ui.download.ignored": "{n} readmes, images and the like ignored",
   "ui.download.modeTitle": "Import mode",
   "ui.download.mode.overlay": "Layer onto current save",
@@ -1353,5 +1352,9 @@
   "ui.manual.open": "Open save folder",
   "ui.manual.openN": "Open location {n}",
   "ui.manual.step4": "Back in Bonfire, check for updates; the game is flagged as possibly replaced.",
-  "ui.manual.step5": "When backing up, keep “Back up to a new branch” ticked so the download stays separate; use “Back to primary” to return."
+  "ui.manual.step5": "When backing up, keep “Back up to a new branch” ticked so the download stays separate; use “Back to primary” to return.",
+  "ui.download.overwrite": "Overwrites",
+  "ui.download.overwriteHint": "A file with this name already exists; the downloaded one is used",
+  "ui.download.add": "New file",
+  "ui.download.addHint": "No such file yet; it will be added"
 }

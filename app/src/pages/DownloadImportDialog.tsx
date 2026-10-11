@@ -84,6 +84,7 @@ export default function DownloadImportDialog({
   const placed = saveFiles.filter((f) => targets[f.rel]);
   const unplaced = saveFiles.filter((f) => !targets[f.rel]);
   const locs = preview?.locations ?? [];
+  const existing = useMemo(() => new Set(preview?.existing ?? preview?.files.filter((f) => f.replaces && f.target).map((f) => f.target!.toLowerCase()) ?? []), [preview]);
   // 存档位置显示路径的最后两级（完整路径在悬停提示中）。
   const locLabel = (ord: number) => {
     const full = locs.find((l) => l.ord === ord)?.path;
@@ -316,7 +317,17 @@ export default function DownloadImportDialog({
                         onChange={(e) => setTargets((x) => ({ ...x, [f.rel]: e.target.value.trim() ? `${ord}/${e.target.value.trim().replace(/^\/+/, "")}` : null }))}
                       />
                     )}
-                    {tg && f.replaces && targets[f.rel] === f.target && <span className="tag">{t("ui.download.replaces")}</span>}
+                    {/* 放到的位置已有同名文件：覆盖；没有：新增。改了位置也实时判断。 */}
+                    {tg &&
+                      (existing.has(tg.toLowerCase()) ? (
+                        <span className="dl-fate overwrite" title={t("ui.download.overwriteHint")}>
+                          {t("ui.download.overwrite")}
+                        </span>
+                      ) : (
+                        <span className="dl-fate add" title={t("ui.download.addHint")}>
+                          {t("ui.download.add")}
+                        </span>
+                      ))}
                   </span>
                   <span className="num muted">{bytes(f.size)}</span>
                 </li>

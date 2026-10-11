@@ -27,6 +27,7 @@ const preview = (over: Partial<DownloadPreview> = {}): DownloadPreview => ({
   locations: [{ ord: 0, path: "C:/Saves/HK" }],
   mode: "overlay",
   currentFiles: 3,
+  existing: ["0/user1.dat", "0/user2.dat", "0/settings.ini"],
   ...over,
 });
 
@@ -53,6 +54,15 @@ describe("导入下载的存档（U-42）", () => {
     fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
     expect(screen.getByText(/有 1 个文件没能自动对应/)).toBeInTheDocument();
     expect(screen.getByLabelText("「extra.bin」放到")).toHaveValue("-1");
+    // 覆盖现有 / 新增：放到已有文件的位置显示“覆盖现有”，改到别的位置后实时变为“新增文件”。
+    expect(screen.getAllByText("覆盖现有")).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("「extra.bin」放到"), { target: { value: "0" } });
+    expect(screen.getAllByText("新增文件")).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("「user1.dat」在存档文件夹中的路径"), { target: { value: "user9.dat" } });
+    expect(screen.queryByText("覆盖现有")).toBeNull();
+    expect(screen.getAllByText("新增文件")).toHaveLength(2);
+    fireEvent.change(screen.getByLabelText("「user1.dat」在存档文件夹中的路径"), { target: { value: "user1.dat" } });
+    fireEvent.change(screen.getByLabelText("「extra.bin」放到"), { target: { value: "-1" } });
     fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
     // 叠加为推荐，默认导入后立即换上。
     expect(screen.getByRole("radio", { name: /叠加到当前存档/ })).toBeChecked();

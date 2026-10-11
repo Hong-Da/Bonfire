@@ -1035,3 +1035,9 @@ button.link:hover { text-decoration: underline; }
 .manual-guide .manual-warn svg { flex: none; margin-top: 3px; }
 .manual-guide ol { display: grid; gap: 6px; }
 .manual-guide li .btn { margin-left: 8px; vertical-align: middle; }
+
+/* 导入下载的存档：每个文件导入后是覆盖现有文件还是新增（文字标记，不是按钮） */
+.dl-fate { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: default; }
+.dl-fate::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.dl-fate.overwrite { color: var(--ember); }
+.dl-fate.add { color: var(--moss); }

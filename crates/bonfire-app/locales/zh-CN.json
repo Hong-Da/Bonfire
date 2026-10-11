@@ -1317,7 +1317,6 @@
   "ui.download.placeOf": "「{name}」放到",
   "ui.download.innerOf": "「{name}」在存档文件夹中的路径",
   "ui.download.skip": "跳过",
-  "ui.download.replaces": "替换",
   "ui.download.ignored": "已忽略 {n} 个说明、图片等文件",
   "ui.download.modeTitle": "导入方式",
   "ui.download.mode.overlay": "叠加到当前存档",
@@ -1353,5 +1352,9 @@
   "ui.manual.open": "打开存档文件夹",
   "ui.manual.openN": "打开存档位置 {n}",
   "ui.manual.step4": "回到篝火点“检查更新”，游戏会标出“存档可能被手动替换”。",
-  "ui.manual.step5": "备份时保持勾选“另开新路线备份”，下载的存档就单独存成一条路线，不会混进你自己的进度；想回去时点“回到主存档”。"
+  "ui.manual.step5": "备份时保持勾选“另开新路线备份”，下载的存档就单独存成一条路线，不会混进你自己的进度；想回去时点“回到主存档”。",
+  "ui.download.overwrite": "覆盖现有",
+  "ui.download.overwriteHint": "存档文件夹里已有同名文件，导入的快照里用下载的这份",
+  "ui.download.add": "新增文件",
+  "ui.download.addHint": "存档文件夹里没有这个文件，导入后新增"
 }
