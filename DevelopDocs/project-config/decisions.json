@@ -2231,5 +2231,47 @@
     "impact": "设置页与游戏库工具栏的自动备份菜单都可开关；检测进程时不占用应用，不影响界面操作；仓库被占用时下次再试。也会收集游戏期间拍的截图。",
     "status": "默认推荐",
     "date": "2026-10-11"
+  },
+  {
+    "id": "M4-1a",
+    "stage": "M4-1 其余平台",
+    "question": "Ubisoft、EA、Battle.net 的游戏清单从哪里读",
+    "options": [
+      "Windows“卸载程序”登记（Ubisoft 键名 Uplay Install <ID>；EA app 的卸载程序在 EAInstaller 下；Battle.net 的卸载命令带 --uid=<产品>，跳过启动器本身），Ubisoft 另读启动器目录作为规则库的 <root>（推荐）",
+      "读各启动器的私有数据库或配置（product.db、EA Desktop 安装记录）"
+    ],
+    "chosen": "Windows“卸载程序”登记（Ubisoft 键名 Uplay Install <ID>；EA app 的卸载程序在 EAInstaller 下；Battle.net 的卸载命令带 --uid=<产品>，跳过启动器本身），Ubisoft 另读启动器目录作为规则库的 <root>（推荐）",
+    "reason": "启动器的私有文件格式（product.db 为 protobuf、EA app 安装记录加密）经常变化；卸载登记是公开、稳定的 Windows 接口，三家都会写入，且有名称和安装目录。本机实测识别出 Battle.net 的守望先锋。",
+    "impact": "游戏 ID：ubisoft-<游戏 ID>、ea-<登记键名>、battlenet-<产品 ID>；名称取登记的显示名称（会随启动器语言本地化）。规则库按安装文件夹名、名称匹配；匹配不到时按名称在常见存档目录中探测，需用户确认。",
+    "status": "默认推荐",
+    "date": "2026-10-11"
+  },
+  {
+    "id": "M4-1b",
+    "stage": "M4-1 其余平台",
+    "question": "Xbox / Microsoft Store 游戏怎样识别与备份",
+    "options": [
+      "列出 %LOCALAPPDATA%\\Packages 下有 SystemAppData\\wgs 容器存档的应用包；规则库按路径中的包名对应游戏；规则库没有的把整个 wgs 目录作为待确认的存档位置，整体备份与恢复（推荐）",
+      "调用 Get-AppxPackage 列出所有应用"
+    ],
+    "chosen": "列出 %LOCALAPPDATA%\\Packages 下有 SystemAppData\\wgs 容器存档的应用包；规则库按路径中的包名对应游戏；规则库没有的把整个 wgs 目录作为待确认的存档位置，整体备份与恢复（推荐）",
+    "reason": "文档 4.1、10.3：wgs 是容器格式，只做整体备份；只有游戏才有 wgs 目录，不会把普通应用当成游戏；不需要启动 PowerShell（也不会闪窗口）。规则库有 637 条按包名的规则。",
+    "impact": "游戏 ID：xbox-<包名>；规则库没有的游戏名称由包名推出（如 Microsoft.SunriseBaseGame → Sunrise Base Game）。",
+    "status": "默认推荐",
+    "date": "2026-10-11"
+  },
+  {
+    "id": "M4-1c",
+    "stage": "M4-1 其余平台",
+    "question": "新平台的开关",
+    "options": [
+      "设置页与首次运行向导的“扫描的平台”增加 Ubisoft Connect、EA app、Xbox、Battle.net，默认全部开启；bonfire scan --platform 也可选这几个（推荐）",
+      "默认关闭"
+    ],
+    "chosen": "设置页与首次运行向导的“扫描的平台”增加 Ubisoft Connect、EA app、Xbox、Battle.net，默认全部开启；bonfire scan --platform 也可选这几个（推荐）",
+    "reason": "与已有平台一致；没有安装的平台扫描不到任何游戏，不影响使用。",
+    "impact": "配置项 backup.disabled_platforms 原本就列出这几个平台名。",
+    "status": "默认推荐",
+    "date": "2026-10-11"
   }
 ]

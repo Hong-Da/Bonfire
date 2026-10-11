@@ -410,8 +410,12 @@ pub fn detect_all(disabled: &[String]) -> Vec<Box<dyn PlatformAdapter>> {
     {
         v.push(Box::new(a));
     }
+    v.extend(crate::stores::detect(disabled));
     v
 }
+
+/// 所有平台的 ID（设置中的平台开关、`scan --platform`）。
+pub const ALL: [&str; 7] = ["steam", "epic", "gog", "ubisoft", "ea", "xbox", "battlenet"];
 
 #[cfg(test)]
 pub(crate) mod tests {

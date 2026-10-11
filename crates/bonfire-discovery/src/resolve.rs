@@ -68,6 +68,7 @@ pub fn match_rule<'a>(idx: &'a RuleIndex, g: &InstalledGame) -> Option<(&'a Game
     let by_id = match (g.platform.as_str(), id) {
         ("steam", Some(id)) => idx.by_steam_id(id),
         ("gog", Some(id)) => idx.by_gog_id(id),
+        ("xbox", _) => idx.by_package(&g.app_id),
         _ => None,
     };
     by_id
@@ -224,6 +225,7 @@ pub fn discover(idx: &RuleIndex, dirs: &KnownDirs, store: &str, g: &InstalledGam
             resolve_rule(rule, source, &ctx, store),
             rule.cloud.iter().any(|c| c == store),
         ),
+        None if g.platform == "xbox" => (None, wgs_location(dirs, g), false),
         None => (None, heuristic(dirs, g), false),
     };
     Discovered {
@@ -232,6 +234,30 @@ pub fn discover(idx: &RuleIndex, dirs: &KnownDirs, store: &str, g: &InstalledGam
         locations,
         cloud_save: g.cloud_save || rule_cloud,
     }
+}
+
+/// 规则库没有的 Xbox / Microsoft Store 游戏：整个 `wgs` 容器目录作为一个待确认的存档位置（文档 4.1、10.3）。
+fn wgs_location(dirs: &KnownDirs, g: &InstalledGame) -> Vec<FoundLocation> {
+    let Some(local) = &dirs.local_app_data else {
+        return Vec::new();
+    };
+    let wgs = local
+        .join("Packages")
+        .join(&g.app_id)
+        .join("SystemAppData")
+        .join("wgs");
+    if !wgs.is_dir() {
+        return Vec::new();
+    }
+    let path = native(&wgs);
+    vec![FoundLocation {
+        template: path.clone(),
+        path,
+        kind: FoundKind::Dir,
+        config: false,
+        source: LocationSource::Heuristic,
+        confirmed: false,
+    }]
 }
 
 /// 手动添加的游戏没有平台信息时，也可以按名称套用规则库（例如独立游戏、模拟器）。
@@ -452,5 +478,71 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let a: Box<dyn PlatformAdapter> = Box::new(fake_steam(d.path()));
         assert_eq!((a.id(), a.store()), ("steam", "steam"));
+    }
+
+    #[test]
+    fn xbox_games_match_by_package_or_fall_back_to_wgs() {
+        let yaml = r#"
+"Sunrise":
+  files:
+    "<winLocalAppData>/Packages/Microsoft.SunriseBaseGame_8wekyb3d8bbwe/SystemAppData/wgs":
+      when:
+        - store: microsoft
+"#;
+        let idx = RuleIndex::new(Manifest::from_yaml(yaml).unwrap(), Manifest::default());
+        let d = tempfile::tempdir().unwrap();
+        let dirs = KnownDirs::under(d.path());
+        let pk = dirs.local_app_data.clone().unwrap().join("Packages");
+        write(
+            &pk.join("Microsoft.SunriseBaseGame_8wekyb3d8bbwe/SystemAppData/wgs/c/x"),
+            "1",
+        );
+        write(&pk.join("Studio.Unknown_abc/SystemAppData/wgs/c/y"), "2");
+        let games = crate::stores::XboxAdapter { packages_dir: pk }.list_games();
+        let found: Vec<Discovered> = games
+            .iter()
+            .map(|g| discover(&idx, &dirs, "microsoft", g))
+            .collect();
+        let sunrise = found.iter().find(|f| f.rule.is_some()).unwrap();
+        assert_eq!(sunrise.rule.as_deref(), Some("Sunrise"));
+        assert!(sunrise.locations[0].confirmed);
+        let unknown = found.iter().find(|f| f.rule.is_none()).unwrap();
+        assert_eq!(unknown.locations.len(), 1);
+        assert!(!unknown.locations[0].confirmed, "规则库没有的需要确认");
+        assert!(unknown.locations[0].path.ends_with("wgs"));
+    }
+
+    #[test]
+    fn ubisoft_rules_use_launcher_root() {
+        let yaml = r#"
+"Anno 2205":
+  files:
+    "<root>/savegames/<storeUserId>/2052":
+      when:
+        - store: uplay
+  installDir:
+    Anno 2205: {}
+"#;
+        let idx = RuleIndex::new(Manifest::from_yaml(yaml).unwrap(), Manifest::default());
+        let d = tempfile::tempdir().unwrap();
+        let dirs = KnownDirs::under(d.path());
+        let launcher = d.path().join("Ubisoft Game Launcher");
+        write(&launcher.join("savegames/abc-user/2052/1.save"), "s");
+        let game_dir = d.path().join("Games/Anno 2205");
+        std::fs::create_dir_all(&game_dir).unwrap();
+        let g = crate::stores::UbisoftAdapter {
+            launcher_dir: Some(launcher),
+            entries: vec![crate::stores::UninstallEntry {
+                key: "Uplay Install 1253".into(),
+                name: "Anno 2205".into(),
+                install_dir: Some(game_dir),
+                ..Default::default()
+            }],
+        }
+        .list_games();
+        let found = discover(&idx, &dirs, "uplay", &g[0]);
+        assert_eq!(found.rule.as_deref(), Some("Anno 2205"));
+        assert_eq!(found.locations.len(), 1, "{:?}", found.locations);
+        assert!(found.locations[0].path.contains("savegames"));
     }
 }

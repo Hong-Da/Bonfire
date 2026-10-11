@@ -232,7 +232,7 @@ describe("向导", () => {
     fireEvent.click(screen.getByLabelText("Saves only"));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Steam、GOG")).toHaveClass("changed");
+    expect(screen.getByText("Steam、GOG、Ubisoft Connect、EA app、Xbox、Battle.net")).toHaveClass("changed");
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     const cfg = api.saveSettings.mock.calls[0][0];

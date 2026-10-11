@@ -20,7 +20,7 @@ import { CleanupDialog } from "../components/CleanupDialog";
 /** 历史清理的默认设置（旧配置中没有这一节时使用）。 */
 export const DEFAULT_RETENTION: RetentionConfig = { enabled: false, keep_last: 20, keep_daily: 14, keep_weekly: 8, scope: "auto" };
 
-export const PLATFORMS = ["steam", "epic", "gog"] as const;
+export const PLATFORMS = ["steam", "epic", "gog", "ubisoft", "ea", "xbox", "battlenet"] as const;
 
 /** 设置（文档 9.1）：仓库位置、界面、平台开关、是否备份配置文件、游戏信息来源与 API Key、规则库、维护。 */
 export default function Settings() {

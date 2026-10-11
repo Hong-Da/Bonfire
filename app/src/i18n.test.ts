@@ -8,7 +8,7 @@ import en from "../../crates/bonfire-app/locales/en.json";
 const DYNAMIC: Record<string, string[]> = {
   "ui.file.": ["added", "modified", "deleted", "removed", "unchanged"],
   "ui.library.phase.": ["discovering", "checking", "info", "idle"],
-  "ui.platform.": ["steam", "epic", "gog", "custom"],
+  "ui.platform.": ["steam", "epic", "gog", "custom", "ubisoft", "ea", "xbox", "battlenet"],
   "ui.state.": ["has-changes", "never-backed-up", "up-to-date", "shots-only", "pending"],
   "ui.theme.": ["auto", "light", "dark"],
   "ui.trigger.": ["manual", "auto-exit", "auto-timer", "auto-change", "pre-restore", "import"],

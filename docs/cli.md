@@ -15,7 +15,7 @@
 | `bonfire game include <game>...` / `--all-new` `[--mode both\|saves\|shots]` | 把扫描发现的游戏加入游戏库；`--all-new` 加入全部新发现的游戏；`--mode` 加入后的管理方式（默认存档和截图） |
 | `bonfire game ignore <game>...` | 忽略扫描发现的游戏，之后扫描不再作为新发现提示（已在库中的会移出） |
 | `bonfire game confirm <game>` | 确认启发式找到的存档位置（写入自定义规则 `custom-rules.yaml`） |
-| `bonfire scan [--platform steam\|epic\|gog] [--no-discover] [--no-metadata] [--force-verify]` | 发现游戏：扫描本机平台，列出有存档的游戏（新发现 / 已在库中 / 已忽略），**不会自动加入游戏库**；已在库中的游戏更新存档位置并获取游戏信息；最后检测游戏库中所有游戏的状态 |
+| `bonfire scan [--platform steam\|epic\|gog\|ubisoft\|ea\|xbox\|battlenet] [--no-discover] [--no-metadata] [--force-verify]` | 发现游戏：扫描本机平台，列出有存档的游戏（新发现 / 已在库中 / 已忽略），**不会自动加入游戏库**；已在库中的游戏更新存档位置并获取游戏信息；最后检测游戏库中所有游戏的状态 |
 | `bonfire rules update` / `rules info` | 下载最新的 Ludusavi 规则库（按 ETag 增量） / 查看当前使用的规则库 |
 | `bonfire info <game> [--refresh] [--set 字段=值]... [--unlock 字段]... [--search] [--pick 来源:ID]` | 游戏信息：名称、中文名、开发商、发行商、发行日期、类型、封面、游玩时长、云存档；手动修改的字段加锁 |
 | `bonfire status [<game>] [--force-verify]` | 不带游戏时同 `scan`；带游戏时列出变化的文件 |

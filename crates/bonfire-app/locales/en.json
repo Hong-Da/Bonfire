@@ -134,7 +134,7 @@
   "cli.cmd.rules": "Save rules database (Ludusavi Manifest)",
   "cli.cmd.rules.update": "Download the latest rules",
   "cli.cmd.rules.info": "Show the rules in use",
-  "cli.arg.scan.platform": "Only scan one platform: steam / epic / gog",
+  "cli.arg.scan.platform": "Only scan one platform: steam / epic / gog / ubisoft / ea / xbox / battlenet",
   "cli.arg.scan.no_discover": "Skip platform discovery, only detect changes",
   "cli.arg.game.list.all": "Include ignored games",
   "cli.arg.rules.update.bundle": "Also write a bundled snapshot (for packaging)",

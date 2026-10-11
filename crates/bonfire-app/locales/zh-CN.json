@@ -134,7 +134,7 @@
   "cli.cmd.rules": "存档规则库（Ludusavi Manifest）",
   "cli.cmd.rules.update": "下载最新规则库",
   "cli.cmd.rules.info": "查看当前使用的规则库",
-  "cli.arg.scan.platform": "只扫描某个平台：steam / epic / gog",
+  "cli.arg.scan.platform": "只扫描某个平台：steam / epic / gog / ubisoft / ea / xbox / battlenet",
   "cli.arg.scan.no_discover": "不扫描平台，只检测已有游戏的更新",
   "cli.arg.game.list.all": "包括已忽略的游戏",
   "cli.arg.rules.update.bundle": "同时写出一份内置快照（打包用）",

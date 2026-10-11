@@ -49,6 +49,7 @@ pub(crate) fn fake_adapters(
             manifests_dir: epic,
         }));
     }
+    v.extend(bonfire_discovery::stores::fake(root, disabled));
     v
 }
 
@@ -203,7 +204,7 @@ impl App {
         let mut disabled = self.config.backup.disabled_platforms.clone();
         if let Some(p) = only {
             disabled.extend(
-                ["steam", "epic", "gog"]
+                platforms::ALL
                     .iter()
                     .filter(|x| !x.eq_ignore_ascii_case(p))
                     .map(|s| s.to_string()),

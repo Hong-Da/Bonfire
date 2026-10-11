@@ -228,6 +228,16 @@ pub struct RuleIndex {
     by_gog: HashMap<u64, usize>,
     by_install_dir: HashMap<String, usize>,
     by_normalized: HashMap<String, usize>,
+    /// Microsoft Store 应用包名（规则路径中 `Packages/<包名>/` 的部分，小写）。
+    by_package: HashMap<String, usize>,
+}
+
+/// 规则路径中 `Packages/<包名>/` 的包名（小写）；包名含 `_`（发布者 ID）。
+fn package_of(path: &str) -> Option<String> {
+    let lower = path.replace('\\', "/").to_lowercase();
+    let rest = lower.split("/packages/").nth(1)?;
+    let pkg = rest.split('/').next()?;
+    (pkg.contains('_') && !pkg.contains('<') && !pkg.contains('*')).then(|| pkg.to_string())
 }
 
 /// 名称归一化：小写，只保留字母与数字（用于模糊匹配）。
@@ -274,6 +284,11 @@ impl RuleIndex {
         for d in &g.install_dirs {
             self.by_install_dir.entry(d.to_lowercase()).or_insert(i);
         }
+        for r in &g.files {
+            if let Some(pkg) = package_of(&r.path) {
+                self.by_package.entry(pkg).or_insert(i);
+            }
+        }
         self.by_normalized.entry(normalize(&g.name)).or_insert(i);
     }
 
@@ -308,6 +323,13 @@ impl RuleIndex {
 
     pub fn by_gog_id(&self, id: u64) -> Option<(&GameRule, RuleSource)> {
         self.by_gog.get(&id).and_then(|&i| self.resolve_alias(i))
+    }
+
+    /// 按 Microsoft Store 应用包名（如 `Microsoft.SunriseBaseGame_8wekyb3d8bbwe`）匹配。
+    pub fn by_package(&self, pfn: &str) -> Option<(&GameRule, RuleSource)> {
+        self.by_package
+            .get(&pfn.to_lowercase())
+            .and_then(|&i| self.resolve_alias(i))
     }
 
     pub fn by_install_dir(&self, dir: &str) -> Option<(&GameRule, RuleSource)> {
