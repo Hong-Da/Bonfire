@@ -1220,5 +1220,6 @@
   "ui.backup.excludedSavesOnlyHint": "这些游戏只备份存档。要收集它们的截图，把管理方式改为“存档和截图”。",
   "ui.backup.shotsSkippedTitle": "没有新截图，将跳过（{n}）",
   "ui.backup.shotsSkippedHint": "这些游戏的截图文件夹中没有还没收集的截图。",
-  "ui.backup.shotsAllNone": "所选的 {n} 个游戏都没有新截图，不需要收集。"
+  "ui.backup.shotsAllNone": "所选的 {n} 个游戏都没有新截图，不需要收集。",
+  "ui.gallery.foldRange": "{from}至{to}"
 }

@@ -1220,5 +1220,6 @@
   "ui.backup.excludedSavesOnlyHint": "These games only back up saves. To collect their screenshots, change their management to “Saves and screenshots”.",
   "ui.backup.shotsSkippedTitle": "No new screenshots, skipped ({n})",
   "ui.backup.shotsSkippedHint": "There's nothing new in these games' screenshot folders.",
-  "ui.backup.shotsAllNone": "None of the {n} selected games has new screenshots."
+  "ui.backup.shotsAllNone": "None of the {n} selected games has new screenshots.",
+  "ui.gallery.foldRange": "{from} – {to}"
 }

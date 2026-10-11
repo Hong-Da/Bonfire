@@ -404,6 +404,19 @@ export default function Gallery() {
                     {g.label}
                   </label>
                   <span className="muted num">{t("ui.shots.dayCount", { n: keys.length })}</span>
+                  {/* 折叠时：日期范围与最新 3 张叠放的缩略图，点这一条展开。 */}
+                  {isFolded && (
+                    <button type="button" className="fold-peek" onClick={toggleFold} tabIndex={-1} aria-hidden="true">
+                      <span className="fold-range num">{rangeText(g.shots, i18n.language, t)}</span>
+                      <span className="fold-stack">
+                        {g.shots.slice(0, 3).map((s) => (
+                          <span key={keyOf(s)} className="fold-photo">
+                            <ShotThumb gameId={s.gameId} blob={s.blob} alt="" />
+                          </span>
+                        ))}
+                      </span>
+                    </button>
+                  )}
                   {gameInfo && gameInfo.inLibrary && (
                     <button className="btn ghost small" onClick={() => store.go({ name: "game", id: gameInfo.id })}>
                       {t("ui.gallery.openGame")}
@@ -558,4 +571,15 @@ export default function Gallery() {
       )}
     </>
   );
+}
+
+/** 分组中截图的日期范围：同一天为“10月9日”，否则“10月4日至10月9日”。 */
+function rangeText(shots: ShotRecord[], lang: string, t: (k: string, o?: Record<string, unknown>) => string): string {
+  if (shots.length === 0) return "";
+  const times = shots.map((s) => new Date(s.takenAt).getTime()).filter((x) => !Number.isNaN(x));
+  if (times.length === 0) return "";
+  const fmt = (ms: number) => new Date(ms).toLocaleDateString(lang, { month: "short", day: "numeric" });
+  const from = fmt(Math.min(...times));
+  const to = fmt(Math.max(...times));
+  return from === to ? from : t("ui.gallery.foldRange", { from, to });
 }

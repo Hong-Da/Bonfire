@@ -465,6 +465,9 @@ describe("U-27 / U-28", () => {
     fireEvent.click(screen.getByRole("button", { name: "折叠「Hollow Knight」" }));
     expect(container.querySelectorAll("[data-key]")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "展开「Hollow Knight」" })).toHaveAttribute("aria-expanded", "false");
+    // 折叠后显示日期范围与叠放的缩略图。
+    expect(container.querySelectorAll(".shot-day.folded .fold-photo")).toHaveLength(1);
+    expect(container.querySelector(".shot-day.folded .fold-range")?.textContent).toMatch(/10/);
     fireEvent.click(screen.getByRole("button", { name: "全部折叠" }));
     expect(container.querySelectorAll("[data-key]")).toHaveLength(0);
     expect(localStorage.getItem("bonfire.gallery.folded")).toContain("Hollow Knight".length ? "game:" : "");
