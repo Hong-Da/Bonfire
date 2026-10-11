@@ -564,6 +564,25 @@ expect_exit = 4
 stderr_contains = ["还没有快照"]
 
 [[case]]
+id = "branch-rename"
+title = { zh-CN = "分支改名", en = "Rename a branch" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["branch", "空洞骑士", "main-旧电脑"]]
+args = ["branch", "空洞骑士", "--rename", "main-旧电脑", "二周目"]
+expect_exit = 0
+stdout_contains = ["已把分支 main-旧电脑 改名为 二周目"]
+in_docs = true
+
+[[case]]
+id = "branch-rename-exists"
+title = { zh-CN = "改名为已存在的分支", en = "Rename onto an existing branch" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["branch", "空洞骑士", "x"]]
+args = ["branch", "空洞骑士", "--rename", "x", "MAIN"]
+expect_exit = 2
+stderr_contains = ["已存在"]
+
+[[case]]
 id = "branch-delete"
 title = { zh-CN = "删除分支", en = "Delete a branch" }
 fixture = "basic"

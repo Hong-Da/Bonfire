@@ -146,8 +146,10 @@ pub enum Cmd {
         game: String,
         name: Option<String>,
         snapshot: Option<String>,
-        #[arg(long, short = 'd', value_name = "NAME", conflicts_with_all = ["name", "snapshot"])]
+        #[arg(long, short = 'd', value_name = "NAME", conflicts_with_all = ["name", "snapshot", "rename"])]
         delete: Option<String>,
+        #[arg(long, num_args = 2, value_names = ["OLD", "NEW"], conflicts_with_all = ["name", "snapshot"])]
+        rename: Option<Vec<String>>,
         #[arg(long, requires = "delete")]
         dry_run: bool,
     },

@@ -171,7 +171,10 @@ pub async fn app_info(h: AppHandle) -> CmdResult<AppInfo> {
         ),
         None => (Locale::resolve(None), Default::default(), None, true),
     };
-    let general = guard.as_ref().map(|a| a.config.general.clone()).unwrap_or_default();
+    let general = guard
+        .as_ref()
+        .map(|a| a.config.general.clone())
+        .unwrap_or_default();
     Ok(AppInfo {
         version: bonfire_app::VERSION,
         portable: shared.paths.portable,
@@ -584,6 +587,22 @@ pub async fn set_comment(
 }
 
 /// 删除分支（`dry_run` 时只返回会删除的快照）。
+/// 分支改名。
+#[tauri::command]
+pub async fn rename_branch(
+    h: AppHandle,
+    game_id: String,
+    from: String,
+    to: String,
+) -> CmdResult<()> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let lock = app.repo.lock()?;
+        Ok(app.rename_branch(&lock, &g, &from, &to)?)
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn delete_branch(
     h: AppHandle,

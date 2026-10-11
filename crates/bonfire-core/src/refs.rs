@@ -398,6 +398,136 @@ impl Repo {
         )
     }
 
+    /// 分支改名：快照不动，只换名字；当前分支、各电脑的主存档指向旧名时一并改为新名。
+    /// 新名已存在（不区分大小写）时报错。
+    pub fn rename_branch(&self, lock: &RepoLock, game: &str, from: &str, to: &str) -> Result<()> {
+        validate_ref_name(to)?;
+        let old = RefName::branch(from);
+        let target = self
+            .read_ref(game, &old)?
+            .ok_or_else(|| CoreError::RefNotFound(old.to_string()))?;
+        if from == to {
+            return Ok(());
+        }
+        // 只改大小写时 find_existing 会找到自己：先删再建。
+        let new = RefName::branch(to);
+        if let Some(existing) = self.find_existing(game, &new)?
+            && existing.to_lowercase() != from.to_lowercase()
+        {
+            return Err(CoreError::RefExists(format!("heads/{existing}")));
+        }
+        let path = self.ref_path(game, &old);
+        std::fs::remove_file(&path).at(&path)?;
+        let dir = self.game_dir(game).join(RefKind::Branch.dir());
+        std::fs::create_dir_all(&dir).at(&dir)?;
+        write_atomic(
+            &self.tmp_dir(),
+            &self.ref_path(game, &new),
+            format!("{target}\n").as_bytes(),
+            false,
+        )?;
+        self.append_reflog(
+            game,
+            &new.to_string(),
+            Some(target),
+            Some(target),
+            "rename",
+            &format!("分支 {from} 改名为 {to}"),
+        )?;
+        let head = self.head(game)?;
+        if head.branch == from {
+            self.set_head(
+                lock,
+                game,
+                &Head {
+                    branch: to.to_string(),
+                    detached: head.detached,
+                },
+            )?;
+        }
+        for (key, branch) in self.primary_branches(game)? {
+            if branch == from {
+                self.set_primary_branch(lock, game, &key, Some(to))?;
+            }
+        }
+        Ok(())
+    }
+
+    fn primary_dir(&self, game: &str) -> PathBuf {
+        self.game_dir(game).join("primary")
+    }
+
+    /// 各电脑的主存档：(电脑的键, 分支名)。
+    pub fn primary_branches(&self, game: &str) -> Result<Vec<(String, String)>> {
+        let dir = self.primary_dir(game);
+        let rd = match std::fs::read_dir(&dir) {
+            Ok(rd) => rd,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(CoreError::io(dir, e)),
+        };
+        let mut out: Vec<(String, String)> = rd
+            .flatten()
+            .filter(|e| e.path().is_file())
+            .filter_map(|e| {
+                let key = e.file_name().to_string_lossy().into_owned();
+                let branch = std::fs::read_to_string(e.path()).ok()?.trim().to_string();
+                (!branch.is_empty()).then_some((key, branch))
+            })
+            .collect();
+        out.sort();
+        Ok(out)
+    }
+
+    /// 某台电脑的主存档（没有设置时为 None）。
+    pub fn primary_branch(&self, game: &str, key: &str) -> Result<Option<String>> {
+        Ok(self
+            .primary_branches(game)?
+            .into_iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(key))
+            .map(|(_, b)| b))
+    }
+
+    /// 设置某台电脑的主存档（`None` 为清除）。`key` 只能含字母、数字、`-`、`_`、`.`。
+    pub fn set_primary_branch(
+        &self,
+        _lock: &RepoLock,
+        game: &str,
+        key: &str,
+        branch: Option<&str>,
+    ) -> Result<()> {
+        validate_game_id(game)?;
+        if key.is_empty()
+            || !key
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
+        {
+            return Err(CoreError::InvalidName {
+                name: key.to_string(),
+                reason: "电脑的键只能含字母、数字、-、_、.",
+            });
+        }
+        let dir = self.primary_dir(game);
+        // 去掉大小写不同的旧文件。
+        for (k, _) in self.primary_branches(game)? {
+            if k.eq_ignore_ascii_case(key) && k != key {
+                let _ = std::fs::remove_file(dir.join(&k));
+            }
+        }
+        let path = dir.join(key);
+        match branch {
+            Some(b) => {
+                validate_ref_name(b)?;
+                std::fs::create_dir_all(&dir).at(&dir)?;
+                write_atomic(&self.tmp_dir(), &path, format!("{b}\n").as_bytes(), false)
+            }
+            None => match std::fs::remove_file(&path) {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(CoreError::io(path, e)),
+            },
+        }
+    }
+
     pub fn head(&self, game: &str) -> Result<Head> {
         let path = self.game_dir(game).join("HEAD");
         match std::fs::read_to_string(&path) {
@@ -701,6 +831,52 @@ mod tests {
             playtime_min: None,
         })
         .unwrap()
+    }
+
+    #[test]
+    fn rename_branch_moves_head_and_primary() {
+        let (_d, r) = repo();
+        let lock = r.lock().unwrap();
+        let [_, _, c] = linear(&r, &lock);
+        r.set_primary_branch(&lock, GAME, "pc-1", Some("main"))
+            .unwrap();
+        r.set_primary_branch(&lock, GAME, "pc-2", Some("other"))
+            .unwrap();
+        r.rename_branch(&lock, GAME, "main", "main-NEW").unwrap();
+        assert_eq!(
+            r.read_ref(GAME, &RefName::branch("main-NEW")).unwrap(),
+            Some(c)
+        );
+        assert_eq!(r.read_ref(GAME, &RefName::branch("main")).unwrap(), None);
+        assert_eq!(r.head(GAME).unwrap().branch, "main-NEW");
+        assert_eq!(
+            r.primary_branch(GAME, "PC-1").unwrap().as_deref(),
+            Some("main-NEW")
+        );
+        assert_eq!(
+            r.primary_branch(GAME, "pc-2").unwrap().as_deref(),
+            Some("other")
+        );
+        // 改成已存在的名字报错；只改大小写可以。
+        r.create_branch(&lock, GAME, "x", c).unwrap();
+        assert!(r.rename_branch(&lock, GAME, "main-NEW", "X").is_err());
+        r.rename_branch(&lock, GAME, "main-NEW", "Main-new")
+            .unwrap();
+        assert_eq!(
+            r.read_ref(GAME, &RefName::branch("Main-new")).unwrap(),
+            Some(c)
+        );
+        // 清除与非法的键。
+        r.set_primary_branch(&lock, GAME, "pc-2", None).unwrap();
+        assert_eq!(
+            r.primary_branches(GAME).unwrap(),
+            vec![("pc-1".to_string(), "Main-new".to_string())]
+        );
+        assert!(
+            r.set_primary_branch(&lock, GAME, "a/b", Some("main"))
+                .is_err()
+        );
+        assert!(r.reflog(GAME).unwrap().iter().any(|e| e.action == "rename"));
     }
 
     /// main: a ← b ← c

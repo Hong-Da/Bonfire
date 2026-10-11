@@ -15,6 +15,7 @@ pub mod library;
 pub mod logging;
 pub mod metadata;
 pub mod paths;
+pub mod primary;
 pub mod process;
 pub mod prune;
 pub mod restore;

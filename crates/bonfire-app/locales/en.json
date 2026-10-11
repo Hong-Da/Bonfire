@@ -29,7 +29,7 @@
   "cli.cmd.restore": "Restore a snapshot",
   "cli.cmd.undo-restore": "Undo the last restore",
   "cli.cmd.comment": "Edit a snapshot comment",
-  "cli.cmd.branch": "Create or delete a branch; lists branches and tags without a name",
+  "cli.cmd.branch": "Create, rename or delete branches; lists branches and tags when no name is given",
   "cli.cmd.tag": "Create or delete a tag (tags are never cleaned up); lists without a name",
   "cli.cmd.profile": "Manage backup profiles (saved game selections)",
   "cli.cmd.profile.list": "List profiles",
@@ -1224,5 +1224,7 @@
   "ui.gallery.foldRange": "{from} – {to}",
   "ui.settings.remember": "Remember my choices",
   "ui.settings.rememberFilters": "Library filters and management view (when off, every launch shows all games)",
-  "ui.settings.rememberSelection": "Selected games in the library (when off, games with changes or never backed up are selected each launch)"
+  "ui.settings.rememberSelection": "Selected games in the library (when off, games with changes or never backed up are selected each launch)",
+  "cli.arg.branch.rename": "Rename branch OLD to NEW (snapshots unchanged; current branch and primaries follow)",
+  "cli.out.branch_renamed": "Renamed branch {from} to {to}"
 }

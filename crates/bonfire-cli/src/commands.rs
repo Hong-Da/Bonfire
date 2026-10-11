@@ -201,6 +201,21 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
         } => delete_branch(app, &game, &name, dry_run, out),
         Cmd::Branch {
             game,
+            rename: Some(pair),
+            ..
+        } => {
+            let g = app.find_game(&game)?;
+            let lock = app.repo.lock()?;
+            app.rename_branch(&lock, &g, &pair[0], &pair[1])?;
+            out.emit(json!({ "renamed": { "from": pair[0], "to": pair[1] } }));
+            out.line(out.tf(
+                "cli.out.branch_renamed",
+                &[("from", &pair[0]), ("to", &pair[1])],
+            ));
+            Ok(())
+        }
+        Cmd::Branch {
+            game,
             name,
             snapshot,
             ..

@@ -29,7 +29,7 @@
   "cli.cmd.restore": "恢复到指定快照",
   "cli.cmd.undo-restore": "撤销最近一次恢复",
   "cli.cmd.comment": "修改快照备注",
-  "cli.cmd.branch": "创建或删除分支；省略名称时列出分支与标签",
+  "cli.cmd.branch": "创建、改名或删除分支；省略名称时列出分支与标签",
   "cli.cmd.tag": "创建或删除标签（标签不会被自动清理）；省略名称时列出",
   "cli.cmd.profile": "管理备份方案（常用的游戏组合）",
   "cli.cmd.profile.list": "列出备份方案",
@@ -1224,5 +1224,7 @@
   "ui.gallery.foldRange": "{from}至{to}",
   "ui.settings.remember": "记住上次的选择",
   "ui.settings.rememberFilters": "游戏库的筛选与管理方式（关闭后每次打开都显示全部游戏）",
-  "ui.settings.rememberSelection": "游戏库中勾选的游戏（关闭后每次打开按默认勾选有更新与未备份的游戏）"
+  "ui.settings.rememberSelection": "游戏库中勾选的游戏（关闭后每次打开按默认勾选有更新与未备份的游戏）",
+  "cli.arg.branch.rename": "把分支 OLD 改名为 NEW（快照不动，当前分支与主存档一并更新）",
+  "cli.out.branch_renamed": "已把分支 {from} 改名为 {to}"
 }

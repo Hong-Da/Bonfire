@@ -285,6 +285,14 @@ bonfire tag 空洞骑士 "Boss 前"
 
 退出码：0
 
+### 分支改名
+
+```bat
+bonfire branch 空洞骑士 --rename main-旧电脑 二周目
+```
+
+退出码：0
+
 ### 删除分支
 
 ```bat

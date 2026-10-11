@@ -111,6 +111,7 @@ fn main() {
             commands::shot_source_dirs,
             commands::assign_unsorted,
             commands::ui_state_get,
+            commands::rename_branch,
             commands::ui_state_set,
             commands::get_settings,
             commands::save_settings,

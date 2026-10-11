@@ -49,6 +49,7 @@ impl App {
             .repo
             .read_ref(&game.id, &r)?
             .ok_or_else(|| AppError::Invalid(format!("找不到分支「{name}」")))?;
+        self.check_not_primary(&game.id, name)?;
         let head = self.repo.head(&game.id)?;
         let refs = self.repo.list_refs(&game.id)?;
         let mut keep_roots: Vec<ObjectId> = refs
