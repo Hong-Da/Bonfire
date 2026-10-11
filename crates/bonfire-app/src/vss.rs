@@ -180,7 +180,7 @@ pub(crate) mod tests {
             .app
             .run_auto_backup(&lock_repo, crate::auto::AutoKind::Scheduled)
             .unwrap();
-        assert_eq!(r.deferred, [g.id.clone()]);
+        assert_eq!(r.deferred, std::slice::from_ref(&g.id));
         assert!(r.items.iter().all(|i| i.error.is_none()));
 
         // 开启卷影复制：从副本读取被占用的文件。

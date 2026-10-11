@@ -325,11 +325,10 @@ impl App {
                 .join("vss")
                 .join(crate::util::now_compact());
             let copies = self.shadow.copy(&paths, &out);
-            let result = copies.and_then(|copies| {
+            let result = copies.map(|copies| {
                 for (&i, copy) in locked.iter().zip(copies) {
                     stored[i] = Some(store_copy(&self.repo, &copy, &disk[i]));
                 }
-                Ok(())
             });
             let _ = std::fs::remove_dir_all(&out);
             result?;
