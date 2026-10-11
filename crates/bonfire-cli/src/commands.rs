@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 
 use crate::cli::{
     BundleCmd, Cmd, GameCmd, ModeArg, OnOff, OutputFormat, ProfileCmd, RepoCmd, RulesCmd,
-    ShotSwitch, ShotsCmd, ShotsDirCmd,
+    ShotSwitch, ShotsCmd, ShotsDirCmd, SyncCmd, SyncContentArg, SyncKindArg, SyncScheduleArg,
 };
 
 type Result<T> = std::result::Result<T, AppError>;
@@ -93,6 +93,7 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
     }
     match cmd {
         Cmd::Repo { cmd } => repo(app, cmd, out),
+        Cmd::Sync { cmd } => sync(app, cmd, out),
         Cmd::Game { cmd } => game(app, cmd, out),
         Cmd::Scan {
             platform,
@@ -1850,6 +1851,215 @@ fn new_password(out: &Out) -> Result<String> {
         ));
     }
     Ok(a)
+}
+
+fn sync(app: &mut App, cmd: SyncCmd, out: &Out) -> Result<()> {
+    use bonfire_app::sync::{SyncContent, SyncKind, SyncSchedule, SyncTarget};
+    let human = bonfire_app::util::human_bytes;
+    match cmd {
+        SyncCmd::List => {
+            let list = app.sync_status();
+            out.emit(serde_json::to_value(&list).unwrap());
+            if list.is_empty() {
+                out.line(out.t("cli.out.sync_none"));
+            }
+            for s in &list {
+                let last = match &s.last {
+                    Some(r) if r.error.is_some() => out.tf(
+                        "cli.out.sync_last_failed",
+                        &[("at", &r.at), ("err", &r.error.clone().unwrap_or_default())],
+                    ),
+                    Some(r) => out.tf("cli.out.sync_last", &[("at", &r.at), ("n", &r.uploaded)]),
+                    None => out.t("cli.out.sync_never").to_string(),
+                };
+                out.line(format!(
+                    "{}  [{:?}]  {}  {}",
+                    s.target.name, s.target.kind, s.target.url, last
+                ));
+            }
+        }
+        SyncCmd::Add {
+            name,
+            kind,
+            url,
+            branch,
+            user,
+            content,
+            shots,
+            no_shots,
+            no_settings,
+            games,
+            max_file_mb,
+            max_total_mb,
+            schedule,
+        } => {
+            let kind = match kind {
+                SyncKindArg::Github => SyncKind::Github,
+                SyncKindArg::Gitee => SyncKind::Gitee,
+                SyncKindArg::Webdav => SyncKind::Webdav,
+                SyncKindArg::Folder => SyncKind::Folder,
+            };
+            let mut t = SyncTarget::new(kind, &name, &url);
+            t.branch = branch;
+            t.user = user;
+            t.content = match content {
+                SyncContentArg::Repo => SyncContent::Repo,
+                SyncContentArg::Latest => SyncContent::Latest,
+                SyncContentArg::Shots => SyncContent::Shots,
+            };
+            if shots {
+                t.shots = true;
+            }
+            if no_shots {
+                t.shots = false;
+            }
+            t.settings = !no_settings;
+            let mut ids = Vec::new();
+            for g in &games {
+                ids.push(app.find_game(g)?.id);
+            }
+            t.games = ids;
+            if let Some(v) = max_file_mb {
+                t.max_file_mb = v;
+            }
+            if let Some(v) = max_total_mb {
+                t.max_total_mb = v;
+            }
+            t.schedule = match schedule {
+                SyncScheduleArg::Manual => SyncSchedule::Manual,
+                SyncScheduleArg::AfterBackup => SyncSchedule::AfterBackup,
+                SyncScheduleArg::Daily => SyncSchedule::Daily,
+                SyncScheduleArg::Hours => SyncSchedule::Hours,
+            };
+            // 令牌或密码：环境变量 BONFIRE_SYNC_SECRET，或在终端输入（文件夹不需要）。
+            let secret = match std::env::var("BONFIRE_SYNC_SECRET") {
+                Ok(s) if !s.is_empty() => Some(s),
+                _ if kind != SyncKind::Folder && std::io::stdin().is_terminal() => {
+                    Some(read_password(out, "cli.prompt.sync_secret")?)
+                }
+                _ => None,
+            };
+            let t = app.save_sync_target(t, secret.as_deref())?;
+            out.emit(serde_json::to_value(&t).unwrap());
+            out.line(out.tf("cli.out.sync_added", &[("name", &t.name), ("id", &t.id)]));
+        }
+        SyncCmd::Rm { target } => {
+            let t = app.sync_target(&target)?;
+            if !out.confirm(out.tf("cli.confirm.sync_rm", &[("name", &t.name)]))? {
+                out.line(out.t("cli.out.cancelled"));
+                return Ok(());
+            }
+            app.remove_sync_target(&t.id)?;
+            out.emit(json!({ "removed": t.id }));
+            out.line(out.tf("cli.out.sync_removed", &[("name", &t.name)]));
+        }
+        SyncCmd::Test { target } => {
+            let t = app.sync_target(&target)?;
+            let msg = app.sync_test(&t)?;
+            out.emit(json!({ "ok": true, "message": msg }));
+            out.line(msg);
+        }
+        SyncCmd::Preview { target } => {
+            let t = app.sync_target(&target)?;
+            let (plan, _, _) = app.sync_plan(&t)?;
+            out.emit(serde_json::to_value(&plan).unwrap());
+            out.line(out.tf(
+                "cli.out.sync_plan",
+                &[
+                    ("name", &t.name),
+                    ("n", &plan.upload),
+                    ("size", &human(plan.upload_bytes)),
+                    ("del", &plan.delete),
+                    ("same", &plan.unchanged),
+                    ("remote", &human(plan.remote_bytes)),
+                ],
+            ));
+            for e in &plan.excluded {
+                out.line(out.tf(
+                    "cli.out.sync_excluded",
+                    &[
+                        ("path", &e.path),
+                        ("size", &human(e.size)),
+                        ("why", &e.reason),
+                    ],
+                ));
+            }
+            if let Some(b) = &plan.blocked {
+                eprintln!("{}", out.tf("cli.out.sync_blocked", &[("why", b)]));
+            }
+        }
+        SyncCmd::Push { targets } => {
+            let ids: Vec<String> = if targets.is_empty() {
+                app.config
+                    .sync
+                    .targets
+                    .iter()
+                    .filter(|t| t.enabled)
+                    .map(|t| t.id.clone())
+                    .collect()
+            } else {
+                let mut v = Vec::new();
+                for t in &targets {
+                    v.push(app.sync_target(t)?.id);
+                }
+                v
+            };
+            let mut results = Vec::new();
+            let mut failed = None;
+            for id in ids {
+                let name = app.sync_target(&id)?.name;
+                match app.sync_push(&id, &mut |_, _| {}) {
+                    Ok(r) => {
+                        out.line(out.tf(
+                            "cli.out.sync_done",
+                            &[
+                                ("name", &name),
+                                ("n", &r.uploaded),
+                                ("size", &human(r.uploaded_bytes)),
+                                ("del", &r.deleted),
+                                ("ex", &r.excluded.len()),
+                            ],
+                        ));
+                        results.push(json!({ "target": id, "run": r }));
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "{}",
+                            out.tf(
+                                "cli.out.sync_failed",
+                                &[("name", &name), ("err", &e.to_string())]
+                            )
+                        );
+                        results.push(json!({ "target": id, "error": e.to_string() }));
+                        failed = Some(e);
+                    }
+                }
+            }
+            out.emit(json!({ "results": results }));
+            if let Some(e) = failed {
+                return Err(e);
+            }
+        }
+        SyncCmd::Pull { target, dest } => {
+            let n = app.sync_restore(&target, &dest)?;
+            out.emit(json!({ "files": n, "dest": dest }));
+            out.line(out.tf(
+                "cli.out.sync_pulled",
+                &[("n", &n), ("dest", &dest.display())],
+            ));
+        }
+        SyncCmd::Compact { target } => {
+            let t = app.sync_target(&target)?;
+            if !out.confirm(out.tf("cli.confirm.sync_compact", &[("name", &t.name)]))? {
+                out.line(out.t("cli.out.cancelled"));
+                return Ok(());
+            }
+            app.sync_compact(&t.id)?;
+            out.emit(json!({ "compacted": t.id }));
+            out.line(out.tf("cli.out.sync_compacted", &[("name", &t.name)]));
+        }
+    }
+    Ok(())
 }
 
 fn repo(app: &mut App, cmd: RepoCmd, out: &Out) -> Result<()> {

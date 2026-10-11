@@ -59,6 +59,14 @@
 | `bonfire fsck [--deep]` | 校验仓库；`--deep` 还原每个文件并校验哈希 |
 | `bonfire gc [<game>...] [--objects-only] [--dry-run]` | 清理历史（需确认）：按保留策略（设置 `[retention]`：最近 N 个、最近几天每天 1 个、最近几周每周 1 个；默认只清理自动生成的快照）压掉多余的快照，子快照改接到保留的快照上；带标签的、各分支最新的、当前所在的快照与可撤销的恢复用到的快照永远保留。之后回收不再被任何快照使用的空间（30 天内引用日志中出现过的快照也保留）。`--objects-only` 只回收空间，不删除快照 |
 | `bonfire reindex` | 从仓库重建索引数据库 |
+| `bonfire sync list` | 同步目标与上次同步的结果 |
+| `bonfire sync add <名称> --kind github\|gitee\|webdav\|folder --url <地址> [--branch main] [--user <用户名>] [--content repo\|latest\|shots] [--shots\|--no-shots] [--no-settings] [--games a,b] [--max-file-mb N] [--max-total-mb N] [--schedule manual\|after-backup\|daily\|hours]` | 添加同步目标。内容：`repo` 完整仓库（含历史，可从远程恢复；加密仓库远程也加密）、`latest` 最新存档（`<游戏名>/<文件>`，不加密）、`shots` 只同步截图；默认同时同步篝火设置（不含密钥、令牌与密码）。GitHub 默认单文件 100 MB、总大小 1 GB，Gitee 50 MB、500 MB，且默认不带截图；令牌或密码取自环境变量 `BONFIRE_SYNC_SECRET` 或终端输入，用 Windows 数据保护保存在本机 |
+| `bonfire sync rm <目标>` | 删除同步目标（需确认；远程上的文件不动） |
+| `bonfire sync test <目标>` | 测试连接；GitHub / Gitee 同时检查仓库是否私有（公开仓库不同步） |
+| `bonfire sync preview <目标>` | 预览：要上传、删除、排除（超过单文件上限）的文件与同步后远程的大小；会超过总大小上限时说明原因 |
+| `bonfire sync push [<目标>...]` | 同步（省略时同步全部启用的目标）；只上传远程还没有的内容；GitHub / Gitee 分批提交推送；会超过总大小上限时不同步（退出码 2） |
+| `bonfire sync pull <目标> <空文件夹>` | 从远程恢复完整仓库，之后可在设置中把仓库位置改到这里 |
+| `bonfire sync compact <目标>` | 压缩远程仓库（GitHub / Gitee，需确认）：只保留当前内容，旧版本从远程历史中去掉 |
 | `bonfire repo status` | 仓库是否加密、是否已解锁、本机是否记住了密码 |
 | `bonfire repo encrypt [--no-remember]` | 加密仓库（需确认）：存档快照、备注、游戏列表与操作记录用 AES-256-GCM 加密（密钥由密码经 Argon2id 派生），索引数据库移到本机缓存目录；截图、分支和标签的名字不加密。新密码取自环境变量 `BONFIRE_NEW_PASSWORD` 或在终端输入两次；默认在本机记住（Windows 数据保护，与当前账户绑定）。**忘记密码将无法恢复任何备份** |
 | `bonfire repo unlock [--remember]` | 用密码解锁（环境变量 `BONFIRE_PASSWORD` 或终端输入）；`--remember` 在本机记住，之后命令行与桌面程序自动解锁。其他命令遇到未解锁的加密仓库时，交互环境下会询问密码，否则退出码 2 并提示设置 `BONFIRE_PASSWORD` |
@@ -402,6 +410,14 @@ bonfire gc --dry-run
 
 ```bat
 bonfire repo status
+```
+
+退出码：0
+
+### 同步到文件夹
+
+```bat
+bonfire sync push
 ```
 
 退出码：0

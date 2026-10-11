@@ -461,3 +461,34 @@ fn git_sync_push_restore_and_compact() {
     assert_eq!(commit_count(&bare, "saves"), 1);
     assert_eq!(bare_files(&bare, "saves"), before);
 }
+
+#[test]
+fn schedules_and_settings_apply() {
+    let mut env = Env::new();
+    let mut a = folder_target(&env, "每次备份后", SyncContent::Repo);
+    a.schedule = SyncSchedule::AfterBackup;
+    let a = env.app.save_sync_target(a, None).unwrap();
+    let mut b = folder_target(&env, "每 6 小时", SyncContent::Repo);
+    b.schedule = SyncSchedule::Hours;
+    b.every_hours = 6;
+    let b = env.app.save_sync_target(b, None).unwrap();
+    assert_eq!(env.app.sync_after_backup_targets(), [a.id.clone()]);
+    let now = jiff::Zoned::now();
+    assert_eq!(env.app.sync_due(&now), [b.id.clone()], "从没同步过：到期");
+    env.app.sync_push(&b.id, &mut |_, _| {}).unwrap();
+    assert!(env.app.sync_due(&now).is_empty(), "刚同步过：没到期");
+
+    // 套用远程的设置：保留本机的仓库位置与密钥。
+    env.app.config.metadata.steamgriddb_api_key = "local-key".into();
+    let mut remote = env.app.config.clone();
+    remote.auto_backup.on_exit = true;
+    remote.general.repo = Some("Z:/elsewhere".into());
+    remote.metadata.steamgriddb_api_key.clear();
+    let text = format!("# 篝火设置\n\n{}", toml::to_string_pretty(&remote).unwrap());
+    let repo_before = env.app.config.general.repo.clone();
+    env.app.apply_portable_settings(&text).unwrap();
+    assert!(env.app.config.auto_backup.on_exit);
+    assert_eq!(env.app.config.general.repo, repo_before);
+    assert_eq!(env.app.config.metadata.steamgriddb_api_key, "local-key");
+    assert!(env.app.apply_portable_settings("not = [toml").is_err());
+}

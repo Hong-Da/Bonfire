@@ -232,6 +232,86 @@ pub enum Cmd {
         #[command(subcommand)]
         cmd: RepoCmd,
     },
+    Sync {
+        #[command(subcommand)]
+        cmd: SyncCmd,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SyncKindArg {
+    Github,
+    Gitee,
+    Webdav,
+    Folder,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum SyncContentArg {
+    #[default]
+    Repo,
+    Latest,
+    Shots,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum SyncScheduleArg {
+    #[default]
+    Manual,
+    AfterBackup,
+    Daily,
+    Hours,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SyncCmd {
+    List,
+    Add {
+        name: String,
+        #[arg(long, value_enum)]
+        kind: SyncKindArg,
+        #[arg(long)]
+        url: String,
+        #[arg(long, default_value = "main")]
+        branch: String,
+        #[arg(long, default_value = "")]
+        user: String,
+        #[arg(long, value_enum, default_value_t)]
+        content: SyncContentArg,
+        #[arg(long, conflicts_with = "no_shots")]
+        shots: bool,
+        #[arg(long)]
+        no_shots: bool,
+        #[arg(long)]
+        no_settings: bool,
+        #[arg(long, value_delimiter = ',')]
+        games: Vec<String>,
+        #[arg(long)]
+        max_file_mb: Option<u64>,
+        #[arg(long)]
+        max_total_mb: Option<u64>,
+        #[arg(long, value_enum, default_value_t)]
+        schedule: SyncScheduleArg,
+    },
+    Rm {
+        target: String,
+    },
+    Test {
+        target: String,
+    },
+    Preview {
+        target: String,
+    },
+    Push {
+        targets: Vec<String>,
+    },
+    Pull {
+        target: String,
+        dest: PathBuf,
+    },
+    Compact {
+        target: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]

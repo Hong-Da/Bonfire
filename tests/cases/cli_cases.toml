@@ -886,6 +886,32 @@ expect_exit = 2
 stderr_contains = ["密码不对"]
 
 [[case]]
+id = "sync-folder"
+title = { zh-CN = "同步到文件夹", en = "Sync to a folder" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["sync", "add", "移动硬盘", "--kind", "folder", "--url", "{tmp}/remote"]]
+args = ["sync", "push"]
+expect_exit = 0
+stdout_contains = ["「移动硬盘」同步完成"]
+in_docs = true
+
+[[case]]
+id = "sync-preview"
+title = { zh-CN = "预览同步（JSON 输出）", en = "Preview a sync (JSON output)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["sync", "add", "小盘", "--kind", "folder", "--url", "{tmp}/remote", "--max-total-mb", "0"]]
+args = ["sync", "preview", "小盘", "--json"]
+expect_exit = 0
+expect_stdout_json = { "level" = "ok", "limitBytes" = 0, "delete" = 0 }
+
+[[case]]
+id = "sync-unknown-target"
+title = { zh-CN = "同步不存在的目标", en = "Sync an unknown target" }
+args = ["sync", "push", "不存在"]
+expect_exit = 2
+stderr_contains = ["找不到同步目标"]
+
+[[case]]
 id = "reindex-ok"
 title = { zh-CN = "重建索引", en = "Rebuild the index" }
 fixture = "basic"

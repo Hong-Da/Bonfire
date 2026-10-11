@@ -269,21 +269,33 @@ impl App {
 
     /// 打开目标的远程存储。
     pub fn sync_remote(&self, t: &SyncTarget) -> Result<Box<dyn Remote>> {
+        self.open_remote(t, self.sync_secret(&t.id))
+    }
+
+    fn open_remote(&self, t: &SyncTarget, secret: Option<String>) -> Result<Box<dyn Remote>> {
         match t.kind {
             SyncKind::Folder => Ok(Box::new(folder::Folder::new(&t.url))),
             SyncKind::Webdav => Ok(Box::new(webdav::WebDav::new(
                 &t.url,
                 &t.user,
-                self.sync_secret(&t.id).as_deref(),
+                secret.as_deref(),
             )?)),
-            SyncKind::Github | SyncKind::Gitee => Ok(Box::new(git::GitRemote::open(
-                &git::cache_dir(&self.paths.cache_dir, &t.id),
-                t.kind,
-                &t.url,
-                &t.branch,
-                &t.user,
-                self.sync_secret(&t.id),
-            )?)),
+            SyncKind::Github | SyncKind::Gitee => {
+                // 还没保存的目标（测试连接）用临时的缓存目录。
+                let id = if t.id.is_empty() {
+                    "test"
+                } else {
+                    t.id.as_str()
+                };
+                Ok(Box::new(git::GitRemote::open(
+                    &git::cache_dir(&self.paths.cache_dir, id),
+                    t.kind,
+                    &t.url,
+                    &t.branch,
+                    &t.user,
+                    secret,
+                )?))
+            }
         }
     }
 
@@ -344,6 +356,62 @@ impl App {
         result.map(|_| run)
     }
 
+    /// 每次备份后要同步的目标。
+    pub fn sync_after_backup_targets(&self) -> Vec<String> {
+        self.config
+            .sync
+            .targets
+            .iter()
+            .filter(|t| t.enabled && t.schedule == SyncSchedule::AfterBackup)
+            .map(|t| t.id.clone())
+            .collect()
+    }
+
+    /// 定时同步到期的目标（每天 / 每隔几小时，按上次同步的时间）。
+    pub fn sync_due(&self, now: &jiff::Zoned) -> Vec<String> {
+        use crate::config::ShotSchedule;
+        self.config
+            .sync
+            .targets
+            .iter()
+            .filter(|t| t.enabled)
+            .filter(|t| {
+                let sched = match t.schedule {
+                    SyncSchedule::Daily => ShotSchedule::Daily,
+                    SyncSchedule::Hours => ShotSchedule::Hours,
+                    _ => return false,
+                };
+                let last = self
+                    .sync_state(&t.id)
+                    .runs
+                    .last()
+                    .and_then(|r| r.at.parse::<jiff::Timestamp>().ok());
+                crate::auto::schedule_due(sched, &t.at, 1, t.every_hours.max(1), last, now)
+            })
+            .map(|t| t.id.clone())
+            .collect()
+    }
+
+    /// 套用从远程恢复的篝火设置：保留本机的仓库位置与密钥（设置文件中没有密钥）。
+    pub fn apply_portable_settings(&mut self, text: &str) -> Result<()> {
+        let body: String = text
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut c: crate::Config = toml::from_str(&body)
+            .map_err(|e| AppError::Invalid(format!("设置文件格式错误：{e}")))?;
+        c.general.repo = self.config.general.repo.clone();
+        let m = &self.config.metadata;
+        c.metadata.igdb_client_id = m.igdb_client_id.clone();
+        c.metadata.igdb_client_secret = m.igdb_client_secret.clone();
+        c.metadata.steamgriddb_api_key = m.steamgriddb_api_key.clone();
+        c.validate()?;
+        c.save(&self.paths.config_file)?;
+        self.config = c;
+        Ok(())
+    }
+
     fn record_run(&self, id: &str, state: &mut SyncState, run: SyncRun) -> Result<()> {
         state.runs.push(run);
         let n = state.runs.len();
@@ -355,19 +423,34 @@ impl App {
 
     /// 测试连接（GitHub / Gitee 同时检查仓库是否私有）。
     pub fn sync_test(&self, t: &SyncTarget) -> Result<String> {
-        self.check_git_private(t)?;
-        self.sync_remote(t)?.test()
+        self.sync_test_with(t, None)
+    }
+
+    /// 用填写中的令牌或密码测试（`None` 时用已保存的）。
+    pub fn sync_test_with(&self, t: &SyncTarget, secret: Option<&str>) -> Result<String> {
+        let secret = secret
+            .filter(|s| !s.is_empty())
+            .map(String::from)
+            .or_else(|| self.sync_secret(&t.id));
+        self.check_private_with(t, secret.as_deref())?;
+        let msg = self.open_remote(t, secret)?.test()?;
+        if t.id.is_empty() {
+            let _ = std::fs::remove_dir_all(git::cache_dir(&self.paths.cache_dir, "test"));
+        }
+        Ok(msg)
     }
 
     /// GitHub / Gitee 的公开仓库不同步。本机的测试仓库不检查。
     fn check_git_private(&self, t: &SyncTarget) -> Result<()> {
+        self.check_private_with(t, self.sync_secret(&t.id).as_deref())
+    }
+
+    fn check_private_with(&self, t: &SyncTarget, secret: Option<&str>) -> Result<()> {
         if !t.kind.is_git() || git::local(&t.url) {
             return Ok(());
         }
-        let token = self
-            .sync_secret(&t.id)
-            .ok_or_else(|| AppError::Invalid("请先填写访问令牌".into()))?;
-        if !git::check_private(t.kind, &t.url, &token)? {
+        let token = secret.ok_or_else(|| AppError::Invalid("请先填写访问令牌".into()))?;
+        if !git::check_private(t.kind, &t.url, token)? {
             return Err(AppError::Invalid(
                 "这是公开仓库，所有人都能看到同步的存档；请在网站上改为私有仓库后再同步".into(),
             ));
