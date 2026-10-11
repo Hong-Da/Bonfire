@@ -15,6 +15,7 @@ tests/
 │   └── cli_cases.toml   CLI 用例，同时生成 docs/cli.md 的示例
 ├── cli/                 CLI 测试（执行真实的 bonfire 二进制）
 ├── docs/                文档测试
+├── bench/               性能基准（文档 10.1 指标，release 构建手动运行）
 ├── installer/           安装包验收脚本 check-installer.ps1（构建安装包后手动运行）
 └── output/              运行时产生的文件（不入库）
 ```
@@ -56,6 +57,14 @@ tests/
 ## Linux
 
 未使用 Linux 环境（L1），首版未经 Linux 实测；M5 支持 Linux 时补充。
+
+## 性能基准
+
+```bat
+cargo test -p bonfire-tests --release --test bench -- --ignored --nocapture --test-threads 1
+```
+
+在临时目录中按固定种子生成数据（200 款游戏共 1000 个文件、512 MB 与 256 MB 的不可压缩文件），测量增量扫描、全量校验、备份吞吐、未变化文件的新增存储与快照元数据大小，release 构建中不达标即失败；debug 构建只打印结果。不随 `test.bat` 运行。托盘常驻内存需要运行桌面程序，方法与结果见 `docs/acceptance/M4-acceptance.md`。
 
 ## 安装包测试
 

@@ -25,6 +25,7 @@ zip.workspace = true
 sevenz-rust2.workspace = true
 unrar.workspace = true
 zstd.workspace = true
+rayon.workspace = true
 trash.workspace = true
 
 [dev-dependencies]

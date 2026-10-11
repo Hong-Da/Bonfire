@@ -8,7 +8,10 @@ use std::collections::HashMap;
 use bonfire_core::index::{GameRecord, IndexEntry};
 use bonfire_core::refs::{Head, RefName, validate_ref_name};
 use bonfire_core::scan::{self, ChangeSummary, DiskFile, FileChange, FileStatus};
-use bonfire_core::{Kind, ObjectId, RepoLock, Snapshot, SnapshotStats, Tree, TreeEntry, Trigger};
+use bonfire_core::{
+    Kind, ObjectId, Repo, RepoLock, Snapshot, SnapshotStats, Tree, TreeEntry, Trigger,
+};
+use rayon::prelude::*;
 use serde::Serialize;
 
 use crate::app::App;
@@ -285,21 +288,34 @@ impl App {
     ) -> Result<BackupResult> {
         let known: HashMap<&str, &FileChange> =
             changes.iter().map(|c| (c.path.as_str(), c)).collect();
+        // 未变化的文件沿用原来的 Blob；其余文件多线程读取入库（文档 10.1：哈希 + 压缩多线程）。
+        let reuse: Vec<Option<ObjectId>> = disk
+            .iter()
+            .map(|f| {
+                known
+                    .get(f.path.as_str())
+                    .filter(|c| c.status == FileStatus::Unchanged)
+                    .and_then(|c| c.hash)
+                    .filter(|h| self.repo.has(Kind::Blob, h))
+            })
+            .collect();
+        let repo = &self.repo;
+        let stored: Vec<Option<Result<Stored>>> = disk
+            .par_iter()
+            .zip(reuse.par_iter())
+            .map(|(f, r)| r.is_none().then(|| store_file(repo, f)))
+            .collect();
         let mut entries = Vec::with_capacity(disk.len());
         let mut new_bytes = 0u64;
-        for f in disk {
-            let reuse = known
-                .get(f.path.as_str())
-                .filter(|c| c.status == FileStatus::Unchanged)
-                .and_then(|c| c.hash)
-                .filter(|h| self.repo.has(Kind::Blob, h));
-            let (blob, size, mtime_ns) = match reuse {
-                Some(h) => (h, f.size, f.mtime_ns),
-                None => {
-                    let (blob, size, mtime, added) = self.store_file(f)?;
+        for ((f, r), s) in disk.iter().zip(reuse).zip(stored) {
+            let (blob, size, mtime_ns) = match (r, s) {
+                (Some(h), _) => (h, f.size, f.mtime_ns),
+                (None, Some(res)) => {
+                    let (blob, size, mtime, added) = res?;
                     new_bytes += added;
                     (blob, size, mtime)
                 }
+                (None, None) => unreachable!("没有沿用的文件都已入库"),
             };
             entries.push(TreeEntry {
                 path: f.path.clone(),
@@ -469,24 +485,6 @@ impl App {
         })
     }
 
-    /// 读取一个文件入库；读取前后大小或 mtime 变化（游戏正在写入）时重试。
-    /// 返回 (Blob ID, 大小, mtime, 新写入字节数)。
-    fn store_file(&self, f: &DiskFile) -> Result<(ObjectId, u64, i64, u64)> {
-        for _ in 0..STABLE_READ_ATTEMPTS {
-            let file = std::fs::File::open(&f.abs).map_err(|e| AppError::io(&f.abs, e))?;
-            let before = file.metadata().map_err(|e| AppError::io(&f.abs, e))?;
-            let stats = self.repo.write_file(&file, &f.abs)?;
-            drop(file);
-            let after = std::fs::metadata(&f.abs).map_err(|e| AppError::io(&f.abs, e))?;
-            let (m1, m2) = (scan::mtime_ns(&before), scan::mtime_ns(&after));
-            if before.len() == after.len() && m1 == m2 && stats.size == before.len() {
-                return Ok((stats.blob, stats.size, m1, stats.new_bytes));
-            }
-            tracing::warn!(path = %f.abs.display(), "文件在读取过程中被修改，重试");
-        }
-        Err(AppError::FileUnstable(f.abs.clone()))
-    }
-
     /// 以清单内容整体替换变更检测缓存。
     pub(crate) fn write_index_from_tree(&mut self, game_id: &str, tree: &Tree) -> Result<()> {
         let now = scan::now_ns();
@@ -597,6 +595,26 @@ pub fn check_comment(c: &str) -> Result<()> {
         });
     }
     Ok(())
+}
+
+/// 入库后的文件：(Blob ID, 大小, mtime, 新写入字节数)。
+type Stored = (ObjectId, u64, i64, u64);
+
+/// 读取一个文件入库；读取前后大小或 mtime 变化（游戏正在写入）时重试。可在多个线程中同时调用。
+fn store_file(repo: &Repo, f: &DiskFile) -> Result<Stored> {
+    for _ in 0..STABLE_READ_ATTEMPTS {
+        let file = std::fs::File::open(&f.abs).map_err(|e| AppError::io(&f.abs, e))?;
+        let before = file.metadata().map_err(|e| AppError::io(&f.abs, e))?;
+        let stats = repo.write_file(&file, &f.abs)?;
+        drop(file);
+        let after = std::fs::metadata(&f.abs).map_err(|e| AppError::io(&f.abs, e))?;
+        let (m1, m2) = (scan::mtime_ns(&before), scan::mtime_ns(&after));
+        if before.len() == after.len() && m1 == m2 && stats.size == before.len() {
+            return Ok((stats.blob, stats.size, m1, stats.new_bytes));
+        }
+        tracing::warn!(path = %f.abs.display(), "文件在读取过程中被修改，重试");
+    }
+    Err(AppError::FileUnstable(f.abs.clone()))
 }
 
 #[cfg(test)]

@@ -18,6 +18,10 @@ path = "cli/crash.rs"
 name = "docs"
 path = "docs/main.rs"
 
+[[test]]
+name = "bench"
+path = "bench/main.rs"
+
 [dev-dependencies]
 bonfire-app.workspace = true
 assert_cmd.workspace = true

@@ -444,6 +444,7 @@ dependencies = [
  "globset",
  "image",
  "jiff",
+ "rayon",
  "serde",
  "serde_json",
  "sevenz-rust2",
