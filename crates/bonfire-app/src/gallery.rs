@@ -85,6 +85,8 @@ pub struct ShotDiff {
     pub restorable: usize,
     /// 两边都有的截图数。
     pub synced: usize,
+    /// 本机这个游戏的截图文件夹（原文件夹不在本机的截图写回到这里，见 [`App::shot_home`]）。
+    pub home: Option<PathBuf>,
 }
 
 /// 写回磁盘的结果。
@@ -169,6 +171,7 @@ impl App {
             missing: Vec::new(),
             restorable: 0,
             synced: 0,
+            home: self.shot_home(game)?,
         };
         for f in &on_disk {
             match by_key.get(&(key(&f.path), f.size)) {

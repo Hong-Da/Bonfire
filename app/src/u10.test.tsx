@@ -304,19 +304,43 @@ describe("截图与磁盘对比", () => {
       missing: [shot("g1", "b3:666666", "2026-10-01T10:00:00+08:00")],
       restorable: 1,
       synced: 4,
+      home: "C:/Steam/shots",
     });
-    api.writeBackShots.mockResolvedValue({ written: 1, bytes: 1000, exists: 0, noDir: 0, dirs: ["C:/Steam"] });
+    api.syncShotsToDisk.mockResolvedValue({ written: 1, bytes: 1000, exists: 0, noDir: 0, dirs: ["C:/Steam"] });
     api.recollectShots.mockResolvedValue(1);
     const changed = vi.fn();
     render(<ShotDiffDialog gameId="g1" gameName="空洞骑士" onClose={() => {}} onChanged={changed} />);
     expect(await screen.findByText(/另有 1 张与已收集的截图内容相同/)).toBeInTheDocument();
     expect(screen.getByText(/0 张在回收站中、1 张已彻底删除/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "写回原位置（1）" }));
-    await waitFor(() => expect(api.writeBackShots).toHaveBeenCalledWith("g1", [], null));
+    expect(screen.getByText("有 3 张截图两边不一致")).toBeInTheDocument();
+    expect(screen.getByText(/1 张的原文件夹还在，会写回原位置/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "写回磁盘（1）" }));
+    await waitFor(() => expect(api.syncShotsToDisk).toHaveBeenCalledWith("g1", ["b3:666666"]));
     expect(dialog.ask.mock.calls[0][0]).toContain("不覆盖");
     fireEvent.click(screen.getByRole("button", { name: "重新收集 1 张" }));
     await waitFor(() => expect(api.recollectShots).toHaveBeenCalledWith("g1", []));
     expect(changed).toHaveBeenCalled();
+  });
+
+  it("从其他电脑导入的截图：原文件夹不在本机时写到本机截图文件夹；一致时显示已同步", async () => {
+    api.shotDiff.mockResolvedValueOnce({
+      gameId: "g1",
+      new: [],
+      duplicates: 0,
+      ignored: [],
+      missing: [shot("g1", "b3:777777", "2026-10-01T10:00:00+08:00", { originalPath: "E:/OtherPC/a.jpg" })],
+      restorable: 0,
+      synced: 2,
+      home: "C:/Steam/shots",
+    });
+    api.shotDiff.mockResolvedValue({ gameId: "g1", new: [], duplicates: 0, ignored: [], missing: [], restorable: 0, synced: 3, home: "C:/Steam/shots" });
+    api.syncShotsToDisk.mockResolvedValue({ written: 1, bytes: 1000, exists: 0, noDir: 0, dirs: ["C:/Steam/shots"] });
+    render(<ShotDiffDialog gameId="g1" gameName="空洞骑士" onClose={() => {}} onChanged={() => {}} />);
+    expect(await screen.findByText(/1 张的原文件夹不在本机（例如从其他电脑导入的）/)).toBeInTheDocument();
+    expect(screen.getByText("磁盘上没有未收集的新截图")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "写回磁盘（1）" }));
+    await waitFor(() => expect(api.syncShotsToDisk).toHaveBeenCalledWith("g1", ["b3:777777"]));
+    expect(await screen.findByText("图库与磁盘一致：3 张截图两边都有")).toBeInTheDocument();
   });
 });
 

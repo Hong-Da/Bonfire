@@ -22,6 +22,7 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.weekday.": ["1", "2", "3", "4", "5", "6", "7"],
   "ui.mode.short.": ["all", "both", "saves", "shots"],
   "ui.backup.step.": ["pick", "saves", "shots"],
+  "ui.diff.part.": ["synced", "new", "missing", "ignored"],
   "ui.backup.stepHint.": ["pick", "saves", "shots"],
   "ui.mode.": ["both", "saves", "shots", "bothHint", "savesHint", "shotsHint"],
   "ui.gallery.group.": ["game", "month", "day", "source"],

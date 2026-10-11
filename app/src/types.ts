@@ -97,6 +97,8 @@ export interface ShotDiff {
   missing: ShotRecord[];
   restorable: number;
   synced: number;
+  /** 本机这个游戏的截图文件夹；原文件夹不在本机的截图写回到这里。 */
+  home: string | null;
 }
 
 /** 彻底删除截图的结果。 */

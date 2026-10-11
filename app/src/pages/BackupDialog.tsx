@@ -114,8 +114,8 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
   ) : (
     <>
       {stepIdx > 0 && (
-        <button className="btn ghost" onClick={() => setStepIdx(stepIdx - 1)} disabled={running}>
-          {t("ui.backup.prev")}
+        <button className="btn step-prev" onClick={() => setStepIdx(stepIdx - 1)} disabled={running}>
+          <span className="flip"><Icon name="next" size={14} /></span> {t("ui.backup.prev")}
         </button>
       )}
       {step === "saves" && saveRows.length > 0 && (
@@ -137,8 +137,8 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
           {t("ui.backup.confirm", { n: targets.length })}
         </button>
       ) : (
-        <button className="btn primary" onClick={() => setStepIdx(stepIdx + 1)} disabled={nextDisabled}>
-          {t("ui.backup.next")}
+        <button className="btn primary step-next" onClick={() => setStepIdx(stepIdx + 1)} disabled={nextDisabled}>
+          {t("ui.backup.next")} <Icon name="next" size={14} />
         </button>
       )}
     </>

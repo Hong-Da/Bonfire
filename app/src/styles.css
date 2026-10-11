@@ -705,19 +705,40 @@ button.link:hover { text-decoration: underline; }
 .lb-game { color: #ffd166; font-weight: 600; white-space: nowrap; }
 
 /* 截图与磁盘对比 */
-.diff-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.diff-card { display: grid; align-content: start; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
-.diff-card header { display: flex; align-items: center; gap: 8px; }
-.diff-card h3 { margin: 0; font: 600 14px var(--font-sign); flex: 1; }
-.diff-card header b { font: 600 20px var(--font-sign); }
-.diff-card p { margin: 0; font-size: 13px; color: var(--muted); }
-.diff-card.ok header svg { color: var(--moss); }
-.diff-card.new { border-color: color-mix(in srgb, var(--ember) 45%, var(--line)); }
-.diff-card.new header svg, .diff-card.warn header svg { color: var(--ember); }
-.diff-card details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+/* 截图与磁盘对比：顶部比例条与图例，下面按需要处理的项逐行列出 */
+.diff-summary { display: grid; gap: 10px; padding: 4px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.diff-verdict { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 15px var(--font-sign); }
+.diff-verdict svg { color: var(--ember); }
+.diff-verdict.clean svg { color: var(--moss); }
+.diff-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--line); }
+.diff-bar span { min-width: 4px; }
+.seg-synced { --c: var(--moss); }
+.seg-new { --c: var(--ember); }
+.seg-missing { --c: var(--lane-0); }
+.seg-ignored { --c: var(--faint); }
+.diff-bar span, .diff-legend .dot { background: var(--c); }
+.diff-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
+.diff-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.diff-legend li b { color: var(--ink); }
+.diff-legend li.zero { opacity: 0.55; }
+.diff-legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+.diff-rows { display: grid; }
+.diff-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.diff-row:last-child { border-bottom: 0; }
+.diff-row.done { display: flex; align-items: center; gap: 8px; padding: 9px 0 9px 10px; font-size: 13px; color: var(--muted); }
+.diff-row.done svg { color: var(--moss); }
+.diff-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.diff-main h3 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 2px; font: 600 15px var(--font-sign); }
+.diff-main h3 b { font-size: 15px; color: var(--muted); }
+.diff-main p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.55; }
+.diff-main details { margin-top: 6px; }
+.diff-main details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+.diff-thumbs { display: flex; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.diff-thumbs li { width: 72px; flex: none; border-radius: 5px; overflow: hidden; }
+.diff-thumbs li.more { display: grid; place-items: center; aspect-ratio: 16 / 9; background: var(--surface); border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
 .diff-files { margin: 6px 0 0; padding: 0; list-style: none; max-height: 140px; overflow: auto; font-size: 12px; }
 .diff-files li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
-.diff-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.diff-actions { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 150px; }
 
 /* 关闭窗口询问 */
 .close-choices { display: grid; gap: 8px; }
@@ -734,7 +755,8 @@ button.link:hover { text-decoration: underline; }
 .shot-finds-head { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
 
 @media (max-width: 720px) {
-  .diff-grid { grid-template-columns: 1fr; }
+  .diff-row { grid-template-columns: 36px minmax(0, 1fr); }
+  .diff-actions { grid-column: 2; flex-direction: row; flex-wrap: wrap; }
 }
 
 /* ---------- U-11：图库查看方式、框选、彻底删除时删除原图 ---------- */
@@ -844,3 +866,8 @@ button.link:hover { text-decoration: underline; }
 
 /* 工具栏搜索框填满空余位置 */
 .toolbar input[type="search"].fill { flex: 1 1 200px; width: auto; min-width: 160px; max-width: none; }
+
+/* 分步对话框的上一步 / 下一步：上一步为普通按钮带向左箭头，下一步为主按钮带向右箭头 */
+.btn .flip { display: inline-flex; transform: scaleX(-1); }
+.btn.step-prev { padding-left: 10px; }
+.btn.step-next { padding-right: 10px; }

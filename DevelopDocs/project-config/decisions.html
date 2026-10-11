@@ -24,9 +24,21 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 98 项，更新于 2026-10-10 22:19。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 100 项，更新于 2026-10-10 22:30。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>49 项</small></h2>
+<section id="s-0"><h2>开发<small>51 项</small></h2>
+      <article id="U-23b">
+        <header><code>U-23b</code><h3>备份所选游戏的“上一步”按钮样式</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">上一步为普通按钮带向左箭头、放在左侧；下一步为主按钮带向右箭头（推荐） <b>✓ 采用</b></li><li class="">保持无边框文字按钮</li></ul>
+        <p class="reason"><span>理由</span>用户反馈上一步不符合界面设计。</p><p class="impact"><span>影响</span>仅影响分步对话框。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-23a">
+        <header><code>U-23a</code><h3>优化截图与磁盘对比界面；新导入的截图是否自动对比</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">顶部结论 + 比例条 + 图例，需要处理的项逐行列出、操作在右侧，无差异的收起为一行；每次打开都重新对比（导入的截图也在内）；写回磁盘时原文件夹不在本机的写到本机这个游戏的截图文件夹（推荐） <b>✓ 采用</b></li><li class="">保留四张卡片，导入的截图只能写到指定文件夹</li></ul>
+        <p class="reason"><span>理由</span>从其他电脑导入的截图原文件夹在本机不存在，原来只能手动选文件夹写回。</p><p class="impact"><span>影响</span>写回前仍需确认，只写入不存在的文件、不覆盖；写到本机截图文件夹后记录新位置，之后算作“两边都有”。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-22c">
         <header><code>U-22c</code><h3>图库截图的已选框太大</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">勾选框缩小到 14 像素，未选时悬停才显示；选中改为 2 像素内描边，不占位置（推荐） <b>✓ 采用</b></li><li class="">保持原样</li></ul>
