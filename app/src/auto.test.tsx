@@ -211,9 +211,10 @@ describe("自动备份设置", () => {
     fireEvent.change(screen.getByLabelText("星期"), { target: { value: "5" } });
     fireEvent.click(screen.getByRole("checkbox", { name: /定期检查存档/ }));
     fireEvent.change(screen.getByLabelText("存档停止写入"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /检测到游戏退出后/ }));
     expect(screen.getByText(/上次定时备份/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(api.saveSettings).toHaveBeenCalled());
-    expect(api.saveSettings.mock.calls[0][0].auto_backup).toEqual({ schedule: "weekly", at: "21:00", weekday: 5, every_hours: 6, on_change: true, check_minutes: 5, quiet_minutes: 3 });
+    expect(api.saveSettings.mock.calls[0][0].auto_backup).toEqual({ schedule: "weekly", at: "21:00", weekday: 5, every_hours: 6, on_change: true, check_minutes: 5, quiet_minutes: 3, on_exit: true });
   });
 });

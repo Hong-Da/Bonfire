@@ -421,6 +421,34 @@ fn game(app: &mut App, cmd: GameCmd, out: &Out) -> Result<()> {
             }
         }
         GameCmd::ShotsDir { cmd } => shots_dir(app, cmd, out)?,
+        GameCmd::Process {
+            game,
+            add,
+            rm,
+            clear,
+        } => {
+            let g = app.find_game(&game)?;
+            let mut names = app.index.processes(&g.id)?;
+            if clear || !add.is_empty() || !rm.is_empty() {
+                let gone: Vec<String> = rm
+                    .iter()
+                    .map(|n| bonfire_app::process::process_key(n))
+                    .collect();
+                names.retain(|n| !clear && !gone.contains(&bonfire_app::process::process_key(n)));
+                names.extend(add);
+                let lock = app.repo.lock()?;
+                names = app.set_game_processes(&lock, &g, &names)?;
+            }
+            out.emit(json!({ "game": g.id, "processes": names, "installDir": g.install_dir }));
+            if names.is_empty() {
+                out.line(out.tf("cli.out.processes_none", &[("game", &g.name)]));
+            } else {
+                out.line(out.tf(
+                    "cli.out.processes",
+                    &[("game", &g.name), ("names", &names.join("、"))],
+                ));
+            }
+        }
         GameCmd::AddShots { name, steam, dirs } => {
             let lock = app.repo.lock()?;
             let key = steam.map(|id| format!("steam:{id}"));

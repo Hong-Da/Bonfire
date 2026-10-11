@@ -55,6 +55,7 @@
 | `bonfire game mode <game> [both\|saves\|shots]` | 查看或切换管理方式：存档和截图 / 只管理存档（不收集截图）/ 只管理截图（不备份、不检查存档）；已有的快照与截图都保留 |
 | `bonfire shots set <game> on\|off\|auto` | 这个游戏收集 / 不收集截图 / 跟随全局设置（`shots.enabled`） |
 | `bonfire game shots-dir add\|rm <game> <文件夹>` | 为游戏添加或移除截图文件夹（游戏自带截图、其他截图工具）；不能是仓库或数据目录；移除后已收集的截图保留 |
+| `bonfire game process <game> [--add <进程名>]... [--rm <进程名>]... [--clear]` | 查看或设置游戏程序：运行检测用的进程名（模拟器、手动添加的游戏等）。进程的可执行文件在游戏安装目录下，或进程名是游戏程序之一时，视为游戏在运行：恢复被阻止、备份时提醒、自动备份推迟到游戏退出后 |
 | `bonfire fsck [--deep]` | 校验仓库；`--deep` 还原每个文件并校验哈希 |
 | `bonfire gc [<game>...] [--objects-only] [--dry-run]` | 清理历史（需确认）：按保留策略（设置 `[retention]`：最近 N 个、最近几天每天 1 个、最近几周每周 1 个；默认只清理自动生成的快照）压掉多余的快照，子快照改接到保留的快照上；带标签的、各分支最新的、当前所在的快照与可撤销的恢复用到的快照永远保留。之后回收不再被任何快照使用的空间（30 天内引用日志中出现过的快照也保留）。`--objects-only` 只回收空间，不删除快照 |
 | `bonfire reindex` | 从仓库重建索引数据库 |
@@ -363,6 +364,14 @@ bonfire profile save 周末 空洞骑士 -m 周末存档
 
 ```bat
 bonfire fsck --deep
+```
+
+退出码：0
+
+### 设置游戏程序
+
+```bat
+bonfire game process 空洞骑士 --rm retroarch
 ```
 
 退出码：0

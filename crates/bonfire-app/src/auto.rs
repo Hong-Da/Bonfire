@@ -1,12 +1,17 @@
-//! 自动备份（U-9c）：定时备份（每天 / 每周 / 每隔 N 小时）与“存档变化后自动备份”。
+//! 自动备份（U-9c、M4-3）：定时备份（每天 / 每周 / 每隔 N 小时）、“存档变化后自动备份”与“退出游戏后自动备份”。
 //!
 //! - 由桌面程序每分钟调用 [`App::auto_backup_due`] 判断是否到期，到期时持锁调用 [`App::run_auto_backup`]；
 //!   CLI `bonfire backup --auto` 供系统计划任务调用。
 //! - 只备份有变化、且已经备份过（手动确认过存档位置）的游戏；只管理截图的游戏只收集截图。
 //! - 变化后备份：存档停止写入 `quiet_minutes` 分钟以上才备份，避免游戏正在写入时备份到一半的存档。
+//! - 游戏运行中不做自动备份（文档 10.1“自动备份在游戏运行中不做重 IO”）：定时与变化后备份跳过正在运行的游戏，
+//!   等它退出后再备份；开启“退出游戏后自动备份”时，每个游戏退出后都检查一次。
+//!   退出检测由桌面程序每隔几秒调用 [`App::exit_watch_tick`]，游戏退出 [`EXIT_DELAY`] 后备份。
 //! - 上次执行的时间记录在缓存目录 `auto/` 中。
 
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use bonfire_core::object::Trigger;
 use bonfire_core::{ObjectId, RepoLock};
@@ -25,6 +30,69 @@ pub enum AutoKind {
     Scheduled,
     /// 存档变化后自动备份。
     OnChange,
+    /// 退出游戏后自动备份（含运行中被推迟的定时与变化后备份）。
+    OnExit,
+}
+
+/// 游戏退出多久后备份（给游戏的收尾写入与云同步留出时间）。
+pub const EXIT_DELAY: Duration = Duration::from_secs(10);
+
+/// 退出检测的状态：上一次看到在运行的游戏、已退出等待备份的游戏、运行中被推迟备份的游戏。
+#[derive(Debug, Default)]
+pub struct ExitWatcher {
+    running: HashSet<String>,
+    exited: HashMap<String, Instant>,
+    deferred: HashSet<String>,
+}
+
+impl ExitWatcher {
+    /// 运行中被推迟、等退出后备份的游戏。
+    pub fn defer(&mut self, ids: impl IntoIterator<Item = String>) {
+        self.deferred.extend(ids);
+    }
+
+    /// 是否需要检测进程（开启了退出后备份，或有被推迟的游戏）。
+    pub fn needed(&self, on_exit: bool) -> bool {
+        on_exit || !self.deferred.is_empty()
+    }
+
+    /// 记录这一次看到的在运行的游戏，返回已退出满 `delay`、该备份的游戏。
+    /// `on_exit` 关闭时只处理被推迟的游戏。
+    pub fn observe(
+        &mut self,
+        now_running: HashSet<String>,
+        now: Instant,
+        on_exit: bool,
+        delay: Duration,
+    ) -> Vec<String> {
+        for id in self.running.difference(&now_running) {
+            if on_exit || self.deferred.contains(id) {
+                self.exited.insert(id.clone(), now);
+            }
+        }
+        // 被推迟时在运行、但之后一直没检测到（如程序刚启动）：视为已经退出。
+        for id in &self.deferred {
+            if !now_running.contains(id) && !self.running.contains(id) {
+                self.exited.entry(id.clone()).or_insert(now);
+            }
+        }
+        for id in &now_running {
+            self.exited.remove(id);
+        }
+        self.running = now_running;
+        let mut ready: Vec<String> = self
+            .exited
+            .iter()
+            .filter(|(_, t)| now.duration_since(**t) >= delay)
+            .map(|(id, _)| id.clone())
+            .collect();
+        ready.sort();
+        for id in &ready {
+            self.exited.remove(id);
+            self.deferred.remove(id);
+        }
+        ready
+    }
 }
 
 /// 一个游戏的自动备份结果。
@@ -48,6 +116,8 @@ pub struct AutoReport {
     pub items: Vec<AutoItem>,
     /// 有变化但存档还在写入、推迟到下次的游戏数。
     pub waiting: usize,
+    /// 正在运行、等退出后再备份的游戏。
+    pub deferred: Vec<String>,
     /// 备份后自动清理历史压掉的快照数（设置中开启自动清理时）。
     pub cleaned: usize,
 }
@@ -63,6 +133,7 @@ impl App {
         let name = match kind {
             AutoKind::Scheduled => "last-scheduled",
             AutoKind::OnChange => "last-check",
+            AutoKind::OnExit => "last-exit",
         };
         self.paths.cache_dir.join("auto").join(name)
     }
@@ -107,8 +178,36 @@ impl App {
         None
     }
 
-    /// 执行一次自动备份。调用方持有仓库锁。
+    /// 执行一次自动备份（定时或变化后）。调用方持有仓库锁。正在运行的游戏推迟到退出后。
     pub fn run_auto_backup(&mut self, lock: &RepoLock, kind: AutoKind) -> Result<AutoReport> {
+        let running = self.running_now().unwrap_or_default();
+        self.run_auto(lock, kind, None, &running)
+    }
+
+    /// 退出检测：记录这一次在运行的游戏，返回该做退出后备份的游戏。
+    /// `running` 为 [`App::running_now`] 的结果（调用方可以在不占用应用的情况下检测进程）。
+    pub fn exit_watch_tick(&mut self, running: HashSet<String>, now: Instant) -> Vec<String> {
+        let on_exit = self.config.auto_backup.on_exit;
+        self.exit_watch.observe(running, now, on_exit, EXIT_DELAY)
+    }
+
+    /// 是否需要检测游戏进程（开启了退出后备份，或有被推迟的游戏）。
+    pub fn exit_watch_needed(&self) -> bool {
+        self.exit_watch.needed(self.config.auto_backup.on_exit)
+    }
+
+    /// 游戏退出后备份这些游戏。调用方持有仓库锁。
+    pub fn run_exit_backup(&mut self, lock: &RepoLock, ids: &[String]) -> Result<AutoReport> {
+        self.run_auto(lock, AutoKind::OnExit, Some(ids), &HashMap::new())
+    }
+
+    fn run_auto(
+        &mut self,
+        lock: &RepoLock,
+        kind: AutoKind,
+        only: Option<&[String]>,
+        running: &HashMap<String, Vec<String>>,
+    ) -> Result<AutoReport> {
         let cfg: AutoBackup = self.config.auto_backup.clone();
         let now_ns = bonfire_core::scan::now_ns();
         let quiet_ns = i64::from(cfg.quiet_minutes) * 60 * 1_000_000_000;
@@ -116,9 +215,17 @@ impl App {
             kind,
             items: Vec::new(),
             waiting: 0,
+            deferred: Vec::new(),
             cleaned: 0,
         };
         for g in self.games()? {
+            if only.is_some_and(|ids| !ids.contains(&g.id)) {
+                continue;
+            }
+            if running.contains_key(&g.id) {
+                report.deferred.push(g.id.clone());
+                continue;
+            }
             let mut item = AutoItem {
                 game_id: g.id.clone(),
                 name: g.name.clone(),
@@ -140,6 +247,7 @@ impl App {
                             trigger: match kind {
                                 AutoKind::Scheduled => Trigger::AutoTimer,
                                 AutoKind::OnChange => Trigger::AutoChange,
+                                AutoKind::OnExit => Trigger::AutoExit,
                             },
                             on_detached: DetachedChoice::NewBranch,
                             ..Default::default()
@@ -172,6 +280,7 @@ impl App {
         if report.created() > 0 {
             report.cleaned = self.auto_clean(lock).map_or(0, |r| r.removed);
         }
+        self.exit_watch.defer(report.deferred.iter().cloned());
         self.mark_auto(kind)?;
         if kind == AutoKind::Scheduled {
             // 定时备份同时算作一次检查。
@@ -181,6 +290,7 @@ impl App {
             ?kind,
             created = report.created(),
             waiting = report.waiting,
+            deferred = report.deferred.len(),
             "自动备份完成"
         );
         Ok(report)
@@ -314,5 +424,56 @@ mod tests {
         // 每 N 小时：从未执行过时立即执行。
         assert!(schedule_due(ShotSchedule::Hours, "21:00", 7, 6, None, &now));
         assert!(!schedule_due(ShotSchedule::Off, "21:00", 7, 6, None, &now));
+    }
+
+    #[test]
+    fn exit_watcher_backs_up_after_exit_and_deferred_games() {
+        let t0 = Instant::now();
+        let d = Duration::from_secs(10);
+        let set = |ids: &[&str]| ids.iter().map(|s| s.to_string()).collect::<HashSet<_>>();
+        let mut w = ExitWatcher::default();
+        assert!(!w.needed(false));
+        assert!(w.observe(set(&["a", "b"]), t0, true, d).is_empty());
+        // a 退出：10 秒后才备份；期间重新启动则取消。
+        assert!(w.observe(set(&["b"]), t0 + d / 2, true, d).is_empty());
+        assert!(w.observe(set(&["a", "b"]), t0 + d, true, d).is_empty());
+        assert!(w.observe(set(&["b"]), t0 + d * 2, true, d).is_empty());
+        assert_eq!(w.observe(set(&["b"]), t0 + d * 3, true, d), ["a"]);
+        assert!(
+            w.observe(set(&["b"]), t0 + d * 4, true, d).is_empty(),
+            "只备份一次"
+        );
+        // 关闭退出后备份时，只处理运行中被推迟的游戏。
+        w.defer(["b".to_string()]);
+        assert!(w.needed(false));
+        assert!(w.observe(set(&[]), t0 + d * 5, false, d).is_empty());
+        assert_eq!(w.observe(set(&[]), t0 + d * 6, false, d), ["b"]);
+        assert!(!w.needed(false));
+        // 推迟时检测到在运行、之后再没见到（如刚启动）：视为已退出。
+        w.defer(["c".to_string()]);
+        assert!(w.observe(set(&[]), t0 + d * 7, false, d).is_empty());
+        assert_eq!(w.observe(set(&[]), t0 + d * 8, false, d), ["c"]);
+    }
+
+    #[test]
+    fn exit_backup_uses_exit_trigger() {
+        let mut env = Env::new();
+        env.write("a.sav", b"1");
+        let g = env.add_game("Game");
+        let lock = env.app.repo.lock().unwrap();
+        env.app
+            .backup(&lock, &g, &BackupOptions::default())
+            .unwrap();
+        env.write("a.sav", b"after playing");
+        let r = env
+            .app
+            .run_exit_backup(&lock, std::slice::from_ref(&g.id))
+            .unwrap();
+        assert_eq!(r.created(), 1);
+        let head = env.app.repo.head_snapshot(&g.id).unwrap().unwrap();
+        assert_eq!(
+            env.app.repo.get_snapshot(&head).unwrap().trigger,
+            Trigger::AutoExit
+        );
     }
 }

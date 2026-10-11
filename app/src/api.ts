@@ -115,6 +115,8 @@ export const api = {
   deleteProfile: (name: string) => invoke<void>("delete_profile", { name }),
 
   fsck: (deep: boolean) => invoke<FsckReport>("fsck", { deep }),
+  gameProcesses: (gameId: string) => invoke<string[]>("game_processes", { gameId }),
+  setGameProcesses: (gameId: string, names: string[]) => invoke<string[]>("set_game_processes", { gameId, names }),
   cleanHistory: (dryRun: boolean) => invoke<CleanupReport>("clean_history", { dryRun }),
   reindex: () => invoke<{ snapshots: number; refs: number }>("reindex"),
   updateRules: () => invoke<{ result: "updated"; games: number; bytes: number } | { result: "notModified" }>("update_rules"),

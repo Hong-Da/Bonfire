@@ -159,13 +159,10 @@ impl App {
             }
         }
         files.sort_by(|a, b| a.path.cmp(&b.path));
-        let running = match &game.install_dir {
-            Some(dir) => crate::process::running_under(&[PathBuf::from(dir)])
-                .into_iter()
-                .map(|(n, _)| n)
-                .collect(),
-            None => Vec::new(),
-        };
+        let running = crate::process::running(&[self.watch_of(game)?])
+            .into_iter()
+            .flat_map(|(_, names)| names)
+            .collect();
         Ok(RestorePlan {
             target,
             files,

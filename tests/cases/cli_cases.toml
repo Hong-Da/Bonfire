@@ -806,6 +806,25 @@ expect_exit = 1
 expect_stdout_json = { "ok" = false }
 
 [[case]]
+id = "game-process"
+title = { zh-CN = "设置游戏程序", en = "Set the game's programs" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "process", "空洞骑士", "--add", "hollow_knight.exe", "--add", "C:/Emu/RetroArch.exe"]]
+args = ["game", "process", "空洞骑士", "--rm", "retroarch"]
+expect_exit = 0
+stdout_contains = ["游戏程序：hollow_knight.exe"]
+in_docs = true
+
+[[case]]
+id = "game-process-clear"
+title = { zh-CN = "清空游戏程序（JSON 输出）", en = "Clear the game's programs (JSON output)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["game", "process", "空洞骑士", "--add", "hollow_knight.exe"]]
+args = ["game", "process", "空洞骑士", "--clear", "--json"]
+expect_exit = 0
+expect_stdout_json = { "processes" = [] }
+
+[[case]]
 id = "gc-preview"
 title = { zh-CN = "预览清理历史", en = "Preview history cleanup" }
 fixture = "basic"

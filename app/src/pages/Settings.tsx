@@ -253,6 +253,13 @@ export default function Settings() {
                 </div>
               </div>
             </div>
+            <div className="row">
+              <label>{t("ui.settings.autoExit")}</label>
+              <label className="opt">
+                <input type="checkbox" className="check" checked={!!cfg.auto_backup.on_exit} onChange={(e) => update((c) => (c.auto_backup.on_exit = e.target.checked))} />
+                {t("ui.settings.autoExitHint")}
+              </label>
+            </div>
             <p className="hint">{t("ui.settings.autoHint")}</p>
             {(auto?.lastScheduled || auto?.lastCheck) && (
               <p className="hint num">

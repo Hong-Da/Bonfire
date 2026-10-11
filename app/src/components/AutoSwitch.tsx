@@ -27,7 +27,7 @@ export default function AutoSwitch() {
 
   if (!info || info.firstRun || !cfg) return null;
   const a: AutoBackupConfig = { ...DEFAULT_AUTO, ...cfg.auto_backup };
-  const on = a.schedule !== "off" || a.on_change;
+  const on = a.schedule !== "off" || a.on_change || !!a.on_exit;
 
   const apply = async (patch: Partial<AutoBackupConfig>) => {
     setBusy(true);
@@ -64,6 +64,7 @@ export default function AutoSwitch() {
         sched("weekly"),
         sched("hours"),
         "divider",
+        { label: t("ui.settings.autoExit"), hint: t("ui.settings.autoExitHint"), checked: !!a.on_exit, disabled: busy, onClick: () => void apply({ on_exit: !a.on_exit }) },
         { label: t("ui.settings.autoChange"), hint: t("ui.settings.autoChangeHint"), checked: a.on_change, disabled: busy, onClick: () => void apply({ on_change: !a.on_change }) },
         // 检查存档变化的间隔：常用几档，配置中是其他值时也列出。
         { label: <b className="menu-head">{t("ui.auto.quick.checkHead")}</b>, onClick: () => {}, disabled: true },

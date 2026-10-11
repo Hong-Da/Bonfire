@@ -23,7 +23,7 @@ use serde::Serialize;
 use crate::app::App;
 use crate::config::{Retention, RetentionScope};
 use crate::error::Result;
-use crate::prune::{changed_between, parents_first};
+use crate::prune::changed_between;
 use crate::util::host_name;
 
 /// 一个游戏的清理结果。
@@ -363,7 +363,13 @@ impl App {
         let snaps = self.game_snapshots(&game.id)?;
         let rows = self.index.snapshots_of(&game.id)?;
         let descendants = self.descendants_of(&game.id, ids)?;
-        let order = parents_first(&descendants, &snaps);
+        // 按在历史中的深度排列：祖先一定在前（中间隔着被删的快照时也是），改写子快照时父快照已有新 ID。
+        let all: HashSet<ObjectId> = snaps.keys().copied().collect();
+        let depth = depth_in_history(&all, |id| {
+            snaps.get(id).map(|s| s.parents.clone()).unwrap_or_default()
+        });
+        let mut order: Vec<ObjectId> = descendants.into_iter().collect();
+        order.sort_by_key(|id| (depth[id], *id));
         let before = self.head_tree(&game.id)?;
 
         // 被删快照的父快照（越过连续被删的快照）。
@@ -643,5 +649,56 @@ mod tests {
         // 撤销恢复仍能回到恢复前的状态。
         env.app.undo_restore(&lock, &game).unwrap();
         assert_eq!(env.read("a.sav").unwrap(), b"unsaved");
+    }
+
+    #[test]
+    fn squashes_snapshots_separated_by_kept_ones() {
+        // 自动、手动交替：被删的快照之间隔着保留的快照，改写顺序必须祖先在前。
+        let mut env = Env::new();
+        let game = env.add_game("g");
+        let lock = env.app.repo.lock().unwrap();
+        let triggers = [
+            Trigger::AutoTimer,
+            Trigger::Manual,
+            Trigger::AutoTimer,
+            Trigger::Manual,
+            Trigger::AutoTimer,
+            Trigger::Manual,
+            Trigger::AutoTimer,
+        ];
+        for (i, trigger) in triggers.into_iter().enumerate() {
+            env.write("a.sav", &vec![b'a' + i as u8; 3 + i]);
+            env.app
+                .backup(
+                    &lock,
+                    &game,
+                    &BackupOptions {
+                        trigger,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+        }
+        env.app.config.retention.keep_last = 1;
+        env.app.config.retention.keep_daily = 0;
+        env.app.config.retention.keep_weekly = 0;
+        let r = env
+            .app
+            .clean_history(&lock, &CleanupOptions::default())
+            .unwrap();
+        assert_eq!(r.removed, 3, "最新的自动快照是分支最新，其余 3 个压掉");
+        let head = env.app.repo.head_snapshot(&game.id).unwrap().unwrap();
+        let chain = env.app.repo.first_parent_chain(head, 100).unwrap();
+        let kinds: Vec<Trigger> = chain.iter().map(|(_, s)| s.trigger).collect();
+        assert_eq!(
+            kinds,
+            [
+                Trigger::AutoTimer,
+                Trigger::Manual,
+                Trigger::Manual,
+                Trigger::Manual
+            ]
+        );
+        assert!(bonfire_core::fsck::fsck(&env.app.repo, true).unwrap().ok());
     }
 }

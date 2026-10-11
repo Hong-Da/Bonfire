@@ -62,6 +62,8 @@ export interface AutoBackupConfig {
   on_change: boolean;
   check_minutes: number;
   quiet_minutes: number;
+  /** 退出游戏后自动备份 */
+  on_exit?: boolean;
 }
 
 /** 历史清理（M4-4）：保留策略与自动清理。 */
@@ -88,9 +90,11 @@ export interface AutoStatus {
 
 /** 一次自动备份的结果（`auto-backup` 事件）。 */
 export interface AutoReport {
-  kind: "scheduled" | "on-change";
+  kind: "scheduled" | "on-change" | "on-exit";
   items: { gameId: string; name: string; snapshot: string | null; newBranch: string | null; error: string | null; shots: number }[];
   waiting: number;
+  /** 正在运行、等退出后再备份的游戏 */
+  deferred?: string[];
 }
 
 /** 游戏的管理方式。 */

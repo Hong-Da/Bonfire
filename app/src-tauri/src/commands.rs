@@ -1636,6 +1636,7 @@ pub async fn captures_dir(h: AppHandle) -> CmdResult<Option<PathBuf>> {
 /// 自动备份与定时收集截图：每分钟检查一次是否到期；仓库正被其他操作（如命令行）使用时推迟到下一次。
 /// 自动备份完成后推送 `auto-backup`（有备份、出错或收集到截图时），定时收集截图后推送 `shots-synced`。
 pub fn start_scheduler(h: AppHandle) {
+    start_exit_watcher(h.clone());
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(std::time::Duration::from_secs(60));
@@ -1679,6 +1680,75 @@ pub fn start_scheduler(h: AppHandle) {
             let _ = h.emit("shots-synced", added);
         }
     });
+}
+
+/// 退出游戏后自动备份（M4-3）：每隔几秒检测一次游戏进程，游戏退出后备份；
+/// 只在开启了“退出游戏后自动备份”或有运行中被推迟的自动备份时检测。检测进程时不占用应用。
+fn start_exit_watcher(h: AppHandle) {
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            let shared = h.state::<Shared>();
+            let watches = {
+                let guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
+                let Some(app) = guard.as_ref() else { continue };
+                if !app.exit_watch_needed() {
+                    continue;
+                }
+                app.all_watches().unwrap_or_default()
+            };
+            let running: std::collections::HashSet<String> =
+                bonfire_app::process::running(&watches)
+                    .into_iter()
+                    .map(|(id, _)| id)
+                    .collect();
+            let report: Option<AutoReport> = {
+                let mut guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
+                let Some(app) = guard.as_mut() else { continue };
+                let ready = app.exit_watch_tick(running, std::time::Instant::now());
+                if ready.is_empty() {
+                    continue;
+                }
+                match app.repo.lock() {
+                    Ok(lock) => match app.run_exit_backup(&lock, &ready) {
+                        Ok(r) => Some(r),
+                        Err(e) => {
+                            tracing::warn!("退出游戏后自动备份失败：{e}");
+                            None
+                        }
+                    },
+                    // 仓库正被其他操作使用：放回等待，下次再试。
+                    Err(_) => {
+                        app.exit_watch.defer(ready);
+                        None
+                    }
+                }
+            };
+            if let Some(r) = report.filter(|r| !r.items.is_empty()) {
+                let _ = h.emit("auto-backup", r);
+            }
+        }
+    });
+}
+
+/// 游戏程序：运行检测用的进程名。
+#[tauri::command]
+pub async fn game_processes(h: AppHandle, game_id: String) -> CmdResult<Vec<String>> {
+    with_app(h, move |app, _| Ok(app.index.processes(&game_id)?)).await
+}
+
+#[tauri::command]
+pub async fn set_game_processes(
+    h: AppHandle,
+    game_id: String,
+    names: Vec<String>,
+) -> CmdResult<Vec<String>> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let lock = app.repo.lock()?;
+        Ok(app.set_game_processes(&lock, &g, &names)?)
+    })
+    .await
 }
 
 #[cfg(test)]

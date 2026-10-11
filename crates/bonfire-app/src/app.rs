@@ -28,6 +28,8 @@ pub struct App {
     pub fetch_metadata_on_scan: bool,
     /// 伪造的“本机”根目录（测试用，见 `BONFIRE_FAKE_ROOT`）；设置后不读取真实的平台安装。
     pub fake_root: Option<PathBuf>,
+    /// 退出游戏后自动备份的检测状态（M4-3）。
+    pub exit_watch: crate::auto::ExitWatcher,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,6 +47,9 @@ struct GameEntry {
     /// 截图设置（是否收集、手动添加的截图文件夹）。
     #[serde(default, skip_serializing_if = "is_default_shots")]
     shots: ShotSettings,
+    /// 游戏程序（运行检测用的进程名）。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    processes: Vec<String>,
 }
 
 fn is_default_shots(s: &ShotSettings) -> bool {
@@ -96,6 +101,7 @@ impl App {
             },
             fetch_metadata_on_scan: true,
             fake_root: crate::discover::fake_root(),
+            exit_watch: Default::default(),
         };
         if fresh_db {
             let restored = app.restore_games_file()?;
@@ -380,10 +386,12 @@ impl App {
         for g in self.index.games()? {
             let location = self.index.locations(&g.id)?;
             let shots = self.shot_settings_of(&g.id)?;
+            let processes = self.index.processes(&g.id)?;
             file.game.push(GameEntry {
                 record: g,
                 location,
                 shots,
+                processes,
             });
         }
         let text = format!(
@@ -414,6 +422,8 @@ impl App {
                 self.index
                     .save_shot_settings(&entry.record.id, &entry.shots)?;
             }
+            self.index
+                .set_processes(&entry.record.id, &entry.processes)?;
         }
         Ok(file.game.len())
     }

@@ -17,7 +17,8 @@ use crate::{ObjectId, Repo};
 /// 数据库结构版本（PRAGMA user_version）。
 /// 3：截图相册（screenshots、shot_settings）。
 /// 4：截图原样存为文件（screenshots.file）、回收站（deleted_at、purged）、只管理截图的游戏（shot_settings.shots_only）。
-const SCHEMA_VERSION: i32 = 4;
+/// 5：游戏程序（game_processes，运行检测用的进程名）。
+const SCHEMA_VERSION: i32 = 5;
 
 /// 版本 4 新增的列（旧数据库中补上）。
 const COLUMNS_V4: &[(&str, &str, &str)] = &[
@@ -144,6 +145,10 @@ CREATE TABLE IF NOT EXISTS shot_settings (
     enabled INTEGER,
     dirs_json TEXT NOT NULL DEFAULT '[]',
     shots_only INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS game_processes (
+    game_id TEXT PRIMARY KEY,
+    names_json TEXT NOT NULL DEFAULT '[]'
 );
 "#;
 
@@ -447,6 +452,8 @@ impl Index {
     pub fn delete_game(&self, id: &str) -> Result<bool> {
         self.conn
             .execute("DELETE FROM scan_index WHERE game_id = ?1", [id])?;
+        self.conn
+            .execute("DELETE FROM game_processes WHERE game_id = ?1", [id])?;
         Ok(self.conn.execute("DELETE FROM games WHERE id = ?1", [id])? > 0)
     }
 
@@ -782,6 +789,35 @@ impl Index {
             },
             None => ShotSettings::default(),
         })
+    }
+
+    /// 游戏程序：运行检测用的进程名（如 `Game.exe`），用户添加。
+    pub fn processes(&self, game_id: &str) -> Result<Vec<String>> {
+        let json: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT names_json FROM game_processes WHERE game_id = ?1",
+                [game_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(json
+            .and_then(|j| serde_json::from_str(&j).ok())
+            .unwrap_or_default())
+    }
+
+    pub fn set_processes(&self, game_id: &str, names: &[String]) -> Result<()> {
+        if names.is_empty() {
+            self.conn
+                .execute("DELETE FROM game_processes WHERE game_id = ?1", [game_id])?;
+        } else {
+            self.conn.execute(
+                "INSERT INTO game_processes (game_id, names_json) VALUES (?1, ?2)
+                 ON CONFLICT(game_id) DO UPDATE SET names_json = ?2",
+                params![game_id, serde_json::to_string(names).expect("可以序列化")],
+            )?;
+        }
+        Ok(())
     }
 
     pub fn save_shot_settings(&self, game_id: &str, s: &ShotSettings) -> Result<()> {

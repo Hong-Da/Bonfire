@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import type { AutoBackupConfig } from "../types";
 
 /** 自动备份的默认设置（旧配置中没有这一节时使用）。 */
-export const DEFAULT_AUTO: AutoBackupConfig = { schedule: "off", at: "21:00", weekday: 7, every_hours: 6, on_change: false, check_minutes: 5, quiet_minutes: 2 };
+export const DEFAULT_AUTO: AutoBackupConfig = { schedule: "off", at: "21:00", weekday: 7, every_hours: 6, on_change: false, check_minutes: 5, quiet_minutes: 2, on_exit: false };
 
 /** 定时备份的简短说明：“每天 21:00”“每周日 21:00”“每 6 小时”。 */
 export function scheduleText(t: TFunction, a: Pick<AutoBackupConfig, "schedule" | "at" | "weekday" | "every_hours">): string {
@@ -23,5 +23,6 @@ export function autoSummary(t: TFunction, a: AutoBackupConfig): string {
   const parts: string[] = [];
   if (a.schedule !== "off") parts.push(scheduleText(t, a));
   if (a.on_change) parts.push(t("ui.auto.quick.changeEvery", { n: a.check_minutes }));
+  if (a.on_exit) parts.push(t("ui.auto.quick.exit"));
   return parts.length ? t("ui.auto.quick.on", { what: parts.join(" + ") }) : t("ui.auto.quick.allOff");
 }

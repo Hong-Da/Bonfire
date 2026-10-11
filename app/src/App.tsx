@@ -61,7 +61,7 @@ export default function App() {
       const created = r.items.filter((x) => x.snapshot).length;
       const failed = r.items.filter((x) => x.error);
       const shots = r.items.reduce((n, x) => n + x.shots, 0);
-      if (created > 0) toast("success", t(r.kind === "scheduled" ? "ui.auto.doneScheduled" : "ui.auto.doneChange", { n: created, names: r.items.filter((x) => x.snapshot).map((x) => x.name).join("、") }));
+      if (created > 0) toast("success", t(r.kind === "scheduled" ? "ui.auto.doneScheduled" : r.kind === "on-exit" ? "ui.auto.doneExit" : "ui.auto.doneChange", { n: created, names: r.items.filter((x) => x.snapshot).map((x) => x.name).join("、") }));
       if (failed.length > 0) toast("error", t("ui.auto.failed", { names: failed.map((x) => x.name).join("、"), msg: failed[0].error ?? "" }));
       if (created === 0 && failed.length === 0 && shots > 0) toast("success", t("ui.shots.scheduled", { n: shots }));
       void loadLibrary(false);

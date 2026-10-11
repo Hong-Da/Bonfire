@@ -395,6 +395,15 @@ pub enum GameCmd {
         #[command(subcommand)]
         cmd: ShotsDirCmd,
     },
+    Process {
+        game: String,
+        #[arg(long, value_name = "NAME")]
+        add: Vec<String>,
+        #[arg(long, value_name = "NAME")]
+        rm: Vec<String>,
+        #[arg(long, conflicts_with_all = ["add", "rm"])]
+        clear: bool,
+    },
     AddShots {
         name: String,
         #[arg(long, value_name = "APPID")]

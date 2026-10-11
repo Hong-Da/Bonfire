@@ -204,6 +204,8 @@ pub struct AutoBackup {
     pub check_minutes: u32,
     /// 存档停止写入多少分钟后才备份（0–60），避免备份到写了一半的存档。
     pub quiet_minutes: u32,
+    /// 退出游戏后自动备份（M4-3）：检测到游戏退出后备份有变化的存档。
+    pub on_exit: bool,
 }
 
 impl Default for AutoBackup {
@@ -216,6 +218,7 @@ impl Default for AutoBackup {
             on_change: false,
             check_minutes: 5,
             quiet_minutes: 2,
+            on_exit: false,
         }
     }
 }
@@ -535,6 +538,9 @@ on_change = {a_change}
 check_minutes = {a_check}
 # 存档停止写入多少分钟后才备份（0–60），避免备份到写了一半的存档
 quiet_minutes = {a_quiet}
+# 退出游戏后自动备份：检测到游戏退出后备份有变化的存档（按安装目录或为游戏设置的游戏程序检测）。
+# 游戏运行中不做定时与变化后备份，等游戏退出后再备份
+on_exit = {a_exit}
 
 [retention]
 # 历史清理：带标签的快照、各分支最新的快照、当前所在的快照永远保留，其余按下面的策略保留，
@@ -584,6 +590,7 @@ keep_days = {keep}
             a_change = d.auto_backup.on_change,
             a_check = d.auto_backup.check_minutes,
             a_quiet = d.auto_backup.quiet_minutes,
+            a_exit = d.auto_backup.on_exit,
             r_enabled = d.retention.enabled,
             r_last = d.retention.keep_last,
             r_daily = d.retention.keep_daily,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ProcessDialog } from "../components/ProcessDialog";
 import { confirm } from "../lib/confirm";
 import { api, errorMessage, imageSrc } from "../api";
 import Timeline, { laneColor } from "../components/Timeline";
@@ -385,6 +386,7 @@ function Hero({
   const openLocation = (ord: number) => api.openLocation(gameId, ord).catch(onFail);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [packageOpen, setPackageOpen] = useState(false);
+  const [processOpen, setProcessOpen] = useState(false);
 
   return (
     <header className="hero" style={hero ? { ["--hero" as string]: `url("${hero}")` } : undefined}>
@@ -486,6 +488,7 @@ function Hero({
             title={t("ui.more")}
             items={[
               { label: t("ui.history.refreshInfo"), onClick: () => void api.refreshInfo(gameId).then(onChanged).catch(onFail) },
+              { label: t("ui.process.menu"), hint: t("ui.process.menuHint"), onClick: () => setProcessOpen(true) },
               ...(unconfirmed > 0
                 ? [
                     {
@@ -511,6 +514,7 @@ function Hero({
           />
         </div>
         {packageOpen && <CollectionExportDialog rows={[row]} initial={[row.id]} onClose={() => setPackageOpen(false)} />}
+        {processOpen && <ProcessDialog gameId={gameId} name={name} installDir={installDir ?? null} onClose={() => setProcessOpen(false)} />}
         {removeOpen && <RemoveDialog rows={[row]} onClose={() => setRemoveOpen(false)} onDone={() => store.go({ name: "library" })} />}
         {row.shotsOnly && <p className="hero-note">{t("ui.history.shotsOnlyNote")}</p>}
         {!row.installed && !row.shotsOnly && <p className="hero-note">{t("ui.history.notInstalledNote")}</p>}

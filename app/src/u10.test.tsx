@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import ScanPage from "./pages/ScanPage";
 import ShotDiffDialog from "./pages/ShotDiffDialog";
 import CloseDialog from "./components/CloseDialog";
+import { ProcessDialog } from "./components/ProcessDialog";
 import { noteGames } from "./lib/fresh";
 import { loadUiState, resetUiStateForTest } from "./lib/uiState";
 import type { Config, GalleryView, GameRow, ShotRecord } from "./types";
@@ -649,5 +650,29 @@ describe("M4-4 历史清理", () => {
     expect(api.cleanHistory).toHaveBeenCalledWith(false);
     fireEvent.click(within(dlg).getByRole("button", { name: "完成" }));
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("M4-2 游戏程序", () => {
+  it("显示安装目录，添加、去重与移除进程名后保存", async () => {
+    useStore.setState({ toasts: [] });
+    api.gameProcesses.mockResolvedValue(["RetroArch.exe"]);
+    api.setGameProcesses.mockResolvedValue([]);
+    dialog.open.mockResolvedValue("C:/Games/Alpha/bin/Alpha.exe");
+    const onClose = vi.fn();
+    render(<ProcessDialog gameId="g" name="Alpha" installDir={null} onClose={onClose} />);
+    const dlg = await screen.findByRole("dialog", { name: "「Alpha」的游戏程序" });
+    await within(dlg).findByText("RetroArch.exe");
+    expect(within(dlg).getByText("没有安装目录")).toBeInTheDocument();
+    const box = within(dlg).getByRole("textbox", { name: "程序文件名" });
+    fireEvent.change(box, { target: { value: "retroarch" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(within(dlg).getAllByRole("listitem")).toHaveLength(1);
+    fireEvent.click(within(dlg).getByRole("button", { name: /选择程序/ }));
+    await within(dlg).findByText("Alpha.exe");
+    fireEvent.click(within(dlg).getByRole("button", { name: "移除 RetroArch.exe" }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(api.setGameProcesses).toHaveBeenCalledWith("g", ["Alpha.exe"]));
+    expect(onClose).toHaveBeenCalled();
   });
 });
