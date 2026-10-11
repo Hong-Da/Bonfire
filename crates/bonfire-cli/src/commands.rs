@@ -291,10 +291,24 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
             game,
             source,
             branch,
+            message,
+            dry_run,
+            download: true,
+            password,
+            replace,
+            ..
+        } => import_download(
+            app, &game, &source, branch, message, password, replace, dry_run, out,
+        ),
+        Cmd::Import {
+            game,
+            source,
+            branch,
             parent,
             onto,
             message,
             dry_run,
+            ..
         } => {
             let place = match onto {
                 Some(b) => ImportPlace::Continue { branch: b },
@@ -2032,6 +2046,97 @@ pub(crate) fn shots_dir(app: &mut App, cmd: ShotsDirCmd, out: &Out) -> Result<()
                 &[("game", &g.name), ("dir", &dir)],
             ));
         }
+    }
+    Ok(())
+}
+
+/// 导入下载的存档（U-42）：自动对应存档位置，叠加（默认）或整体替换，存为新路线。
+#[allow(clippy::too_many_arguments)]
+fn import_download(
+    app: &mut App,
+    game: &str,
+    source: &Path,
+    branch: Option<String>,
+    message: Option<String>,
+    password: Option<String>,
+    replace: bool,
+    dry_run: bool,
+    out: &Out,
+) -> Result<()> {
+    use bonfire_app::downloads::{DownloadImport, DownloadKind, DownloadMode};
+    let g = app.find_game(game)?;
+    let p = app.inspect_download(&g, source, password.as_deref())?;
+    match p.kind {
+        DownloadKind::Download => {}
+        DownloadKind::NeedsPassword => {
+            return Err(AppError::Invalid(
+                out.t("cli.error.download_password").into(),
+            ));
+        }
+        DownloadKind::NeedsExtract => {
+            return Err(AppError::Invalid(
+                out.t("cli.error.download_extract").into(),
+            ));
+        }
+        DownloadKind::Bonfire => {
+            return Err(AppError::Invalid(
+                out.t("cli.error.download_bonfire").into(),
+            ));
+        }
+    }
+    let mapping: Vec<(String, String)> = p
+        .files
+        .iter()
+        .filter(|f| !f.ignored)
+        .filter_map(|f| f.target.clone().map(|t| (f.rel.clone(), t)))
+        .collect();
+    let unmapped: Vec<&str> = p
+        .files
+        .iter()
+        .filter(|f| !f.ignored && f.target.is_none())
+        .map(|f| f.rel.as_str())
+        .collect();
+    for (rel, t) in &mapping {
+        out.line(format!("  {rel} → {t}"));
+    }
+    for rel in &unmapped {
+        out.line(out.tf("cli.out.download_unmapped", &[("file", rel)]));
+    }
+    if dry_run {
+        out.emit(serde_json::to_value(&p).unwrap());
+        return Ok(());
+    }
+    if mapping.is_empty() {
+        return Err(AppError::Invalid(
+            out.t("cli.error.download_nothing").into(),
+        ));
+    }
+    let lock = app.repo.lock()?;
+    let r = app.import_download(
+        &lock,
+        &g,
+        source,
+        password.as_deref(),
+        &DownloadImport {
+            mapping,
+            mode: if replace {
+                DownloadMode::Replace
+            } else {
+                DownloadMode::Overlay
+            },
+            branch,
+            comment: message,
+        },
+    )?;
+    out.emit(serde_json::to_value(&r).unwrap());
+    match (&r.branch, &r.identical) {
+        (Some(b), _) => {
+            out.line(out.tf("cli.out.download_done", &[("n", &r.files), ("branch", b)]))
+        }
+        (None, Some(id)) => {
+            out.line(out.tf("cli.out.download_identical", &[("id", &id.short(12))]))
+        }
+        _ => {}
     }
     Ok(())
 }

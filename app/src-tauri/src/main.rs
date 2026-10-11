@@ -113,6 +113,8 @@ fn main() {
             commands::ui_state_get,
             commands::rename_branch,
             commands::set_primary_branch,
+            commands::inspect_download,
+            commands::import_download,
             commands::ui_state_set,
             commands::get_settings,
             commands::save_settings,

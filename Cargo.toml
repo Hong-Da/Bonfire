@@ -39,6 +39,6 @@ zstd = "0.14"
 trash = "5"
 jiff = { version = "0.2", features = ["serde"] }
 sys-locale = "0.3"
-zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
 assert_cmd = "2"
 predicates = "3"

@@ -1262,5 +1262,15 @@
   "ui.branch.renameHint": "只改名字，快照不动；主存档等设置随之更新。",
   "ui.branch.newName": "新名字",
   "ui.branch.rename": "改名",
-  "ui.branch.renamed": "已把「{from}」改名为「{to}」"
+  "ui.branch.renamed": "已把「{from}」改名为「{to}」",
+  "cli.arg.import.download": "这是网上下载的存档（不是篝火导出的）：解压、递归扫描、按文件名自动对应存档位置，叠加到当前存档后存为新路线",
+  "cli.arg.import.password": "加密 zip 的解压密码（只用于这次读取，不保存）",
+  "cli.arg.import.replace": "整体替换：新快照只包含下载的文件（默认叠加到当前存档）",
+  "cli.error.download_password": "这个压缩包需要解压密码，请加 --password（密码通常写在下载页面或说明里）",
+  "cli.error.download_extract": "7z / rar 等压缩包请先用解压工具解压，再导入解压出来的文件夹",
+  "cli.error.download_bonfire": "这是篝火导出的存档：不加 --download 直接导入，或用 bonfire bundle import",
+  "cli.error.download_nothing": "没有找到能对应到存档位置的文件：请确认下载的是这个游戏的存档，或在界面中手动指定位置",
+  "cli.out.download_unmapped": "  对应不上，跳过：{file}",
+  "cli.out.download_done": "已导入 {n} 个文件，存为新路线 {branch}；用 bonfire restore 换上它",
+  "cli.out.download_identical": "内容与已有快照 {id} 相同，没有新建"
 }

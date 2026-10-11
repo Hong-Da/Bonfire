@@ -9,6 +9,7 @@ tests/
 ├── inputs/              测试输入（入库，只读）
 │   ├── README.md        每个输入文件的用途说明
 │   ├── saves/           伪造的游戏存档目录
+│   ├── downloads/       伪造的网上下载存档（嵌套文件夹、附带说明，“导入下载的存档”用）
 │   └── platforms/       伪造的平台安装目录（Steam/Epic/GOG…，M2 起）
 ├── cases/
 │   └── cli_cases.toml   CLI 用例，同时生成 docs/cli.md 的示例

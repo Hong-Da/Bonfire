@@ -47,6 +47,8 @@ pub struct GameStatus {
     pub total_bytes: u64,
     /// 存档文件中最新的修改时间（Unix 纳秒）。
     pub last_modified_ns: Option<i64>,
+    /// 新增或修改的文件中最新的修改时间（判断是否手动替换成了下载的存档）。
+    pub changed_modified_ns: Option<i64>,
 }
 
 /// 从旧快照恢复后再次备份时的分支处理（文档 6.4）。
@@ -68,6 +70,9 @@ pub struct BackupOptions {
     pub force: bool,
     pub trigger: Trigger,
     pub on_detached: DetachedChoice,
+    /// 另开一条新路线（接在当前快照之后），不接在当前路线上；已存在时加序号。
+    /// 用于手动替换成下载的存档后备份（U-42e）。
+    pub new_branch: Option<String>,
 }
 
 impl Default for BackupOptions {
@@ -78,6 +83,7 @@ impl Default for BackupOptions {
             force: false,
             trigger: Trigger::Manual,
             on_detached: DetachedChoice::NewBranch,
+            new_branch: None,
         }
     }
 }
@@ -128,9 +134,21 @@ impl App {
                 files: 0,
                 total_bytes: 0,
                 last_modified_ns: None,
+                changed_modified_ns: None,
             });
         }
         let (disk, changes) = self.detect(game, force_verify)?;
+        let changed_modified_ns = {
+            let changed: std::collections::HashSet<&str> = changes
+                .iter()
+                .filter(|c| matches!(c.status, FileStatus::Added | FileStatus::Modified))
+                .map(|c| c.path.as_str())
+                .collect();
+            disk.iter()
+                .filter(|f| changed.contains(f.path.as_str()))
+                .map(|f| f.mtime_ns)
+                .max()
+        };
         let summary = ChangeSummary::of(&changes);
         let state = match head_snap {
             None => GameState::NeverBackedUp,
@@ -148,6 +166,7 @@ impl App {
             files: disk.len() as u64,
             total_bytes: disk.iter().map(|f| f.size).sum(),
             last_modified_ns: disk.iter().map(|f| f.mtime_ns).max(),
+            changed_modified_ns,
         })
     }
 
@@ -327,7 +346,37 @@ impl App {
             Trigger::Manual => "backup",
             _ => "auto-backup",
         };
-        if head.detached.is_some() {
+        if let Some(base) = opts
+            .new_branch
+            .as_deref()
+            .map(str::trim)
+            .filter(|b| !b.is_empty())
+        {
+            bonfire_core::refs::validate_ref_name(base)?;
+            let taken: Vec<String> = self
+                .repo
+                .list_refs(&game.id)?
+                .into_iter()
+                .map(|(r, _)| r.name.to_lowercase())
+                .collect();
+            let mut name = base.to_string();
+            let mut i = 2;
+            while taken.contains(&name.to_lowercase()) {
+                name = format!("{base}-{i}");
+                i += 1;
+            }
+            self.repo.create_branch(lock, &game.id, &name, snap_id)?;
+            branch = name.clone();
+            new_branch = Some(name);
+            self.repo.set_head(
+                lock,
+                &game.id,
+                &Head {
+                    branch: branch.clone(),
+                    detached: None,
+                },
+            )?;
+        } else if head.detached.is_some() {
             match &opts.on_detached {
                 DetachedChoice::MoveCurrent => {
                     let tip = self.repo.read_ref(&game.id, &RefName::branch(&branch))?;

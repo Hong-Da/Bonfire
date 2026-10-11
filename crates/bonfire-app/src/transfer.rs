@@ -2068,7 +2068,7 @@ impl App {
         Ok((preview, mapped))
     }
 
-    fn identical_snapshot(
+    pub(crate) fn identical_snapshot(
         &self,
         game_id: &str,
         mapped: &[(String, PathBuf)],
@@ -2126,7 +2126,11 @@ impl App {
         Ok(None)
     }
 
-    fn snapshot_with_tree(&self, game_id: &str, tree: &ObjectId) -> Result<Option<ObjectId>> {
+    pub(crate) fn snapshot_with_tree(
+        &self,
+        game_id: &str,
+        tree: &ObjectId,
+    ) -> Result<Option<ObjectId>> {
         for row in self.index.snapshots_of(game_id)? {
             if self.repo.get_snapshot(&row.id)?.tree == *tree {
                 return Ok(Some(row.id));

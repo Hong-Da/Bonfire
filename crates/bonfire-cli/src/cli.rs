@@ -198,6 +198,12 @@ pub enum Cmd {
         onto: Option<String>,
         #[arg(short = 'm', long)]
         message: Option<String>,
+        #[arg(long, conflicts_with_all = ["parent", "onto"])]
+        download: bool,
+        #[arg(long, value_name = "PASSWORD", requires = "download")]
+        password: Option<String>,
+        #[arg(long, requires = "download")]
+        replace: bool,
         #[arg(long)]
         dry_run: bool,
     },

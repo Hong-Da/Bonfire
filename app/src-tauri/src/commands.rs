@@ -392,6 +392,9 @@ pub struct BackupItem {
     game_id: String,
     comment: Option<String>,
     tag: Option<String>,
+    /// 另开新路线（手动替换成下载的存档后）。
+    #[serde(default)]
+    new_branch: Option<String>,
     /// 备份存档（默认是；只管理截图的游戏始终不备份存档）。
     #[serde(default = "yes")]
     saves: bool,
@@ -462,6 +465,7 @@ pub async fn run_backup(
             let opts = BackupOptions {
                 comment: item.comment.filter(|c| !c.trim().is_empty()),
                 tag: item.tag.filter(|t| !t.trim().is_empty()),
+                new_branch: item.new_branch.filter(|b| !b.trim().is_empty()),
                 force,
                 on_detached: match &on_detached {
                     OnDetached::New => DetachedChoice::NewBranch,
@@ -587,6 +591,38 @@ pub async fn set_comment(
 }
 
 /// 删除分支（`dry_run` 时只返回会删除的快照）。
+/// 预览导入下载的存档（U-42）。密码只用于这次读取。
+#[tauri::command]
+pub async fn inspect_download(
+    h: AppHandle,
+    game_id: String,
+    path: PathBuf,
+    password: Option<String>,
+) -> CmdResult<bonfire_app::downloads::DownloadPreview> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        Ok(app.inspect_download(&g, &path, password.as_deref())?)
+    })
+    .await
+}
+
+/// 导入下载的存档为新路线（不写入存档目录）。
+#[tauri::command]
+pub async fn import_download(
+    h: AppHandle,
+    game_id: String,
+    path: PathBuf,
+    password: Option<String>,
+    request: bonfire_app::downloads::DownloadImport,
+) -> CmdResult<bonfire_app::downloads::DownloadReport> {
+    with_app(h, move |app, _| {
+        let g = find(app, &game_id)?;
+        let lock = app.repo.lock()?;
+        Ok(app.import_download(&lock, &g, &path, password.as_deref(), &request)?)
+    })
+    .await
+}
+
 /// 设为本机主存档（`tidy` 时整理名称）。
 #[tauri::command]
 pub async fn set_primary_branch(

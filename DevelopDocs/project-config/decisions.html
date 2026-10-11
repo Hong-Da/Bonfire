@@ -24,9 +24,51 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 127 项，更新于 2026-10-11 00:44。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 134 项，更新于 2026-10-11 01:04。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>78 项</small></h2>
+<section id="s-0"><h2>开发<small>85 项</small></h2>
+      <article id="U-42g">
+        <header><code>U-42g</code><h3>不是篝火格式时</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">在原导入中明确提示并一键转到“导入下载的存档”（带上已选文件）；导入下载的存档按步骤引导，对不上、7z/rar、选了篝火包等情况给出操作说明 <b>✓ 采用</b></li><li class="">只报错</li></ul>
+        <p class="reason"><span>理由</span>用户要求提示并指导操作。</p><p class="impact"><span>影响</span>—</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="U-42f">
+        <header><code>U-42f</code><h3>入口</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">游戏详情按钮与拖放、游戏库“添加 / 导入”菜单都加 <b>✓ 采用</b></li><li class="">只在游戏详情</li></ul>
+        <p class="reason"><span>理由</span>用户确认。</p><p class="impact"><span>影响</span>游戏库入口先选游戏。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="U-42e">
+        <header><code>U-42e</code><h3>识别已手动替换过的存档</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">要做：变化的文件修改时间都早于上次备份时提示“存档可能被手动替换”，备份时默认另开新路线 <b>✓ 采用</b></li><li class="">不做</li></ul>
+        <p class="reason"><span>理由</span>避免下载的存档混进自己的路线。</p><p class="impact"><span>影响</span>只是提示与默认选择，可改。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="U-42d">
+        <header><code>U-42d</code><h3>下载存档的路线名称</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">默认“下载-日期”，可改，备注填来源 <b>✓ 采用</b></li><li class="">每次必须填写</li></ul>
+        <p class="reason"><span>理由</span>减少操作。</p><p class="impact"><span>影响</span>分支图中标记为下载的存档。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="U-42c">
+        <header><code>U-42c</code><h3>导入后是否立即换上</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">默认勾选“导入后立即换上”（先做保护快照，可撤销） <b>✓ 采用</b></li><li class="">只导入</li></ul>
+        <p class="reason"><span>理由</span>下载存档通常就是为了马上用。</p><p class="impact"><span>影响</span>换上后可“回到主存档”。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="U-42b">
+        <header><code>U-42b</code><h3>下载里只有部分文件时</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">自动判断：部分文件默认叠加到当前存档，覆盖全部时默认整体替换，可手动改 <b>✓ 采用</b></li><li class="">一律整体替换</li></ul>
+        <p class="reason"><span>理由</span>只给一个存档槽时不能删掉其他存档槽与设置。</p><p class="impact"><span>影响</span>叠加时新快照 = 当前存档 + 下载的文件。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="U-42a">
+        <header><code>U-42a</code><h3>下载的存档支持哪些格式</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">文件夹与 zip；7z / rar 提示先解压并说明操作 <b>✓ 采用</b></li><li class="">直接支持 7z</li></ul>
+        <p class="reason"><span>理由</span>无需新增解压依赖；常见压缩包可用系统或常用工具解压。</p><p class="impact"><span>影响</span>选到 7z / rar 时给出解压步骤。</p>
+        <footer>2026-10-11</footer>
+      </article>
       <article id="U-41h">
         <header><code>U-41h</code><h3>导入时 main 冲突的默认选择（修订 U-41e）</h3><span class="status">用户确认</span></header>
         <ul><li class="chosen">默认“这是别人的存档：作为新路线加入”；“这是我旧电脑的存档：以它为本机主存档并恢复到磁盘”必须手动选 <b>✓ 采用</b></li><li class="">本机 main 只有首次备份时默认以导入为准</li></ul>

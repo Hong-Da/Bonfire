@@ -301,6 +301,14 @@ bonfire branch 空洞骑士 --primary main-旧电脑 --tidy
 
 退出码：0
 
+### 导入网上下载的存档
+
+```bat
+bonfire import 空洞骑士 tests/inputs/downloads/hk-allcollect --download -m 全收集
+```
+
+退出码：0
+
 ### 删除分支
 
 ```bat

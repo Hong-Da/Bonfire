@@ -7,6 +7,7 @@ pub mod auto;
 pub mod backup;
 pub mod config;
 pub mod discover;
+pub mod downloads;
 pub mod error;
 pub mod gallery;
 pub mod history;

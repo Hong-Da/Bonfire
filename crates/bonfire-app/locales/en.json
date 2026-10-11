@@ -1262,5 +1262,15 @@
   "ui.branch.renameHint": "Only the name changes; snapshots and primary settings follow.",
   "ui.branch.newName": "New name",
   "ui.branch.rename": "Rename",
-  "ui.branch.renamed": "Renamed {from} to {to}"
+  "ui.branch.renamed": "Renamed {from} to {to}",
+  "cli.arg.import.download": "Saves downloaded from the web (not exported by Bonfire): unpack, scan, match files by name and layer onto the current save as a new branch",
+  "cli.arg.import.password": "Password of an encrypted zip (used once, never stored)",
+  "cli.arg.import.replace": "Replace entirely: the snapshot contains only the downloaded files (default: layer onto the current save)",
+  "cli.error.download_password": "This archive needs a password; add --password (usually on the download page or in the readme)",
+  "cli.error.download_extract": "Unpack 7z / rar archives with an archiver first, then import the extracted folder",
+  "cli.error.download_bonfire": "This was exported by Bonfire: import it without --download, or use bonfire bundle import",
+  "cli.error.download_nothing": "No file could be matched to a save location; check it's this game's save, or place files manually in the app",
+  "cli.out.download_unmapped": "  Unmatched, skipped: {file}",
+  "cli.out.download_done": "Imported {n} files as branch {branch}; switch to it with bonfire restore",
+  "cli.out.download_identical": "Same as existing snapshot {id}; nothing created"
 }

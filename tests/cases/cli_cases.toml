@@ -611,6 +611,17 @@ expect_exit = 2
 stderr_contains = ["主存档"]
 
 [[case]]
+id = "import-download"
+title = { zh-CN = "导入网上下载的存档", en = "Import saves downloaded from the web" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["import", "空洞骑士", "{inputs}/downloads/hk-allcollect", "--download", "-m", "全收集"]
+expect_exit = 0
+stdout_contains = ["slot1.sav", "存为新路线 下载-"]
+expect_files = { "slot1.sav" = "level 1" }
+in_docs = true
+
+[[case]]
 id = "branch-delete"
 title = { zh-CN = "删除分支", en = "Delete a branch" }
 fixture = "basic"
