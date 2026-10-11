@@ -88,7 +88,16 @@ pub fn import(file: &Path) -> std::io::Result<()> {
 }
 
 fn run_reg(args: &[&str]) -> std::io::Result<()> {
-    let out = std::process::Command::new("reg").args(args).output()?;
+    let mut cmd = std::process::Command::new("reg");
+    cmd.args(args);
+    // 桌面应用没有控制台：不加这个标志时每次调用 reg.exe 都会闪一下命令行窗口。
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let out = cmd.output()?;
     if out.status.success() {
         Ok(())
     } else {
