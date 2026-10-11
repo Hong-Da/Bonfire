@@ -62,6 +62,8 @@ pub struct SyncTarget {
     pub id: String,
     pub name: String,
     pub kind: SyncKind,
+    /// 界面上选的类型：github / gitee / webdav / cloud（网盘同步文件夹）/ network（远程目录）/ local（指定目录）。
+    pub place: String,
     /// Git 仓库地址、WebDAV 地址或文件夹路径。
     pub url: String,
     /// Git 分支。
@@ -91,6 +93,7 @@ impl Default for SyncTarget {
             id: String::new(),
             name: String::new(),
             kind: SyncKind::Folder,
+            place: String::new(),
             url: String::new(),
             branch: "main".into(),
             user: String::new(),

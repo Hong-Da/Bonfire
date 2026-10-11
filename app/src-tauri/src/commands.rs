@@ -73,7 +73,7 @@ impl From<bonfire_app::core::CoreError> for CmdError {
 }
 
 impl CmdError {
-    fn not_ready() -> Self {
+    pub fn not_ready() -> Self {
         Self {
             kind: "not-ready",
             message: "尚未完成首次配置".into(),
@@ -88,7 +88,7 @@ impl CmdError {
     }
 }
 
-type CmdResult<T> = Result<T, CmdError>;
+pub type CmdResult<T> = Result<T, CmdError>;
 
 /// 打开（或重新打开）应用上下文，并允许界面读取图片缓存目录。
 pub fn open_app(h: &AppHandle, shared: &Shared, config: Config) -> Result<(), AppError> {
@@ -113,7 +113,7 @@ pub fn open_app(h: &AppHandle, shared: &Shared, config: Config) -> Result<(), Ap
 }
 
 /// 在后台线程中使用应用上下文。
-async fn with_app<T, F>(h: AppHandle, f: F) -> CmdResult<T>
+pub async fn with_app<T, F>(h: AppHandle, f: F) -> CmdResult<T>
 where
     T: Send + 'static,
     F: FnOnce(&mut App, &AppHandle) -> Result<T, CmdError> + Send + 'static,
@@ -586,6 +586,11 @@ pub async fn run_backup(
                 },
             );
             out.push(res);
+        }
+        // 每次备份后同步（在后台进行，不影响界面）。
+        // 这里持有应用锁：直接取目标列表，同步在后台线程中等锁释放后进行。
+        if out.iter().any(|r| r.ok) {
+            crate::sync_cmds::spawn_sync(h.clone(), app.sync_after_backup_targets());
         }
         Ok(out)
     })
@@ -1729,8 +1734,21 @@ pub fn start_scheduler(h: AppHandle) {
                 }
             };
             if let Some(r) = report.filter(|r| !r.items.is_empty()) {
+                if r.created() > 0 {
+                    crate::sync_cmds::after_backup(&h);
+                }
                 let _ = h.emit("auto-backup", r);
             }
+            // 定时同步（每天 / 每隔几小时）。
+            let due = {
+                let guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
+                guard
+                    .as_ref()
+                    .filter(|a| a.repo.is_unlocked())
+                    .map(|a| a.sync_due(&jiff::Zoned::now()))
+                    .unwrap_or_default()
+            };
+            crate::sync_cmds::spawn_sync(h.clone(), due);
             let added = {
                 let mut guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
                 let Some(app) = guard.as_mut() else { continue };

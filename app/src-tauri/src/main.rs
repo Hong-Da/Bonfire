@@ -4,6 +4,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod sync_cmds;
 mod tray;
 
 use std::sync::Mutex;
@@ -153,6 +154,16 @@ fn main() {
             commands::save_profile,
             commands::delete_profile,
             commands::fsck,
+            sync_cmds::sync_status,
+            sync_cmds::sync_save,
+            sync_cmds::sync_remove,
+            sync_cmds::sync_test,
+            sync_cmds::sync_plan,
+            sync_cmds::sync_push,
+            sync_cmds::sync_compact,
+            sync_cmds::sync_restore,
+            sync_cmds::sync_has_settings,
+            sync_cmds::sync_apply_settings,
             commands::repo_security,
             commands::repo_unlock,
             commands::repo_encrypt,

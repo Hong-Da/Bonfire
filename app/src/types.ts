@@ -30,6 +30,7 @@ export interface Config {
   shots: ShotsConfig;
   auto_backup: AutoBackupConfig;
   retention?: RetentionConfig;
+  sync?: { targets: SyncTarget[] };
   metadata: { online: boolean; igdb_client_id: string; igdb_client_secret: string; steamgriddb_api_key: string };
   log: { level: string; keep_days: number };
 }
@@ -75,6 +76,64 @@ export interface RetentionConfig {
   keep_daily: number;
   keep_weekly: number;
   scope: "auto" | "all";
+}
+
+/** 同步目标（REQ-015）。 */
+export interface SyncTarget {
+  id: string;
+  name: string;
+  kind: "github" | "gitee" | "webdav" | "folder";
+  /** 界面上选的类型：github / gitee / webdav / cloud / network / local */
+  place: string;
+  url: string;
+  branch: string;
+  user: string;
+  content: "repo" | "latest" | "shots";
+  shots: boolean;
+  settings: boolean;
+  games: string[];
+  max_file_mb: number;
+  max_total_mb: number;
+  schedule: "manual" | "after-backup" | "daily" | "hours";
+  at: string;
+  every_hours: number;
+  enabled: boolean;
+}
+
+export interface SyncRun {
+  at: string;
+  uploaded: number;
+  uploadedBytes: number;
+  deleted: number;
+  excluded: { path: string; size: number; reason: string }[];
+  error?: string | null;
+}
+
+export interface TargetStatus {
+  target: SyncTarget;
+  hasSecret: boolean;
+  last: SyncRun | null;
+  remoteFiles: number;
+}
+
+export interface SyncPlan {
+  targetId: string;
+  upload: number;
+  uploadBytes: number;
+  delete: number;
+  unchanged: number;
+  excluded: { path: string; size: number; reason: string }[];
+  remoteBytes: number;
+  limitBytes: number;
+  level: "ok" | "warn" | "over";
+  parts: [string, number][];
+  blocked: string | null;
+}
+
+export interface SyncDone {
+  id: string;
+  run: SyncRun | null;
+  error: string | null;
 }
 
 /** 仓库加密状态（M5-2）。 */

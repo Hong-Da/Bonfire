@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { loadUiState } from "./lib/uiState";
 import { useTranslation } from "react-i18next";
 import { UnlockScreen } from "./components/Security";
+import SyncPage from "./pages/SyncPage";
 import { api, errorMessage } from "./api";
 import logo from "./assets/logo.svg";
 import { Icon, Toasts } from "./components/ui";
@@ -143,6 +144,10 @@ export default function App() {
           <Icon name="search" size={22} />
           {t("ui.nav.scan")}
         </button>
+        <button aria-current={view.name === "sync" ? "page" : undefined} onClick={() => go({ name: "sync" })}>
+          <Icon name="cloud" size={22} />
+          {t("ui.nav.sync")}
+        </button>
         <div className="spacer" />
         <button aria-current={view.name === "settings" ? "page" : undefined} onClick={() => go({ name: "settings" })}>
           <Icon name="settings" size={22} />
@@ -153,6 +158,7 @@ export default function App() {
         {view.name === "library" && <Library />}
         {view.name === "gallery" && <Gallery />}
         {view.name === "scan" && <ScanPage />}
+        {view.name === "sync" && <SyncPage />}
         {view.name === "game" && <GameDetail id={view.id} />}
         {view.name === "settings" && <Settings />}
       </main>

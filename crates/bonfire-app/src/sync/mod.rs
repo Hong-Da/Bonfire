@@ -356,6 +356,16 @@ impl App {
         result.map(|_| run)
     }
 
+    /// 同步用的独立实例：同一仓库、同一配置（加密仓库沿用已解锁的密钥），在后台线程中同步，
+    /// 不占用界面使用的实例（联网同步可能需要几分钟）。
+    pub fn sync_worker(&self) -> Result<App> {
+        let w = App::open(self.paths.clone(), self.config.clone(), self.locale, self.repo.root())?;
+        if let Some(c) = self.repo.cipher() {
+            w.repo.unlock_with_key(c.key());
+        }
+        Ok(w)
+    }
+
     /// 每次备份后要同步的目标。
     pub fn sync_after_backup_targets(&self) -> Vec<String> {
         self.config

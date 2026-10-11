@@ -6,14 +6,14 @@ import type { AppInfo, GameRow, GameState, ManageMode, Phase, ScanReport } from 
 import { fuzzyMatch } from "./lib/search";
 
 /** `section`：打开设置时跳到的分组（如快捷菜单中的“更多设置”）。 */
-export type View = { name: "library" } | { name: "gallery" } | { name: "scan" } | { name: "game"; id: string } | { name: "settings"; section?: "auto" | "shots" | "retention" };
+export type View = { name: "library" } | { name: "gallery" } | { name: "scan" } | { name: "sync" } | { name: "game"; id: string } | { name: "settings"; section?: "auto" | "shots" | "retention" };
 export type StateFilter = "all" | GameState;
 export type ModeFilter = "all" | ManageMode;
 
 /** 启动时的页面：地址中的 `#/gallery`、`#/scan`、`#/settings`、`#/game/<id>`，没有时为游戏库。 */
 export function initialView(hash: string): View {
   const [name, id] = hash.replace(/^#\/?/, "").split("/");
-  if (name === "gallery" || name === "scan" || name === "settings") return { name };
+  if (name === "gallery" || name === "scan" || name === "sync" || name === "settings") return { name };
   if (name === "game" && id) return { name: "game", id: decodeURIComponent(id) };
   return { name: "library" };
 }
