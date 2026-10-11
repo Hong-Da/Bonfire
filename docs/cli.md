@@ -59,6 +59,12 @@
 | `bonfire fsck [--deep]` | 校验仓库；`--deep` 还原每个文件并校验哈希 |
 | `bonfire gc [<game>...] [--objects-only] [--dry-run]` | 清理历史（需确认）：按保留策略（设置 `[retention]`：最近 N 个、最近几天每天 1 个、最近几周每周 1 个；默认只清理自动生成的快照）压掉多余的快照，子快照改接到保留的快照上；带标签的、各分支最新的、当前所在的快照与可撤销的恢复用到的快照永远保留。之后回收不再被任何快照使用的空间（30 天内引用日志中出现过的快照也保留）。`--objects-only` 只回收空间，不删除快照 |
 | `bonfire reindex` | 从仓库重建索引数据库 |
+| `bonfire repo status` | 仓库是否加密、是否已解锁、本机是否记住了密码 |
+| `bonfire repo encrypt [--no-remember]` | 加密仓库（需确认）：存档快照、备注、游戏列表与操作记录用 AES-256-GCM 加密（密钥由密码经 Argon2id 派生），索引数据库移到本机缓存目录；截图、分支和标签的名字不加密。新密码取自环境变量 `BONFIRE_NEW_PASSWORD` 或在终端输入两次；默认在本机记住（Windows 数据保护，与当前账户绑定）。**忘记密码将无法恢复任何备份** |
+| `bonfire repo unlock [--remember]` | 用密码解锁（环境变量 `BONFIRE_PASSWORD` 或终端输入）；`--remember` 在本机记住，之后命令行与桌面程序自动解锁。其他命令遇到未解锁的加密仓库时，交互环境下会询问密码，否则退出码 2 并提示设置 `BONFIRE_PASSWORD` |
+| `bonfire repo passwd` | 修改密码（当前密码 `BONFIRE_PASSWORD`、新密码 `BONFIRE_NEW_PASSWORD`，或终端输入）；数据不用重新加密 |
+| `bonfire repo decrypt` | 取消加密（需确认）：数据改回不加密保存，索引移回仓库，删除本机记住的密码 |
+| `bonfire repo forget` | 不再在本机记住密码 |
 
 需要确认的命令（`restore`、`undo-restore`、`game rm`）在终端中会提示 `[y/N]`；在脚本或计划任务中必须加 `--yes`，否则以退出码 2 结束。
 
@@ -388,6 +394,14 @@ bonfire rm 空洞骑士 HEAD~1 HEAD~2 --dry-run
 
 ```bat
 bonfire gc --dry-run
+```
+
+退出码：0
+
+### 加密仓库后照常备份与校验
+
+```bat
+bonfire repo status
 ```
 
 退出码：0

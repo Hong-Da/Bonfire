@@ -855,6 +855,37 @@ expect_exit = 0
 expect_stdout_json = { "removed" = 0, "dryRun" = false }
 
 [[case]]
+id = "repo-encrypt"
+title = { zh-CN = "加密仓库后照常备份与校验", en = "Back up and verify after encrypting the repository" }
+fixture = "basic"
+env = { BONFIRE_NEW_PASSWORD = "correct horse", BONFIRE_PASSWORD = "correct horse" }
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士", "-m", "打完螳螂领主"], ["repo", "encrypt", "--no-remember", "--yes"], ["backup", "空洞骑士", "--force", "-m", "加密后"]]
+args = ["repo", "status"]
+expect_exit = 0
+stdout_contains = ["仓库：已加密；已解锁：是；本机记住密码：否"]
+in_docs = true
+
+[[case]]
+id = "repo-encrypted-needs-password"
+title = { zh-CN = "加密仓库没有密码时不能读取", en = "An encrypted repository can't be read without the password" }
+fixture = "basic"
+env = { BONFIRE_NEW_PASSWORD = "correct horse" }
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["repo", "encrypt", "--no-remember", "--yes"]]
+args = ["log", "空洞骑士"]
+expect_exit = 2
+stderr_contains = ["仓库已加密", "BONFIRE_PASSWORD"]
+
+[[case]]
+id = "repo-wrong-password"
+title = { zh-CN = "密码不对", en = "Wrong password" }
+fixture = "basic"
+env = { BONFIRE_NEW_PASSWORD = "correct horse", BONFIRE_PASSWORD = "wrong" }
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"], ["repo", "encrypt", "--no-remember", "--yes"]]
+args = ["repo", "unlock"]
+expect_exit = 2
+stderr_contains = ["密码不对"]
+
+[[case]]
 id = "reindex-ok"
 title = { zh-CN = "重建索引", en = "Rebuild the index" }
 fixture = "basic"

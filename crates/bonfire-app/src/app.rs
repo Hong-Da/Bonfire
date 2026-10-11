@@ -32,6 +32,8 @@ pub struct App {
     pub exit_watch: crate::auto::ExitWatcher,
     /// 读取被占用文件的卷影复制（M5-3）；测试中替换为模拟实现。
     pub shadow: std::sync::Arc<dyn crate::vss::ShadowReader>,
+    /// 打开时还没执行的、需要读取仓库的步骤（加密仓库未解锁时）；值为索引是否新建。
+    pending_open: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -81,9 +83,14 @@ impl App {
                 repo_dir.display()
             )));
         }
-        let fresh_db = !repo_dir.join("bonfire.db").exists();
         let repo = Repo::init(repo_dir)?;
-        let index = Index::open_repo(&repo)?;
+        // 加密仓库的索引在本机缓存目录（M5-2）。
+        let index_file = crate::security::index_path(&paths, &repo);
+        let fresh_db = !index_file.exists();
+        if let Some(dir) = index_file.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| AppError::io(dir, e))?;
+        }
+        let index = Index::open(&index_file)?;
         let mut app = Self {
             paths,
             config,
@@ -105,7 +112,22 @@ impl App {
             fake_root: crate::discover::fake_root(),
             exit_watch: Default::default(),
             shadow: std::sync::Arc::new(crate::vss::ElevatedVss),
+            pending_open: Some(fresh_db),
         };
+        // 加密仓库：先尝试自动解锁；仍锁定时，下面需要读取仓库的步骤留到解锁后（`App::unlock`）。
+        app.auto_unlock();
+        if app.repo.is_unlocked() {
+            app.after_unlock()?;
+        }
+        Ok(app)
+    }
+
+    /// 打开仓库后需要读取仓库内容的步骤（加密仓库在解锁后执行）。
+    pub(crate) fn after_unlock(&mut self) -> Result<()> {
+        let Some(fresh_db) = self.pending_open.take() else {
+            return Ok(());
+        };
+        let app = self;
         if fresh_db {
             let restored = app.restore_games_file()?;
             let has_history = !app
@@ -123,7 +145,7 @@ impl App {
         if let Err(e) = app.migrate_shot_files() {
             tracing::warn!("迁移截图失败：{e}");
         }
-        Ok(app)
+        Ok(())
     }
 
     /// 按 ID 或名称（不区分大小写）查找游戏。
@@ -403,18 +425,21 @@ impl App {
         );
         let path = self.games_file();
         let tmp = path.with_extension("toml.tmp");
-        std::fs::write(&tmp, text).map_err(|e| AppError::io(&tmp, e))?;
+        // 加密仓库中加密保存（M5-2）。
+        let data = self.repo.seal(text.into_bytes())?;
+        std::fs::write(&tmp, data).map_err(|e| AppError::io(&tmp, e))?;
         std::fs::rename(&tmp, &path).map_err(|e| AppError::io(&path, e))
     }
 
     /// 从 `games.toml` 恢复游戏，返回恢复的数量。
     fn restore_games_file(&mut self) -> Result<usize> {
         let path = self.games_file();
-        let text = match std::fs::read_to_string(&path) {
+        let bytes = match std::fs::read(&path) {
             Ok(t) => t,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
             Err(e) => return Err(AppError::io(path, e)),
         };
+        let text = String::from_utf8_lossy(&self.repo.unseal(bytes, "游戏列表")?).into_owned();
         let file: GamesFile = toml::from_str(&text)
             .map_err(|e| AppError::Invalid(format!("{} 格式错误：{e}", path.display())))?;
         for entry in &file.game {

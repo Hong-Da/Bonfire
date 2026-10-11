@@ -15,7 +15,7 @@ fn run_case(case: &CliCase) -> Result<(), String> {
     }
     for pre in &case.pre {
         let args: Vec<&str> = pre.iter().map(String::as_str).collect();
-        let out = sb.run(&args);
+        let out = sb.run_env(&args, &case.env);
         if !out.status.success() {
             return Err(format!(
                 "前置命令 {pre:?} 失败：{}",
@@ -35,7 +35,7 @@ fn run_case(case: &CliCase) -> Result<(), String> {
         };
     }
     let args: Vec<&str> = case.args.iter().map(String::as_str).collect();
-    let out = sb.run(&args);
+    let out = sb.run_env(&args, &case.env);
     let stdout = String::from_utf8(out.stdout).map_err(|_| "stdout 不是 UTF-8".to_string())?;
     let stderr = String::from_utf8(out.stderr).map_err(|_| "stderr 不是 UTF-8".to_string())?;
     let code = out.status.code().unwrap_or(-1);

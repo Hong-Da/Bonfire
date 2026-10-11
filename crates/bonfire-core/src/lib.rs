@@ -2,6 +2,7 @@
 //!
 //! 本 crate 不感知界面，由 `bonfire-app` 的各服务调用。
 
+pub mod crypt;
 pub mod error;
 pub mod fault;
 pub mod fsck;

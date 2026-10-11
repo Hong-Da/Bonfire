@@ -20,8 +20,8 @@ use serde::{Deserialize, Serialize};
 use crate::error::{CoreError, IoContext, Result};
 use crate::object::Kind;
 
-/// 本程序支持的仓库格式版本。
-pub const FORMAT_VERSION: u32 = 1;
+/// 本程序支持的仓库格式版本。2：加密仓库（`[encryption]`）。未加密的仓库仍写 1，旧版本可读。
+pub const FORMAT_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -34,19 +34,23 @@ pub struct RepoConfig {
     pub chunk_min: u32,
     pub chunk_avg: u32,
     pub chunk_max: u32,
+    /// 加密设置（M5-2）；未加密时没有这一节。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encryption: Option<crate::crypt::EncryptionConfig>,
 }
 
 impl Default for RepoConfig {
     fn default() -> Self {
         const MIB: u32 = 1024 * 1024;
         Self {
-            format_version: FORMAT_VERSION,
+            format_version: 1,
             compression: "zstd".into(),
             zstd_level: 3,
             chunk_threshold: MIB,
             chunk_min: MIB / 4,
             chunk_avg: MIB,
             chunk_max: 4 * MIB,
+            encryption: None,
         }
     }
 }
@@ -82,6 +86,8 @@ impl RepoConfig {
 pub struct Repo {
     root: PathBuf,
     config: RepoConfig,
+    /// 加密仓库解锁后的数据密钥。
+    cipher: std::sync::RwLock<Option<std::sync::Arc<crate::crypt::Cipher>>>,
 }
 
 impl Repo {
@@ -94,6 +100,7 @@ impl Repo {
         let repo = Self {
             root: root.to_path_buf(),
             config,
+            cipher: Default::default(),
         };
         repo.create_dirs()?;
         let text = toml::to_string_pretty(&repo.config).expect("仓库配置序列化不会失败");
@@ -121,6 +128,7 @@ impl Repo {
         let repo = Self {
             root: root.to_path_buf(),
             config,
+            cipher: Default::default(),
         };
         // 补齐可能缺失的目录（例如从网盘同步过来的仓库）。
         repo.create_dirs()?;
@@ -147,6 +155,82 @@ impl Repo {
 
     pub fn config(&self) -> &RepoConfig {
         &self.config
+    }
+
+    /// 仓库是否加密。
+    pub fn is_encrypted(&self) -> bool {
+        self.config.encryption.is_some()
+    }
+
+    /// 加密仓库是否已解锁（未加密的仓库总是可读）。
+    pub fn is_unlocked(&self) -> bool {
+        !self.is_encrypted() || self.cipher.read().expect("锁未中毒").is_some()
+    }
+
+    /// 用密码解锁，返回数据密钥（本机记住密码时由调用方保存）。
+    pub fn unlock(&self, password: &str) -> Result<std::sync::Arc<crate::crypt::Cipher>> {
+        let cfg = self
+            .config
+            .encryption
+            .as_ref()
+            .ok_or_else(|| CoreError::BadRepoConfig("仓库没有加密".into()))?;
+        let c = std::sync::Arc::new(crate::crypt::unlock(cfg, password)?);
+        *self.cipher.write().expect("锁未中毒") = Some(c.clone());
+        Ok(c)
+    }
+
+    /// 用记住的数据密钥解锁；不属于这个仓库时返回 false。
+    pub fn unlock_with_key(&self, key: [u8; 32]) -> bool {
+        let Some(cfg) = &self.config.encryption else {
+            return false;
+        };
+        let c = crate::crypt::Cipher::from_key(key);
+        if !c.verify(cfg) {
+            return false;
+        }
+        *self.cipher.write().expect("锁未中毒") = Some(std::sync::Arc::new(c));
+        true
+    }
+
+    /// 当前的数据密钥（加密仓库已解锁时）。
+    pub fn cipher(&self) -> Option<std::sync::Arc<crate::crypt::Cipher>> {
+        self.cipher.read().expect("锁未中毒").clone()
+    }
+
+    /// 写入时加密（加密仓库）；未加密的仓库原样返回。
+    pub fn seal(&self, plain: Vec<u8>) -> Result<Vec<u8>> {
+        if !self.is_encrypted() {
+            return Ok(plain);
+        }
+        let c = self.cipher().ok_or(CoreError::NeedPassword)?;
+        Ok(c.seal(&plain))
+    }
+
+    /// 读取时解密：加密格式的数据需要数据密钥，其余原样返回（加密或解密中途中断时新旧格式并存）。
+    pub fn unseal(&self, data: Vec<u8>, what: &str) -> Result<Vec<u8>> {
+        if !crate::crypt::is_sealed(&data) {
+            return Ok(data);
+        }
+        let c = self.cipher().ok_or(CoreError::NeedPassword)?;
+        c.open(&data, what)
+    }
+
+    /// 写入新的加密设置（`None` 为取消加密）。调用方之后重新打开仓库。
+    pub fn write_encryption(
+        &self,
+        _lock: &RepoLock,
+        enc: Option<crate::crypt::EncryptionConfig>,
+    ) -> Result<()> {
+        let mut cfg = self.config.clone();
+        cfg.format_version = if enc.is_some() { 2 } else { 1 };
+        cfg.encryption = enc;
+        let text = toml::to_string_pretty(&cfg).expect("仓库配置序列化不会失败");
+        crate::store::write_atomic(
+            &self.tmp_dir(),
+            &self.root.join("config.toml"),
+            text.as_bytes(),
+            false,
+        )
     }
 
     pub fn objects_dir(&self) -> PathBuf {

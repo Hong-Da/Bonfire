@@ -22,6 +22,7 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.settings.retentionScopeOpt.": ["auto", "all"],
   "ui.bulkDelete.reason.": ["tag", "protected", "undo"],
   "ui.space.kind.": ["planned", "unreachable", "deleted", "shots", "other", "tmp"],
+  "ui.security.": ["encryptTitle", "changeTitle", "decryptTitle", "encryptOk", "changeOk", "decryptOk"],
   "ui.space.hint.": ["planned", "unreachable", "deleted", "shots", "other", "tmp"],
   "ui.settings.retention": ["LastPre", "LastSuf", "LastLabel", "DailyPre", "DailySuf", "DailyLabel", "WeeklyPre", "WeeklySuf", "WeeklyLabel"],
   "ui.weekday.": ["1", "2", "3", "4", "5", "6", "7"],

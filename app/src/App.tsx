@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { loadUiState } from "./lib/uiState";
 import { useTranslation } from "react-i18next";
+import { UnlockScreen } from "./components/Security";
 import { api, errorMessage } from "./api";
 import logo from "./assets/logo.svg";
 import { Icon, Toasts } from "./components/ui";
@@ -33,7 +34,8 @@ export default function App() {
         applyTheme(i.firstRun ? "auto" : i.theme);
         if (!i.firstRun) {
           setLanguage(i.locale);
-          void loadLibrary(true);
+          // 加密仓库还没解锁时先输入密码，解锁后再加载游戏库。
+          if (!i.locked) void loadLibrary(true);
         }
         if (i.configError) toast("error", t("ui.configError", { msg: i.configError }));
       })
@@ -91,6 +93,20 @@ export default function App() {
   }, []);
 
   if (!ready) return null;
+
+  if (info?.locked) {
+    return (
+      <>
+        <UnlockScreen
+          onUnlocked={() => {
+            setInfo({ ...info, locked: false });
+            void loadLibrary(true);
+          }}
+        />
+        <Toasts />
+      </>
+    );
+  }
 
   if (info?.firstRun) {
     return (

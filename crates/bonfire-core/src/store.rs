@@ -67,9 +67,10 @@ impl Repo {
             return Ok(false);
         }
         let compressed = compress(raw, self.config().zstd_level).at(&path)?;
+        let stored = self.seal(compressed)?;
         let dir = path.parent().expect("对象路径有上级目录");
         std::fs::create_dir_all(dir).at(dir)?;
-        write_atomic(&self.tmp_dir(), &path, &compressed, true)?;
+        write_atomic(&self.tmp_dir(), &path, &stored, true)?;
         Ok(true)
     }
 
@@ -82,6 +83,7 @@ impl Repo {
             }
             Err(e) => return Err(CoreError::io(path, e)),
         };
+        let bytes = self.unseal(bytes, &format!("{kind}对象 {id}"))?;
         zstd::stream::decode_all(&bytes[..]).map_err(|e| CoreError::Corrupt {
             kind,
             id: *id,
@@ -113,11 +115,11 @@ impl Repo {
         })
     }
 
-    /// 对象文件中存放的字节（压缩后），用于导出历史包时原样复制。
+    /// 对象文件中存放的字节（压缩后，加密仓库中解密后），用于导出历史包时原样复制。
     pub fn read_object_file(&self, kind: Kind, id: &ObjectId) -> Result<Vec<u8>> {
         let path = self.object_path(kind, id);
         match std::fs::read(&path) {
-            Ok(b) => Ok(b),
+            Ok(b) => self.unseal(b, &format!("{kind}对象 {id}")),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 Err(CoreError::NotFound { kind, id: *id })
             }
@@ -148,9 +150,34 @@ impl Repo {
                 reason: "内容与 ID 不符".into(),
             });
         }
+        let sealed = self.seal(stored.to_vec())?;
         let dir = path.parent().expect("对象路径有上级目录");
         std::fs::create_dir_all(dir).at(dir)?;
-        write_atomic(&self.tmp_dir(), &path, stored, true)?;
+        write_atomic(&self.tmp_dir(), &path, &sealed, true)?;
+        Ok(true)
+    }
+
+    /// 加密或解密整个仓库时改写一个对象文件（内容不变，只换存放格式）。返回是否改写。
+    pub fn reseal_object(
+        &self,
+        _lock: &RepoLock,
+        kind: Kind,
+        id: &ObjectId,
+        encrypt: bool,
+    ) -> Result<bool> {
+        let path = self.object_path(kind, id);
+        let data = std::fs::read(&path).at(&path)?;
+        let sealed = crate::crypt::is_sealed(&data);
+        if sealed == encrypt {
+            return Ok(false);
+        }
+        let c = self.cipher().ok_or(CoreError::NeedPassword)?;
+        let out = if encrypt {
+            c.seal(&data)
+        } else {
+            c.open(&data, &format!("{kind}对象 {id}"))?
+        };
+        write_atomic(&self.tmp_dir(), &path, &out, false)?;
         Ok(true)
     }
 

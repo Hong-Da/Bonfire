@@ -99,6 +99,10 @@ impl Sandbox {
             .env_remove("BONFIRE_REPO")
             .env_remove("BONFIRE_LOG_LEVEL")
             .env_remove("BONFIRE_FAULT_INJECT")
+            .env_remove("BONFIRE_PASSWORD")
+            .env_remove("BONFIRE_NEW_PASSWORD")
+            // 加密测试用小参数派生密钥，加快速度。
+            .env("BONFIRE_TEST_KDF", "1")
             // 测试中的语言固定为中文，不随开发机系统语言变化。
             .env("BONFIRE_LANG", "zh-CN")
             // 不读取开发机上真实的平台安装，也不联网。
@@ -109,9 +113,15 @@ impl Sandbox {
     }
 
     pub fn run(&self, args: &[&str]) -> Output {
+        self.run_env(args, &BTreeMap::new())
+    }
+
+    /// 带额外环境变量执行（如加密仓库的密码）。
+    pub fn run_env(&self, args: &[&str], env: &BTreeMap<String, String>) -> Output {
         let args: Vec<String> = args.iter().map(|a| self.expand(a)).collect();
         self.command()
             .args(&args)
+            .envs(env)
             .output()
             .expect("无法执行 bonfire")
     }
@@ -172,6 +182,9 @@ pub struct CliCase {
     #[serde(default)]
     pub remove: Vec<String>,
     pub args: Vec<String>,
+    /// 前置命令与本命令都使用的环境变量（如 BONFIRE_PASSWORD）。
+    #[serde(default)]
+    pub env: BTreeMap<String, String>,
     pub expect_exit: i32,
     #[serde(default)]
     pub stdout_contains: Vec<String>,

@@ -17,6 +17,7 @@ import type { AutoBackupConfig, AutoStatus, Config, FsckReport, GameRecord, Rete
 import { DEFAULT_AUTO } from "../lib/auto";
 import { CleanupDialog } from "../components/CleanupDialog";
 import { RetentionGuide } from "../components/RetentionGuide";
+import { SecuritySection } from "../components/Security";
 
 /** 历史清理的默认设置（旧配置中没有这一节时使用）。 */
 export const DEFAULT_RETENTION: RetentionConfig = { enabled: false, keep_last: 20, keep_daily: 14, keep_weekly: 8, scope: "auto" };
@@ -296,6 +297,8 @@ export default function Settings() {
               </p>
             )}
           </section>
+
+          <SecuritySection />
 
           <section id="settings-retention" className={section === "retention" ? "flash" : undefined}>
             <h2>{t("ui.settings.retention")}</h2>

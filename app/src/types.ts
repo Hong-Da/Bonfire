@@ -4,6 +4,8 @@ export type GameState = "never-backed-up" | "has-changes" | "up-to-date" | "shot
 export type Theme = "auto" | "light" | "dark";
 
 export interface AppInfo {
+  /** 仓库已加密且还没解锁（M5-2）。 */
+  locked?: boolean;
   version: string;
   portable: boolean;
   firstRun: boolean;
@@ -73,6 +75,14 @@ export interface RetentionConfig {
   keep_daily: number;
   keep_weekly: number;
   scope: "auto" | "all";
+}
+
+/** 仓库加密状态（M5-2）。 */
+export interface SecurityStatus {
+  encrypted: boolean;
+  unlocked: boolean;
+  remembered: boolean;
+  canRemember: boolean;
 }
 
 /** 可释放空间的一个来源。 */

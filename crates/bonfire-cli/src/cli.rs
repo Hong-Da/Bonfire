@@ -228,6 +228,26 @@ pub enum Cmd {
         dry_run: bool,
     },
     Reindex,
+    Repo {
+        #[command(subcommand)]
+        cmd: RepoCmd,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum RepoCmd {
+    Status,
+    Encrypt {
+        #[arg(long)]
+        no_remember: bool,
+    },
+    Unlock {
+        #[arg(long)]
+        remember: bool,
+    },
+    Passwd,
+    Decrypt,
+    Forget,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]

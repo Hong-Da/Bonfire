@@ -738,3 +738,39 @@ describe("多选删除快照", () => {
     expect(onDone).toHaveBeenCalled();
   });
 });
+
+describe("M5-2 仓库加密", () => {
+  it("解锁页：密码不对时提示，正确后进入", async () => {
+    const { UnlockScreen } = await import("./components/Security");
+    api.repoUnlock.mockRejectedValueOnce({ kind: "usage", message: "密码不对" });
+    api.repoUnlock.mockResolvedValueOnce(undefined);
+    const onUnlocked = vi.fn();
+    render(<UnlockScreen onUnlocked={onUnlocked} />);
+    const box = screen.getByLabelText("密码");
+    fireEvent.change(box, { target: { value: "wrong" } });
+    fireEvent.click(screen.getByRole("button", { name: /解锁/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("密码不对");
+    fireEvent.change(box, { target: { value: "right one" } });
+    fireEvent.click(screen.getByRole("button", { name: /解锁/ }));
+    await waitFor(() => expect(onUnlocked).toHaveBeenCalled());
+    expect(api.repoUnlock).toHaveBeenLastCalledWith("right one", true);
+  });
+
+  it("加密仓库：两次密码一致且确认风险后才能加密", async () => {
+    const { SecuritySection } = await import("./components/Security");
+    useStore.setState({ toasts: [] });
+    api.repoEncrypt.mockResolvedValue(undefined);
+    render(<SecuritySection />);
+    fireEvent.click(await screen.findByRole("button", { name: /加密仓库…/ }));
+    const dlg = await screen.findByRole("dialog", { name: "加密仓库" });
+    const ok = within(dlg).getByRole("button", { name: "加密仓库" });
+    fireEvent.change(within(dlg).getByLabelText("新密码（至少 6 个字符）"), { target: { value: "secret1" } });
+    fireEvent.change(within(dlg).getByLabelText("再输入一次"), { target: { value: "secret2" } });
+    expect(within(dlg).getByText("两次输入的密码不一样")).toBeInTheDocument();
+    fireEvent.change(within(dlg).getByLabelText("再输入一次"), { target: { value: "secret1" } });
+    expect(ok).toBeDisabled();
+    fireEvent.click(within(dlg).getByRole("checkbox", { name: /我已记下密码/ }));
+    fireEvent.click(ok);
+    await waitFor(() => expect(api.repoEncrypt).toHaveBeenCalledWith("secret1", true));
+  });
+});

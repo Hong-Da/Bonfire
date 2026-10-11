@@ -209,6 +209,16 @@ impl App {
         running: &HashMap<String, Vec<String>>,
     ) -> Result<AutoReport> {
         let cfg: AutoBackup = self.config.auto_backup.clone();
+        // 加密仓库还没解锁：什么都不做，解锁后照常执行。
+        if !self.repo.is_unlocked() {
+            return Ok(AutoReport {
+                kind,
+                items: Vec::new(),
+                waiting: 0,
+                deferred: Vec::new(),
+                cleaned: 0,
+            });
+        }
         let now_ns = bonfire_core::scan::now_ns();
         let quiet_ns = i64::from(cfg.quiet_minutes) * 60 * 1_000_000_000;
         let mut report = AutoReport {

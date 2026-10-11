@@ -21,8 +21,8 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 use crate::cli::{
-    BundleCmd, Cmd, GameCmd, ModeArg, OnOff, OutputFormat, ProfileCmd, RulesCmd, ShotSwitch,
-    ShotsCmd, ShotsDirCmd,
+    BundleCmd, Cmd, GameCmd, ModeArg, OnOff, OutputFormat, ProfileCmd, RepoCmd, RulesCmd,
+    ShotSwitch, ShotsCmd, ShotsDirCmd,
 };
 
 type Result<T> = std::result::Result<T, AppError>;
@@ -85,7 +85,14 @@ impl Out {
 
 /// 执行子命令。返回值为部分失败时的错误（例如批量备份中个别游戏失败）。
 pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
+    // 加密仓库还没解锁（没有 BONFIRE_PASSWORD、本机也没记住）：交互环境下询问密码。
+    if !app.repo.is_unlocked() && !matches!(cmd, Cmd::Repo { .. }) && std::io::stdin().is_terminal()
+    {
+        let pw = read_password(out, "cli.prompt.password")?;
+        app.unlock(&pw, false)?;
+    }
     match cmd {
+        Cmd::Repo { cmd } => repo(app, cmd, out),
         Cmd::Game { cmd } => game(app, cmd, out),
         Cmd::Scan {
             platform,
@@ -1800,6 +1807,127 @@ fn gc(app: &mut App, keys: &[String], objects_only: bool, dry_run: bool, out: &O
     if dry_run {
         out.line(out.t("cli.out.dry_run"));
     }
+    Ok(())
+}
+
+/// 读取密码：交互环境下在终端输入（输入的字符会显示），否则报错提示使用环境变量。
+fn read_password(out: &Out, prompt_key: &str) -> Result<String> {
+    if !std::io::stdin().is_terminal() {
+        return Err(AppError::Invalid(
+            out.t("cli.error.need_password").to_string(),
+        ));
+    }
+    eprint!("{}", out.t(prompt_key));
+    let _ = std::io::stderr().flush();
+    let mut s = String::new();
+    std::io::stdin()
+        .lock()
+        .read_line(&mut s)
+        .map_err(|e| AppError::io("stdin", e))?;
+    Ok(s.trim_end_matches(['\r', '\n']).to_string())
+}
+
+/// 当前密码：环境变量 BONFIRE_PASSWORD，或在终端输入。
+fn current_password(out: &Out) -> Result<String> {
+    match std::env::var(bonfire_app::security::ENV_PASSWORD) {
+        Ok(p) if !p.is_empty() => Ok(p),
+        _ => read_password(out, "cli.prompt.password"),
+    }
+}
+
+/// 新密码：环境变量 BONFIRE_NEW_PASSWORD，或在终端输入两次。
+fn new_password(out: &Out) -> Result<String> {
+    if let Ok(p) = std::env::var("BONFIRE_NEW_PASSWORD")
+        && !p.is_empty()
+    {
+        return Ok(p);
+    }
+    let a = read_password(out, "cli.prompt.new_password")?;
+    let b = read_password(out, "cli.prompt.repeat_password")?;
+    if a != b {
+        return Err(AppError::Invalid(
+            out.t("cli.error.password_mismatch").to_string(),
+        ));
+    }
+    Ok(a)
+}
+
+fn repo(app: &mut App, cmd: RepoCmd, out: &Out) -> Result<()> {
+    match cmd {
+        RepoCmd::Status => {}
+        RepoCmd::Encrypt { no_remember } => {
+            if !out.confirm(out.t("cli.confirm.encrypt").to_string())? {
+                out.line(out.t("cli.out.cancelled"));
+                return Ok(());
+            }
+            let pw = new_password(out)?;
+            let lock = app.repo.lock()?;
+            app.encrypt_repo(&lock, &pw, !no_remember)?;
+            out.line(out.t("cli.out.repo_encrypted"));
+        }
+        RepoCmd::Unlock { remember } => {
+            if !app.repo.is_unlocked() {
+                let pw = current_password(out)?;
+                app.unlock(&pw, false)?;
+            }
+            if remember {
+                app.remember_key()?;
+            }
+            out.line(out.t("cli.out.repo_unlocked"));
+        }
+        RepoCmd::Passwd => {
+            let old = current_password(out)?;
+            let new = new_password(out)?;
+            let lock = app.repo.lock()?;
+            app.change_password(&lock, &old, &new)?;
+            out.line(out.t("cli.out.repo_password_changed"));
+        }
+        RepoCmd::Decrypt => {
+            if !out.confirm(out.t("cli.confirm.decrypt").to_string())? {
+                out.line(out.t("cli.out.cancelled"));
+                return Ok(());
+            }
+            let pw = current_password(out)?;
+            let lock = app.repo.lock()?;
+            app.decrypt_repo(&lock, &pw)?;
+            out.line(out.t("cli.out.repo_decrypted"));
+        }
+        RepoCmd::Forget => {
+            app.forget_password()?;
+            out.line(out.t("cli.out.repo_forgotten"));
+        }
+    }
+    let s = app.security_status();
+    out.emit(serde_json::to_value(&s).unwrap());
+    out.line(out.tf(
+        "cli.out.repo_status",
+        &[
+            (
+                "state",
+                &out.t(if s.encrypted {
+                    "cli.out.repo_on"
+                } else {
+                    "cli.out.repo_off"
+                }),
+            ),
+            (
+                "unlocked",
+                &out.t(if s.unlocked {
+                    "cli.out.yes"
+                } else {
+                    "cli.out.no"
+                }),
+            ),
+            (
+                "remembered",
+                &out.t(if s.remembered {
+                    "cli.out.yes"
+                } else {
+                    "cli.out.no"
+                }),
+            ),
+        ],
+    ));
     Ok(())
 }
 

@@ -78,6 +78,7 @@ impl AppError {
         match self {
             AppError::Core(e) => match e {
                 CoreError::Locked(_) => ErrorKind::Locked,
+                CoreError::NeedPassword | CoreError::WrongPassword => ErrorKind::Usage,
                 CoreError::NotInitialized(_)
                 | CoreError::UnsupportedVersion { .. }
                 | CoreError::BadRepoConfig(_) => ErrorKind::Config,

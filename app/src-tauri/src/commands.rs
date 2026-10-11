@@ -156,6 +156,8 @@ pub struct AppInfo {
     /// 记住游戏库的筛选 / 勾选的游戏。
     remember_filters: bool,
     remember_selection: bool,
+    /// 仓库已加密且还没解锁：界面先显示输入密码。
+    locked: bool,
 }
 
 #[tauri::command]
@@ -189,7 +191,59 @@ pub async fn app_info(h: AppHandle) -> CmdResult<AppInfo> {
         protect_local,
         remember_filters: general.remember_filters,
         remember_selection: general.remember_selection,
+        locked: guard.as_ref().is_some_and(|a| !a.repo.is_unlocked()),
     })
+}
+
+/// 仓库加密状态（M5-2）。
+#[tauri::command]
+pub async fn repo_security(h: AppHandle) -> CmdResult<bonfire_app::security::SecurityStatus> {
+    with_app(h, move |app, _| Ok(app.security_status())).await
+}
+
+#[tauri::command]
+pub async fn repo_unlock(h: AppHandle, password: String, remember: bool) -> CmdResult<()> {
+    with_app(h, move |app, _| Ok(app.unlock(&password, remember)?)).await
+}
+
+#[tauri::command]
+pub async fn repo_encrypt(h: AppHandle, password: String, remember: bool) -> CmdResult<()> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(app.encrypt_repo(&lock, &password, remember)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn repo_decrypt(h: AppHandle, password: String) -> CmdResult<()> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(app.decrypt_repo(&lock, &password)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn repo_change_password(h: AppHandle, old: String, new: String) -> CmdResult<()> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        Ok(app.change_password(&lock, &old, &new)?)
+    })
+    .await
+}
+
+/// 在本机记住 / 不再记住密码。
+#[tauri::command]
+pub async fn repo_remember(h: AppHandle, remember: bool) -> CmdResult<()> {
+    with_app(h, move |app, _| {
+        if remember {
+            Ok(app.remember_key()?)
+        } else {
+            Ok(app.forget_password()?)
+        }
+    })
+    .await
 }
 
 #[tauri::command]

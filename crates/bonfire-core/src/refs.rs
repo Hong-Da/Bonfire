@@ -171,6 +171,9 @@ pub struct Note {
     pub history: Vec<NoteEdit>,
 }
 
+/// 加密的 reflog 行的开头。
+const ENC_LINE: &str = "enc:";
+
 impl Repo {
     fn game_dir(&self, game: &str) -> PathBuf {
         self.root().join("refs").join(game)
@@ -575,7 +578,8 @@ impl Repo {
             action: action.to_string(),
             message: message.to_string(),
         };
-        let mut line = serde_json::to_vec(&entry).expect("reflog 序列化不会失败");
+        let json = serde_json::to_vec(&entry).expect("reflog 序列化不会失败");
+        let mut line = self.reflog_line(json)?;
         line.push(b'\n');
         let path = self.reflog_path(game);
         let mut f = std::fs::OpenOptions::new()
@@ -587,6 +591,63 @@ impl Repo {
         f.sync_all().at(&path)
     }
 
+    /// 一行 reflog：加密仓库中为 `enc:` 加密文的十六进制。
+    fn reflog_line(&self, json: Vec<u8>) -> Result<Vec<u8>> {
+        if !self.is_encrypted() {
+            return Ok(json);
+        }
+        let sealed = self.seal(json)?;
+        Ok(format!("{ENC_LINE}{}", hex::encode(sealed)).into_bytes())
+    }
+
+    /// 加密或解密整个仓库时改写全部引用日志与备注。返回改写的文件数。
+    pub fn reseal_logs_and_notes(&self, _lock: &RepoLock, encrypt: bool) -> Result<usize> {
+        let mut n = 0;
+        let logs = self.root().join("logs");
+        for e in std::fs::read_dir(&logs).at(&logs)?.flatten() {
+            let path = e.path();
+            if path.extension().is_none_or(|x| x != "jsonl") {
+                continue;
+            }
+            let game = path
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let entries = self.reflog(&game)?;
+            let mut out = Vec::new();
+            for entry in &entries {
+                let json = serde_json::to_vec(entry).expect("reflog 序列化不会失败");
+                let line = if encrypt {
+                    let c = self.cipher().ok_or(CoreError::NeedPassword)?;
+                    format!("{ENC_LINE}{}", hex::encode(c.seal(&json))).into_bytes()
+                } else {
+                    json
+                };
+                out.extend_from_slice(&line);
+                out.push(b'\n');
+            }
+            write_atomic(&self.tmp_dir(), &path, &out, false)?;
+            n += 1;
+        }
+        let notes = self.root().join("notes");
+        for e in std::fs::read_dir(&notes).at(&notes)?.flatten() {
+            let path = e.path();
+            let data = std::fs::read(&path).at(&path)?;
+            if crate::crypt::is_sealed(&data) == encrypt {
+                continue;
+            }
+            let c = self.cipher().ok_or(CoreError::NeedPassword)?;
+            let out = if encrypt {
+                c.seal(&data)
+            } else {
+                c.open(&data, "备注")?
+            };
+            write_atomic(&self.tmp_dir(), &path, &out, false)?;
+            n += 1;
+        }
+        Ok(n)
+    }
+
     /// 游戏的 reflog（时间顺序）。崩溃留下的不完整行会被跳过。
     pub fn reflog(&self, game: &str) -> Result<Vec<ReflogEntry>> {
         let path = self.reflog_path(game);
@@ -595,9 +656,19 @@ impl Repo {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(e) => return Err(CoreError::io(path, e)),
         };
-        Ok(text
-            .lines()
-            .filter(|l| !l.trim().is_empty())
+        let mut lines = Vec::new();
+        for l in text.lines().filter(|l| !l.trim().is_empty()) {
+            match l.strip_prefix(ENC_LINE) {
+                Some(h) => match hex::decode(h.trim()) {
+                    Ok(b) => lines
+                        .push(String::from_utf8_lossy(&self.unseal(b, "引用日志")?).into_owned()),
+                    Err(_) => tracing::warn!(path = %path.display(), "跳过无法解析的 reflog 行"),
+                },
+                None => lines.push(l.to_string()),
+            }
+        }
+        Ok(lines
+            .iter()
             .filter_map(|l| match serde_json::from_str(l) {
                 Ok(e) => Some(e),
                 Err(err) => {
@@ -610,8 +681,8 @@ impl Repo {
 
     pub fn note(&self, snapshot: &ObjectId) -> Result<Option<Note>> {
         let path = self.note_path(snapshot);
-        match std::fs::read_to_string(&path) {
-            Ok(t) => serde_json::from_str(&t)
+        match std::fs::read(&path) {
+            Ok(b) => serde_json::from_slice(&self.unseal(b, "备注")?)
                 .map(Some)
                 .map_err(|e| CoreError::BadFile {
                     path,
@@ -638,7 +709,8 @@ impl Repo {
         });
         note.comment = comment.to_string();
         let json = serde_json::to_vec_pretty(&note).expect("注记序列化不会失败");
-        write_atomic(&self.tmp_dir(), &self.note_path(snapshot), &json, false)?;
+        let data = self.seal(json)?;
+        write_atomic(&self.tmp_dir(), &self.note_path(snapshot), &data, false)?;
         Ok(note)
     }
 

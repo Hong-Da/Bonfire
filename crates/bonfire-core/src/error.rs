@@ -20,6 +20,12 @@ pub enum CoreError {
     BadRepoConfig(String),
     #[error("仓库正被另一个篝火实例写入：{0}")]
     Locked(PathBuf),
+    #[error(
+        "仓库已加密，请先输入密码（命令行可设置环境变量 BONFIRE_PASSWORD，或运行 bonfire repo unlock --remember 在本机记住）"
+    )]
+    NeedPassword,
+    #[error("密码不对")]
+    WrongPassword,
     #[error("找不到{kind}对象 {id}")]
     NotFound { kind: Kind, id: ObjectId },
     #[error("{kind}对象 {id} 已损坏：{reason}")]
