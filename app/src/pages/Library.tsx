@@ -14,6 +14,7 @@ import ProtectSwitch from "../components/ProtectSwitch";
 import AutoSwitch from "../components/AutoSwitch";
 import ModeMenu, { MODES, MODE_ICON, useSetMode } from "../components/ModeMenu";
 import RemoveDialog from "../components/RemoveDialog";
+import SelectSeg from "../components/SelectSeg";
 import { confirm } from "../lib/confirm";
 
 const STATES: StateFilter[] = ["all", "has-changes", "never-backed-up", "up-to-date"];
@@ -293,23 +294,15 @@ export default function Library() {
               { label: t("ui.remove.button", { n: selected.length }), onClick: () => setRemoveOpen(true), disabled: selected.length === 0, danger: true },
             ]}
           />
-          <div className="seg sel-seg" role="group" aria-label={t("ui.library.selection")}>
-          <label className="sel-all" title={t("ui.library.selectAllHint")}>
-            <input
-              type="checkbox"
-              className="check"
-              checked={rows.length > 0 && rows.every((r) => s.selected.has(r.id))}
-              ref={(el) => {
-                if (el) el.indeterminate = rows.some((r) => s.selected.has(r.id)) && !rows.every((r) => s.selected.has(r.id));
-              }}
-              onChange={() => (rows.length > 0 && rows.every((r) => s.selected.has(r.id)) ? s.clearSelection() : s.selectAll(rows.map((r) => r.id)))}
-            />
-            <span>{t("ui.library.selectAll")}</span>
-          </label>
-          <button onClick={() => s.invert(rows.map((r) => r.id))} disabled={rows.length === 0} title={t("ui.library.invertHint")}>
-            {t("ui.library.invert")}
-          </button>
-          </div>
+          <SelectSeg
+            total={rows.length}
+            picked={rows.filter((r) => s.selected.has(r.id)).length}
+            onAll={() => s.selectAll(rows.map((r) => r.id))}
+            onNone={() => s.clearSelection()}
+            onInvert={() => s.invert(rows.map((r) => r.id))}
+            label={t("ui.library.selection")}
+            hint={t("ui.library.selectAllHint")}
+          />
           <div className="btn-group" role="group" aria-label={t("ui.library.addExport")}>
             <Menu
               icon="plus"

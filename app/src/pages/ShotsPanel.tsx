@@ -9,6 +9,7 @@ import PurgeDialog from "../components/PurgeDialog";
 import { useStore } from "../store";
 import type { AlbumView, ExportFormat, ShotRecord, SnapshotNode } from "../types";
 import ShotDiffDialog from "./ShotDiffDialog";
+import SelectSeg from "../components/SelectSeg";
 
 /** 截图缩略图：进入可视区域后才生成 / 读取。 */
 export function ShotThumb({ gameId, blob, alt }: { gameId: string; blob: string; alt: string }) {
@@ -286,13 +287,15 @@ export default function ShotsPanel({
           </div>
           {ordered.length > 0 && (
             <>
-              <div className="seg" role="group" aria-label={t("ui.shots.selection")}>
-                <button onClick={() => setPicked(new Set(ordered.map((s) => s.blob)))}>{t("ui.shots.selectAll")}</button>
-                <button onClick={() => setPicked(new Set())} disabled={sel.length === 0}>
-                  {t("ui.shots.selectNone")}
-                </button>
-                <button onClick={() => setPicked(new Set(ordered.filter((s) => !picked.has(s.blob)).map((s) => s.blob)))}>{t("ui.shots.invert")}</button>
-              </div>
+              <SelectSeg
+                total={ordered.length}
+                picked={sel.length}
+                onAll={() => setPicked(new Set(ordered.map((s) => s.blob)))}
+                onNone={() => setPicked(new Set())}
+                onInvert={() => setPicked(new Set(ordered.filter((s) => !picked.has(s.blob)).map((s) => s.blob)))}
+                label={t("ui.shots.selection")}
+                hint={t("ui.gallery.selectAllHint")}
+              />
               <span className="count num">{t("ui.shots.selected", { n: sel.length })}</span>
             </>
           )}

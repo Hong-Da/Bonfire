@@ -104,12 +104,9 @@ pub fn steam_shots(steam_root: &Path, app_id: &str) -> Vec<ShotFile> {
 }
 
 /// 捕获文件夹中标题与游戏名对应的截图（不进入子文件夹）。`names` 为游戏的各种名称（英文名、中文名等）。
-pub fn capture_shots(dir: &Path, names: &[&str]) -> Vec<ShotFile> {
-    let wanted: Vec<String> = names
-        .iter()
-        .map(|n| normalize(n))
-        .filter(|n| n.chars().count() >= 2)
-        .collect();
+pub fn capture_shots(dir: &Path, names: &[&str], others: &[&str]) -> Vec<ShotFile> {
+    let wanted = wanted_names(names);
+    let others = wanted_names(others);
     let mut out = Vec::new();
     let Ok(rd) = std::fs::read_dir(dir) else {
         return out;
@@ -126,7 +123,10 @@ pub fn capture_shots(dir: &Path, names: &[&str]) -> Vec<ShotFile> {
         let Some((title, _)) = parse_capture_name(&stem) else {
             continue;
         };
-        if title_matches(&title, &wanted)
+        // 同一个标题可能对应多个游戏（“Hades” 与 “Hades II”）：只归到对应得最好的游戏。
+        let own = best_score(&title, &wanted);
+        if own > 0
+            && own >= best_score(&title, &others)
             && let Some(f) = shot_file(p, ShotSource::Capture)
         {
             out.push(f);
@@ -167,11 +167,7 @@ pub fn steam_shot_apps(steam_root: &Path) -> Vec<(String, usize, PathBuf)> {
 
 /// 捕获文件夹中与 `names`（游戏库中的游戏名）都不对应的截图，按窗口标题分组：(标题, 截图数)。
 pub fn capture_titles(dir: &Path, names: &[&str]) -> Vec<(String, usize)> {
-    let wanted: Vec<String> = names
-        .iter()
-        .map(|n| normalize(n))
-        .filter(|n| n.chars().count() >= 2)
-        .collect();
+    let wanted = wanted_names(names);
     let mut groups: std::collections::BTreeMap<String, (String, usize)> = Default::default();
     let Ok(rd) = std::fs::read_dir(dir) else {
         return Vec::new();
@@ -189,7 +185,7 @@ pub fn capture_titles(dir: &Path, names: &[&str]) -> Vec<(String, usize)> {
             continue;
         };
         let key = normalize(&title);
-        if key.is_empty() || title_matches(&title, &wanted) {
+        if key.is_empty() || best_score(&title, &wanted) > 0 {
             continue;
         }
         groups.entry(key).or_insert((title, 0)).1 += 1;
@@ -197,10 +193,38 @@ pub fn capture_titles(dir: &Path, names: &[&str]) -> Vec<(String, usize)> {
     groups.into_values().collect()
 }
 
-/// 窗口标题与游戏名是否对应：规整后相同，或标题以游戏名开头（标题可能带副标题、版本号）。
-fn title_matches(title: &str, wanted: &[String]) -> bool {
+fn wanted_names(names: &[&str]) -> Vec<String> {
+    names
+        .iter()
+        .map(|n| normalize(n))
+        .filter(|n| n.chars().count() >= 2)
+        .collect()
+}
+
+/// 窗口标题与游戏名的对应程度（越大越好，0 为不对应）：
+/// 3 规整后相同；2 标题以游戏名开头（标题带副标题、版本号）；
+/// 1 游戏名以标题开头（游戏名带版本后缀，如标题 “Grand Theft Auto V”、游戏名 “Grand Theft Auto V Enhanced”），
+/// 标题至少 4 个字符，避免过短的标题误配。
+fn best_score(title: &str, wanted: &[String]) -> u8 {
     let t = normalize(title);
-    !t.is_empty() && wanted.iter().any(|w| t == *w || t.starts_with(w.as_str()))
+    if t.is_empty() {
+        return 0;
+    }
+    wanted
+        .iter()
+        .map(|w| {
+            if t == *w {
+                3
+            } else if t.starts_with(w.as_str()) {
+                2
+            } else if t.chars().count() >= 4 && w.starts_with(t.as_str()) {
+                1
+            } else {
+                0
+            }
+        })
+        .max()
+        .unwrap_or(0)
 }
 
 /// 手动文件夹（含子文件夹）中的全部图片。
@@ -318,7 +342,7 @@ mod tests {
         touch(&cap.join("Hollow Knight 2026_10_9 21_06_00.mp4"));
         touch(&cap.join("Minishoot 2026_7_18 0_02_36.png"));
         touch(&cap.join("空洞骑士 2026_10_9 22_00_00.png"));
-        let c = capture_shots(&cap, &["Hollow Knight", "空洞骑士"]);
+        let c = capture_shots(&cap, &["Hollow Knight", "空洞骑士"], &[]);
         let names: Vec<String> = c
             .iter()
             .map(|f| f.path.file_name().unwrap().to_string_lossy().into_owned())
@@ -347,6 +371,40 @@ mod tests {
         assert_eq!(
             capture_titles(&cap, &["Hollow Knight", "空洞骑士"]),
             [("Minishoot".to_string(), 1)]
+        );
+    }
+
+    #[test]
+    fn capture_title_shorter_than_game_name() {
+        let d = tempfile::tempdir().unwrap();
+        let cap = d.path().join("Captures");
+        touch(&cap.join("Grand Theft Auto V 2026_7_18 11_23_09.png"));
+        touch(&cap.join("Hades 2026_7_18 11_23_09.png"));
+        touch(&cap.join("Hades II 2026_7_19 11_23_09.png"));
+        touch(&cap.join("Ha 2026_7_19 11_23_09.png"));
+        let names = |v: Vec<ShotFile>| -> Vec<String> {
+            v.iter()
+                .map(|f| f.path.file_name().unwrap().to_string_lossy().into_owned())
+                .collect()
+        };
+        // 游戏名带后缀：标题较短也对应。
+        assert_eq!(
+            names(capture_shots(&cap, &["Grand Theft Auto V Enhanced"], &["Hades"])),
+            ["Grand Theft Auto V 2026_7_18 11_23_09.png"]
+        );
+        // 两个游戏都在库中：各自只拿到对应最好的截图；过短的标题不误配。
+        assert_eq!(
+            names(capture_shots(&cap, &["Hades"], &["Hades II"])),
+            ["Hades 2026_7_18 11_23_09.png"]
+        );
+        assert_eq!(
+            names(capture_shots(&cap, &["Hades II"], &["Hades"])),
+            ["Hades II 2026_7_19 11_23_09.png"]
+        );
+        // 发现页：已对应游戏库中游戏的标题不再列出。
+        assert_eq!(
+            capture_titles(&cap, &["Grand Theft Auto V Enhanced", "Hades", "Hades II"]),
+            [("Ha".to_string(), 1)]
         );
     }
 }

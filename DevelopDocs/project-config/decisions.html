@@ -24,9 +24,27 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 95 项，更新于 2026-10-10 22:12。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 98 项，更新于 2026-10-10 22:19。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>46 项</small></h2>
+<section id="s-0"><h2>开发<small>49 项</small></h2>
+      <article id="U-22c">
+        <header><code>U-22c</code><h3>图库截图的已选框太大</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">勾选框缩小到 14 像素，未选时悬停才显示；选中改为 2 像素内描边，不占位置（推荐） <b>✓ 采用</b></li><li class="">保持原样</li></ul>
+        <p class="reason"><span>理由</span>用户反馈已选框太大。</p><p class="impact"><span>影响</span>键盘聚焦时勾选框也会显示。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-22b">
+        <header><code>U-22b</code><h3>图库的全选 / 全不选 / 反选按钮</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">与游戏库一致：全选框（半选表示部分勾选）+ 反选，放在底栏最左；游戏详情相册同样（推荐） <b>✓ 采用</b></li><li class="">保留三个按钮</li></ul>
+        <p class="reason"><span>理由</span>用户要求参考游戏库。</p><p class="impact"><span>影响</span>全不选由全选框完成。</p>
+        <footer>2026-10-10</footer>
+      </article>
+      <article id="U-22a">
+        <header><code>U-22a</code><h3>游戏栏截图标题比游戏名短时对应不上（Captures 中的截图没有收集）</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">游戏名以标题开头也算对应（标题至少 4 个字符）；同一标题对应多个游戏时只归到对应得最好的（推荐） <b>✓ 采用</b></li><li class="">让用户手动为游戏添加截图文件夹</li></ul>
+        <p class="reason"><span>理由</span>用户的 “Grand Theft Auto V” 截图因游戏库中的名字是 “Grand Theft Auto V Enhanced” 而没有收集。</p><p class="impact"><span>影响</span>已在游戏库中的游戏下次收集截图时会补上；不在游戏库中的（如 Minishoot）仍在发现页“只有截图的游戏”中加入。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-21e">
         <header><code>U-21e</code><h3>图库添加截图自动备份设置</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">图库底栏加快捷按钮：开关截图备份、定时收集（只随备份 / 每天 / 每周 / 每几小时）、立即收集、更多设置，与设置页同一配置（推荐） <b>✓ 采用</b></li><li class="">只放跳转设置页的链接</li></ul>

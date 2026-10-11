@@ -268,7 +268,7 @@ describe("篝火包：存档与截图（U-16）", () => {
     api.exportPackage.mockResolvedValue({ dest: "D:/out/s.bonfire", bytes: 20, games: [], objects: 0, skipped: [] });
     render(<Gallery />);
     await screen.findByText(/2 张截图/);
-    fireEvent.click(screen.getByRole("button", { name: "全选" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "全选" }));
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
     await waitFor(() =>
       expect(api.exportPackage).toHaveBeenCalledWith(["g1", "g2"], "D:/out/s.bonfire", { saves: false, shots: true, shotIds: { g1: ["b3:111111"], g2: ["b3:222222"] } }),

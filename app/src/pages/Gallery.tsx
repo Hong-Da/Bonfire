@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ShotAutoSwitch from "../components/ShotAutoSwitch";
+import SelectSeg from "../components/SelectSeg";
 import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
 import { Icon, Menu, displayName, type IconName } from "../components/ui";
@@ -407,6 +408,16 @@ export default function Gallery() {
       </div>
 
       <div className="actionbar">
+        {/* 全选框与反选：与游戏库底栏一致。 */}
+        <SelectSeg
+          total={ordered.length}
+          picked={sel.length}
+          onAll={() => setPicked(new Set(ordered.map(keyOf)))}
+          onNone={() => setPicked(new Set())}
+          onInvert={() => setPicked(new Set(ordered.filter((s) => !picked.has(keyOf(s))).map(keyOf)))}
+          label={t("ui.shots.selection")}
+          hint={t("ui.gallery.selectAllHint")}
+        />
         {/* 统计跟随选择：选中截图时显示所选的数量、大小与游戏数，否则显示全部。 */}
         <span className={`num gallery-sum${sel.length > 0 ? " has" : " muted"}`} aria-live="polite">
           {sel.length > 0
@@ -417,15 +428,6 @@ export default function Gallery() {
               ? t("ui.gallery.trashSummary", { n: data.trash.length, size: bytes(data.trashBytes) })
               : t("ui.gallery.summary", { n: data.shots.length, size: bytes(data.bytes), games: data.games.filter((g) => data.shots.some((s) => s.gameId === g.id)).length })}
         </span>
-        {ordered.length > 0 && (
-          <div className="seg" role="group" aria-label={t("ui.shots.selection")}>
-            <button onClick={() => setPicked(new Set(ordered.map(keyOf)))}>{t("ui.shots.selectAll")}</button>
-            <button onClick={() => setPicked(new Set())} disabled={sel.length === 0}>
-              {t("ui.shots.selectNone")}
-            </button>
-            <button onClick={() => setPicked(new Set(ordered.filter((s) => !picked.has(keyOf(s))).map(keyOf)))}>{t("ui.shots.invert")}</button>
-          </div>
-        )}
         <div className="grow" style={{ flex: 1 }} />
         {!inTrash && <ShotAutoSwitch onSynced={() => void reload()} />}
         {inTrash ? (

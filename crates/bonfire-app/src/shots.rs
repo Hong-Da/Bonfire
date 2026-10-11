@@ -249,7 +249,13 @@ impl App {
         if let Some(dir) = self.captures_dir() {
             let names = self.shot_names(game)?;
             let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-            out.extend(src::capture_shots(&dir, &refs));
+            // 其他游戏的名称：同一标题对应多个游戏时，只归到对应得最好的那个。
+            let mut others = Vec::new();
+            for g in self.games()?.iter().filter(|g| g.id != game.id) {
+                others.extend(self.shot_names(g)?);
+            }
+            let other_refs: Vec<&str> = others.iter().map(String::as_str).collect();
+            out.extend(src::capture_shots(&dir, &refs, &other_refs));
         }
         for d in self.index.shot_settings(&game.id)?.dirs {
             out.extend(src::folder_shots(Path::new(&d)));

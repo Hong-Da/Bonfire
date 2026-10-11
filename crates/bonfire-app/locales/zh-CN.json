@@ -1146,5 +1146,6 @@
   "ui.shotAuto.saved": "已更新截图备份设置。{what}",
   "ui.shotAuto.tip": "截图自动备份：开关截图备份、设置定时收集",
   "ui.shotAuto.syncNow": "立即收集新截图",
-  "ui.library.invertHint": "反选列出的游戏：已勾选的取消，未勾选的勾选"
+  "ui.select.invertHint": "反选列出的项：已勾选的取消，未勾选的勾选",
+  "ui.gallery.selectAllHint": "全选 / 全不选列出的截图"
 }

@@ -239,7 +239,7 @@ describe("图库", () => {
     api.purgeShots.mockResolvedValue({ purged: 1, originalsDeleted: 0, originalsKept: 0, originalsFailed: 0 });
     render(<Gallery />);
     await screen.findByText(/3 张截图/);
-    fireEvent.click(screen.getByRole("button", { name: "全选" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "全选" }));
     fireEvent.click(screen.getByRole("button", { name: /删除/ }));
     await waitFor(() => expect(api.deleteShots).toHaveBeenCalledTimes(2));
     expect(api.deleteShots).toHaveBeenCalledWith("g1", ["b3:111111", "b3:333333"]);

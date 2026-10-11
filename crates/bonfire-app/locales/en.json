@@ -1146,5 +1146,6 @@
   "ui.shotAuto.saved": "Screenshot backup updated. {what}",
   "ui.shotAuto.tip": "Screenshot auto backup: turn on or off and set a collection schedule",
   "ui.shotAuto.syncNow": "Collect new screenshots now",
-  "ui.library.invertHint": "Invert the selection of listed games"
+  "ui.select.invertHint": "Invert the selection of listed items",
+  "ui.gallery.selectAllHint": "Select or clear all listed screenshots"
 }
