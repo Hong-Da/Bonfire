@@ -955,6 +955,15 @@ impl Index {
         Ok(())
     }
 
+    /// 只改操作详情（快照 ID 因清理历史改变时）。
+    pub fn set_op_detail(&self, id: i64, detail: &serde_json::Value) -> Result<()> {
+        self.conn.execute(
+            "UPDATE operations SET detail_json = ?2 WHERE id = ?1",
+            params![id, detail.to_string()],
+        )?;
+        Ok(())
+    }
+
     pub fn set_op_status(&self, id: i64, status: &str) -> Result<()> {
         self.conn.execute(
             "UPDATE operations SET status = ?2 WHERE id = ?1",

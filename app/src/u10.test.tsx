@@ -621,3 +621,33 @@ describe("U-40 是否记住上次的选择", () => {
     expect(api.saveSettings.mock.calls[0][0].general).toMatchObject({ remember_filters: false, remember_selection: false });
   });
 });
+
+describe("M4-4 历史清理", () => {
+  it("设置保留规则并保存；立即清理先预览，确认后执行", async () => {
+    useStore.setState({ info, toasts: [], view: { name: "settings" } });
+    api.saveSettings.mockResolvedValue(info);
+    const plan = { games: [{ gameId: "g", name: "Alpha", snapshots: 9, removed: ["1", "2", "3"], rewritten: 2 }], removed: 3, gc: { chunks: 3, blobs: 3, trees: 3, snapshots: [], bytes: 3 * 1024 * 1024, tmpFiles: 0, dryRun: true }, dryRun: true };
+    api.cleanHistory.mockImplementation(async (dry: boolean) => ({ ...plan, dryRun: dry }));
+    render(<Settings />);
+    fireEvent.click(await screen.findByRole("checkbox", { name: /每次自动备份后按下面的规则清理/ }));
+    fireEvent.change(screen.getByRole("spinbutton", { name: "保留最近的快照数" }), { target: { value: "5" } });
+    // 有未保存的修改时不能清理。
+    expect(screen.getByRole("button", { name: "立即清理…" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalled());
+    expect(api.saveSettings.mock.calls.at(-1)![0].retention).toMatchObject({ enabled: true, keep_last: 5, keep_daily: 14, keep_weekly: 8, scope: "auto" });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "立即清理…" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "立即清理…" }));
+    const dlg = await screen.findByRole("dialog", { name: "清理历史" });
+    await within(dlg).findByText("个快照将被清理");
+    expect(api.cleanHistory).toHaveBeenCalledWith(true);
+    expect(within(dlg).getByText("3.0 MB")).toBeInTheDocument();
+    expect(within(dlg).getByText("3 / 9 个快照")).toBeInTheDocument();
+    fireEvent.click(within(dlg).getByRole("button", { name: "清理" }));
+    await within(dlg).findByText("个快照已清理");
+    expect(api.cleanHistory).toHaveBeenCalledWith(false);
+    fireEvent.click(within(dlg).getByRole("button", { name: "完成" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});

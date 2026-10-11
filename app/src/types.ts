@@ -27,6 +27,7 @@ export interface Config {
   backup: { include_config_files: boolean; size_warning_gb: number; disabled_platforms: string[]; protect_local: boolean };
   shots: ShotsConfig;
   auto_backup: AutoBackupConfig;
+  retention?: RetentionConfig;
   metadata: { online: boolean; igdb_client_id: string; igdb_client_secret: string; steamgriddb_api_key: string };
   log: { level: string; keep_days: number };
 }
@@ -61,6 +62,23 @@ export interface AutoBackupConfig {
   on_change: boolean;
   check_minutes: number;
   quiet_minutes: number;
+}
+
+/** 历史清理（M4-4）：保留策略与自动清理。 */
+export interface RetentionConfig {
+  enabled: boolean;
+  keep_last: number;
+  keep_daily: number;
+  keep_weekly: number;
+  scope: "auto" | "all";
+}
+
+/** 清理历史的结果（预览时为预计）。 */
+export interface CleanupReport {
+  games: { gameId: string; name: string; snapshots: number; removed: string[]; rewritten: number }[];
+  removed: number;
+  gc: { chunks: number; blobs: number; trees: number; snapshots: string[]; bytes: number; tmpFiles: number; dryRun: boolean };
+  dryRun: boolean;
 }
 
 export interface AutoStatus {

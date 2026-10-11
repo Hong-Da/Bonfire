@@ -13,8 +13,12 @@ import { bytes, dateTime } from "../lib/format";
 import { useStore } from "../store";
 import { Icon } from "../components/ui";
 import { applyTheme } from "../theme";
-import type { AutoBackupConfig, AutoStatus, Config, FsckReport, GameRecord, Theme } from "../types";
+import type { AutoBackupConfig, AutoStatus, Config, FsckReport, GameRecord, RetentionConfig, Theme } from "../types";
 import { DEFAULT_AUTO } from "../lib/auto";
+import { CleanupDialog } from "../components/CleanupDialog";
+
+/** 历史清理的默认设置（旧配置中没有这一节时使用）。 */
+export const DEFAULT_RETENTION: RetentionConfig = { enabled: false, keep_last: 20, keep_daily: 14, keep_weekly: 8, scope: "auto" };
 
 export const PLATFORMS = ["steam", "epic", "gog"] as const;
 
@@ -33,10 +37,11 @@ export default function Settings() {
   const [busy, setBusy] = useState<string | null>(null);
   const [captures, setCaptures] = useState<string | null>(null);
   const [dirs, setDirs] = useState<{ steamUserdata: string | null; captures: string | null } | null>(null);
+  const [cleaning, setCleaning] = useState(false);
 
   useEffect(() => {
     api.getSettings().then((c) => {
-      const n = { ...c, auto_backup: c.auto_backup ?? DEFAULT_AUTO };
+      const n = { ...c, auto_backup: c.auto_backup ?? DEFAULT_AUTO, retention: c.retention ?? DEFAULT_RETENTION };
       setCfg(n);
       setSaved(n);
     });
@@ -54,6 +59,7 @@ export default function Settings() {
 
   if (!cfg) return <div className="empty">{t("ui.loading")}</div>;
   const dirty = JSON.stringify(cfg) !== JSON.stringify(saved);
+  const ret = cfg.retention ?? DEFAULT_RETENTION;
   const update = (f: (c: Config) => void) => {
     const c = structuredClone(cfg);
     f(c);
@@ -255,6 +261,56 @@ export default function Settings() {
                 {auto.lastCheck && t("ui.settings.autoLastCheck", { when: dateTime(auto.lastCheck, i18n.language) })}
               </p>
             )}
+          </section>
+
+          <section id="settings-retention" className={section === "retention" ? "flash" : undefined}>
+            <h2>{t("ui.settings.retention")}</h2>
+            <div className="row">
+              <label>{t("ui.settings.retentionAuto")}</label>
+              <label className="opt">
+                <input type="checkbox" className="check" checked={ret.enabled} onChange={(e) => update((c) => (c.retention = { ...ret, enabled: e.target.checked }))} />
+                {t("ui.settings.retentionAutoHint")}
+              </label>
+            </div>
+            <div className="row">
+              <label>{t("ui.settings.retentionKeep")}</label>
+              <div className="retention-rules">
+                {(
+                  [
+                    ["keep_last", 1, 1000, "Last"],
+                    ["keep_daily", 0, 365, "Daily"],
+                    ["keep_weekly", 0, 520, "Weekly"],
+                  ] as const
+                ).map(([key, min, max, name]) => (
+                  <label key={key} className="opt">
+                    {t(`ui.settings.retention${name}Pre`)}
+                    <input className="field num" type="number" min={min} max={max} style={{ width: 72 }} value={ret[key]} onChange={(e) => update((c) => (c.retention = { ...ret, [key]: Number(e.target.value) }))} aria-label={t(`ui.settings.retention${name}Label`)} />
+                    {t(`ui.settings.retention${name}Suf`)}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="row">
+              <label htmlFor="retention-scope">{t("ui.settings.retentionScope")}</label>
+              <div>
+                <select id="retention-scope" className="field" value={ret.scope} onChange={(e) => update((c) => (c.retention = { ...ret, scope: e.target.value as RetentionConfig["scope"] }))}>
+                  {(["auto", "all"] as const).map((v) => (
+                    <option key={v} value={v}>
+                      {t(`ui.settings.retentionScopeOpt.${v}`)}
+                    </option>
+                  ))}
+                </select>
+                {ret.scope === "auto" && <p className="hint">{t("ui.settings.retentionScopeAutoHint")}</p>}
+                {ret.scope === "all" && cfg.backup.protect_local && <p className="hint">{t("ui.settings.retentionProtected")}</p>}
+              </div>
+            </div>
+            <p className="hint">{t("ui.settings.retentionHint")}</p>
+            <div className="inline" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button className="btn" disabled={dirty} onClick={() => setCleaning(true)}>
+                {t("ui.settings.cleanNow")}
+              </button>
+              {dirty && <span className="hint">{t("ui.settings.cleanSaveFirst")}</span>}
+            </div>
           </section>
 
           <section id="settings-shots" className={section === "shots" ? "flash" : undefined}>
@@ -601,6 +657,7 @@ export default function Settings() {
           </section>
         </div>
       </div>
+      {cleaning && <CleanupDialog onClose={() => setCleaning(false)} />}
     </>
   );
 }

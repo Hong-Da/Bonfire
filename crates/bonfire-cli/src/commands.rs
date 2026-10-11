@@ -332,6 +332,11 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
         Cmd::Bundle { cmd } => bundle(app, cmd, out),
         Cmd::Shots { cmd } => shots(app, cmd, out),
         Cmd::Fsck { deep } => fsck(app, deep, out),
+        Cmd::Gc {
+            games,
+            objects_only,
+            dry_run,
+        } => gc(app, &games, objects_only, dry_run, out),
         Cmd::Reindex => {
             let lock = app.repo.lock()?;
             let s = app.reindex(&lock)?;
@@ -1620,6 +1625,63 @@ fn profile(app: &mut App, cmd: ProfileCmd, out: &Out) -> Result<()> {
             out.emit(json!({ "removed": name }));
             out.line(out.tf("cli.out.profile_removed", &[("name", &name)]));
         }
+    }
+    Ok(())
+}
+
+/// 清理历史：按保留策略压掉多余的快照，再回收不再使用的空间。先预览，确认后执行。
+fn gc(app: &mut App, keys: &[String], objects_only: bool, dry_run: bool, out: &Out) -> Result<()> {
+    let mut games = Vec::new();
+    for k in keys {
+        games.push(app.find_game(k)?.id);
+    }
+    let lock = app.repo.lock()?;
+    let mut opts = bonfire_app::retention::CleanupOptions {
+        dry_run: true,
+        games,
+        gc_only: objects_only,
+        gc_if_removed: false,
+    };
+    let plan = app.clean_history(&lock, &opts)?;
+    let size = bonfire_app::util::human_bytes(plan.gc.bytes);
+    let nothing = plan.removed == 0 && plan.gc.objects() == 0 && plan.gc.tmp_files == 0;
+    if !dry_run && !nothing {
+        let prompt = out.tf("cli.confirm.gc", &[("n", &plan.removed), ("size", &size)]);
+        if !out.confirm(prompt)? {
+            out.line(out.t("cli.out.cancelled"));
+            return Ok(());
+        }
+    }
+    let r = if dry_run || nothing {
+        let mut r = plan;
+        r.dry_run = dry_run;
+        r.gc.dry_run = dry_run;
+        r
+    } else {
+        opts.dry_run = false;
+        app.clean_history(&lock, &opts)?
+    };
+    out.emit(serde_json::to_value(&r).unwrap());
+    for g in &r.games {
+        out.line(out.tf(
+            "cli.out.gc_game",
+            &[
+                ("name", &g.name),
+                ("n", &g.removed.len()),
+                ("total", &g.snapshots),
+            ],
+        ));
+    }
+    out.line(out.tf(
+        "cli.out.gc_done",
+        &[
+            ("n", &r.removed),
+            ("objects", &r.gc.objects()),
+            ("size", &bonfire_app::util::human_bytes(r.gc.bytes)),
+        ],
+    ));
+    if dry_run {
+        out.line(out.t("cli.out.dry_run"));
     }
     Ok(())
 }

@@ -317,6 +317,8 @@ impl App {
                 .unwrap_or_else(|| s.comment.clone());
             self.index.add_snapshot_as(id, s, &comment, &game.id)?;
         }
+        self.remap_undo(&game.id, &mapping)?;
+        self.repo.delete_note(lock, &target)?;
         let mut removed_all = vec![target];
         removed_all.extend(order.iter().copied());
         self.drop_snapshots(lock, game, &removed_all, before)?;
@@ -370,7 +372,7 @@ impl App {
     }
 
     /// 当前所在快照的清单。
-    fn head_tree(&self, game_id: &str) -> Result<Option<ObjectId>> {
+    pub(crate) fn head_tree(&self, game_id: &str) -> Result<Option<ObjectId>> {
         Ok(match self.repo.head_snapshot(game_id)? {
             Some(id) => Some(self.repo.get_snapshot(&id)?.tree),
             None => None,
@@ -379,7 +381,7 @@ impl App {
 
     /// 删除快照对象与索引记录，刷新引用镜像；当前所在快照变了时，变更检测缓存改为新的当前快照的清单
     /// （删掉的正是磁盘当前状态对应的快照时，界面会提示有未备份的更新）。
-    fn drop_snapshots(
+    pub(crate) fn drop_snapshots(
         &mut self,
         lock: &RepoLock,
         game: &GameRecord,
@@ -417,7 +419,10 @@ fn other_branch(refs: &[(RefName, ObjectId)], except: &str) -> Option<String> {
 }
 
 /// 集合内的快照按父在前排序。
-fn parents_first(set: &HashSet<ObjectId>, snaps: &HashMap<ObjectId, Snapshot>) -> Vec<ObjectId> {
+pub(crate) fn parents_first(
+    set: &HashSet<ObjectId>,
+    snaps: &HashMap<ObjectId, Snapshot>,
+) -> Vec<ObjectId> {
     let mut out = Vec::new();
     let mut done = HashSet::new();
     let mut ids: Vec<ObjectId> = set.iter().copied().collect();
@@ -448,7 +453,7 @@ fn parents_first(set: &HashSet<ObjectId>, snaps: &HashMap<ObjectId, Snapshot>) -
 }
 
 /// 两个清单之间变化的文件数（新增、修改与删除）。
-fn changed_between(before: &Tree, after: &Tree) -> u64 {
+pub(crate) fn changed_between(before: &Tree, after: &Tree) -> u64 {
     let old: HashMap<&str, ObjectId> = before
         .entries
         .iter()

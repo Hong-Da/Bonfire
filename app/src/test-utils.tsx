@@ -38,6 +38,7 @@ export function mockApi() {
     saveProfile: vi.fn(),
     deleteProfile: vi.fn(),
     fsck: vi.fn(),
+    cleanHistory: vi.fn(),
     reindex: vi.fn(),
     updateRules: vi.fn(),
     rulesInfo: vi.fn().mockResolvedValue({ path: "x", games: 23606, userGames: 0 }),

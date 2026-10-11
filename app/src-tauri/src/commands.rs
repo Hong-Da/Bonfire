@@ -948,6 +948,23 @@ pub async fn fsck(h: AppHandle, deep: bool) -> CmdResult<bonfire_app::core::fsck
     with_app(h, move |app, _| Ok(app.fsck(deep)?)).await
 }
 
+/// 清理历史（M4-4）：按保留策略压掉多余的快照，再回收不再使用的空间。`dry_run` 时只预览。
+#[tauri::command]
+pub async fn clean_history(
+    h: AppHandle,
+    dry_run: bool,
+) -> CmdResult<bonfire_app::retention::CleanupReport> {
+    with_app(h, move |app, _| {
+        let lock = app.repo.lock()?;
+        let opts = bonfire_app::retention::CleanupOptions {
+            dry_run,
+            ..Default::default()
+        };
+        Ok(app.clean_history(&lock, &opts)?)
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn reindex(h: AppHandle) -> CmdResult<bonfire_app::core::index::ReindexStats> {
     with_app(h, move |app, _| {

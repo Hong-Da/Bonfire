@@ -22,6 +22,7 @@ pub mod primary;
 pub mod process;
 pub mod prune;
 pub mod restore;
+pub mod retention;
 pub mod shots;
 pub mod transfer;
 pub mod ui_state;

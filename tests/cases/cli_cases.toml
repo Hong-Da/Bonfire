@@ -806,6 +806,25 @@ expect_exit = 1
 expect_stdout_json = { "ok" = false }
 
 [[case]]
+id = "gc-preview"
+title = { zh-CN = "预览清理历史", en = "Preview history cleanup" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["gc", "--dry-run"]
+expect_exit = 0
+stdout_contains = ["共压掉 0 个快照", "预览"]
+in_docs = true
+
+[[case]]
+id = "gc-json"
+title = { zh-CN = "清理历史（JSON 输出）", en = "Clean up history (JSON output)" }
+fixture = "basic"
+pre = [["game", "add", "空洞骑士", "--path", "{saves}"], ["backup", "空洞骑士"]]
+args = ["gc", "--yes", "--json"]
+expect_exit = 0
+expect_stdout_json = { "removed" = 0, "dryRun" = false }
+
+[[case]]
 id = "reindex-ok"
 title = { zh-CN = "重建索引", en = "Rebuild the index" }
 fixture = "basic"

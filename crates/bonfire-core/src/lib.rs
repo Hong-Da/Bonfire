@@ -5,6 +5,7 @@
 pub mod error;
 pub mod fault;
 pub mod fsck;
+pub mod gc;
 pub mod id;
 pub mod index;
 pub mod object;

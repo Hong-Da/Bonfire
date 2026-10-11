@@ -642,6 +642,16 @@ impl Repo {
         Ok(note)
     }
 
+    /// 删除注记（快照被删除时）。不存在时什么都不做。
+    pub fn delete_note(&self, _lock: &RepoLock, snapshot: &ObjectId) -> Result<()> {
+        let path = self.note_path(snapshot);
+        match std::fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(CoreError::io(path, e)),
+        }
+    }
+
     /// 显示用的备注：有注记时取注记，否则取快照中的原始备注。
     pub fn effective_comment(&self, id: &ObjectId, snap: &Snapshot) -> Result<String> {
         Ok(self

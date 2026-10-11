@@ -150,6 +150,7 @@ fn main() {
             commands::save_profile,
             commands::delete_profile,
             commands::fsck,
+            commands::clean_history,
             commands::reindex,
             commands::update_rules,
             commands::rules_info,

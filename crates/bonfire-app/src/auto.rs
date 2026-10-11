@@ -48,6 +48,8 @@ pub struct AutoReport {
     pub items: Vec<AutoItem>,
     /// 有变化但存档还在写入、推迟到下次的游戏数。
     pub waiting: usize,
+    /// 备份后自动清理历史压掉的快照数（设置中开启自动清理时）。
+    pub cleaned: usize,
 }
 
 impl AutoReport {
@@ -114,6 +116,7 @@ impl App {
             kind,
             items: Vec::new(),
             waiting: 0,
+            cleaned: 0,
         };
         for g in self.games()? {
             let mut item = AutoItem {
@@ -165,6 +168,9 @@ impl App {
             if item.snapshot.is_some() || item.error.is_some() || item.shots > 0 {
                 report.items.push(item);
             }
+        }
+        if report.created() > 0 {
+            report.cleaned = self.auto_clean(lock).map_or(0, |r| r.removed);
         }
         self.mark_auto(kind)?;
         if kind == AutoKind::Scheduled {

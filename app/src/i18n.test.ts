@@ -19,6 +19,8 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.shots.source.": ["steam", "capture", "folder", "import"],
   "ui.settings.schedule.": ["off", "daily", "weekly", "hours"],
   "ui.settings.autoScheduleOpt.": ["off", "daily", "weekly", "hours"],
+  "ui.settings.retentionScopeOpt.": ["auto", "all"],
+  "ui.settings.retention": ["LastPre", "LastSuf", "LastLabel", "DailyPre", "DailySuf", "DailyLabel", "WeeklyPre", "WeeklySuf", "WeeklyLabel"],
   "ui.weekday.": ["1", "2", "3", "4", "5", "6", "7"],
   "ui.mode.short.": ["all", "both", "saves", "shots"],
   "ui.backup.step.": ["pick", "saves", "shots"],

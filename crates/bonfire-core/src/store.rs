@@ -29,7 +29,7 @@ pub struct WriteStats {
 }
 
 impl Repo {
-    fn object_path(&self, kind: Kind, id: &ObjectId) -> PathBuf {
+    pub(crate) fn object_path(&self, kind: Kind, id: &ObjectId) -> PathBuf {
         let hex = id.to_hex();
         self.objects_dir()
             .join(kind.dir())

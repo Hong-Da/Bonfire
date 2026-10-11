@@ -1113,3 +1113,13 @@ button.link:hover { text-decoration: underline; }
 .sel-seg.compact .sel-all { padding: 0 9px 0 8px; gap: 5px; }
 .sel-seg.compact button { padding: 0 9px; }
 .shot-day h3 .sel-seg { font-family: var(--font-ui); }
+
+/* 历史清理（M4-4） */
+.retention-rules { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.cleanup-figures { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.cleanup-figures > div { padding: 12px 14px; border-radius: var(--radius); background: var(--smoke); display: grid; gap: 2px; }
+.cleanup-figures b { font: 600 24px/1.2 var(--font-sign); color: var(--ink); }
+.cleanup-figures span { font-size: 12px; color: var(--muted); }
+.cleanup-games { list-style: none; margin: 0 0 8px; padding: 0; max-height: 220px; overflow: auto; }
+.cleanup-games li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.cleanup-games li:last-child { border-bottom: none; }

@@ -321,6 +321,61 @@ impl App {
         Ok(report)
     }
 
+    /// 可撤销的恢复操作用到的快照（清理历史时保留）。
+    pub(crate) fn undo_snapshots(&self, game_id: &str) -> Result<Vec<ObjectId>> {
+        let Some((_, d)) = self.undoable_restore(game_id)? else {
+            return Ok(Vec::new());
+        };
+        let mut out = vec![d.target, d.previous];
+        out.extend(d.protection);
+        out.extend(d.previous_head.detached);
+        Ok(out)
+    }
+
+    /// 快照因删除前面的快照而改了 ID 时，同步改写可撤销的恢复操作记录。
+    pub(crate) fn remap_undo(
+        &self,
+        game_id: &str,
+        map: &HashMap<ObjectId, ObjectId>,
+    ) -> Result<()> {
+        let Some((op, mut d)) = self.undoable_restore(game_id)? else {
+            return Ok(());
+        };
+        let m = |id: &mut ObjectId| {
+            if let Some(n) = map.get(id) {
+                *id = *n;
+            }
+        };
+        m(&mut d.target);
+        m(&mut d.previous);
+        if let Some(p) = d.protection.as_mut() {
+            m(p);
+        }
+        if let Some(p) = d.previous_head.detached.as_mut() {
+            m(p);
+        }
+        let detail = serde_json::to_value(&d).expect("操作记录序列化不会失败");
+        if detail != op.detail {
+            self.index.set_op_detail(op.id, &detail)?;
+        }
+        Ok(())
+    }
+
+    fn undoable_restore(
+        &self,
+        game_id: &str,
+    ) -> Result<Option<(bonfire_core::index::OperationRow, RestoreDetail)>> {
+        let Some(op) = self.index.last_op(game_id)? else {
+            return Ok(None);
+        };
+        if op.kind != "restore" || !matches!(op.status.as_str(), "done" | "running") {
+            return Ok(None);
+        }
+        Ok(serde_json::from_value(op.detail.clone())
+            .ok()
+            .map(|d| (op, d)))
+    }
+
     /// 写入计划中的文件。任何一步失败都回滚到 `previous` 快照的内容。
     fn apply_plan(&self, game: &GameRecord, plan: &RestorePlan, previous: ObjectId) -> Result<()> {
         // 1. 全部写到临时文件；此阶段失败不影响存档。

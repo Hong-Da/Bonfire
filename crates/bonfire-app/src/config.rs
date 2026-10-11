@@ -49,6 +49,7 @@ pub struct Config {
     pub backup: Backup,
     pub shots: Shots,
     pub auto_backup: AutoBackup,
+    pub retention: Retention,
     pub metadata: Metadata,
     pub log: Log,
 }
@@ -219,6 +220,45 @@ impl Default for AutoBackup {
     }
 }
 
+/// 历史清理的范围（M4-4）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RetentionScope {
+    /// 只清理自动生成的快照（定时、存档变化后、退出游戏后、恢复前保护）。
+    #[default]
+    Auto,
+    /// 所有快照（存档安全保护开启时，本机手动备份的快照仍保留）。
+    All,
+}
+
+/// 历史清理（文档 F9、6.6）：按保留策略压掉多余的快照，再回收不再使用的空间。
+/// 带标签的快照、各分支最新的快照、当前所在的快照与可撤销的恢复用到的快照永远保留。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Retention {
+    /// 自动清理：每次自动备份后按保留策略清理。关闭时只能手动清理。
+    pub enabled: bool,
+    /// 保留最近的快照数（1–1000）。
+    pub keep_last: u32,
+    /// 最近多少天内每天保留 1 个（0–365）。
+    pub keep_daily: u32,
+    /// 最近多少周内每周保留 1 个（0–520）。
+    pub keep_weekly: u32,
+    pub scope: RetentionScope,
+}
+
+impl Default for Retention {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            keep_last: 20,
+            keep_daily: 14,
+            keep_weekly: 8,
+            scope: RetentionScope::Auto,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Metadata {
@@ -371,6 +411,25 @@ impl Config {
                 message: format!("{}（范围 0–60）", a.quiet_minutes),
             });
         }
+        let r = &self.retention;
+        if !(1..=1000).contains(&r.keep_last) {
+            return Err(ConfigError::Invalid {
+                key: "retention.keep_last",
+                message: format!("{}（范围 1–1000）", r.keep_last),
+            });
+        }
+        if r.keep_daily > 365 {
+            return Err(ConfigError::Invalid {
+                key: "retention.keep_daily",
+                message: format!("{}（范围 0–365）", r.keep_daily),
+            });
+        }
+        if r.keep_weekly > 520 {
+            return Err(ConfigError::Invalid {
+                key: "retention.keep_weekly",
+                message: format!("{}（范围 0–520）", r.keep_weekly),
+            });
+        }
         let gb = self.backup.size_warning_gb;
         if gb.is_nan() || gb <= 0.0 {
             return Err(ConfigError::Invalid {
@@ -477,6 +536,20 @@ check_minutes = {a_check}
 # 存档停止写入多少分钟后才备份（0–60），避免备份到写了一半的存档
 quiet_minutes = {a_quiet}
 
+[retention]
+# 历史清理：带标签的快照、各分支最新的快照、当前所在的快照永远保留，其余按下面的策略保留，
+# 多出的快照从历史中压掉（子快照改接到保留的快照上），再回收不再使用的空间。
+# 自动清理：每次自动备份后按策略清理；关闭时只在手动清理（设置页或 bonfire gc）时执行
+enabled = {r_enabled}
+# 保留最近的快照数（1–1000）
+keep_last = {r_last}
+# 最近多少天内每天保留 1 个（0–365）
+keep_daily = {r_daily}
+# 最近多少周内每周保留 1 个（0–520）
+keep_weekly = {r_weekly}
+# 清理范围：auto（只清理自动备份与恢复前保护生成的快照）/ all（所有快照；存档安全保护开启时本机手动备份的仍保留）
+scope = "auto"
+
 [metadata]
 # 是否联网获取游戏名称、封面等信息；只发送游戏 ID 或名称，不上传存档
 online = {online}
@@ -511,6 +584,10 @@ keep_days = {keep}
             a_change = d.auto_backup.on_change,
             a_check = d.auto_backup.check_minutes,
             a_quiet = d.auto_backup.quiet_minutes,
+            r_enabled = d.retention.enabled,
+            r_last = d.retention.keep_last,
+            r_daily = d.retention.keep_daily,
+            r_weekly = d.retention.keep_weekly,
             include = d.backup.include_config_files,
             size = d.backup.size_warning_gb,
             online = d.metadata.online,

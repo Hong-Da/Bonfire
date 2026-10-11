@@ -219,6 +219,13 @@ pub enum Cmd {
         #[arg(long)]
         deep: bool,
     },
+    Gc {
+        games: Vec<String>,
+        #[arg(long)]
+        objects_only: bool,
+        #[arg(long)]
+        dry_run: bool,
+    },
     Reindex,
 }
 
