@@ -1,5 +1,5 @@
 ﻿# 安装包验收（M3-6）：静默安装到临时目录 → 检查文件、命令行与规则库 → 写入数据标记 → 覆盖安装（升级）
-# → 卸载，检查程序已删除、数据仍保留、卸载登记与开始菜单快捷方式已清除。
+# → 卸载，检查程序已删除、数据仍保留、卸载登记与开始菜单快捷方式已清除 → 再次安装后用 /DELETEDATA 卸载，检查数据已删除。
 # 用法：先运行 build.bat 生成安装包，再运行
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tests\installer\check-installer.ps1
 # 不启动桌面程序（标识与开发版相同，会唤起正在运行的篝火）；所有数据都在临时目录，用完即删除。
@@ -70,11 +70,19 @@ $report.dataAfterUninstall = Test-Path (Join-Path $dir "data\repo\keep-me.txt")
 $report.uninstallKeyAfter = Test-Path $key
 $report.startMenuAfter = Shortcuts
 
+# 6. 再次安装后卸载并删除数据（静默卸载默认保留数据；/DELETEDATA 删除，界面卸载时询问）
+$report.reinstallExit = Install
+Start-Process (Join-Path $dir "uninstall.exe") -ArgumentList "/S", "/DELETEDATA" -Wait
+for ($i = 0; $i -lt 60 -and (Test-Path (Join-Path $dir "data")); $i++) { Start-Sleep -Milliseconds 500 }
+$report.dataAfterDeleteData = Test-Path (Join-Path $dir "data")
+$report.dirAfterDeleteData = Test-Path $dir
+
 Remove-Item (Split-Path $dir) -Recurse -Force -ErrorAction SilentlyContinue
 $report.passed = $report.installExit -eq 0 -and $report.upgradeExit -eq 0 -and
   $report.desktopSubsystem -eq 2 -and $report.cliSubsystem -eq 3 -and
   $report.rules -match "规则库：[1-9]\d* 个游戏|rules: [1-9]" -and $report.dataDir -match "repo" -and
   $report.dataAfterUpgrade -and -not $report.exeAfterUninstall -and -not $report.cliAfterUninstall -and
-  $report.dataAfterUninstall -and -not $report.uninstallKeyAfter -and -not $report.startMenuAfter
+  $report.dataAfterUninstall -and -not $report.uninstallKeyAfter -and -not $report.startMenuAfter -and
+  $report.reinstallExit -eq 0 -and -not $report.dataAfterDeleteData -and -not $report.dirAfterDeleteData
 $report | ConvertTo-Json
 if (-not $report.passed) { exit 1 }
