@@ -2,7 +2,8 @@
 //!
 //! - 本机缓存目录中有一个裸仓库（`cache/sync/<目标>.git`），每批改动在上一次的提交上更新目录树后提交并推送；
 //!   第一次同步按批（约 200 MB）分几次推送，避免一次推送过大被拒绝。
-//! - 令牌：GitHub 用户名任意（用 `x-access-token`），Gitee 用户名为 Gitee 账号；令牌作为密码。
+//! - 令牌：GitHub 用户名任意（用 `x-access-token`）；Gitee 的用户名必须是登录名（个人空间地址中的名称），
+//!   填错会被拒绝（403），所以依次尝试：用令牌查到的登录名、填写的用户名、仓库地址中的所有者。
 //! - 公开仓库不同步（存档、截图会被所有人看到）：推送前用 GitHub / Gitee 的接口检查仓库是否私有。
 //! - 压缩远程仓库：用一个只含当前内容、没有父提交的新提交强制替换远程分支，去掉已删除内容的旧版本。
 
@@ -32,14 +33,70 @@ pub struct GitRemote {
 
 fn gerr(e: git2::Error) -> AppError {
     let msg = e.message().to_string();
-    let hint = if msg.contains("401") || msg.to_lowercase().contains("auth") {
-        "（请检查令牌是否正确、是否有写入仓库的权限）"
+    let hint = if is_auth_error(&msg) {
+        "（被拒绝访问：请检查令牌是否正确、是否有读写这个仓库的权限；Gitee 的用户名要填登录名，即个人空间地址 gitee.com/<名称> 中的名称，可以留空自动获取）"
     } else if msg.contains("404") || msg.to_lowercase().contains("not found") {
         "（请检查仓库地址，仓库需要先在网站上创建）"
     } else {
         ""
     };
     AppError::Network(format!("Git：{msg}{hint}"))
+}
+
+fn is_auth_error(msg: &str) -> bool {
+    let m = msg.to_lowercase();
+    m.contains("401") || m.contains("403") || m.contains("auth")
+}
+
+/// 用 Gitee 令牌查登录名（个人空间地址中的名称）。
+pub fn gitee_login(token: &str) -> Result<String> {
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(20)))
+        .http_status_as_error(false)
+        .user_agent(concat!("Bonfire/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .into();
+    let mut resp = agent
+        .get(format!(
+            "https://gitee.com/api/v5/user?access_token={token}"
+        ))
+        .call()
+        .map_err(|e| AppError::Network(e.to_string()))?;
+    if resp.status().as_u16() != 200 {
+        return Err(AppError::Network(format!(
+            "查询 Gitee 账号失败（{}）",
+            resp.status().as_u16()
+        )));
+    }
+    let body = resp.body_mut().read_to_string().unwrap_or_default();
+    let v: serde_json::Value =
+        serde_json::from_str(&body).map_err(|e| AppError::Network(e.to_string()))?;
+    v.get("login")
+        .and_then(|l| l.as_str())
+        .map(str::to_string)
+        .ok_or_else(|| AppError::Network("Gitee 没有返回登录名".into()))
+}
+
+/// Gitee 推送时依次尝试的用户名（去重、去空）。
+fn gitee_users(url: &str, user: &str, token: Option<&str>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut push = |u: String| {
+        let u = u.trim().to_string();
+        if !u.is_empty() && !out.iter().any(|x| x.eq_ignore_ascii_case(&u)) {
+            out.push(u);
+        }
+    };
+    if let Some(t) = token.filter(|_| !is_local(url)) {
+        match gitee_login(t) {
+            Ok(l) => push(l),
+            Err(e) => tracing::warn!("查询 Gitee 登录名失败：{e}"),
+        }
+    }
+    push(user.to_string());
+    if let Some((owner, _)) = owner_repo(url) {
+        push(owner);
+    }
+    out
 }
 
 fn is_local(url: &str) -> bool {
@@ -86,6 +143,24 @@ impl GitRemote {
             base: None,
             updates: Vec::new(),
         };
+        if me.kind == SyncKind::Gitee {
+            let users = gitee_users(&me.url, user, me.token.as_deref());
+            let mut last = None;
+            for u in users {
+                me.user = u;
+                match me.fetch() {
+                    Ok(()) => return Ok(me),
+                    Err(AppError::Network(m)) if is_auth_error(&m) => {
+                        last = Some(AppError::Network(m))
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            if let Some(e) = last {
+                return Err(e);
+            }
+            me.user = user.to_string();
+        }
         me.fetch()?;
         Ok(me)
     }
@@ -377,4 +452,22 @@ pub fn cache_dir(cache: &Path, id: &str) -> PathBuf {
 /// 目标地址是否为本机路径（测试用的本地裸仓库）。
 pub fn local(url: &str) -> bool {
     is_local(url)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gitee_user_candidates() {
+        // 没有令牌时不查接口：先填写的用户名，再仓库地址中的所有者；去重、去空。
+        let u = gitee_users("https://gitee.com/Hong_Xiao_Feng/bak.git", "xiaofenghong", None);
+        assert_eq!(u, ["xiaofenghong", "Hong_Xiao_Feng"]);
+        let u = gitee_users("https://gitee.com/Hong_Xiao_Feng/bak.git", " ", None);
+        assert_eq!(u, ["Hong_Xiao_Feng"]);
+        let u = gitee_users("https://gitee.com/hong_xiao_feng/bak.git", "Hong_Xiao_Feng", None);
+        assert_eq!(u, ["Hong_Xiao_Feng"]);
+        assert!(is_auth_error("request failed with status code: 403"));
+        assert!(!is_auth_error("couldn't find remote ref"));
+    }
 }

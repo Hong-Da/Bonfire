@@ -472,9 +472,16 @@ fn schedules_and_settings_apply() {
     b.schedule = SyncSchedule::Hours;
     b.every_hours = 6;
     let b = env.app.save_sync_target(b, None).unwrap();
-    assert_eq!(env.app.sync_after_backup_targets(), std::slice::from_ref(&a.id));
+    assert_eq!(
+        env.app.sync_after_backup_targets(),
+        std::slice::from_ref(&a.id)
+    );
     let now = jiff::Zoned::now();
-    assert_eq!(env.app.sync_due(&now), std::slice::from_ref(&b.id), "从没同步过：到期");
+    assert_eq!(
+        env.app.sync_due(&now),
+        std::slice::from_ref(&b.id),
+        "从没同步过：到期"
+    );
     env.app.sync_push(&b.id, &mut |_, _| {}).unwrap();
     assert!(env.app.sync_due(&now).is_empty(), "刚同步过：没到期");
 

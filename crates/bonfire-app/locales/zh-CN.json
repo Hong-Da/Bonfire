@@ -1639,7 +1639,7 @@
   "cli.arg.sync.add.kind": "类型：github / gitee / webdav / folder（本机目录、局域网共享、网盘同步文件夹）",
   "cli.arg.sync.add.url": "Git 仓库 HTTPS 地址、WebDAV 文件夹地址或文件夹路径",
   "cli.arg.sync.add.branch": "Git 分支（默认 main）",
-  "cli.arg.sync.add.user": "Gitee 用户名或 WebDAV 用户名",
+  "cli.arg.sync.add.user": "WebDAV 用户名；Gitee 为登录名（可留空，用令牌自动获取）",
   "cli.arg.sync.add.content": "同步内容：repo 完整仓库（默认）/ latest 最新存档 / shots 只同步截图",
   "cli.arg.sync.add.shots": "同时同步截图（文件夹、WebDAV 默认带，GitHub / Gitee 默认不带）",
   "cli.arg.sync.add.no_shots": "不同步截图",
@@ -1760,7 +1760,7 @@
   "ui.sync.token": "访问令牌",
   "ui.sync.password": "密码",
   "ui.sync.tokenHint.github": "在 GitHub“Settings → Developer settings → Personal access tokens”生成，需要仓库的读写权限。",
-  "ui.sync.tokenHint.gitee": "在 Gitee“设置 → 私人令牌”生成，勾选 projects 权限；用户名填 Gitee 账号。",
+  "ui.sync.tokenHint.gitee": "在 Gitee“设置 → 私人令牌”生成，勾选 projects 权限。用户名可以留空，篝火会用令牌查到登录名（个人空间地址 gitee.com/<名称> 中的名称）。",
   "ui.sync.passwordHint": "坚果云等需要使用网站上生成的“应用密码”。",
   "ui.sync.secretKept": "已保存（留空不修改）",
   "ui.sync.test": "测试连接",
@@ -1809,5 +1809,7 @@
   "ui.sync.applySettings": "套用远程的篝火设置（保留本机的仓库位置与密钥）",
   "ui.sync.restored": "已从远程恢复",
   "ui.sync.noToken": "还没填写访问令牌，点“编辑”填写后才能同步",
-  "ui.sync.noPassword": "还没填写密码，点“编辑”填写后才能同步"
+  "ui.sync.noPassword": "还没填写密码，点“编辑”填写后才能同步",
+  "ui.sync.syncNowAsk": "已添加「{name}」。现在同步一次吗？同步前会先显示要上传的内容与大小。",
+  "ui.sync.userOptional": "用户名（可留空）"
 }

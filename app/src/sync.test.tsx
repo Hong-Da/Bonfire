@@ -49,12 +49,13 @@ beforeEach(async () => {
 describe("同步备份页", () => {
   it("没有目标时引导添加，添加 Gitee 目标并保存令牌", async () => {
     api.syncSave.mockResolvedValue(gitee().target);
+    api.syncPlan.mockResolvedValue(plan());
     render(<SyncPage />);
     expect(await screen.findByText("把备份同步到别的地方")).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /添加同步目标/ })[0]);
     fireEvent.click(screen.getByRole("radio", { name: /Gitee/ }));
     fireEvent.change(screen.getByRole("textbox", { name: "仓库地址" }), { target: { value: "https://gitee.com/u/bak.git" } });
-    fireEvent.change(screen.getByRole("textbox", { name: "用户名" }), { target: { value: "u" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "用户名（可留空）" }), { target: { value: "u" } });
     fireEvent.change(screen.getByLabelText("访问令牌"), { target: { value: "tok" } });
     // Gitee 默认不带截图、带篝火设置
     expect(screen.getByRole("checkbox", { name: "带截图" })).not.toBeChecked();
@@ -64,6 +65,9 @@ describe("同步备份页", () => {
     const [t, secret] = api.syncSave.mock.calls[0];
     expect(t).toMatchObject({ kind: "gitee", place: "gitee", url: "https://gitee.com/u/bak.git", user: "u", name: "Gitee" });
     expect(secret).toBe("tok");
+    // 新添加的目标询问是否立即同步，确认后打开同步预览。
+    await waitFor(() => expect(dialog.ask).toHaveBeenCalledWith(expect.stringContaining("现在同步一次吗"), expect.anything()));
+    await waitFor(() => expect(api.syncPlan).toHaveBeenCalledWith("t1"));
   });
 
   it("超过总大小上限时不能同步，并给出解决办法", async () => {

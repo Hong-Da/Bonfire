@@ -220,9 +220,11 @@ export default function SyncPage() {
           hasSecret={!!list?.find((s) => s.target.id === editing.id)?.hasSecret}
           games={games.map((g) => ({ id: g.id, name: displayName(g, i18n.language) }))}
           onClose={() => setEditing(null)}
-          onSaved={() => {
+          onSaved={async (saved, isNew) => {
             setEditing(null);
-            void reload();
+            await reload();
+            // 新添加的目标默认询问是否立即同步（先看预览）。
+            if (isNew && saved.enabled && (await confirm(t("ui.sync.syncNowAsk", { name: saved.name }), { title: t("ui.sync.saved"), ok: t("ui.sync.syncNow"), icon: "cloud" }))) setPreview(saved);
           }}
         />
       )}
@@ -294,7 +296,7 @@ function Coverage({ list, games }: { list: TargetStatus[]; games: { id: string; 
   );
 }
 
-function TargetDialog({ initial, hasSecret, games, onClose, onSaved }: { initial: SyncTarget; hasSecret: boolean; games: { id: string; name: string }[]; onClose: () => void; onSaved: () => void }) {
+function TargetDialog({ initial, hasSecret, games, onClose, onSaved }: { initial: SyncTarget; hasSecret: boolean; games: { id: string; name: string }[]; onClose: () => void; onSaved: (saved: SyncTarget, isNew: boolean) => void }) {
   const { t } = useTranslation();
   const store = useStore();
   const [tg, setTg] = useState<SyncTarget>(initial);
@@ -334,9 +336,9 @@ function TargetDialog({ initial, hasSecret, games, onClose, onSaved }: { initial
   const save = async () => {
     setBusy(true);
     try {
-      await api.syncSave({ ...tg, name: tg.name.trim() || t(`ui.sync.place.${p}`) }, secret || null);
-      store.toast("success", t("ui.sync.saved"));
-      onSaved();
+      const saved = await api.syncSave({ ...tg, name: tg.name.trim() || t(`ui.sync.place.${p}`) }, secret || null);
+      if (!isNew) store.toast("success", t("ui.sync.saved"));
+      onSaved(saved, isNew);
     } catch (e) {
       store.toast("error", errorMessage(e));
       setBusy(false);
@@ -403,7 +405,7 @@ function TargetDialog({ initial, hasSecret, games, onClose, onSaved }: { initial
         )}
         {(tg.kind === "gitee" || tg.kind === "webdav") && (
           <label className="sync-field">
-            <span>{t("ui.sync.user")}</span>
+            <span>{t(tg.kind === "gitee" ? "ui.sync.userOptional" : "ui.sync.user")}</span>
             <input className="field" value={tg.user} onChange={(e) => set({ user: e.target.value })} style={{ maxWidth: 280 }} />
           </label>
         )}

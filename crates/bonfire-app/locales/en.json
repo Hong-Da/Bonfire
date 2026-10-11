@@ -1639,7 +1639,7 @@
   "cli.arg.sync.add.kind": "Type: github / gitee / webdav / folder (local folder, network share, cloud drive sync folder)",
   "cli.arg.sync.add.url": "Git HTTPS URL, WebDAV folder URL or folder path",
   "cli.arg.sync.add.branch": "Git branch (default main)",
-  "cli.arg.sync.add.user": "Gitee or WebDAV user name",
+  "cli.arg.sync.add.user": "WebDAV user name; for Gitee the login (optional, looked up with the token)",
   "cli.arg.sync.add.content": "Content: repo full repository (default) / latest latest saves / shots screenshots only",
   "cli.arg.sync.add.shots": "Also sync screenshots (on by default for folders and WebDAV, off for GitHub / Gitee)",
   "cli.arg.sync.add.no_shots": "Don't sync screenshots",
@@ -1760,7 +1760,7 @@
   "ui.sync.token": "Access token",
   "ui.sync.password": "Password",
   "ui.sync.tokenHint.github": "Create one in GitHub under Settings → Developer settings → Personal access tokens, with read and write access to the repository.",
-  "ui.sync.tokenHint.gitee": "Create one in Gitee under Settings → Personal access tokens with the projects scope; the user name is your Gitee account.",
+  "ui.sync.tokenHint.gitee": "Create one in Gitee under Settings → Personal access tokens with the projects scope. The user name can be left empty; Bonfire looks up your login (the name in gitee.com/<name>) with the token.",
   "ui.sync.passwordHint": "Some services such as Jianguoyun need an app password created on their website.",
   "ui.sync.secretKept": "Saved (leave empty to keep)",
   "ui.sync.test": "Test connection",
@@ -1809,5 +1809,7 @@
   "ui.sync.applySettings": "Apply the remote Bonfire settings (keeps this PC's repository location and keys)",
   "ui.sync.restored": "Restored from the remote",
   "ui.sync.noToken": "No access token yet; add one under Edit before syncing",
-  "ui.sync.noPassword": "No password yet; add one under Edit before syncing"
+  "ui.sync.noPassword": "No password yet; add one under Edit before syncing",
+  "ui.sync.syncNowAsk": "Added “{name}”. Sync it now? You'll see what will be uploaded and how big it is first.",
+  "ui.sync.userOptional": "User name (optional)"
 }

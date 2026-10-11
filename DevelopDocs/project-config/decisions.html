@@ -24,15 +24,21 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 196 项，更新于 2026-10-11 15:53。需要改动的项请在对话中告诉 Claude（附编号）。</p>
-<nav><a href="#s-0">版本</a><a href="#s-1">0.2.0 同步备份</a><a href="#s-2">界面</a><a href="#s-3">第三轮 收尾</a><a href="#s-4">M5-4 Linux / Steam Deck</a><a href="#s-5">M5-2 仓库加密</a><a href="#s-6">M5-3 读取被占用的文件</a><a href="#s-7">M4-5 性能与资源</a><a href="#s-8">M4-1 其余平台</a><a href="#s-9">M4-3 自动备份</a><a href="#s-10">M4-2 游戏运行保护</a><a href="#s-11">M4-4 历史清理</a><a href="#s-12">M3</a><a href="#s-13">导入</a><a href="#s-14">导出</a><a href="#s-15">开发</a><a href="#s-16">缺陷修复</a><a href="#s-17">用户修改</a><a href="#s-18">M3 GUI MVP</a><a href="#s-19">M2 存档发现</a><a href="#s-20">M1 核心库</a><a href="#s-21">全局</a></nav>
-<section id="s-0"><h2>版本<small>1 项</small></h2>
-      <article id="V-020">
-        <header><code>V-020</code><h3>版本号</h3><span class="status">用户确认</span></header>
-        <ul><li class="chosen">0.1.0 → 0.2.0（新增功能升次版本）（推荐） <b>✓ 采用</b></li></ul>
-        <p class="reason"><span>理由</span>按用户“开始开发 0.2.0”。</p><p class="impact"><span>影响</span>Cargo.toml、app/package.json；更新记录 docs/changelog/v0/v0.2/v0.2.0.md。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 198 项，更新于 2026-10-11 19:09。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<nav><a href="#s-0">0.2.0 同步备份</a><a href="#s-1">版本</a><a href="#s-2">界面</a><a href="#s-3">第三轮 收尾</a><a href="#s-4">M5-4 Linux / Steam Deck</a><a href="#s-5">M5-2 仓库加密</a><a href="#s-6">M5-3 读取被占用的文件</a><a href="#s-7">M4-5 性能与资源</a><a href="#s-8">M4-1 其余平台</a><a href="#s-9">M4-3 自动备份</a><a href="#s-10">M4-2 游戏运行保护</a><a href="#s-11">M4-4 历史清理</a><a href="#s-12">M3</a><a href="#s-13">导入</a><a href="#s-14">导出</a><a href="#s-15">开发</a><a href="#s-16">缺陷修复</a><a href="#s-17">用户修改</a><a href="#s-18">M3 GUI MVP</a><a href="#s-19">M2 存档发现</a><a href="#s-20">M1 核心库</a><a href="#s-21">全局</a></nav>
+<section id="s-0"><h2>0.2.0 同步备份<small>9 项</small></h2>
+      <article id="S4e">
+        <header><code>S4e</code><h3>Gitee 推送用的用户名</h3><span class="status">按推荐</span></header>
+        <ul><li class="chosen">依次尝试：用令牌查到的登录名、填写的用户名、仓库地址中的所有者；用户名可以留空（推荐） <b>✓ 采用</b></li><li class="">只用填写的用户名</li></ul>
+        <p class="reason"><span>理由</span>用户的 Gitee 同步报 403：用户名填的是昵称（xiaofenghong），而 Gitee HTTPS 认证要求登录名（Hong_Xiao_Feng）。</p><p class="impact"><span>影响</span>版本 0.2.1。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-1"><h2>0.2.0 同步备份<small>7 项</small></h2>
+      </article>
+      <article id="S4d">
+        <header><code>S4d</code><h3>添加同步目标后是否立即同步</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">保存新目标后询问“现在同步一次吗？”，确认后先显示同步预览（推荐） <b>✓ 采用</b></li><li class="">保存后不询问</li></ul>
+        <p class="reason"><span>理由</span>用户要求默认询问。编辑已有目标不询问。</p><p class="impact"><span>影响</span>SyncPage 保存新目标后弹出确认框。</p>
+        <footer>2026-10-11</footer>
+      </article>
       <article id="S4c">
         <header><code>S4c</code><h3>缺少令牌或密码时的提示</h3><span class="status">按推荐</span></header>
         <ul><li class="chosen">目标卡片上提示“还没填写访问令牌 / 密码，点编辑填写后才能同步”；编辑时密码框留空表示不修改（推荐） <b>✓ 采用</b></li></ul>
@@ -73,6 +79,12 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <header><code>REQ-015a</code><h3>同步内容</h3><span class="status">用户确认</span></header>
         <ul><li class="chosen">每个目标可选：完整仓库（历史、可从远程恢复，加密仓库远程也加密）/ 最新存档（游戏名/文件原样，不加密）/ 只同步截图；可另选带截图、篝火设置；可同时添加多个目标（推荐） <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>用户确认（按推荐，含多目标、截图、篝火设置）。</p><p class="impact"><span>影响</span>截图默认：WebDAV、网盘、远程目录、指定目录带；GitHub、Gitee 不带。篝火设置默认带，不含密钥、令牌与本机记住的密码；恢复时询问是否套用。</p>
+        <footer>2026-10-11</footer>
+      </article></section><section id="s-1"><h2>版本<small>1 项</small></h2>
+      <article id="V-020">
+        <header><code>V-020</code><h3>版本号</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">0.1.0 → 0.2.0（新增功能升次版本）（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>按用户“开始开发 0.2.0”。</p><p class="impact"><span>影响</span>Cargo.toml、app/package.json；更新记录 docs/changelog/v0/v0.2/v0.2.0.md。</p>
         <footer>2026-10-11</footer>
       </article></section><section id="s-2"><h2>界面<small>13 项</small></h2>
       <article id="U-58a">
