@@ -24,9 +24,21 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 199 项，更新于 2026-10-11 19:15。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 201 项，更新于 2026-10-11 19:30。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">0.2.0 同步备份</a><a href="#s-1">版本</a><a href="#s-2">界面</a><a href="#s-3">第三轮 收尾</a><a href="#s-4">M5-4 Linux / Steam Deck</a><a href="#s-5">M5-2 仓库加密</a><a href="#s-6">M5-3 读取被占用的文件</a><a href="#s-7">M4-5 性能与资源</a><a href="#s-8">M4-1 其余平台</a><a href="#s-9">M4-3 自动备份</a><a href="#s-10">M4-2 游戏运行保护</a><a href="#s-11">M4-4 历史清理</a><a href="#s-12">M3</a><a href="#s-13">导入</a><a href="#s-14">导出</a><a href="#s-15">开发</a><a href="#s-16">缺陷修复</a><a href="#s-17">用户修改</a><a href="#s-18">M3 GUI MVP</a><a href="#s-19">M2 存档发现</a><a href="#s-20">M1 核心库</a><a href="#s-21">全局</a></nav>
-<section id="s-0"><h2>0.2.0 同步备份<small>10 项</small></h2>
+<section id="s-0"><h2>0.2.0 同步备份<small>12 项</small></h2>
+      <article id="S4h">
+        <header><code>S4h</code><h3>展示失败原因与忽略</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">卡片显示原因、解决办法、详细信息；可忽略三类：连不上目标（不算作问题，仍重试）、超过总大小上限（照常同步）、单文件超限被排除（不再提醒）；忽略前确认说明后果，可在编辑中恢复；令牌错误、公开仓库等不能忽略（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求展示失败原因并可忽略某些原因（如空间大小）。公开仓库会泄露存档，令牌错误忽略后永远同步不了，所以不能忽略。</p><p class="impact"><span>影响</span>目标设置新增 ignore；CLI `sync add --ignore`。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="S4g">
+        <header><code>S4g</code><h3>同步失败后的自动重试</h3><span class="status">用户确认</span></header>
+        <ul><li class="chosen">连不上目标（网络、服务器、移动硬盘或共享没连上）与未分类的问题：非手动目标在 5 分钟、15 分钟、1 小时后各重试一次，之后等正常的同步时间；令牌错误、找不到仓库、公开仓库、超过上限不重试（推荐） <b>✓ 采用</b></li><li class="">不自动重试</li></ul>
+        <p class="reason"><span>理由</span>用户同意建议方案。</p><p class="impact"><span>影响</span>卡片显示下次重试时间；同步成功后清除重试。版本 0.2.3。</p>
+        <footer>2026-10-11</footer>
+      </article>
       <article id="S4f">
         <header><code>S4f</code><h3>“每个游戏备份到了哪里”怎么显示</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">列表：默认只显示需要处理的游戏（未同步、有问题）；状态筛选（需要处理 / 未同步 / 有问题 / 已同步 / 全部）、目标筛选、搜索；每行只列包含该游戏的目标及状态；超过 60 个分页（推荐） <b>✓ 采用</b></li><li class="">保留“游戏 × 目标”大表</li></ul>

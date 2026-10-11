@@ -254,6 +254,14 @@ pub enum SyncContentArg {
     Shots,
 }
 
+/// 可以忽略的同步问题。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SyncIgnoreArg {
+    Network,
+    Size,
+    Excluded,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
 pub enum SyncScheduleArg {
     #[default]
@@ -292,6 +300,8 @@ pub enum SyncCmd {
         max_total_mb: Option<u64>,
         #[arg(long, value_enum, default_value_t)]
         schedule: SyncScheduleArg,
+        #[arg(long, value_enum, value_delimiter = ',')]
+        ignore: Vec<SyncIgnoreArg>,
     },
     Rm {
         target: String,

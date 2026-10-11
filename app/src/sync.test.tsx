@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { sharedApi as api, row } from "./test-utils";
 
 vi.mock("./api", async () => {
@@ -20,6 +20,7 @@ const gitee = (): TargetStatus => ({
   hasSecret: true,
   last: null,
   remoteFiles: 0,
+  retry: null,
 });
 
 const plan = (over: Partial<SyncPlan> = {}): SyncPlan => ({
@@ -34,6 +35,7 @@ const plan = (over: Partial<SyncPlan> = {}): SyncPlan => ({
   level: "ok",
   parts: [["saves", 2048]],
   blocked: null,
+  blockedIssue: null,
   ...over,
 });
 
@@ -92,7 +94,7 @@ describe("同步备份页", () => {
   });
 
   it("每个游戏备份到了哪里：默认只列需要处理的游戏，可筛选与搜索", async () => {
-    const ok: TargetStatus = { target: { ...newTarget("local"), id: "d1", name: "移动硬盘", url: "E:/bak", games: ["a", "b"] }, hasSecret: false, last: { at: new Date().toISOString(), uploaded: 1, uploadedBytes: 1, deleted: 0, excluded: [] }, remoteFiles: 1 };
+    const ok: TargetStatus = { target: { ...newTarget("local"), id: "d1", name: "移动硬盘", url: "E:/bak", games: ["a", "b"] }, hasSecret: false, last: { at: new Date().toISOString(), uploaded: 1, uploadedBytes: 1, deleted: 0, excluded: [] }, remoteFiles: 1, retry: null };
     const bad: TargetStatus = { ...gitee(), target: { ...gitee().target, games: ["b"] }, last: { at: new Date().toISOString(), uploaded: 0, uploadedBytes: 0, deleted: 0, excluded: [], error: "403" } };
     api.syncStatus.mockResolvedValue([ok, bad]);
     const rows = [row({ id: "a", name: "Celeste", nameZh: null }), row({ id: "b", name: "Hades", nameZh: null }), row({ id: "c", name: "Hollow Knight", nameZh: "空洞骑士" })];
@@ -111,4 +113,29 @@ describe("同步备份页", () => {
     expect(screen.getByText("Hades")).toBeInTheDocument();
     expect(screen.queryByText("Celeste")).toBeNull();
   });
+
+  it("显示失败原因与自动重试时间，可以忽略这类问题", async () => {
+    const st: TargetStatus = {
+      ...gitee(),
+      target: { ...gitee().target, schedule: "after-backup" },
+      last: { at: new Date().toISOString(), uploaded: 0, uploadedBytes: 0, deleted: 0, excluded: [], error: "联网失败：timed out", issue: "network" },
+      retry: { attempt: 2, at: new Date(Date.now() + 15 * 60_000).toISOString() },
+    };
+    api.syncStatus.mockResolvedValue([st]);
+    api.syncSave.mockResolvedValue(st.target);
+    render(<SyncPage />);
+    const box = await screen.findByRole("status");
+    expect(box).toHaveTextContent("连不上目标");
+    expect(box).toHaveTextContent("自动重试（第 2/3 次）");
+    fireEvent.click(screen.getByRole("button", { name: "忽略这类问题" }));
+    await waitFor(() => expect(api.syncSave).toHaveBeenCalledWith(expect.objectContaining({ ignore: ["network"] }), null));
+
+    // 令牌错误不能忽略
+    api.syncStatus.mockResolvedValue([{ ...st, last: { ...st.last!, error: "403", issue: "auth" }, retry: null }]);
+    cleanup();
+    render(<SyncPage />);
+    expect(await screen.findByText("令牌或密码不对")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "忽略这类问题" })).toBeNull();
+  });
 });
+

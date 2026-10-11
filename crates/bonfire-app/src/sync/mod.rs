@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 pub use content::{Item, Source};
-pub use target::{SyncContent, SyncKind, SyncSchedule, SyncTarget};
+pub use target::{SyncContent, SyncIssue, SyncKind, SyncSchedule, SyncTarget};
 
 use crate::app::App;
 use crate::error::{AppError, Result};
@@ -68,6 +68,7 @@ pub struct SyncPlan {
     pub parts: Vec<(String, u64)>,
     /// 不能同步的原因（如会超过上限、存档分块超过单文件上限）。
     pub blocked: Option<String>,
+    pub blocked_issue: Option<SyncIssue>,
 }
 
 /// 一次同步的结果。
@@ -81,7 +82,21 @@ pub struct SyncRun {
     pub excluded: Vec<Excluded>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// 失败的原因分类。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issue: Option<SyncIssue>,
 }
+
+/// 失败后的自动重试：第几次、什么时候。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Retry {
+    pub attempt: u32,
+    pub at: String,
+}
+
+/// 自动重试的间隔（分钟）：失败后 5 分钟、15 分钟、1 小时，之后等正常的同步时间。
+pub const RETRY_MINUTES: [i64; 3] = [5, 15, 60];
 
 /// 每个目标在本机记录的同步状态：远程已有的文件（路径 → 指纹）与最近的同步记录。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -93,6 +108,8 @@ pub struct SyncState {
     pub pushed_bytes: u64,
     #[serde(default)]
     pub runs: Vec<SyncRun>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry: Option<Retry>,
 }
 
 /// 目标的状态（同步页显示）。
@@ -103,6 +120,8 @@ pub struct TargetStatus {
     pub has_secret: bool,
     pub last: Option<SyncRun>,
     pub remote_files: usize,
+    /// 等待中的自动重试。
+    pub retry: Option<Retry>,
 }
 
 /// 远程存储。
@@ -173,6 +192,7 @@ impl App {
                     has_secret: self.sync_secret(&t.id).is_some(),
                     last: s.runs.last().cloned(),
                     remote_files: s.files.len(),
+                    retry: s.retry.clone(),
                     target: t.clone(),
                 }
             })
@@ -239,7 +259,9 @@ impl App {
         } else {
             SizeLevel::Ok
         };
-        if level == SizeLevel::Over && blocked.is_none() {
+        let mut blocked_issue = blocked.as_ref().map(|_| SyncIssue::FileLimit);
+        if level == SizeLevel::Over && blocked.is_none() && !t.ignores(SyncIssue::Size) {
+            blocked_issue = Some(SyncIssue::Size);
             blocked = Some(format!(
                 "同步后远程约 {}，超过总大小上限 {} MB；可以不同步截图、只同步部分游戏、清理历史{}，或改用 WebDAV / 文件夹",
                 crate::util::human_bytes(remote_bytes),
@@ -263,6 +285,7 @@ impl App {
             level,
             parts: parts.into_iter().collect(),
             blocked,
+            blocked_issue,
         };
         Ok((plan, upload, delete))
     }
@@ -311,6 +334,8 @@ impl App {
         let mut state = self.sync_state(&t.id);
         if let Some(why) = &plan.blocked {
             run.error = Some(why.clone());
+            run.issue = plan.blocked_issue.or(Some(SyncIssue::Size));
+            state.retry = None;
             self.record_run(&t.id, &mut state, run.clone())?;
             return Err(AppError::Invalid(why.clone()));
         }
@@ -349,8 +374,14 @@ impl App {
             state.pushed_bytes += in_batch;
             Ok(())
         })();
-        if let Err(e) = &result {
-            run.error = Some(e.to_string());
+        match &result {
+            Err(e) => {
+                let issue = self.classify(e);
+                run.error = Some(e.to_string());
+                run.issue = Some(issue);
+                state.retry = next_retry(&t, issue, state.retry.as_ref(), jiff::Timestamp::now());
+            }
+            Ok(()) => state.retry = None,
         }
         self.record_run(&t.id, &mut state, run.clone())?;
         result.map(|_| run)
@@ -403,8 +434,23 @@ impl App {
                     .and_then(|r| r.at.parse::<jiff::Timestamp>().ok());
                 crate::auto::schedule_due(sched, &t.at, 1, t.every_hours.max(1), last, now)
             })
+            .chain(self.config.sync.targets.iter().filter(|t| {
+                // 到时间的自动重试（定时的目标若同时到期，下面去重）。
+                t.enabled
+                    && t.schedule != SyncSchedule::Manual
+                    && self
+                        .sync_state(&t.id)
+                        .retry
+                        .and_then(|r| r.at.parse::<jiff::Timestamp>().ok())
+                        .is_some_and(|at| at <= now.timestamp())
+            }))
             .map(|t| t.id.clone())
-            .collect()
+            .fold(Vec::new(), |mut v, id| {
+                if !v.contains(&id) {
+                    v.push(id);
+                }
+                v
+            })
     }
 
     /// 套用从远程恢复的篝火设置：保留本机的仓库位置与密钥（设置文件中没有密钥）。
@@ -425,6 +471,41 @@ impl App {
         c.save(&self.paths.config_file)?;
         self.config = c;
         Ok(())
+    }
+
+    /// 失败原因分类：按错误类型与内容判断。
+    fn classify(&self, e: &AppError) -> SyncIssue {
+        let auth = |m: &str| {
+            let l = m.to_lowercase();
+            l.contains("401")
+                || l.contains("403")
+                || l.contains("auth")
+                || m.contains("令牌")
+                || m.contains("密码")
+        };
+        match e {
+            AppError::Io { path, .. } => {
+                // 读本机仓库或缓存失败是本机问题；写目标文件夹失败多半是移动硬盘、共享没连上。
+                if path.starts_with(self.repo.root()) || path.starts_with(&self.paths.cache_dir) {
+                    SyncIssue::Local
+                } else {
+                    SyncIssue::Network
+                }
+            }
+            AppError::PathNotFound(_) => SyncIssue::Network,
+            AppError::Network(m) if auth(m) => SyncIssue::Auth,
+            AppError::Network(m)
+                if m.contains("404")
+                    || m.contains("找不到")
+                    || m.to_lowercase().contains("not found") =>
+            {
+                SyncIssue::NotFound
+            }
+            AppError::Network(_) => SyncIssue::Network,
+            AppError::Invalid(m) if m.contains("公开仓库") => SyncIssue::Public,
+            AppError::Invalid(m) if auth(m) => SyncIssue::Auth,
+            _ => SyncIssue::Other,
+        }
     }
 
     fn record_run(&self, id: &str, state: &mut SyncState, run: SyncRun) -> Result<()> {
@@ -535,3 +616,22 @@ impl App {
 
 #[cfg(test)]
 mod tests;
+
+/// 失败后下一次自动重试：只重试网络一类的问题，手动同步的目标不重试，最多 3 次。
+pub fn next_retry(
+    t: &SyncTarget,
+    issue: SyncIssue,
+    prev: Option<&Retry>,
+    now: jiff::Timestamp,
+) -> Option<Retry> {
+    if !issue.retryable() || t.schedule == SyncSchedule::Manual {
+        return None;
+    }
+    let attempt = prev.map_or(1, |r| r.attempt + 1);
+    let mins = *RETRY_MINUTES.get(attempt as usize - 1)?;
+    let at = now + jiff::SignedDuration::from_mins(mins);
+    Some(Retry {
+        attempt,
+        at: at.to_string(),
+    })
+}

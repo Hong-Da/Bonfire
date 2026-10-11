@@ -60,7 +60,7 @@
 | `bonfire gc [<game>...] [--objects-only] [--dry-run]` | 清理历史（需确认）：按保留策略（设置 `[retention]`：最近 N 个、最近几天每天 1 个、最近几周每周 1 个；默认只清理自动生成的快照）压掉多余的快照，子快照改接到保留的快照上；带标签的、各分支最新的、当前所在的快照与可撤销的恢复用到的快照永远保留。之后回收不再被任何快照使用的空间（30 天内引用日志中出现过的快照也保留）。`--objects-only` 只回收空间，不删除快照 |
 | `bonfire reindex` | 从仓库重建索引数据库 |
 | `bonfire sync list` | 同步目标与上次同步的结果 |
-| `bonfire sync add <名称> --kind github\|gitee\|webdav\|folder --url <地址> [--branch main] [--user <用户名>] [--content repo\|latest\|shots] [--shots\|--no-shots] [--no-settings] [--games a,b] [--max-file-mb N] [--max-total-mb N] [--schedule manual\|after-backup\|daily\|hours]` | 添加同步目标。内容：`repo` 完整仓库（含历史，可从远程恢复；加密仓库远程也加密）、`latest` 最新存档（`<游戏名>/<文件>`，不加密）、`shots` 只同步截图；默认同时同步篝火设置（不含密钥、令牌与密码）。GitHub 默认单文件 100 MB、总大小 1 GB，Gitee 50 MB、500 MB，且默认不带截图；令牌或密码取自环境变量 `BONFIRE_SYNC_SECRET` 或终端输入，用 Windows 数据保护保存在本机 |
+| `bonfire sync add <名称> --kind github\|gitee\|webdav\|folder --url <地址> [--branch main] [--user <用户名>] [--content repo\|latest\|shots] [--shots\|--no-shots] [--no-settings] [--games a,b] [--max-file-mb N] [--max-total-mb N] [--schedule manual\|after-backup\|daily\|hours] [--ignore network,size,excluded]` | 添加同步目标。内容：`repo` 完整仓库（含历史，可从远程恢复；加密仓库远程也加密）、`latest` 最新存档（`<游戏名>/<文件>`，不加密）、`shots` 只同步截图；默认同时同步篝火设置（不含密钥、令牌与密码）。GitHub 默认单文件 100 MB、总大小 1 GB，Gitee 50 MB、500 MB，且默认不带截图；令牌或密码取自环境变量 `BONFIRE_SYNC_SECRET` 或终端输入，用 Windows 数据保护保存在本机。连不上目标（网络、服务器、移动硬盘没连上）时，非手动目标在 5 分钟、15 分钟、1 小时后自动重试；`--ignore` 忽略某些问题：`network` 不算作同步有问题（仍自动重试）、`size` 超过总大小上限也照常同步、`excluded` 单文件超限被排除时不再提醒 |
 | `bonfire sync rm <目标>` | 删除同步目标（需确认；远程上的文件不动） |
 | `bonfire sync test <目标>` | 测试连接；GitHub / Gitee 同时检查仓库是否私有（公开仓库不同步） |
 | `bonfire sync preview <目标>` | 预览：要上传、删除、排除（超过单文件上限）的文件与同步后远程的大小；会超过总大小上限时说明原因 |

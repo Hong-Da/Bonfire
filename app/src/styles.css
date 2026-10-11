@@ -1217,6 +1217,17 @@ button.link:hover { text-decoration: underline; }
 .sync-chips span { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--smoke); }
 .sync-last { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
 .sync-last.error { color: var(--danger); }
+.sync-issue { margin-top: 6px; padding: 8px 12px; border-left: 3px solid var(--danger); border-radius: 0 6px 6px 0; background: color-mix(in srgb, var(--danger) 7%, var(--surface)); display: grid; gap: 3px; font-size: 13px; }
+.sync-issue.ignored { border-left-color: var(--line); background: var(--smoke); color: var(--muted); }
+.sync-issue-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.sync-issue-head b { color: var(--danger); }
+.sync-issue.ignored .sync-issue-head b { color: var(--ink); }
+.sync-issue-head span { color: var(--muted); font-size: 12px; }
+.sync-issue p { margin: 0; }
+.sync-retry { color: var(--ink); }
+.sync-issue details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+.sync-issue code { display: block; margin-top: 4px; white-space: pre-wrap; word-break: break-all; font-size: 12px; color: var(--muted); }
+.sync-issue .link, .sync-last .link { justify-self: start; font-size: 12px; }
 .sync-progress { position: relative; margin-top: 6px; height: 22px; border-radius: 6px; background: var(--smoke); overflow: hidden; }
 .sync-progress i { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--ember) 35%, transparent); transition: width 0.3s; }
 .sync-progress span { position: relative; padding: 0 8px; font-size: 12px; line-height: 22px; }
@@ -1238,6 +1249,7 @@ button.link:hover { text-decoration: underline; }
 .cov-tag { display: inline-flex; align-items: baseline; gap: 5px; padding: 1px 8px; border-radius: 999px; background: var(--smoke); font-size: 12px; }
 .cov-tag small { font-size: 11px; }
 .cov-tag.failed { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger); }
+.cov-tag.ignored { color: var(--muted); }
 .cov-tag.pending { background: none; border: 1px dashed var(--line); color: var(--muted); }
 .cov-note { color: var(--danger); font-size: 12px; }
 .cov-empty { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 14px 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 13px; }

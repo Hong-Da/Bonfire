@@ -56,6 +56,42 @@ pub enum SyncSchedule {
     Hours,
 }
 
+/// 同步失败（或提醒）的原因。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SyncIssue {
+    /// 连不上目标：网络、服务器（超时、5xx），或移动硬盘、局域网共享没连上。
+    Network,
+    /// 令牌或密码不对、没有权限、还没填写。
+    Auth,
+    /// 找不到仓库或文件夹。
+    NotFound,
+    /// GitHub / Gitee 仓库是公开的。
+    Public,
+    /// 同步后会超过总大小上限。
+    Size,
+    /// 仓库中的文件超过单文件上限（仓库文件不能跳过）。
+    FileLimit,
+    /// 本机读取要同步的文件失败。
+    Local,
+    /// 有文件超过单文件上限被排除（提醒，不是失败）。
+    Excluded,
+    Other,
+}
+
+impl SyncIssue {
+    /// 自动重试能解决的问题。
+    pub fn retryable(self) -> bool {
+        matches!(self, Self::Network | Self::Other)
+    }
+
+    /// 可以忽略的问题：连不上目标（不再算作同步有问题，仍会自动重试）、
+    /// 超过总大小上限（照常同步）、单文件超限被排除（不再提醒）。
+    pub fn ignorable(self) -> bool {
+        matches!(self, Self::Network | Self::Size | Self::Excluded)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SyncTarget {
@@ -85,6 +121,8 @@ pub struct SyncTarget {
     pub at: String,
     pub every_hours: u32,
     pub enabled: bool,
+    /// 忽略的问题（只能是可以忽略的几种）。
+    pub ignore: Vec<SyncIssue>,
 }
 
 impl Default for SyncTarget {
@@ -107,6 +145,7 @@ impl Default for SyncTarget {
             at: "21:00".into(),
             every_hours: 24,
             enabled: true,
+            ignore: Vec::new(),
         }
     }
 }
@@ -124,6 +163,11 @@ impl SyncTarget {
             max_total_mb: t,
             ..Default::default()
         }
+    }
+
+    /// 是否忽略这类问题。
+    pub fn ignores(&self, issue: SyncIssue) -> bool {
+        self.ignore.contains(&issue)
     }
 
     fn validate(&self) -> Result<()> {
@@ -167,6 +211,14 @@ impl App {
         secret: Option<&str>,
     ) -> Result<SyncTarget> {
         t.validate()?;
+        // 只保留可以忽略的问题，去重。
+        let mut ignore = Vec::new();
+        for i in t.ignore.drain(..) {
+            if i.ignorable() && !ignore.contains(&i) {
+                ignore.push(i);
+            }
+        }
+        t.ignore = ignore;
         if t.id.is_empty() {
             let mut b = [0u8; 4];
             getrandom::fill(&mut b).expect("系统随机数可用");

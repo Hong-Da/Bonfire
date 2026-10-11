@@ -7,7 +7,7 @@ import { bytes, relative } from "../lib/format";
 import { fuzzyMatch } from "../lib/search";
 import { useStore } from "../store";
 import { Icon, Menu, Modal, displayName, type IconName } from "../components/ui";
-import type { SyncPlan, SyncTarget, TargetStatus } from "../types";
+import { IGNORABLE, type SyncIssue, type SyncPlan, type SyncRun, type SyncTarget, type TargetStatus } from "../types";
 
 /** 界面上的六种目标；网盘、远程目录、指定目录都是文件夹目标（网盘也可以选 WebDAV）。 */
 export const PLACES = ["github", "gitee", "webdav", "cloud", "network", "local"] as const;
@@ -43,8 +43,14 @@ export function newTarget(p: Place): SyncTarget {
     at: "21:00",
     every_hours: 24,
     enabled: true,
+    ignore: [],
   };
 }
+
+/** 最近一次失败的原因（旧版本的记录没有分类，算作“其他”）。 */
+export const issueOf = (r: SyncRun | null | undefined): SyncIssue | null => (r?.error ? (r.issue ?? "other") : null);
+
+const clock = (iso: string, lang: string) => new Date(iso).toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" });
 
 type Running = Record<string, { done: number; total: number }>;
 
@@ -87,6 +93,17 @@ export default function SyncPage() {
       return n;
     });
     void reload();
+  };
+
+  const ignore = async (tg: SyncTarget, issue: SyncIssue) => {
+    if (!(await confirm(t(`ui.sync.ignoreConfirm.${issue}`), { title: t("ui.sync.ignoreTitle", { what: t(`ui.sync.issue.${issue}`) }), ok: t("ui.sync.ignore") }))) return;
+    try {
+      await api.syncSave({ ...tg, ignore: [...tg.ignore, issue] }, null);
+      store.toast("success", t("ui.sync.ignored", { what: t(`ui.sync.issue.${issue}`) }));
+      void reload();
+    } catch (e) {
+      store.toast("error", errorMessage(e));
+    }
   };
 
   const runAll = async () => {
@@ -150,8 +167,10 @@ export default function SyncPage() {
                 const p = placeOf(tg);
                 const r = running[tg.id];
                 const last = s.last;
+                const issue = issueOf(last);
+                const ignored = !!issue && tg.ignore.includes(issue);
                 return (
-                  <li key={tg.id} className={`sync-card${!tg.enabled ? " off" : ""}${last?.error ? " failed" : ""}`}>
+                  <li key={tg.id} className={`sync-card${!tg.enabled ? " off" : ""}${issue && !ignored ? " failed" : ""}`}>
                     <span className={`sync-kind kind-${p}`} aria-hidden>
                       <Icon name={ICONS[p]} size={20} />
                     </span>
@@ -177,15 +196,42 @@ export default function SyncPage() {
                           <span>{r.total ? t("ui.sync.progress", { done: bytes(r.done), total: bytes(r.total) }) : t("ui.sync.preparing")}</span>
                         </div>
                       ) : (
-                        <p className={`sync-last${last?.error ? " error" : ""}`}>
-                          {!last
-                            ? t("ui.sync.never")
-                            : last.error
-                              ? t("ui.sync.lastFailed", { when: relative(last.at, i18n.language), msg: last.error })
-                              : t("ui.sync.lastOk", { when: relative(last.at, i18n.language), n: last.uploaded, size: bytes(last.uploadedBytes) })}
-                          {last && last.excluded.length > 0 && !last.error && <span className="warn-hint"> {t("ui.sync.lastExcluded", { n: last.excluded.length })}</span>}
-                          {tg.kind !== "folder" && !s.hasSecret && <span className="warn-hint"> {t(tg.kind === "webdav" ? "ui.sync.noPassword" : "ui.sync.noToken")}</span>}
-                        </p>
+                        <>
+                          {last && issue ? (
+                            <div className={`sync-issue${ignored ? " ignored" : ""}`} role="status">
+                              <div className="sync-issue-head">
+                                <b>{t(`ui.sync.issue.${issue}`)}</b>
+                                <span>{t("ui.sync.failedWhen", { when: relative(last.at, i18n.language) })}</span>
+                                {ignored && <span className="tag">{t("ui.sync.ignoredTag")}</span>}
+                              </div>
+                              <p>{t(`ui.sync.issueHint.${issue}`)}</p>
+                              {s.retry && <p className="sync-retry">{t("ui.sync.retryAt", { time: clock(s.retry.at, i18n.language), n: s.retry.attempt })}</p>}
+                              <details>
+                                <summary>{t("ui.sync.details")}</summary>
+                                <code>{last.error}</code>
+                              </details>
+                              {IGNORABLE.includes(issue) && !ignored && (
+                                <button className="link" onClick={() => void ignore(tg, issue)}>
+                                  {t("ui.sync.ignoreThis")}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="sync-last">
+                              {!last ? t("ui.sync.never") : t("ui.sync.lastOk", { when: relative(last.at, i18n.language), n: last.uploaded, size: bytes(last.uploadedBytes) })}
+                              {last && last.excluded.length > 0 && !tg.ignore.includes("excluded") && (
+                                <span className="warn-hint">
+                                  {" "}
+                                  {t("ui.sync.lastExcluded", { n: last.excluded.length })}{" "}
+                                  <button className="link" onClick={() => void ignore(tg, "excluded")}>
+                                    {t("ui.sync.ignoreThis")}
+                                  </button>
+                                </span>
+                              )}
+                            </p>
+                          )}
+                          {tg.kind !== "folder" && !s.hasSecret && issue !== "auth" && <p className="sync-last warn-hint">{t(tg.kind === "webdav" ? "ui.sync.noPassword" : "ui.sync.noToken")}</p>}
+                        </>
                       )}
                     </div>
                     <div className="sync-actions">
@@ -246,14 +292,15 @@ export default function SyncPage() {
 }
 
 /** 每个游戏的存档与截图同步到了哪些目标（上次同步成功的）。没有任何远程备份的游戏标出来。 */
-type CovState = "ok" | "failed" | "pending";
+type CovState = "ok" | "failed" | "ignored" | "pending";
 type CovFilter = "todo" | "none" | "problem" | "ok" | "all";
 const COV_FILTERS: CovFilter[] = ["todo", "none", "problem", "ok", "all"];
 const COV_PAGE = 60;
 
 /** 目标对这个游戏的状态：同步成功 / 最近一次失败 / 还没同步成功过（含缺令牌）。 */
 function targetState(s: TargetStatus): CovState {
-  if (s.last?.error) return "failed";
+  const issue = issueOf(s.last);
+  if (issue) return s.target.ignore.includes(issue) ? "ignored" : "failed";
   if (!s.last || (s.target.kind !== "folder" && !s.hasSecret)) return "pending";
   return "ok";
 }
@@ -276,7 +323,7 @@ function Coverage({ list, games }: { list: TargetStatus[]; games: { id: string; 
         .filter((s) => s.target.content !== "shots" && (s.target.games.length === 0 || s.target.games.includes(g.id)))
         .map((s) => ({ s, state: targetState(s), shots: s.target.shots }));
       const okCount = on.filter((x) => x.state === "ok").length;
-      const status: "none" | "problem" | "ok" = okCount === 0 ? "none" : on.some((x) => x.state !== "ok") ? "problem" : "ok";
+      const status: "none" | "problem" | "ok" = okCount === 0 ? "none" : on.some((x) => x.state === "failed" || x.state === "pending") ? "problem" : "ok";
       return { g, on, status };
     });
   }, [list, games]);
@@ -588,6 +635,24 @@ function TargetDialog({ initial, hasSecret, games, onClose, onSaved }: { initial
             {t("ui.sync.enabled")}
           </label>
         </div>
+
+        <fieldset className="sync-content">
+          <legend>{t("ui.sync.ignoreTitleList")}</legend>
+          {IGNORABLE.map((i) => (
+            <label key={i} className="opt sync-radio">
+              <input
+                type="checkbox"
+                className="check"
+                checked={tg.ignore.includes(i)}
+                onChange={(e) => set({ ignore: e.target.checked ? [...tg.ignore, i] : tg.ignore.filter((x) => x !== i) })}
+              />
+              <span>
+                <b>{t(`ui.sync.issue.${i}`)}</b>
+                <small>{t(`ui.sync.ignoreEffect.${i}`)}</small>
+              </span>
+            </label>
+          ))}
+        </fieldset>
       </div>
     </Modal>
   );
@@ -663,6 +728,7 @@ function PreviewDialog({ target, onClose, onRun }: { target: SyncTarget; onClose
             </li>
           </ul>
           {plan.level === "warn" && !plan.blocked && <p className="callout">{t("ui.sync.nearLimit")}</p>}
+          {plan.level === "over" && !plan.blocked && <p className="callout">{t("ui.sync.overIgnored")}</p>}
           {plan.blocked && (
             <div className="callout error" role="alert">
               <b>{t("ui.sync.blockedTitle")}</b>

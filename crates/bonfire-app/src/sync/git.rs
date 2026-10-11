@@ -461,11 +461,19 @@ mod tests {
     #[test]
     fn gitee_user_candidates() {
         // 没有令牌时不查接口：先填写的用户名，再仓库地址中的所有者；去重、去空。
-        let u = gitee_users("https://gitee.com/Hong_Xiao_Feng/bak.git", "xiaofenghong", None);
+        let u = gitee_users(
+            "https://gitee.com/Hong_Xiao_Feng/bak.git",
+            "xiaofenghong",
+            None,
+        );
         assert_eq!(u, ["xiaofenghong", "Hong_Xiao_Feng"]);
         let u = gitee_users("https://gitee.com/Hong_Xiao_Feng/bak.git", " ", None);
         assert_eq!(u, ["Hong_Xiao_Feng"]);
-        let u = gitee_users("https://gitee.com/hong_xiao_feng/bak.git", "Hong_Xiao_Feng", None);
+        let u = gitee_users(
+            "https://gitee.com/hong_xiao_feng/bak.git",
+            "Hong_Xiao_Feng",
+            None,
+        );
         assert_eq!(u, ["Hong_Xiao_Feng"]);
         assert!(is_auth_error("request failed with status code: 403"));
         assert!(!is_auth_error("couldn't find remote ref"));

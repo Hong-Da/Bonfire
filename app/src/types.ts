@@ -78,6 +78,11 @@ export interface RetentionConfig {
   scope: "auto" | "all";
 }
 
+/** 同步失败（或提醒）的原因。 */
+export type SyncIssue = "network" | "auth" | "not-found" | "public" | "size" | "file-limit" | "local" | "excluded" | "other";
+/** 可以忽略的问题。 */
+export const IGNORABLE: SyncIssue[] = ["network", "size", "excluded"];
+
 /** 同步目标（REQ-015）。 */
 export interface SyncTarget {
   id: string;
@@ -98,6 +103,7 @@ export interface SyncTarget {
   at: string;
   every_hours: number;
   enabled: boolean;
+  ignore: SyncIssue[];
 }
 
 export interface SyncRun {
@@ -107,6 +113,7 @@ export interface SyncRun {
   deleted: number;
   excluded: { path: string; size: number; reason: string }[];
   error?: string | null;
+  issue?: SyncIssue | null;
 }
 
 export interface TargetStatus {
@@ -114,6 +121,8 @@ export interface TargetStatus {
   hasSecret: boolean;
   last: SyncRun | null;
   remoteFiles: number;
+  /** 等待中的自动重试。 */
+  retry: { attempt: number; at: string } | null;
 }
 
 export interface SyncPlan {
@@ -128,6 +137,7 @@ export interface SyncPlan {
   level: "ok" | "warn" | "over";
   parts: [string, number][];
   blocked: string | null;
+  blockedIssue: SyncIssue | null;
 }
 
 export interface SyncDone {

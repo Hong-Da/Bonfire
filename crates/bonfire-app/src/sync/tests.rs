@@ -150,6 +150,20 @@ fn total_limit_blocks_and_git_defaults() {
             .is_some(),
         "记下没有同步的原因"
     );
+    let st = &env.app.sync_status()[0];
+    assert_eq!(st.last.as_ref().unwrap().issue, Some(SyncIssue::Size));
+    assert!(st.retry.is_none(), "超过上限不自动重试");
+    // 忽略“超过总大小上限”后照常同步（只能忽略可以忽略的问题，其余丢弃）。
+    let mut t = t;
+    t.ignore = vec![SyncIssue::Size, SyncIssue::Auth, SyncIssue::Size];
+    let t = env.app.save_sync_target(t, None).unwrap();
+    assert_eq!(t.ignore, [SyncIssue::Size]);
+    let (plan, _, _) = env.app.sync_plan(&t).unwrap();
+    assert_eq!(
+        (plan.level, plan.blocked.is_none()),
+        (SizeLevel::Over, true)
+    );
+    env.app.sync_push(&t.id, &mut |_, _| {}).unwrap();
 
     // 仓库文件超过单文件上限时不能排除，整个同步被阻止。
     let mut t2 = folder_target(&env, "单文件", SyncContent::Repo);
@@ -498,4 +512,52 @@ fn schedules_and_settings_apply() {
     assert_eq!(env.app.config.general.repo, repo_before);
     assert_eq!(env.app.config.metadata.steamgriddb_api_key, "local-key");
     assert!(env.app.apply_portable_settings("not = [toml").is_err());
+}
+
+#[test]
+fn network_failures_retry_with_backoff() {
+    let mut env = Env::new();
+    env.write("a.sav", b"one");
+    let g = env.add_game("Game");
+    backup(&mut env, &g);
+    // 目标文件夹建不出来（路径中有同名文件），相当于移动硬盘没连上。
+    let blocker = env.dir.path().join("blocker");
+    std::fs::write(&blocker, b"x").unwrap();
+    let mut t = SyncTarget::new(
+        SyncKind::Folder,
+        "硬盘",
+        &blocker.join("sub").to_string_lossy(),
+    );
+    t.schedule = SyncSchedule::AfterBackup;
+    let t = env.app.save_sync_target(t, None).unwrap();
+    let now = jiff::Zoned::now();
+    let later = |m: i64| now.checked_add(jiff::SignedDuration::from_mins(m)).unwrap();
+    for (attempt, mins) in RETRY_MINUTES.iter().enumerate() {
+        assert!(env.app.sync_push(&t.id, &mut |_, _| {}).is_err());
+        let st = env.app.sync_status().remove(0);
+        assert_eq!(st.last.unwrap().issue, Some(SyncIssue::Network));
+        let r = st.retry.expect("连不上目标时自动重试");
+        assert_eq!(r.attempt as usize, attempt + 1);
+        assert!(
+            env.app.sync_due(&later(mins - 1)).is_empty(),
+            "还没到重试时间"
+        );
+        assert_eq!(env.app.sync_due(&later(mins + 1)), std::slice::from_ref(&t.id));
+    }
+    // 第 4 次失败后不再重试，等下一次备份。
+    assert!(env.app.sync_push(&t.id, &mut |_, _| {}).is_err());
+    assert!(env.app.sync_status()[0].retry.is_none());
+
+    // 修好后同步成功，重试记录清除；手动同步的目标失败不自动重试。
+    std::fs::remove_file(&blocker).unwrap();
+    env.app.sync_push(&t.id, &mut |_, _| {}).unwrap();
+    assert!(env.app.sync_status()[0].retry.is_none());
+    let mut m = t.clone();
+    m.schedule = SyncSchedule::Manual;
+    assert!(next_retry(&m, SyncIssue::Network, None, jiff::Timestamp::now()).is_none());
+    assert!(
+        next_retry(&t, SyncIssue::Auth, None, jiff::Timestamp::now()).is_none(),
+        "令牌错误重试也没用"
+    );
+    assert!(SyncIssue::Size.ignorable() && !SyncIssue::Public.ignorable());
 }

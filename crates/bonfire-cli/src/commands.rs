@@ -22,7 +22,8 @@ use std::path::{Path, PathBuf};
 
 use crate::cli::{
     BundleCmd, Cmd, GameCmd, ModeArg, OnOff, OutputFormat, ProfileCmd, RepoCmd, RulesCmd,
-    ShotSwitch, ShotsCmd, ShotsDirCmd, SyncCmd, SyncContentArg, SyncKindArg, SyncScheduleArg,
+    ShotSwitch, ShotsCmd, ShotsDirCmd, SyncCmd, SyncContentArg, SyncIgnoreArg, SyncKindArg,
+    SyncScheduleArg,
 };
 
 type Result<T> = std::result::Result<T, AppError>;
@@ -1854,7 +1855,7 @@ fn new_password(out: &Out) -> Result<String> {
 }
 
 fn sync(app: &mut App, cmd: SyncCmd, out: &Out) -> Result<()> {
-    use bonfire_app::sync::{SyncContent, SyncKind, SyncSchedule, SyncTarget};
+    use bonfire_app::sync::{SyncContent, SyncIssue, SyncKind, SyncSchedule, SyncTarget};
     let human = bonfire_app::util::human_bytes;
     match cmd {
         SyncCmd::List => {
@@ -1864,7 +1865,7 @@ fn sync(app: &mut App, cmd: SyncCmd, out: &Out) -> Result<()> {
                 out.line(out.t("cli.out.sync_none"));
             }
             for s in &list {
-                let last = match &s.last {
+                let mut last = match &s.last {
                     Some(r) if r.error.is_some() => out.tf(
                         "cli.out.sync_last_failed",
                         &[("at", &r.at), ("err", &r.error.clone().unwrap_or_default())],
@@ -1872,6 +1873,11 @@ fn sync(app: &mut App, cmd: SyncCmd, out: &Out) -> Result<()> {
                     Some(r) => out.tf("cli.out.sync_last", &[("at", &r.at), ("n", &r.uploaded)]),
                     None => out.t("cli.out.sync_never").to_string(),
                 };
+                if let Some(r) = &s.retry {
+                    last.push_str(
+                        &out.tf("cli.out.sync_retry", &[("at", &r.at), ("n", &r.attempt)]),
+                    );
+                }
                 out.line(format!(
                     "{}  [{:?}]  {}  {}",
                     s.target.name, s.target.kind, s.target.url, last
@@ -1892,6 +1898,7 @@ fn sync(app: &mut App, cmd: SyncCmd, out: &Out) -> Result<()> {
             max_file_mb,
             max_total_mb,
             schedule,
+            ignore,
         } => {
             let kind = match kind {
                 SyncKindArg::Github => SyncKind::Github,
@@ -1931,6 +1938,14 @@ fn sync(app: &mut App, cmd: SyncCmd, out: &Out) -> Result<()> {
                 SyncScheduleArg::Daily => SyncSchedule::Daily,
                 SyncScheduleArg::Hours => SyncSchedule::Hours,
             };
+            t.ignore = ignore
+                .iter()
+                .map(|i| match i {
+                    SyncIgnoreArg::Network => SyncIssue::Network,
+                    SyncIgnoreArg::Size => SyncIssue::Size,
+                    SyncIgnoreArg::Excluded => SyncIssue::Excluded,
+                })
+                .collect();
             // 令牌或密码：环境变量 BONFIRE_SYNC_SECRET，或在终端输入（文件夹不需要）。
             let secret = match std::env::var("BONFIRE_SYNC_SECRET") {
                 Ok(s) if !s.is_empty() => Some(s),

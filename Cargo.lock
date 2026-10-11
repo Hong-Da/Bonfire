@@ -487,7 +487,7 @@ dependencies = [
 
 [[package]]
 name = "bonfire-app"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "blake3",
  "bonfire-core",
@@ -520,7 +520,7 @@ dependencies = [
 
 [[package]]
 name = "bonfire-cli"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "bonfire-app",
@@ -531,7 +531,7 @@ dependencies = [
 
 [[package]]
 name = "bonfire-core"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -555,7 +555,7 @@ dependencies = [
 
 [[package]]
 name = "bonfire-desktop"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "bonfire-app",
  "jiff",
@@ -571,7 +571,7 @@ dependencies = [
 
 [[package]]
 name = "bonfire-discovery"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "dirs",
  "glob",
@@ -589,7 +589,7 @@ dependencies = [
 
 [[package]]
 name = "bonfire-tests"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "assert_cmd",
  "bonfire-app",

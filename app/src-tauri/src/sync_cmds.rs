@@ -54,13 +54,31 @@ pub fn run_one(h: &AppHandle, id: &str) -> SyncDone {
         let hh = h.clone();
         let idc = id.to_string();
         Ok(w.sync_push(id, &mut |done, total| {
-            let _ = hh.emit("sync-progress", Progress { id: idc.clone(), done, total });
+            let _ = hh.emit(
+                "sync-progress",
+                Progress {
+                    id: idc.clone(),
+                    done,
+                    total,
+                },
+            );
         })?)
     });
-    RUNNING.lock().unwrap_or_else(|p| p.into_inner()).retain(|x| x != id);
+    RUNNING
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .retain(|x| x != id);
     let done = match result {
-        Ok(run) => SyncDone { id: id.into(), run: Some(run), error: None },
-        Err(e) => SyncDone { id: id.into(), run: None, error: Some(e.message) },
+        Ok(run) => SyncDone {
+            id: id.into(),
+            run: Some(run),
+            error: None,
+        },
+        Err(e) => SyncDone {
+            id: id.into(),
+            run: None,
+            error: Some(e.message),
+        },
     };
     let _ = h.emit("sync-done", done.clone());
     done
@@ -86,7 +104,10 @@ pub fn after_backup(h: &AppHandle) {
     let ids = {
         let shared = h.state::<Shared>();
         let guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
-        guard.as_ref().map(|a| a.sync_after_backup_targets()).unwrap_or_default()
+        guard
+            .as_ref()
+            .map(|a| a.sync_after_backup_targets())
+            .unwrap_or_default()
     };
     spawn_sync(h.clone(), ids);
 }
@@ -97,8 +118,15 @@ pub async fn sync_status(h: AppHandle) -> CmdResult<Vec<TargetStatus>> {
 }
 
 #[tauri::command]
-pub async fn sync_save(h: AppHandle, target: SyncTarget, secret: Option<String>) -> CmdResult<SyncTarget> {
-    with_app(h, move |app, _| Ok(app.save_sync_target(target, secret.as_deref())?)).await
+pub async fn sync_save(
+    h: AppHandle,
+    target: SyncTarget,
+    secret: Option<String>,
+) -> CmdResult<SyncTarget> {
+    with_app(h, move |app, _| {
+        Ok(app.save_sync_target(target, secret.as_deref())?)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -108,13 +136,20 @@ pub async fn sync_remove(h: AppHandle, id: String) -> CmdResult<()> {
 
 /// 测试连接（可以是还没保存的目标与填写中的令牌）。
 #[tauri::command]
-pub async fn sync_test(h: AppHandle, target: SyncTarget, secret: Option<String>) -> CmdResult<String> {
+pub async fn sync_test(
+    h: AppHandle,
+    target: SyncTarget,
+    secret: Option<String>,
+) -> CmdResult<String> {
     tauri::async_runtime::spawn_blocking(move || {
         let w = worker(&h)?;
         Ok(w.sync_test_with(&target, secret.as_deref())?)
     })
     .await
-    .map_err(|e| CmdError { kind: "general", message: e.to_string() })?
+    .map_err(|e| CmdError {
+        kind: "general",
+        message: e.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -130,7 +165,10 @@ pub async fn sync_plan(h: AppHandle, id: String) -> CmdResult<SyncPlan> {
 pub async fn sync_push(h: AppHandle, id: String) -> CmdResult<SyncDone> {
     tauri::async_runtime::spawn_blocking(move || run_one(&h, &id))
         .await
-        .map_err(|e| CmdError { kind: "general", message: e.to_string() })
+        .map_err(|e| CmdError {
+            kind: "general",
+            message: e.to_string(),
+        })
 }
 
 #[tauri::command]
@@ -140,7 +178,10 @@ pub async fn sync_compact(h: AppHandle, id: String) -> CmdResult<()> {
         Ok(w.sync_compact(&id)?)
     })
     .await
-    .map_err(|e| CmdError { kind: "general", message: e.to_string() })?
+    .map_err(|e| CmdError {
+        kind: "general",
+        message: e.to_string(),
+    })?
 }
 
 /// 从远程恢复完整仓库到空文件夹，返回文件数；远程有篝火设置时一起放在文件夹中。
@@ -151,7 +192,10 @@ pub async fn sync_restore(h: AppHandle, id: String, dest: PathBuf) -> CmdResult<
         Ok(w.sync_restore(&id, &dest)?)
     })
     .await
-    .map_err(|e| CmdError { kind: "general", message: e.to_string() })?
+    .map_err(|e| CmdError {
+        kind: "general",
+        message: e.to_string(),
+    })?
 }
 
 /// 恢复出的文件夹中是否有篝火设置。
