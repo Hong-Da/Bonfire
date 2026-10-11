@@ -2486,5 +2486,20 @@
     "impact": "对象 ID 不变，分支、快照与导出导入照常；加密后索引从仓库移到本机缓存，取消加密时移回。",
     "status": "默认推荐",
     "date": "2026-10-11"
+  },
+  {
+    "id": "M5-4a",
+    "stage": "M5-4 Linux / Steam Deck",
+    "question": "是否做 Linux / Steam Deck 支持",
+    "options": [
+      "不做（本版本只支持 Windows），需求推迟到后续版本",
+      "提供 Linux 机器后做",
+      "安装 WSL 后做"
+    ],
+    "chosen": "不做（本版本只支持 Windows），需求推迟到后续版本",
+    "reason": "用户选择。开发机没有 Linux 环境，无法实测。",
+    "impact": "REQ-013 标为推迟；代码保持跨平台写法（非 Windows 时注册表、DPAPI、卷影复制等功能自动关闭）。M5 以 M5-1–M5-3 结束，进入阶段三收尾。",
+    "status": "用户要求",
+    "date": "2026-10-11"
   }
 ]
