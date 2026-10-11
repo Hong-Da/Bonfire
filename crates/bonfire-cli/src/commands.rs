@@ -350,7 +350,19 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
             game,
             grep,
             limit,
-        } => activity(app, category, failed, game, grep, limit, out),
+            days,
+        } => {
+            let q = bonfire_app::activity::ActivityQuery {
+                category: category.map(|c| category_key(c).to_string()),
+                failed,
+                game: None,
+                text: grep,
+                limit: limit.max(1),
+                before: None,
+                days,
+            };
+            activity(app, q, game, out)
+        }
         Cmd::Stats => stats(app, out),
         Cmd::Gc {
             games,
@@ -2164,39 +2176,28 @@ fn repo(app: &mut App, cmd: RepoCmd, out: &Out) -> Result<()> {
     Ok(())
 }
 
+fn category_key(c: ActivityCategoryArg) -> &'static str {
+    match c {
+        ActivityCategoryArg::Backup => "backup",
+        ActivityCategoryArg::Restore => "restore",
+        ActivityCategoryArg::History => "history",
+        ActivityCategoryArg::Sync => "sync",
+        ActivityCategoryArg::Shots => "shots",
+        ActivityCategoryArg::Transfer => "transfer",
+        ActivityCategoryArg::Maintain => "maintain",
+    }
+}
+
 fn activity(
     app: &App,
-    category: Option<ActivityCategoryArg>,
-    failed: bool,
+    mut q: bonfire_app::activity::ActivityQuery,
     game: Option<String>,
-    grep: Option<String>,
-    limit: usize,
     out: &Out,
 ) -> Result<()> {
-    let game = match game {
-        Some(g) => Some(app.find_game(&g)?.id),
-        None => None,
-    };
-    let category = category.map(|c| {
-        match c {
-            ActivityCategoryArg::Backup => "backup",
-            ActivityCategoryArg::Restore => "restore",
-            ActivityCategoryArg::History => "history",
-            ActivityCategoryArg::Sync => "sync",
-            ActivityCategoryArg::Shots => "shots",
-            ActivityCategoryArg::Transfer => "transfer",
-            ActivityCategoryArg::Maintain => "maintain",
-        }
-        .to_string()
-    });
-    let page = app.activities(&bonfire_app::activity::ActivityQuery {
-        category,
-        failed,
-        game,
-        text: grep,
-        limit: limit.max(1),
-        before: None,
-    })?;
+    if let Some(g) = game {
+        q.game = Some(app.find_game(&g)?.id);
+    }
+    let page = app.activities(&q)?;
     out.emit(serde_json::to_value(&page).unwrap());
     if page.items.is_empty() {
         out.line(out.t("cli.out.activity_none"));
@@ -2222,6 +2223,9 @@ fn activity(
         }
         if let Some(e) = &a.error {
             line.push_str(&format!("  {}{e}", out.t("cli.out.activity_failed")));
+            if a.resolved {
+                line.push_str(out.t("cli.out.activity_resolved"));
+            }
         }
         out.line(line);
     }

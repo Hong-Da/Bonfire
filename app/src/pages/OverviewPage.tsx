@@ -589,11 +589,13 @@ function ActivityLog({ rows }: { rows: GameRow[] }) {
   const [cat, setCat] = useState<Category>("all");
   const [game, setGame] = useState("");
   const [text, setText] = useState("");
+  /** 默认只看最近一周。 */
+  const [days, setDays] = useState(7);
   const [page, setPage] = useState<ActivityPage | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const timer = useRef<number | undefined>(undefined);
 
-  const query = (before: string | null) => api.activityList({ category: cat === "all" || cat === "failed" ? null : cat, failed: cat === "failed", game: game || null, text: text.trim() || null, limit: 60, before });
+  const query = (before: string | null) => api.activityList({ category: cat === "all" || cat === "failed" ? null : cat, failed: cat === "failed", game: game || null, text: text.trim() || null, limit: 60, before, days });
   useEffect(() => {
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(
@@ -604,7 +606,17 @@ function ActivityLog({ rows }: { rows: GameRow[] }) {
       text ? 250 : 0,
     );
     return () => window.clearTimeout(timer.current);
-  }, [cat, game, text]);
+  }, [cat, game, text, days]);
+
+  const resolve = async (a: Activity) => {
+    try {
+      await api.resolveActivity(`${a.at}|${a.action}|${a.name ?? ""}`);
+      setPage(await query(null));
+      void api.attention().then(store.setAttention);
+    } catch (e) {
+      store.toast("error", errorMessage(e));
+    }
+  };
 
   const more = async () => {
     if (!page || page.items.length === 0) return;
@@ -646,7 +658,7 @@ function ActivityLog({ rows }: { rows: GameRow[] }) {
   return (
     <section className="ov-block" aria-label={t("ui.ov.logTitle")}>
       <h2>
-        {t("ui.ov.logTitle")} <small>{t("ui.ov.logKeep")}</small>
+        {t("ui.ov.logTitle")}
       </h2>
       <div className="ov-log-tools">
         <div className="chips" role="group" aria-label={t("ui.ov.logFilter")}>
@@ -666,16 +678,37 @@ function ActivityLog({ rows }: { rows: GameRow[] }) {
             </option>
           ))}
         </select>
+        <select className="field" value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label={t("ui.ov.range")}>
+          {[7, 30, 0].map((d) => (
+            <option key={d} value={d}>
+              {t(`ui.ov.range.${d}`)}
+            </option>
+          ))}
+        </select>
         <input className="field" type="search" placeholder={t("ui.ov.logSearch")} aria-label={t("ui.ov.logSearch")} value={text} onChange={(e) => setText(e.target.value)} />
       </div>
       <div className="ov-log">
-        {page && items.length === 0 && <p className="ov-log-empty">{cat === "failed" ? t("ui.ov.logNoFailures") : t("ui.ov.logEmpty")}</p>}
+        {page && items.length === 0 && (
+          <p className="ov-log-empty">
+            {cat === "failed" ? t("ui.ov.logNoFailures") : days > 0 ? t("ui.ov.logEmptyRange") : t("ui.ov.logEmpty")}
+            {days === 7 && (
+              <>
+                {" "}
+                <button className="link" onClick={() => setDays(30)}>
+                  {t("ui.ov.showMonth")}
+                </button>
+              </>
+            )}
+          </p>
+        )}
         {!page && <p className="ov-log-empty muted">{t("ui.ov.loading")}</p>}
         {items.map((a, i) => {
           const d = day(a.at);
           const head = d !== lastDay;
           lastDay = d;
-          const cls = a.ok ? (a.action === "backup-auto" ? "auto" : a.action.startsWith("restore") || a.action === "undo-restore" ? "restore" : a.action === "sync" ? "sync" : a.action.startsWith("shots") ? "pics" : ["clean", "fsck", "reindex", "scan", "rules-update"].includes(a.action) ? "maint" : "") : "fail";
+          const cls = a.ok ? (a.action === "backup-auto" ? "auto" : a.action.startsWith("restore") || a.action === "undo-restore" ? "restore" : a.action === "sync" ? "sync" : a.action.startsWith("shots") ? "pics" : ["clean", "fsck", "reindex", "scan", "rules-update"].includes(a.action) ? "maint" : "") : a.resolved ? "fail resolved" : "fail";
+          const failText = t("ui.ov.failedAction", { what: t(`ui.activity.${a.action}`, { name: nameOf(a), defaultValue: a.action }), why: t(`ui.ov.issue.${a.issue ?? "other"}`, { defaultValue: t("ui.ov.issue.other") }) });
+          const go = a.action === "sync" ? () => store.go({ name: "sync" }) : a.game && store.rows[a.game] ? () => store.go({ name: "game", id: a.game! }) : null;
           const meta = describe(a);
           return (
             <div key={`${a.at}-${i}`} className="ov-ev-wrap">
@@ -686,21 +719,38 @@ function ActivityLog({ rows }: { rows: GameRow[] }) {
                 </time>
                 <span className="dot" aria-hidden />
                 <p>
-                  {a.ok ? <span>{t(`ui.activity.${a.action}`, { name: nameOf(a), defaultValue: a.action })}</span> : <b>{t("ui.ov.failedAction", { what: t(`ui.activity.${a.action}`, { name: nameOf(a), defaultValue: a.action }), why: t(`ui.ov.issue.${a.issue ?? "other"}`, { defaultValue: t("ui.ov.issue.other") }) })}</b>}
+                  {a.ok ? (
+                    <span>{t(`ui.activity.${a.action}`, { name: nameOf(a), defaultValue: a.action })}</span>
+                  ) : a.resolved ? (
+                    <span>
+                      {failText}{" "}
+                      <span className="tag ov-resolved" title={t("ui.ov.resolvedHint")}>
+                        {t("ui.ov.resolved")}
+                      </span>
+                    </span>
+                  ) : (
+                    <b>{failText}</b>
+                  )}
                   {meta && <small> {meta}</small>}
-                  {a.error && !a.ok && <small className="ov-err" title={a.error}> {a.error}</small>}
+                  {a.error && !a.ok && !a.resolved && (
+                    <small className="ov-err" title={a.error}>
+                      {" "}
+                      {a.error}
+                    </small>
+                  )}
                 </p>
-                {a.action === "sync" ? (
-                  <button className="link" onClick={() => store.go({ name: "sync" })}>
-                    {a.ok ? t("ui.ov.view") : t("ui.ov.handle")}
-                  </button>
-                ) : a.game && store.rows[a.game] ? (
-                  <button className="link" onClick={() => store.go({ name: "game", id: a.game! })}>
-                    {a.ok ? t("ui.ov.view") : t("ui.ov.handle")}
-                  </button>
-                ) : (
-                  <span />
-                )}
+                <span className="ov-ev-acts">
+                  {go && (
+                    <button className="link" onClick={go}>
+                      {a.ok || a.resolved ? t("ui.ov.view") : t("ui.ov.handle")}
+                    </button>
+                  )}
+                  {!a.ok && !a.resolved && (
+                    <button className="link ov-mark" onClick={() => void resolve(a)}>
+                      {t("ui.ov.markResolved")}
+                    </button>
+                  )}
+                </span>
               </div>
             </div>
           );

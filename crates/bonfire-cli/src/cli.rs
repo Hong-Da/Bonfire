@@ -239,6 +239,8 @@ pub enum Cmd {
         grep: Option<String>,
         #[arg(long, default_value_t = 50)]
         limit: usize,
+        #[arg(long, default_value_t = 0)]
+        days: u32,
     },
     Stats,
     Repo {

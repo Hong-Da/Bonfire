@@ -43,6 +43,7 @@ export function mockApi() {
     attention: vi.fn().mockResolvedValue({ items: [], snoozed: 0 }),
     snoozeAttention: vi.fn().mockResolvedValue(undefined),
     onAttention: vi.fn().mockResolvedValue(() => {}),
+    resolveActivity: vi.fn().mockResolvedValue(undefined),
     activityList: vi.fn().mockResolvedValue({ items: [], more: false, failed: 0 }),
     storageStats: vi.fn().mockResolvedValue(null),
     compareDisk: vi.fn().mockResolvedValue({ at: "", games: [], compared: 0 }),

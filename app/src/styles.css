@@ -1389,3 +1389,8 @@ button.link:hover { text-decoration: underline; }
   .ov-wire.cut::before { border-left: 3px dashed var(--danger); }
   .ov-wire span { left: 14px; top: 4px; transform: none; }
 }
+.ov-ev.fail.resolved .dot { background: transparent; border: 2px solid var(--muted); box-sizing: border-box; }
+.ov-ev.fail.resolved p { color: var(--muted); }
+.ov-resolved { font-size: 11px; color: var(--moss); }
+.ov-ev-acts { display: flex; gap: 10px; align-items: baseline; }
+.ov-ev-acts .ov-mark { color: var(--muted); }

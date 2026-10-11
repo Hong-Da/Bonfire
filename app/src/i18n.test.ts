@@ -41,6 +41,7 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.activity.": ["backup", "backup-auto", "restore", "undo-restore", "delete-snapshots", "branch-create", "branch-delete", "branch-rename", "tag-create", "tag-delete", "primary", "sync", "clean", "shots-collect", "shots-write-back", "shots-delete", "shots-purge", "import", "import-bundle", "import-files", "import-download", "export-files", "export-bundle", "export-package", "export-shots", "scan", "rules-update", "fsck", "reindex", "encrypt", "decrypt", "password"],
   "ui.ov.issue.": ["locked", "unstable", "running", "network", "io", "rolled-back", "auth", "not-found", "public", "size", "file-limit", "local", "excluded", "damaged", "other"],
   "ui.ov.hint.": ["locked", "unstable", "running", "network", "auth", "not-found", "public", "size", "damaged", "io"],
+  "ui.ov.range.": ["7", "30", "0"],
   "ui.ov.cat.": ["all", "failed", "backup", "restore", "history", "sync", "shots", "transfer", "maintain"],
   "ui.ov.unit.": ["files", "snapshots", "shots", "games", "problems"],
   "ui.ov.trigger.": ["auto-change", "auto-timer", "auto-exit", "manual"],

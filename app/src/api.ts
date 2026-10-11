@@ -131,6 +131,7 @@ export const api = {
   attention: () => invoke<Attention>("attention"),
   snoozeAttention: (key: string, at: string) => invoke<void>("snooze_attention", { key, at }),
   onAttention: (cb: (a: Attention) => void): Promise<UnlistenFn> => listen<Attention>("attention", (e) => cb(e.payload)),
+  resolveActivity: (id: string) => invoke<void>("resolve_activity", { id }),
   activityList: (query: ActivityQuery) => invoke<ActivityPage>("activity_list", { query }),
   storageStats: () => invoke<StorageStats>("storage_stats"),
   compareDisk: () => invoke<DiskCompare>("compare_disk"),

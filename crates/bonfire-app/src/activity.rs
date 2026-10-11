@@ -47,6 +47,9 @@ pub struct Activity {
     /// 失败原因分类（如 `locked`、`network`）。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub issue: Option<String>,
+    /// 失败已处理：之后同一操作成功了，或用户标为已处理（读取时计算）。
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub resolved: bool,
 }
 
 fn is_zero(n: &u64) -> bool {
@@ -143,6 +146,8 @@ pub struct ActivityQuery {
     pub limit: usize,
     /// 只返回早于这个时间的（翻页）。
     pub before: Option<String>,
+    /// 只看最近几天（0 为全部保留的记录）。
+    pub days: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -196,12 +201,16 @@ impl App {
         // 同一秒内的按写入顺序：先倒序，再按时间稳定排序。
         all.reverse();
         all.sort_by_key(|a| std::cmp::Reverse(ts(&a.at)));
+        self.mark_resolved(&mut all);
         let text = q
             .text
             .as_deref()
             .map(str::to_lowercase)
             .filter(|t| !t.trim().is_empty());
         let before_ts = q.before.as_deref().and_then(ts);
+        let since = (q.days > 0).then(|| {
+            jiff::Timestamp::now() - jiff::SignedDuration::from_hours(24 * i64::from(q.days))
+        });
         let matched: Vec<Activity> = all
             .into_iter()
             .filter(|a| {
@@ -226,10 +235,14 @@ impl App {
                 })
             })
             .filter(|a| before_ts.is_none_or(|b| ts(&a.at).is_some_and(|t| t < b)))
+            .filter(|a| since.is_none_or(|s| ts(&a.at).is_some_and(|t| t >= s)))
             .collect();
-        let failed = matched.iter().filter(|a| !a.ok).count();
+        let failed = matched.iter().filter(|a| !a.ok && !a.resolved).count();
         let limit = if q.limit == 0 { 200 } else { q.limit };
-        let mut items: Vec<Activity> = matched.into_iter().filter(|a| !q.failed || !a.ok).collect();
+        let mut items: Vec<Activity> = matched
+            .into_iter()
+            .filter(|a| !q.failed || (!a.ok && !a.resolved))
+            .collect();
         let more = items.len() > limit;
         items.truncate(limit);
         Ok(ActivityPage {
@@ -237,6 +250,45 @@ impl App {
             more,
             failed,
         })
+    }
+
+    /// 失败记录的处理状态：之后同一操作（同一游戏或目标）成功了，或用户标为已处理。
+    /// `all` 为新的在前。
+    fn mark_resolved(&self, all: &mut [Activity]) {
+        let manual = self.resolved_ids();
+        let mut later_ok = std::collections::HashSet::new();
+        for a in all.iter_mut() {
+            let key = resolve_key(a);
+            if a.ok {
+                later_ok.insert(key);
+            } else {
+                a.resolved = later_ok.contains(&key) || manual.contains(&activity_id(a));
+            }
+        }
+    }
+
+    fn resolved_ids(&self) -> std::collections::HashSet<String> {
+        crate::ui_state::load_ui_state(&crate::ui_state::ui_state_path(&self.paths))
+            .get(RESOLVED_KEY)
+            .and_then(|v| serde_json::from_str(v).ok())
+            .unwrap_or_default()
+    }
+
+    /// 把一条失败记录标为已处理（`id` 见 [`activity_id`]）。
+    pub fn resolve_activity(&self, id: &str) -> Result<()> {
+        let mut ids = self.resolved_ids();
+        ids.insert(id.to_string());
+        // 只保留还在保留期内的记录对应的 ID。
+        let live: std::collections::HashSet<String> = read_all(&self.activity_file())
+            .iter()
+            .map(activity_id)
+            .collect();
+        ids.retain(|i| live.contains(i));
+        crate::ui_state::set_ui_state(
+            &crate::ui_state::ui_state_path(&self.paths),
+            RESOLVED_KEY,
+            Some(serde_json::to_string(&ids).expect("可以序列化")),
+        )
     }
 
     /// 还没解决的失败：每个游戏最近一次备份失败（之后没有成功的备份）、最近一次校验发现问题。
@@ -257,7 +309,7 @@ impl App {
                 _ => continue,
             };
             // 新的在前：每类只看最近一条。
-            if seen.insert(key) && !a.ok {
+            if seen.insert(key) && !a.ok && !a.resolved {
                 out.push(a);
             }
         }
@@ -359,6 +411,24 @@ impl App {
             let _ = std::fs::write(&marker, b"");
         }
     }
+}
+
+/// 标为已处理的记录在界面状态中的键：值为 JSON 数组（记录 ID）。
+pub const RESOLVED_KEY: &str = "activity.resolved";
+
+/// 记录的 ID：时间、操作与名称。
+pub fn activity_id(a: &Activity) -> String {
+    format!("{}|{}|{}", a.at, a.action, a.name)
+}
+
+/// 判断“之后成功了”用的键：同一类操作、同一游戏或目标。
+fn resolve_key(a: &Activity) -> String {
+    let action = if a.action.starts_with("backup") {
+        "backup"
+    } else {
+        a.action.as_str()
+    };
+    format!("{action}|{}|{}", a.game.as_deref().unwrap_or(""), a.name)
 }
 
 pub(crate) fn issue_key(i: crate::sync::SyncIssue) -> &'static str {
@@ -1049,6 +1119,7 @@ mod tests {
         assert!(manual.n > 0 && manual.snapshot.is_some());
         assert_eq!(page.items[2].detail, "auto-change");
         assert!(!page.items[0].ok && page.items[0].error.is_some());
+        assert!(!page.items[0].resolved, "恢复失败之后没有成功的恢复");
         assert_eq!(page.failed, 1);
 
         let backups = env
@@ -1093,6 +1164,50 @@ mod tests {
                 .iter()
                 .all(|a| ts(&a.at) < ts(&paged.items[1].at))
         );
+        // 备份失败后又备份成功：失败记录显示为已处理。
+        let mut fail = Activity::new("backup-auto");
+        fail.game = Some(g.id.clone());
+        fail.name = g.name.clone();
+        fail.ok = false;
+        env.app.note(fail);
+        env.write("a.sav", b"three");
+        let lock = env.app.repo.lock().unwrap();
+        env.app
+            .backup(&lock, &g, &BackupOptions::default())
+            .unwrap();
+        drop(lock);
+        let page = env.app.activities(&q()).unwrap();
+        let backup_fail = page
+            .items
+            .iter()
+            .find(|a| a.action == "backup-auto" && !a.ok)
+            .unwrap();
+        assert!(backup_fail.resolved);
+        // “只看失败的”不含已处理的。
+        let failed = env
+            .app
+            .activities(&ActivityQuery {
+                failed: true,
+                ..q()
+            })
+            .unwrap();
+        assert!(failed.items.iter().all(|a| !a.resolved));
+        // 只看最近几天：10 天前的一条不在最近 7 天中。
+        let mut old = Activity::new("scan");
+        old.at = (jiff::Zoned::now() - jiff::SignedDuration::from_hours(240))
+            .strftime("%Y-%m-%dT%H:%M:%S%:z")
+            .to_string();
+        env.app.note(old);
+        let week = env
+            .app
+            .activities(&ActivityQuery { days: 7, ..q() })
+            .unwrap();
+        assert!(week.items.iter().all(|a| a.action != "scan"));
+        let all = env
+            .app
+            .activities(&ActivityQuery { days: 0, ..q() })
+            .unwrap();
+        assert!(all.items.iter().any(|a| a.action == "scan"));
     }
 
     #[test]
@@ -1135,5 +1250,11 @@ mod tests {
         env.app.note(fail);
         let open = env.app.open_failures().unwrap();
         assert_eq!((open.len(), open[0].issue.as_deref()), (1, Some("locked")));
+        // 手动标为已处理：不再是未解决的失败，记录显示为已处理。
+        env.app.resolve_activity(&activity_id(&open[0])).unwrap();
+        assert!(env.app.open_failures().unwrap().is_empty());
+        let page = env.app.activities(&q()).unwrap();
+        assert!(page.items.iter().any(|a| !a.ok && a.resolved));
+        assert_eq!(page.failed, 0);
     }
 }

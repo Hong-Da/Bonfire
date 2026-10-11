@@ -24,9 +24,21 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 207 项，更新于 2026-10-11 20:09。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 209 项，更新于 2026-10-11 20:57。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">0.3.0 总览</a><a href="#s-1">安装与卸载</a><a href="#s-2">0.2.0 同步备份</a><a href="#s-3">版本</a><a href="#s-4">界面</a><a href="#s-5">第三轮 收尾</a><a href="#s-6">M5-4 Linux / Steam Deck</a><a href="#s-7">M5-2 仓库加密</a><a href="#s-8">M5-3 读取被占用的文件</a><a href="#s-9">M4-5 性能与资源</a><a href="#s-10">M4-1 其余平台</a><a href="#s-11">M4-3 自动备份</a><a href="#s-12">M4-2 游戏运行保护</a><a href="#s-13">M4-4 历史清理</a><a href="#s-14">M3</a><a href="#s-15">导入</a><a href="#s-16">导出</a><a href="#s-17">开发</a><a href="#s-18">缺陷修复</a><a href="#s-19">用户修改</a><a href="#s-20">M3 GUI MVP</a><a href="#s-21">M2 存档发现</a><a href="#s-22">M1 核心库</a><a href="#s-23">全局</a></nav>
-<section id="s-0"><h2>0.3.0 总览<small>5 项</small></h2>
+<section id="s-0"><h2>0.3.0 总览<small>7 项</small></h2>
+      <article id="OV-7">
+        <header><code>OV-7</code><h3>处理过的失败记录如何显示</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">之后同一操作（同一游戏或目标）成功了自动显示为“已处理”；其他方式处理过的可手动“标为已处理”；“失败”筛选只列未处理的；手动标记的备份失败不再显示红点（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求失败记录处理后换成已处理状态。</p><p class="impact"><span>影响</span>同步失败的红点仍以同步目标当前状态为准（目标还在失败时不消失）。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="OV-6">
+        <header><code>OV-6</code><h3>操作记录默认显示多长时间</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">默认最近一周，可选最近一个月、全部（180 天）；一周内没有记录时提供“看最近一个月”（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户反馈操作记录太长，要求默认只显示最近一周。</p><p class="impact"><span>影响</span>CLI `bonfire activity --days N`。版本 0.3.1。</p>
+        <footer>2026-10-11</footer>
+      </article>
       <article id="OV-5">
         <header><code>OV-5</code><h3>截图与磁盘何时对比</h3><span class="status">用户确认</span></header>
         <ul><li class="chosen">打开总览时在后台对比一次（10 分钟内不重复），可手动“重新对比”；对比只读磁盘（推荐） <b>✓ 采用</b></li></ul>

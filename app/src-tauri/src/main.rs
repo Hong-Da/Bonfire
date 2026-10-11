@@ -160,6 +160,7 @@ fn main() {
             commands::attention,
             commands::snooze_attention,
             commands::activity_list,
+            commands::resolve_activity,
             commands::storage_stats,
             commands::compare_disk,
             commands::write_back_all,

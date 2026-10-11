@@ -56,7 +56,7 @@ beforeEach(async () => {
   api.cleanHistory.mockResolvedValue({ games: [], removed: 0, gc: { chunks: 0, blobs: 0, trees: 0, snapshots: [], bytes: 300 * 1024 * 1024, tmpFiles: 0, dryRun: true }, dryRun: true });
   api.compareDisk.mockResolvedValue({ at: now, compared: 2, games: [{ id: "a", name: "Celeste", new: 2, duplicates: 1, missing: 3, restorable: 2, toHome: 1, noPlace: 0, ignored: 0, error: null }] });
   api.activityList.mockResolvedValue({
-    items: [act({ action: "sync", ok: false, name: "NAS", issue: "network", error: "联网失败" }), act({ action: "backup-auto", game: "a", name: "Celeste", n: 2, bytes: 1200, detail: "auto-change" })],
+    items: [act({ action: "sync", ok: false, name: "NAS", issue: "network", error: "联网失败" }), act({ action: "backup-auto", ok: false, game: "a", name: "Celeste", issue: "locked", resolved: true }), act({ action: "backup-auto", game: "a", name: "Celeste", n: 2, bytes: 1200, detail: "auto-change" })],
     more: false,
     failed: 1,
   });
@@ -102,8 +102,15 @@ describe("总览", () => {
     const log = screen.getByRole("region", { name: "操作记录" });
     expect(await within(log).findByText("今天")).toBeInTheDocument();
     expect(within(log).getByText("同步到 NAS失败：连不上目标")).toBeInTheDocument();
+    expect(within(log).getByText("已处理")).toBeInTheDocument();
     expect(within(log).getByText(/存档变化后、2 个文件/)).toBeInTheDocument();
-    fireEvent.click(within(log).getByRole("button", { name: /失败/ }));
+    // 默认只看最近一周；失败记录可以标为已处理。
+    expect(api.activityList).toHaveBeenLastCalledWith(expect.objectContaining({ days: 7 }));
+    fireEvent.click(within(log).getByRole("button", { name: "标为已处理" }));
+    await waitFor(() => expect(api.resolveActivity).toHaveBeenCalledWith(`${now}|sync|NAS`));
+    fireEvent.change(within(log).getByRole("combobox", { name: "时间范围" }), { target: { value: "30" } });
+    await waitFor(() => expect(api.activityList).toHaveBeenLastCalledWith(expect.objectContaining({ days: 30 })));
+    fireEvent.click(within(log).getByRole("button", { name: /未处理的失败/ }));
     await waitFor(() => expect(api.activityList).toHaveBeenLastCalledWith(expect.objectContaining({ failed: true, category: null })));
     fireEvent.click(within(log).getByRole("button", { name: "备份" }));
     await waitFor(() => expect(api.activityList).toHaveBeenLastCalledWith(expect.objectContaining({ failed: false, category: "backup" })));

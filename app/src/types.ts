@@ -91,6 +91,8 @@ export interface Activity {
   detail?: string;
   error?: string;
   issue?: string;
+  /** 失败已处理：之后同一操作成功了，或标为已处理。 */
+  resolved?: boolean;
 }
 
 export interface ActivityQuery {
@@ -100,6 +102,8 @@ export interface ActivityQuery {
   text?: string | null;
   limit?: number;
   before?: string | null;
+  /** 只看最近几天（0 为全部）。 */
+  days?: number;
 }
 
 export interface ActivityPage {

@@ -1844,6 +1844,15 @@ pub async fn snooze_attention(h: AppHandle, key: String, at: String) -> CmdResul
     Ok(())
 }
 
+/// 把一条失败记录标为已处理（同时更新红点）。
+#[tauri::command]
+pub async fn resolve_activity(h: AppHandle, id: String) -> CmdResult<()> {
+    let hh = h.clone();
+    with_app(h, move |app, _| Ok(app.resolve_activity(&id)?)).await?;
+    crate::attention::spawn_refresh(hh);
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn activity_list(
     h: AppHandle,
