@@ -24,9 +24,15 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 114 项，更新于 2026-10-10 23:52。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 115 项，更新于 2026-10-10 23:55。需要改动的项请在对话中告诉 Claude（附编号）。</p>
 <nav><a href="#s-0">开发</a><a href="#s-1">缺陷修复</a><a href="#s-2">用户修改</a><a href="#s-3">M3 GUI MVP</a><a href="#s-4">M2 存档发现</a><a href="#s-5">M1 核心库</a><a href="#s-6">全局</a></nav>
-<section id="s-0"><h2>开发<small>65 项</small></h2>
+<section id="s-0"><h2>开发<small>66 项</small></h2>
+      <article id="U-36a">
+        <header><code>U-36a</code><h3>备份所选游戏中没有新截图的游戏应与存档页一样放在一起</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">与存档页“已是最新，将跳过”一致：单独列为“没有新截图，将跳过（N）”，不参与这次收集（推荐） <b>✓ 采用</b></li><li class="">仍在列表中，只标“没有新截图”</li></ul>
+        <p class="reason"><span>理由</span>用户要求；两页的处理方式一致，确认列表只剩这次真正会备份的。</p><p class="impact"><span>影响</span>新增数在打开截图页时按磁盘重新数，跳过的判断以此为准。</p>
+        <footer>2026-10-10</footer>
+      </article>
       <article id="U-35a">
         <header><code>U-35a</code><h3>备份存档时提示哪些游戏只管理截图、不备份</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">选择内容页注明数量；存档确认页列出只管理截图的游戏，截图确认页列出只管理存档的游戏，并说明改管理方式即可（推荐） <b>✓ 采用</b></li><li class="">只在存档确认页列出</li></ul>

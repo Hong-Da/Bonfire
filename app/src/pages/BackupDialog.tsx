@@ -53,9 +53,6 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
   const last = stepIdx >= steps.length - 1;
 
   const saveRows = wantSaves ? plan.saves.filter((r) => !removed.saves.has(r.id)) : [];
-  const shotRows = wantShots ? plan.shots.filter((r) => !removed.shots.has(r.id)) : [];
-  // 本次要处理的游戏（按所选顺序）：备份存档和 / 或收集截图。
-  const targets = picked.filter((r) => saveRows.includes(r) || shotRows.includes(r));
   const drop = (kind: "saves" | "shots", id: string) => setRemoved((x) => ({ ...x, [kind]: new Set(x[kind]).add(id) }));
   const undrop = (kind: "saves" | "shots", id: string | null) =>
     setRemoved((x) => {
@@ -88,6 +85,12 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
       off = true;
     };
   }, [step]);
+  // 截图：有新截图的列在确认列表中；没有新截图的与存档页“已是最新”一样单独列出并跳过。
+  const shotCand = wantShots ? plan.shots.filter((r) => !removed.shots.has(r.id)) : [];
+  const shotRows = shotCand.filter((r) => (newShots[r.id] ?? 0) > 0);
+  const noNewShots = shotCand.filter((r) => (newShots[r.id] ?? 0) === 0);
+  // 本次要处理的游戏（按所选顺序）：备份存档和 / 或收集截图。
+  const targets = picked.filter((r) => saveRows.includes(r) || shotRows.includes(r));
   const newTotal = shotRows.reduce((n, r) => n + (newShots[r.id] ?? 0), 0);
   const shownRunning = runningGames.filter((g) => saveRows.some((r) => r.id === g.gameId));
   const detached = saveRows.filter((r) => r.detached);
@@ -321,10 +324,10 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
           {step === "shots" && (
             <>
               <p className="hint">{t("ui.backup.shotsIntro")}</p>
-              {shotRows.length > 0 && <p className="shots-total">{newTotal > 0 ? t("ui.backup.shotsNewTotal", { n: newTotal, games: shotRows.length }) : t("ui.backup.shotsNewNone")}</p>}
+              {shotRows.length > 0 && <p className="shots-total">{t("ui.backup.shotsNewTotal", { n: newTotal, games: shotRows.length })}</p>}
               {shotRows.length === 0 && (
                 <div className="callout same">
-                  <p>{t("ui.backup.noneLeft")}</p>
+                  <p>{noNewShots.length > 0 ? t("ui.backup.shotsAllNone", { n: noNewShots.length }) : t("ui.backup.noneLeft")}</p>
                 </div>
               )}
               <ul className="note-rows">
@@ -339,7 +342,7 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
                           <span className="muted">
                             {t("ui.backup.shotsHave", { n: r.shots })}
                             {" · "}
-                            {(newShots[r.id] ?? 0) > 0 ? <b className="shots-new">{t("ui.backup.shotsNew", { n: newShots[r.id] })}</b> : t("ui.backup.shotsNoNew")}
+                            <b className="shots-new">{t("ui.backup.shotsNew", { n: newShots[r.id] })}</b>
                           </span>
                           <RemoveButton name={name} onClick={() => drop("shots", r.id)} />
                         </div>
@@ -349,6 +352,7 @@ export default function BackupDialog({ rows: picked, onClose }: { rows: GameRow[
                 })}
               </ul>
               <RemovedStrip rows={plan.shots.filter((r) => removed.shots.has(r.id))} onRestore={(id) => undrop("shots", id)} />
+              <ExcludedList rows={noNewShots} title={t("ui.backup.shotsSkippedTitle", { n: noNewShots.length })} hint={t("ui.backup.shotsSkippedHint")} tag={t("ui.backup.shotsNoNew")} />
               <ExcludedList rows={plan.savesOnly} title={t("ui.backup.excludedSavesOnly", { n: plan.savesOnly.length })} hint={t("ui.backup.excludedSavesOnlyHint")} tag={t("ui.mode.saves")} />
             </>
           )}

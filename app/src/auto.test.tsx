@@ -49,7 +49,7 @@ describe("备份确认", () => {
       { gameId: "a", ok: true, result: { result: "no-changes" }, error: null, shots: 0, shotsOnly: false },
       { gameId: "c", ok: true, result: null, error: null, shots: 2, shotsOnly: true },
     ]);
-    api.album.mockImplementation(async (id: string) => ({ shots: [], trash: [], trashBytes: 0, dir: "D:/x", shotsOnly: false, enabled: true, followsGlobal: true, globalEnabled: true, dirs: [], pending: id === "a" ? 4 : 0, bytes: 0, sources: [] }));
+    api.album.mockImplementation(async (id: string) => ({ shots: [], trash: [], trashBytes: 0, dir: "D:/x", shotsOnly: false, enabled: true, followsGlobal: true, globalEnabled: true, dirs: [], pending: id === "a" ? 4 : id === "c" ? 2 : 0, bytes: 0, sources: [] }));
     render(<BackupDialog rows={[changed, latest, savesOnly, shotsOnly]} onClose={() => {}} />);
     // 第 1 步：两种内容默认都选。
     expect(screen.getByText("第 1 步，共 3 步：选择内容")).toBeInTheDocument();
@@ -72,14 +72,14 @@ describe("备份确认", () => {
     fireEvent.click(screen.getByRole("button", { name: "这次不备份「D」" }));
     expect(screen.getByText("这次不备份（1）：")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "下一步" }));
-    // 第 3 步：确认截图，移除 B。
+    // 第 3 步：确认截图；没有新截图的 B 单独列出并跳过。
     expect(screen.getByText("第 3 步，共 3 步：确认截图")).toBeInTheDocument();
     // 每个游戏显示已有与本次新增的数量（按磁盘重新数）。
     expect(await screen.findByText("本次新增 4 张")).toBeInTheDocument();
-    expect(screen.getByText("本次将从 3 个游戏新增 4 张截图")).toBeInTheDocument();
+    expect(await screen.findByText("本次将从 2 个游戏新增 6 张截图")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "只管理存档，不收集截图（1）" })).toHaveTextContent("只管理存档");
-    expect(screen.getAllByText(/没有新截图/).length).toBe(2);
-    fireEvent.click(screen.getByRole("button", { name: "这次不备份「B」" }));
+    expect(screen.getByRole("region", { name: "没有新截图，将跳过（1）" })).toHaveTextContent("B");
+    expect(screen.queryByRole("button", { name: "这次不备份「B」" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "备份 2 个游戏" }));
     await waitFor(() => expect(api.runBackup).toHaveBeenCalled());
     expect(api.runBackup.mock.calls[0][0]).toEqual([
@@ -93,11 +93,12 @@ describe("备份确认", () => {
     const a = row({ id: "a", name: "A", nameZh: null });
     seed([a]);
     api.runBackup.mockResolvedValue([]);
+    api.album.mockResolvedValue({ shots: [], trash: [], trashBytes: 0, dir: "D:/x", shotsOnly: false, enabled: true, followsGlobal: true, globalEnabled: true, dirs: [], pending: 3, bytes: 0, sources: [] });
     render(<BackupDialog rows={[a]} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("checkbox", { name: /备份存档/ }));
     fireEvent.click(screen.getByRole("button", { name: "下一步" }));
     expect(screen.getByText("第 2 步，共 2 步：确认截图")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "备份 1 个游戏" }));
+    fireEvent.click(await screen.findByRole("button", { name: "备份 1 个游戏" }));
     await waitFor(() => expect(api.runBackup).toHaveBeenCalled());
     expect(api.runBackup.mock.calls[0][0]).toEqual([{ gameId: "a", comment: undefined, tag: undefined, saves: false }]);
   });

@@ -1206,7 +1206,6 @@
   "ui.backup.shotsNew": "{n} new this time",
   "ui.backup.shotsNoNew": "no new screenshots",
   "ui.backup.shotsNewTotal": "{n} new screenshots from {games} games this time",
-  "ui.backup.shotsNewNone": "No new screenshots right now; they'll be checked again when collecting",
   "ui.fresh.tag": "New",
   "ui.fresh.hint": "Added to the library in the last {days} days; cleared once you open it",
   "ui.fresh.head": "Newly added",
@@ -1218,5 +1217,8 @@
   "ui.backup.excludedShotsOnlyHint": "These games only collect screenshots (next step). To back up their saves, change their management to “Saves and screenshots”.",
   "ui.backup.excludedShotsOnlyHintNoShots": "These games manage screenshots only, so no saves are backed up; tick “Back up screenshots” to collect theirs. To back up saves, change their management to “Saves and screenshots”.",
   "ui.backup.excludedSavesOnly": "Saves only, screenshots not collected ({n})",
-  "ui.backup.excludedSavesOnlyHint": "These games only back up saves. To collect their screenshots, change their management to “Saves and screenshots”."
+  "ui.backup.excludedSavesOnlyHint": "These games only back up saves. To collect their screenshots, change their management to “Saves and screenshots”.",
+  "ui.backup.shotsSkippedTitle": "No new screenshots, skipped ({n})",
+  "ui.backup.shotsSkippedHint": "There's nothing new in these games' screenshot folders.",
+  "ui.backup.shotsAllNone": "None of the {n} selected games has new screenshots."
 }
