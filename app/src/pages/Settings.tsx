@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ask, open } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
+import { confirm } from "../lib/confirm";
 import { api, errorMessage } from "../api";
 import { LANGUAGES, setLanguage } from "../i18n";
 import { bytes, dateTime } from "../lib/format";
@@ -326,7 +327,7 @@ export default function Settings() {
                   onChange={async (e) => {
                     const on = e.target.checked;
                     // 关闭保护需要确认。
-                    if (!on && !(await ask(t("ui.settings.protectLocalOff"), { title: t("ui.settings.safety"), kind: "warning" }))) return;
+                    if (!on && !(await confirm(t("ui.settings.protectLocalOff"), { title: t("ui.settings.protectOffTitle"), kind: "warning", icon: "shield", ok: t("ui.settings.protectOffOk") }))) return;
                     update((c) => (c.backup.protect_local = on));
                   }}
                 />

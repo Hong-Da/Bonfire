@@ -8,6 +8,7 @@ vi.mock("./api", async () => {
 });
 const dialog = vi.hoisted(() => ({ open: vi.fn(), save: vi.fn(), ask: vi.fn().mockResolvedValue(true) }));
 vi.mock("@tauri-apps/plugin-dialog", () => dialog);
+vi.mock("./lib/confirm", () => ({ confirm: (...a: unknown[]) => dialog.ask(...a), ConfirmHost: () => null }));
 
 import i18n from "./i18n";
 import { useStore } from "./store";

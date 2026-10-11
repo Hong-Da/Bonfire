@@ -7,6 +7,7 @@ vi.mock("./api", async () => {
   return { api: sharedApi, errorMessage: (e: unknown) => String((e as { message?: string })?.message ?? e), errorKind: () => "general", imageSrc: () => undefined };
 });
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), ask: vi.fn().mockResolvedValue(true) }));
+vi.mock("./lib/confirm", () => ({ confirm: vi.fn().mockResolvedValue(true), ConfirmHost: () => null }));
 
 import i18n, { detectLanguage } from "./i18n";
 import App from "./App";
@@ -60,14 +61,14 @@ describe("游戏库", () => {
     expect(screen.getByRole("checkbox", { name: "选择 空洞骑士" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "选择 Cuphead" })).not.toBeChecked();
     // 状态筛选在“筛选”菜单中。
-    fireEvent.click(screen.getByRole("button", { name: "按状态、管理方式与平台筛选" }));
+    fireEvent.click(screen.getByRole("button", { name: "按筛选方案、状态与平台筛选" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "已是最新（1）" }));
     expect(screen.queryByText("空洞骑士")).not.toBeInTheDocument();
     expect(screen.getByText("Cuphead")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("searchbox", { name: /搜索游戏/ }), { target: { value: "nothing" } });
     fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
     expect(screen.getByText("空洞骑士")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "按状态、管理方式与平台筛选" }));
+    fireEvent.click(screen.getByRole("button", { name: "按筛选方案、状态与平台筛选" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "全部（3）" }));
     fireEvent.change(screen.getByRole("searchbox", { name: /搜索游戏/ }), { target: { value: "cele" } });
     expect(screen.getByText("Celeste")).toBeInTheDocument();

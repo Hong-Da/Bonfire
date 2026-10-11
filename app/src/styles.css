@@ -658,8 +658,30 @@ button.link:hover { text-decoration: underline; }
 }
 .mode-chip:hover { color: var(--ink); border-color: var(--muted); }
 .mode-chip svg { width: 12px; height: 12px; }
-.mode-chip.mode-saves { color: var(--muted); }
-.mode-chip.mode-shots { color: var(--ember); border-color: color-mix(in srgb, var(--ember) 40%, var(--line)); }
+/* 每种管理方式一个颜色：存档和截图为青绿，只管理存档为蓝，只管理截图为紫 */
+.mode-both { --mode: var(--lane-1); }
+.mode-saves { --mode: var(--lane-0); }
+.mode-shots { --mode: var(--lane-2); }
+.mode-chip.mode-both, .mode-chip.mode-saves, .mode-chip.mode-shots {
+  color: var(--mode); border-color: color-mix(in srgb, var(--mode) 40%, var(--line));
+}
+
+/* 工具栏中的管理方式筛选：分段按钮，选中时填充该方式的颜色 */
+.mode-seg { display: flex; gap: 4px; container-type: normal; }
+.mode-seg button {
+  --mode: var(--ink);
+  display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 14px; cursor: pointer;
+  background: none; color: var(--mode); border: 1px solid color-mix(in srgb, var(--mode) 35%, var(--line)); white-space: nowrap;
+}
+.mode-seg button.mode-all { color: var(--muted); }
+.mode-seg button:hover { background: color-mix(in srgb, var(--mode) 10%, transparent); }
+.mode-seg button[aria-pressed="true"] { background: var(--mode); border-color: var(--mode); color: var(--surface); }
+.mode-seg button[aria-pressed="true"] .chip-count { opacity: 0.85; }
+.mode-seg .chip-count { margin-left: 0; }
+/* 窗口较窄时只显示图标和数量（悬停仍有完整名称） */
+@media (max-width: 1180px) {
+  .mode-seg button:not(.mode-all) .seg-label { display: none; }
+}
 
 /* 自动备份开关：与存档安全保护按钮同一套样式，关闭时为普通按钮（自动备份默认关闭，不算警示） */
 .btn.auto-switch.off { color: var(--muted); border: 1px solid var(--line); background: var(--raised); }
@@ -758,3 +780,14 @@ button.link:hover { text-decoration: underline; }
 .package-parts .radio { display: inline-flex; align-items: center; gap: 5px; }
 .package-parts.compact { margin: 0; gap: 10px; font-size: 12px; color: var(--muted); }
 .to-disk { margin-top: 10px; }
+
+/* 应用内确认对话框（替代系统原生弹窗） */
+.btn.primary.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.confirm-body { display: flex; gap: 14px; align-items: flex-start; max-width: 440px; padding: 4px 0 8px; }
+.confirm-icon {
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  background: color-mix(in srgb, var(--focus) 12%, transparent); color: var(--focus);
+}
+.confirm-body.warning .confirm-icon { background: var(--danger-soft); color: var(--danger); }
+.confirm-lead { margin: 2px 0 0; line-height: 1.6; white-space: pre-line; }
+.confirm-more { margin: 8px 0 0; color: var(--muted); line-height: 1.6; white-space: pre-line; }

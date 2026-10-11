@@ -34,6 +34,8 @@ interface Store {
   platformFilter: string;
   stateFilter: StateFilter;
   modeFilter: ModeFilter;
+  /** 当前使用的筛选方案：只列出方案中的游戏。 */
+  profileFilter: { name: string; ids: string[] } | null;
   query: string;
   toasts: Toast[];
   /** 恢复后常驻的“撤销本次恢复”提示（按游戏）。 */
@@ -56,6 +58,7 @@ interface Store {
   setPlatformFilter: (p: string) => void;
   setStateFilter: (s: StateFilter) => void;
   setModeFilter: (m: ModeFilter) => void;
+  setProfileFilter: (p: { name: string; ids: string[] } | null) => void;
   setQuery: (q: string) => void;
   toast: (kind: Toast["kind"], text: string, action?: Toast["action"]) => void;
   dismiss: (id: number) => void;
@@ -69,7 +72,9 @@ export function defaultSelection(rows: GameRow[]): Set<string> {
   return new Set(rows.filter((r) => r.state !== "up-to-date").map((r) => r.id));
 }
 
-export function visibleRows(s: Pick<Store, "rows" | "order" | "platformFilter" | "stateFilter" | "query"> & { modeFilter?: ModeFilter }): GameRow[] {
+export function visibleRows(
+  s: Pick<Store, "rows" | "order" | "platformFilter" | "stateFilter" | "query"> & { modeFilter?: ModeFilter; profileFilter?: Store["profileFilter"] },
+): GameRow[] {
   const q = s.query.trim().toLowerCase();
   return s.order
     .map((id) => s.rows[id])
@@ -77,6 +82,7 @@ export function visibleRows(s: Pick<Store, "rows" | "order" | "platformFilter" |
     .filter((r) => s.platformFilter === "all" || r.platform === s.platformFilter)
     .filter((r) => s.stateFilter === "all" || r.state === s.stateFilter)
     .filter((r) => !s.modeFilter || s.modeFilter === "all" || r.mode === s.modeFilter)
+    .filter((r) => !s.profileFilter || s.profileFilter.ids.includes(r.id))
     // 模糊搜索：中文名、英文名、拼音（首字母）、按顺序出现的字母；游戏 ID 按包含匹配。
     .filter((r) => !q || r.id.includes(q) || fuzzyMatch(q, [r.name, r.nameZh]));
 }
@@ -100,6 +106,7 @@ export const useStore = create<Store>((set, get) => ({
   platformFilter: "all",
   stateFilter: "all",
   modeFilter: "all",
+  profileFilter: null,
   query: "",
   toasts: [],
   undoable: {},
@@ -184,6 +191,7 @@ export const useStore = create<Store>((set, get) => ({
   setPlatformFilter: (platformFilter) => set({ platformFilter }),
   setStateFilter: (stateFilter) => set({ stateFilter }),
   setModeFilter: (modeFilter) => set({ modeFilter }),
+  setProfileFilter: (profileFilter) => set({ profileFilter }),
   setQuery: (query) => set({ query }),
 
   toast: (kind, text, action) => {

@@ -14,23 +14,22 @@ import ProtectSwitch from "../components/ProtectSwitch";
 import AutoSwitch from "../components/AutoSwitch";
 import ModeMenu, { MODES, MODE_ICON, useSetMode } from "../components/ModeMenu";
 import RemoveDialog from "../components/RemoveDialog";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { confirm } from "../lib/confirm";
 
 const STATES: StateFilter[] = ["all", "has-changes", "never-backed-up", "up-to-date"];
 
 export default function Library() {
   const { t, i18n } = useTranslation();
   const s = useStore();
-  const rows = useMemo(() => visibleRows(s), [s.rows, s.order, s.platformFilter, s.stateFilter, s.modeFilter, s.query]);
+  const rows = useMemo(() => visibleRows(s), [s.rows, s.order, s.platformFilter, s.stateFilter, s.modeFilter, s.profileFilter, s.query]);
   const allRows = useMemo(() => s.order.map((id) => s.rows[id]).filter(Boolean), [s.rows, s.order]);
   const platforms = useMemo(() => [...new Set(allRows.map((r) => r.platform))].sort(), [allRows]);
   const selected = allRows.filter((r) => s.selected.has(r.id));
-  // 管理方式与平台合并在一个“筛选”菜单中，按钮上显示当前生效的筛选。
-  // 状态、管理方式与平台合并在一个“筛选”菜单中，按钮上显示当前生效的筛选。
-  const filtered = s.stateFilter !== "all" || s.modeFilter !== "all" || s.platformFilter !== "all";
+  // 筛选方案、状态与平台合并在“筛选”菜单中，按钮上显示当前生效的筛选；管理方式单独一组按钮。
+  const filtered = !!s.profileFilter || s.stateFilter !== "all" || s.platformFilter !== "all";
   const filterText = [
+    s.profileFilter ? t("ui.library.profileActive", { name: s.profileFilter.name }) : "",
     s.stateFilter !== "all" ? t(`ui.state.${s.stateFilter}`) : "",
-    s.modeFilter !== "all" ? t(`ui.mode.${s.modeFilter}`) : "",
     s.platformFilter !== "all" ? t(`ui.platform.${s.platformFilter}`, { defaultValue: s.platformFilter }) : "",
   ]
     .filter(Boolean)
@@ -48,34 +47,33 @@ export default function Library() {
     api.profiles().then(setProfiles).catch(() => setProfiles([]));
   }, [backupOpen]);
 
-  // 当前选中的游戏正好是某个方案中的游戏时，这个方案为“当前方案”。
-  const sameSet = (ids: string[]) => {
-    const own = ids.filter((id) => s.rows[id]);
-    return own.length > 0 && own.length === s.selected.size && own.every((id) => s.selected.has(id));
-  };
-  const activeProfile = profiles.find((p) => sameSet(p.gameIds)) ?? null;
-  // 选择方案前的勾选，“取消选择方案”时恢复。
+  // 筛选方案：一组常一起处理的游戏。选择后只列出并勾选这些游戏，“不使用筛选方案”时恢复原来的勾选。
+  const activeProfile = s.profileFilter ? (profiles.find((p) => p.name === s.profileFilter!.name) ?? null) : null;
   const beforeProfile = useRef<Set<string> | null>(null);
 
   const applyProfile = (name: string) => {
     const p = profiles.find((x) => x.name === name);
     if (!p) return;
-    if (!activeProfile) beforeProfile.current = new Set(s.selected);
+    if (!s.profileFilter) beforeProfile.current = new Set(s.selected);
+    const ids = p.gameIds.filter((id) => s.rows[id]);
+    s.setProfileFilter({ name: p.name, ids });
     s.clearSelection();
-    s.selectAll(p.gameIds.filter((id) => s.rows[id]));
+    s.selectAll(ids);
   };
 
   const cancelProfile = () => {
     const prev = beforeProfile.current;
     beforeProfile.current = null;
+    s.setProfileFilter(null);
     s.clearSelection();
     if (prev) s.selectAll([...prev].filter((id) => s.rows[id]));
   };
 
   const deleteProfile = async (name: string) => {
-    if (!(await ask(t("ui.library.profileDeleteConfirm", { name }), { kind: "warning" }))) return;
+    if (!(await confirm(t("ui.library.profileDeleteConfirm", { name }), { kind: "warning" }))) return;
     try {
       await api.deleteProfile(name);
+      if (s.profileFilter?.name === name) cancelProfile();
       setProfiles(await api.profiles());
       s.toast("success", t("ui.library.profileDeleted", { name }));
     } catch (e) {
@@ -121,19 +119,28 @@ export default function Library() {
           label={filtered ? t("ui.library.filterOn", { what: filterText }) : t("ui.library.filter")}
           title={t("ui.library.filterHint")}
           items={[
+            { label: <b className="menu-head">{t("ui.library.profiles")}</b>, onClick: () => {}, disabled: true },
+            ...(profiles.length > 0
+              ? profiles.map((p) => ({
+                  label: (
+                    <span className="mode-item">
+                      <b>{p.name}</b>
+                      <small>{t("ui.library.profileGames", { n: p.gameIds.filter((id) => s.rows[id]).length })}</small>
+                    </span>
+                  ),
+                  checked: s.profileFilter?.name === p.name,
+                  onClick: () => applyProfile(p.name),
+                }))
+              : [{ label: <span className="muted">{t("ui.library.profilesNone")}</span>, onClick: () => {}, disabled: true }]),
+            ...(s.profileFilter ? [{ label: t("ui.library.profileCancel"), onClick: cancelProfile }] : []),
+            { label: t("ui.library.saveProfile", { n: selected.length }), onClick: () => setProfileName(""), disabled: selected.length === 0 },
+            ...(activeProfile ? [{ label: t("ui.library.profileDelete", { name: activeProfile.name }), onClick: () => void deleteProfile(activeProfile.name), danger: true }] : []),
+            "divider" as const,
             { label: <b className="menu-head">{t("ui.library.filterState")}</b>, onClick: () => {}, disabled: true },
             ...STATES.map((st) => ({
               label: t("ui.mode.option", { mode: t(st === "all" ? "ui.library.all" : `ui.state.${st}`), n: st === "all" ? allRows.length : allRows.filter((r) => r.state === st).length }),
               checked: s.stateFilter === st,
               onClick: () => s.setStateFilter(st),
-            })),
-            "divider" as const,
-            { label: <b className="menu-head">{t("ui.mode.filter")}</b>, onClick: () => {}, disabled: true },
-            { label: t("ui.mode.all", { n: allRows.length }), checked: s.modeFilter === "all", onClick: () => s.setModeFilter("all") },
-            ...MODES.map((m) => ({
-              label: t("ui.mode.option", { mode: t(`ui.mode.${m}`), n: allRows.filter((r) => r.mode === m).length }),
-              checked: s.modeFilter === m,
-              onClick: () => s.setModeFilter(m as ModeFilter),
             })),
             ...(platforms.length > 1
               ? [
@@ -149,18 +156,48 @@ export default function Library() {
               : []),
           ]}
         />
+        {profileName !== null && (
+          <form
+            className="inline"
+            style={{ display: "flex", gap: 6 }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void saveProfile();
+            }}
+          >
+            <input className="field" autoFocus value={profileName} onChange={(e) => setProfileName(e.target.value)} placeholder={t("ui.library.profileName")} aria-label={t("ui.library.profileName")} />
+            <button className="btn small" type="submit" disabled={!profileName.trim()}>
+              {t("ui.save")}
+            </button>
+            <button className="btn ghost small" type="button" onClick={() => setProfileName(null)}>
+              {t("ui.cancel")}
+            </button>
+          </form>
+        )}
+        {/* 按管理方式筛选：单独一组按钮，每种管理方式一个颜色（与每行的管理方式标签同色）。 */}
+        <div className="mode-seg" role="group" aria-label={t("ui.mode.filter")}>
+          {(["all", ...MODES] as ModeFilter[]).map((m) => {
+            const n = m === "all" ? allRows.length : allRows.filter((r) => r.mode === m).length;
+            const name = m === "all" ? t("ui.mode.short.all") : t(`ui.mode.${m}`);
+            return (
+              <button
+                key={m}
+                className={`mode-${m}`}
+                aria-pressed={s.modeFilter === m}
+                aria-label={t("ui.mode.option", { mode: name, n })}
+                title={t("ui.mode.option", { mode: name, n })}
+                onClick={() => s.setModeFilter(m)}
+              >
+                {m !== "all" && <Icon name={MODE_ICON[m]} size={14} />}
+                <span className="seg-label">{t(`ui.mode.short.${m}`)}</span>
+                <span className="chip-count">{n}</span>
+              </button>
+            );
+          })}
+        </div>
         <div className="grow" />
         <input className="field" type="search" placeholder={t("ui.library.search")} value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label={t("ui.library.search")} />
-        {/* 添加与导入、导出分成两个菜单，名字与内容一致。 */}
-        <Menu
-          icon="plus"
-          label={t("ui.library.addMenu")}
-          align="right"
-          items={[
-            { label: t("ui.library.add"), onClick: () => setAddOpen(true) },
-            { label: t("ui.library.importSaves"), onClick: () => setImportOpen(true) },
-          ]}
-        />
+        {/* 导出在右上角；“添加 / 导入”在底部操作栏左端。 */}
         <Menu
           icon="export"
           label={t("ui.library.exportMenu")}
@@ -223,6 +260,7 @@ export default function Library() {
                     onClick={() => {
                       s.setStateFilter("all");
                       s.setModeFilter("all");
+                      if (s.profileFilter) cancelProfile();
                       s.setPlatformFilter("all");
                       s.setQuery("");
                     }}
@@ -238,6 +276,15 @@ export default function Library() {
 
       {allRows.length > 0 && (
         <div className="actionbar">
+          <Menu
+            icon="plus"
+            label={t("ui.library.addMenu")}
+            className="btn ghost"
+            items={[
+              { label: t("ui.library.add"), onClick: () => setAddOpen(true) },
+              { label: t("ui.library.importSaves"), onClick: () => setImportOpen(true) },
+            ]}
+          />
           <div className="seg" role="group" aria-label={t("ui.library.selection")}>
             <button onClick={() => s.selectAll(rows.map((r) => r.id))}>{t("ui.library.selectAll")}</button>
             <button onClick={() => s.clearSelection()} disabled={selected.length === 0}>
@@ -245,34 +292,7 @@ export default function Library() {
             </button>
             <button onClick={() => s.invert(rows.map((r) => r.id))}>{t("ui.library.invert")}</button>
           </div>
-          {profileName === null && (
-            <Menu
-              icon="stack"
-              label={activeProfile ? t("ui.library.profileActive", { name: activeProfile.name }) : t("ui.library.profiles")}
-              className={`btn ghost${activeProfile ? " filtered" : ""}`}
-              title={t("ui.library.profilesHint")}
-              items={[
-                ...(profiles.length > 0
-                  ? profiles.map((p) => ({
-                      label: (
-                        <span className="mode-item">
-                          <b>{p.name}</b>
-                          <small>{t("ui.library.profileGames", { n: p.gameIds.filter((id) => s.rows[id]).length })}</small>
-                        </span>
-                      ),
-                      checked: activeProfile?.name === p.name,
-                      onClick: () => applyProfile(p.name),
-                    }))
-                  : [{ label: <span className="muted">{t("ui.library.profilesNone")}</span>, onClick: () => {}, disabled: true }]),
-                "divider" as const,
-                { label: t("ui.library.profileCancel"), onClick: cancelProfile, disabled: !activeProfile },
-                { label: t("ui.library.saveProfile"), onClick: () => setProfileName(""), disabled: selected.length === 0 },
-                ...(activeProfile ? [{ label: t("ui.library.profileDelete", { name: activeProfile.name }), onClick: () => void deleteProfile(activeProfile.name), danger: true }] : []),
-              ]}
-            />
-          )}
-          {profileName === null ? (
-            <Menu
+          <Menu
               icon="more"
               label={t("ui.library.selectedMenu")}
               className="btn ghost"
@@ -295,24 +315,7 @@ export default function Library() {
                 { label: t("ui.remove.button", { n: selected.length }), onClick: () => setRemoveOpen(true), disabled: selected.length === 0, danger: true },
               ]}
             />
-          ) : (
-            <form
-              className="inline"
-              style={{ display: "flex", gap: 6 }}
-              onSubmit={(e) => {
-                e.preventDefault();
-                void saveProfile();
-              }}
-            >
-              <input className="field" autoFocus value={profileName} onChange={(e) => setProfileName(e.target.value)} placeholder={t("ui.library.profileName")} aria-label={t("ui.library.profileName")} />
-              <button className="btn small" type="submit" disabled={!profileName.trim()}>
-                {t("ui.save")}
-              </button>
-              <button className="btn ghost small" type="button" onClick={() => setProfileName(null)}>
-                {t("ui.cancel")}
-              </button>
-            </form>
-          )}
+
           <div className="grow" style={{ flex: 1 }} />
           <AutoSwitch />
           <ProtectSwitch />

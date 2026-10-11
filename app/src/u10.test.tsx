@@ -8,6 +8,7 @@ vi.mock("./api", async () => {
 });
 const dialog = vi.hoisted(() => ({ open: vi.fn(), save: vi.fn(), ask: vi.fn().mockResolvedValue(true) }));
 vi.mock("@tauri-apps/plugin-dialog", () => dialog);
+vi.mock("./lib/confirm", () => ({ confirm: (...a: unknown[]) => dialog.ask(...a), ConfirmHost: () => null }));
 
 import i18n from "./i18n";
 import { useStore, defaultSelection, initialView } from "./store";
@@ -37,6 +38,7 @@ function seed(rows: GameRow[]) {
     selected: defaultSelection(rows),
     stateFilter: "all",
     modeFilter: "all",
+    profileFilter: null,
     platformFilter: "all",
     query: "",
     loading: false,
@@ -67,16 +69,18 @@ describe("游戏库：管理方式", () => {
   it("按管理方式筛选，数量正确", () => {
     seed(rows());
     render(<Library />);
-    // 管理方式与平台合并在一个“筛选”菜单中。
-    fireEvent.click(screen.getByRole("button", { name: "按状态、管理方式与平台筛选" }));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "只管理截图（1）" }));
+    // 管理方式单独一组按钮，不在“筛选”菜单中。
+    const group = screen.getByRole("group", { name: "按管理方式筛选" });
+    expect(within(group).getByRole("button", { name: "全部（3）" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(group).getByRole("button", { name: "只管理截图（1）" }));
     expect(screen.getByText("Gamma")).toBeInTheDocument();
     expect(screen.queryByText("Alpha")).toBeNull();
-    expect(screen.getByRole("button", { name: "按状态、管理方式与平台筛选" })).toHaveTextContent("筛选：只管理截图");
-    fireEvent.click(screen.getByRole("button", { name: "按状态、管理方式与平台筛选" }));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "只管理存档（1）" }));
+    expect(within(group).getByRole("button", { name: "只管理截图（1）" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(group).getByRole("button", { name: "只管理截图（1）" })).toHaveClass("mode-shots");
+    fireEvent.click(within(group).getByRole("button", { name: "只管理存档（1）" }));
     expect(screen.getByText("Beta")).toBeInTheDocument();
     expect(screen.queryByText("Gamma")).toBeNull();
+    expect(screen.getByRole("button", { name: "按筛选方案、状态与平台筛选" })).toHaveTextContent("筛选");
   });
 
   it("每行的管理方式标签可以直接切换，批量切换所选游戏", async () => {
@@ -124,30 +128,33 @@ describe("游戏库：管理方式", () => {
   });
 });
 
-describe("备份方案", () => {
-  it("选择方案后按钮显示方案名，可取消选择（恢复原来的勾选）与删除方案", async () => {
+describe("筛选方案", () => {
+  it("在“筛选”菜单中选择方案：只列出并勾选方案中的游戏，可取消（恢复原来的勾选）与删除方案", async () => {
     const rows = [row({ id: "a", name: "Alpha", nameZh: null }), row({ id: "b", name: "Beta", nameZh: null, state: "up-to-date" }), row({ id: "c", name: "Gamma", nameZh: null, state: "up-to-date" })];
     seed(rows);
     api.profiles.mockResolvedValue([{ name: "周末", gameIds: ["b", "c"], defaultComment: "" }]);
     api.deleteProfile.mockResolvedValue(undefined);
     render(<Library />);
     // 默认勾选了 Alpha（有更新）。
-    const btn = () => screen.getByRole("button", { name: /备份方案：一组常一起备份的游戏/ });
-    await waitFor(() => expect(btn()).toHaveTextContent("备份方案"));
+    const btn = () => screen.getByRole("button", { name: "按筛选方案、状态与平台筛选" });
+    await waitFor(() => expect(api.profiles).toHaveBeenCalled());
     fireEvent.click(btn());
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /周末/ }));
-    expect(btn()).toHaveTextContent("方案：周末");
+    fireEvent.click(await screen.findByRole("menuitemradio", { name: /周末/ }));
+    expect(btn()).toHaveTextContent("筛选：方案 周末");
     expect(useStore.getState().selected).toEqual(new Set(["b", "c"]));
+    expect(screen.queryByText("Alpha")).toBeNull();
+    expect(screen.getByText("Beta")).toBeInTheDocument();
     fireEvent.click(btn());
-    fireEvent.click(screen.getByRole("menuitem", { name: "取消选择方案" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "不使用筛选方案" }));
     expect(useStore.getState().selected).toEqual(new Set(["a"]));
-    expect(btn()).toHaveTextContent("备份方案");
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(btn()).toHaveTextContent(/^筛选$/);
 
     fireEvent.click(btn());
     fireEvent.click(screen.getByRole("menuitemradio", { name: /周末/ }));
     fireEvent.click(btn());
     api.profiles.mockResolvedValue([]);
-    fireEvent.click(screen.getByRole("menuitem", { name: "删除方案「周末」" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "删除筛选方案「周末」" }));
     await waitFor(() => expect(api.deleteProfile).toHaveBeenCalledWith("周末"));
     expect(dialog.ask.mock.calls.at(-1)?.[0]).toContain("只删除方案，不影响游戏和备份");
   });

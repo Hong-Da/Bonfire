@@ -20,6 +20,7 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.settings.schedule.": ["off", "daily", "weekly", "hours"],
   "ui.settings.autoScheduleOpt.": ["off", "daily", "weekly", "hours"],
   "ui.weekday.": ["1", "2", "3", "4", "5", "6", "7"],
+  "ui.mode.short.": ["all", "both", "saves", "shots"],
   "ui.mode.": ["both", "saves", "shots", "bothHint", "savesHint", "shotsHint"],
   "ui.gallery.group.": ["game", "month", "day", "source"],
   "ui.gallery.lookOpt.": ["small", "medium", "large", "list"],

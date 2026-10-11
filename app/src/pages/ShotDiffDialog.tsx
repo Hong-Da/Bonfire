@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ask, open } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
+import { confirm } from "../lib/confirm";
 import { api, errorMessage } from "../api";
 import { Icon, Modal } from "../components/ui";
 import { bytes } from "../lib/format";
@@ -63,7 +64,7 @@ export default function ShotDiffDialog({ gameId, gameName, onClose, onChanged }:
         const d = await open({ directory: true, title: t("ui.diff.pickFolder") });
         if (!d || Array.isArray(d)) return;
         dest = d;
-      } else if (!(await ask(t("ui.diff.writeBackConfirm", { n: diff.restorable }), { title: t("ui.diff.writeBack"), kind: "warning" }))) {
+      } else if (!(await confirm(t("ui.diff.writeBackConfirm", { n: diff.restorable }), { title: t("ui.diff.writeBack"), kind: "warning" }))) {
         return;
       }
       const r = await api.writeBackShots(gameId, [], dest);

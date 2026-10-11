@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { confirm } from "../lib/confirm";
 import { api, errorMessage } from "../api";
 import { useStore } from "../store";
 import { Icon } from "./ui";
@@ -19,7 +19,7 @@ export default function ProtectSwitch() {
   const host = info.host;
 
   const toggle = async () => {
-    if (on && !(await ask(t("ui.settings.protectLocalOff"), { title: t("ui.settings.safety"), kind: "warning" }))) return;
+    if (on && !(await confirm(t("ui.settings.protectLocalOff"), { title: t("ui.settings.protectOffTitle"), kind: "warning", icon: "shield", ok: t("ui.settings.protectOffOk") }))) return;
     setBusy(true);
     try {
       const cfg = await api.getSettings();

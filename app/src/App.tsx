@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "./api";
 import logo from "./assets/logo.svg";
 import { Icon, Toasts } from "./components/ui";
+import { ConfirmHost } from "./lib/confirm";
 import { setLanguage } from "./i18n";
 import GameDetail from "./pages/GameDetail";
 import Gallery from "./pages/Gallery";
@@ -102,6 +103,7 @@ export default function App() {
             void startScan().then(() => loadLibrary(false));
           }}
         />
+        <ConfirmHost />
         <Toasts />
       </>
     );
@@ -137,6 +139,7 @@ export default function App() {
         {view.name === "settings" && <Settings />}
       </main>
       {closeAsk && <CloseDialog onClose={() => setCloseAsk(false)} />}
+      <ConfirmHost />
       <Toasts />
     </div>
   );

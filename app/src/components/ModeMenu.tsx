@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { confirm } from "../lib/confirm";
 import { api, errorMessage } from "../api";
 import { useStore } from "../store";
 import type { ManageMode } from "../types";
@@ -26,7 +26,7 @@ export function useSetMode() {
       ]
         .filter(Boolean)
         .join("\n\n");
-      if (!(await ask(text, { title: t("ui.mode.batchTitle"), kind: "info" }))) return false;
+      if (!(await confirm(text, { title: t("ui.mode.batchTitle"), kind: "info" }))) return false;
     }
     try {
       await api.setManageMode(ids, mode);

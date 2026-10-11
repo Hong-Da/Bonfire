@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { confirm } from "../lib/confirm";
 import { api, errorMessage, imageSrc } from "../api";
 import Timeline, { laneColor } from "../components/Timeline";
 import GraphViewer from "../components/GraphViewer";
@@ -530,7 +530,7 @@ function SnapshotPanel({
       if (plan.headBranch) lines.push(t("ui.history.deleteHeadSwitch", { name: plan.headBranch }));
       if (isHead) lines.push(t("ui.history.deleteHereNote"));
       lines.push(t("ui.history.deleteFinal"));
-      if (!(await ask(lines.join("\n\n"), { title: t("ui.history.deleteSnapshotConfirm"), kind: "warning" }))) return;
+      if (!(await confirm(lines.join("\n\n"), { title: t("ui.history.deleteSnapshotConfirm"), kind: "warning" }))) return;
       await api.deleteSnapshot(gameId, node.id, false);
       store.toast("success", t("ui.history.deleted"));
       onChanged();
@@ -545,7 +545,7 @@ function SnapshotPanel({
       const lines = [t("ui.history.deleteBranchConfirm", { name, n: plan.removed.length })];
       if (plan.headBranch) lines.push(t("ui.history.deleteHeadSwitch", { name: plan.headBranch }));
       lines.push(t("ui.history.deleteFinal"));
-      if (!(await ask(lines.join("\n\n"), { title: t("ui.history.deleteBranch", { name }).replace(/…$/, ""), kind: "warning" }))) return;
+      if (!(await confirm(lines.join("\n\n"), { title: t("ui.history.deleteBranch", { name }).replace(/…$/, ""), kind: "warning" }))) return;
       await api.deleteBranch(gameId, name, false);
       store.toast("success", t("ui.history.deleted"));
       onChanged();
@@ -556,7 +556,7 @@ function SnapshotPanel({
 
   const deleteTag = async (name: string) => {
     try {
-      if (!(await ask(t("ui.history.deleteTagConfirm", { name }), { title: t("ui.history.deleteTag", { name }), kind: "warning" }))) return;
+      if (!(await confirm(t("ui.history.deleteTagConfirm", { name }), { title: t("ui.history.deleteTag", { name }), kind: "warning" }))) return;
       await api.deleteTag(gameId, name);
       store.toast("success", t("ui.history.deleted"));
       onChanged();
