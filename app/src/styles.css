@@ -970,3 +970,18 @@ button.link:hover { text-decoration: underline; }
   margin-left: 8px; vertical-align: 2px; padding: 0 7px; border-radius: 9px; font: 600 11px/18px var(--font-ui);
   color: var(--ember-ink); background: var(--ember); border: 0;
 }
+
+/* 本机主存档（U-41）：分支标签上的“家”，游戏库与备份确认中的“不在主存档” */
+.ref-chip.primary { border-color: color-mix(in srgb, var(--ember) 55%, var(--line)); }
+.primary-mark { display: inline-grid; place-items: center; margin-left: 4px; color: var(--ember); }
+.primary-other { display: inline-block; width: 6px; height: 6px; margin-left: 5px; border-radius: 50%; background: var(--lane-0); vertical-align: middle; }
+.meta.off-primary { display: inline-flex; align-items: center; gap: 4px; color: var(--lane-0); }
+.btn.go-primary { color: var(--ember); border-color: color-mix(in srgb, var(--ember) 45%, var(--line)); }
+.off-primary-note { display: flex; align-items: center; gap: 5px; margin: 0 0 6px; font-size: 12.5px; color: var(--lane-0); }
+.primary-options { display: grid; gap: 4px; }
+.primary-options .opt b { display: block; }
+.primary-options .opt small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.rename-preview { display: block; margin: 4px 0 2px; padding: 6px 10px; border-radius: 6px; background: var(--surface); font-size: 12.5px; line-height: 1.7; }
+.rename-preview code { font: inherit; font-weight: 600; }
+.main-conflict { display: grid; gap: 2px; grid-column: 2 / -1; padding: 6px 10px; margin-top: 4px; border-left: 2px solid var(--lane-0); background: color-mix(in srgb, var(--lane-0) 6%, transparent); font-size: 12.5px; }
+.main-conflict small { color: var(--muted); }

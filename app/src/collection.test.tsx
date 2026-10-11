@@ -126,8 +126,8 @@ describe("在游戏库中导入", () => {
     fireEvent.click(screen.getByRole("button", { name: "导入所选（2）" }));
     await waitFor(() =>
       expect(api.importArchive).toHaveBeenCalledWith("D:/in/all.bonfire", [
-        { key: "games/0/", target: null, saves: true, shots: false },
-        { key: "games/1/", target: null, saves: true, shots: false },
+        { key: "games/0/", target: null, saves: true, shots: false, adoptMain: false },
+        { key: "games/1/", target: null, saves: true, shots: false, adoptMain: false },
       ]),
     );
     expect(await screen.findByText(/已加入游戏库/)).toBeInTheDocument();
@@ -197,7 +197,8 @@ describe("删除", () => {
 
   it("删除分支时说明会删除多少个快照", async () => {
     seed([row()]);
-    api.history.mockResolvedValue(history());
+    // 本机主存档是另一条路线时，main 才能删除。
+    api.history.mockResolvedValue({ ...history(), primaries: [{ key: "m-1", branch: "other", label: "PC", mine: true }] });
     api.snapshotFiles.mockResolvedValue([]);
     api.diff.mockResolvedValue([]);
     api.gameRow.mockResolvedValue(row());
@@ -247,7 +248,7 @@ describe("篝火包：存档与截图（U-16）", () => {
     expect(disk).not.toBeChecked();
     fireEvent.click(disk);
     fireEvent.click(screen.getByRole("button", { name: "导入所选（1）" }));
-    await waitFor(() => expect(api.importArchive).toHaveBeenCalledWith("D:/in/p.bonfire", [{ key: "games/0/", target: null, saves: false, shots: true }]));
+    await waitFor(() => expect(api.importArchive).toHaveBeenCalledWith("D:/in/p.bonfire", [{ key: "games/0/", target: null, saves: false, shots: true, adoptMain: false }]));
     await waitFor(() => expect(api.syncShotsToDisk).toHaveBeenCalledWith("steam-367520", ["b3:1", "b3:2", "b3:3"]));
   });
 
@@ -273,5 +274,58 @@ describe("篝火包：存档与截图（U-16）", () => {
     await waitFor(() =>
       expect(api.exportPackage).toHaveBeenCalledWith(["g1", "g2"], "D:/out/s.bonfire", { saves: false, shots: true, shotIds: { g1: ["b3:111111"], g2: ["b3:222222"] } }),
     );
+  });
+});
+
+describe("本机主存档（U-41）", () => {
+  it("主存档的路线带标记、不能删除；可设为本机主存档并整理名称，选了恢复时打开恢复确认", async () => {
+    seed([row({ offPrimary: true, primary: "main", branch: "main-OLD" })]);
+    const h = history();
+    const tip = h.refs[0].target;
+    api.history.mockResolvedValue({
+      ...h,
+      refs: [...h.refs, { name: "main-OLD", kind: "branch", target: tip, current: false }],
+      nodes: h.nodes.map((n) => (n.id === tip ? { ...n, refs: [...n.refs, "heads/main-OLD"] } : n)),
+      primaries: [{ key: "m-1", branch: "main", label: "NEW-PC", mine: true }, { key: "m-2", branch: "main-OLD", label: "OLD-PC", mine: false }],
+    });
+    api.snapshotFiles.mockResolvedValue([]);
+    api.diff.mockResolvedValue([]);
+    api.gameRow.mockResolvedValue(row());
+    api.planRestore.mockResolvedValue({ target: tip, files: [], unchanged: 1, partial: false, running: [] });
+    api.setPrimaryBranch.mockResolvedValue({ branch: "main", renamed: [["main", "main-NEW-PC"], ["main-OLD", "main"]] });
+    useStore.setState({ info: { ...(useStore.getState().info ?? {}), host: "NEW-PC" } as never });
+    render(<GameDetail id="steam-367520" />);
+    await screen.findAllByText("白宫之前");
+    // 标记与“回到主存档”。
+    expect(document.querySelector(".ref-chip.primary")?.textContent).toContain("main");
+    expect(screen.getByRole("button", { name: /回到主存档/ })).toBeInTheDocument();
+    // 菜单：main 不能删除；把 main-OLD 设为本机主存档。
+    fireEvent.click(screen.getAllByRole("button", { name: "更多操作" }).at(-1)!);
+    expect(screen.getByRole("menuitem", { name: "删除分支 main…" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("menuitem", { name: "设为本机主存档：main-OLD…" }));
+    const dlg = await screen.findByRole("dialog", { name: "把「main-OLD」设为本机主存档" });
+    expect(dlg).toHaveTextContent("main-NEW-PC");
+    fireEvent.click(screen.getByRole("checkbox", { name: /同时恢复到它的最新快照/ }));
+    fireEvent.click(screen.getByRole("button", { name: "设为本机主存档" }));
+    await waitFor(() => expect(api.setPrimaryBranch).toHaveBeenCalledWith("steam-367520", "main-OLD", true));
+    // 选了恢复：打开恢复确认。
+    await waitFor(() => expect(api.planRestore).toHaveBeenCalled());
+  });
+
+  it("导入时 main 冲突：默认作为新路线，选“我旧电脑的存档”时以它为主存档并恢复", async () => {
+    seed([row()]);
+    const p = bundle({ newSnapshots: 2, mainConflict: "main-OLD-PC" });
+    dialog.open.mockResolvedValue("D:/in/old.bonfire");
+    api.inspectArchive.mockResolvedValue({ collection: true, createdAt: p.createdAt, host: "OLD-PC", games: [{ key: "games/0/", preview: p }] });
+    api.importArchive.mockResolvedValue([{ key: "games/0/", gameId: "steam-367520", gameName: "Hollow Knight", report: { preview: p, importedSnapshots: 2, objects: 1, createdGame: false }, error: null, adoptedMain: "main" }]);
+    api.restore.mockResolvedValue({ plan: {}, protection: "b3:p", dryRun: false });
+    render(<CollectionImportDialog onClose={() => {}} onDone={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /历史包 \/ 合集包/ }));
+    const group = await screen.findByRole("radiogroup", { name: /包里的 main 和本机的不同/ });
+    expect(within(group).getByRole("radio", { name: /作为新路线加入/ })).toBeChecked();
+    fireEvent.click(within(group).getByRole("radio", { name: /这是我旧电脑的存档/ }));
+    fireEvent.click(screen.getByRole("button", { name: "导入所选（1）" }));
+    await waitFor(() => expect(api.importArchive).toHaveBeenCalledWith("D:/in/old.bonfire", [expect.objectContaining({ key: "games/0/", adoptMain: true })]));
+    await waitFor(() => expect(api.restore).toHaveBeenCalledWith("steam-367520", "main", [], true, false));
   });
 });

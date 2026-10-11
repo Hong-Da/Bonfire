@@ -383,6 +383,11 @@ function GameLine({ row, lang, fresh, selected, onToggle, onOpen }: { row: GameR
         <ModeMenu ids={[row.id]} current={row.mode} name={name} />
         {row.state === "has-changes" && <div className="meta num">{t("ui.library.changedFiles", { n: changed, size: bytes(row.summary.changedBytes) })}</div>}
         {row.detached && <div className="meta">{t("ui.library.detached")}</div>}
+        {row.offPrimary && !row.detached && !row.shotsOnly && (
+          <div className="meta off-primary" title={t("ui.primary.offHint", { branch: row.branch, primary: row.primary })}>
+            <Icon name="home" size={12} /> {t("ui.primary.off")}
+          </div>
+        )}
         {row.newShots > 0 && (
           <div className="meta shot-new">
             <Icon name="camera" size={12} /> {t("ui.shots.newInLibrary", { n: row.newShots })}

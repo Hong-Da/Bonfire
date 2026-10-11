@@ -153,6 +153,8 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
   // 每个游戏导入哪些内容（默认包内有的都导入），以及是否把新导入的截图写到磁盘（默认不写）。
   const [parts, setParts] = useState<Record<string, { saves: boolean; shots: boolean }>>({});
   const [toDisk, setToDisk] = useState(false);
+  // 包内的 main 与本机不同时：默认作为新路线加入；“这是我旧电脑的存档”必须手动选（U-41h）。
+  const [adopt, setAdopt] = useState<Record<string, boolean>>({});
   const hasSaves = (p: BundlePreview) => p.nodes.length > 0 || p.newSnapshots > 0 || p.refs.length > 0;
   const partsOf = (key: string, p: BundlePreview) => parts[key] ?? { saves: hasSaves(p), shots: (p.shots ?? 0) > 0 };
 
@@ -199,10 +201,19 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
           loaded.path,
           [...picked].map((key) => {
             const g = loaded.preview.games.find((x) => x.key === key)!;
-            return { key, target: null, ...partsOf(key, g.preview) };
+            return { key, target: null, ...partsOf(key, g.preview), adoptMain: !!adopt[key] && !!g.preview.mainConflict };
           }),
         );
         setResults(items);
+        // 以旧电脑的路线为本机主存档的游戏：恢复到它的最新快照（恢复前自动做保护快照）。
+        for (const it of items.filter((x) => x.adoptedMain)) {
+          try {
+            await api.restore(it.gameId, it.adoptedMain!, [], true, false);
+            store.toast("success", t("ui.primary.adoptRestored", { name: it.gameName }));
+          } catch (e) {
+            store.toast("error", t("ui.primary.adoptRestoreFailed", { name: it.gameName, msg: errorMessage(e) }));
+          }
+        }
         // 把新导入的截图写到本机这个游戏的截图文件夹。
         if (toDisk) {
           let written = 0;
@@ -344,6 +355,19 @@ export function CollectionImportDialog({ onClose, onDone }: { onClose: () => voi
                           </label>
                         )}
                       </span>
+                      {p.mainConflict && hasSaves(p) && partsOf(key, p).saves && (
+                        <span className="main-conflict" onClick={(e) => e.preventDefault()} role="radiogroup" aria-label={t("ui.primary.conflict", { name: p.mainConflict })}>
+                          <small>{t("ui.primary.conflict", { name: p.mainConflict })}</small>
+                          <label className="radio" onClick={(e) => e.stopPropagation()}>
+                            <input type="radio" name={`adopt-${key}`} checked={!adopt[key]} disabled={finished} onChange={() => setAdopt((x) => ({ ...x, [key]: false }))} />
+                            {t("ui.primary.asOther")}
+                          </label>
+                          <label className="radio" onClick={(e) => e.stopPropagation()}>
+                            <input type="radio" name={`adopt-${key}`} checked={!!adopt[key]} disabled={finished} onChange={() => setAdopt((x) => ({ ...x, [key]: true }))} />
+                            {t("ui.primary.asMine")}
+                          </label>
+                        </span>
+                      )}
                       <span className="pick-state num">
                         {res ? (
                           res.error ? (

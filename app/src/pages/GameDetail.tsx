@@ -13,6 +13,7 @@ import BackupDialog, { MAX_COMMENT } from "./BackupDialog";
 import ExportDialog, { type ExportKind } from "./ExportDialog";
 import ImportDialog from "./ImportDialog";
 import RestoreDialog from "./RestoreDialog";
+import { PrimaryDialog, RenameBranchDialog } from "../components/BranchDialogs";
 import ShotsPanel, { ShotThumb } from "./ShotsPanel";
 import { fileName, shotCounts, shotSnapshots } from "../lib/shots";
 import ModeMenu from "../components/ModeMenu";
@@ -44,6 +45,12 @@ export default function GameDetail({ id }: { id: string }) {
   const [page, setPage] = useState<"saves" | "shots">(() => (useStore.getState().rows[id]?.shotsOnly ? "shots" : "saves"));
   const [bigGraph, setBigGraph] = useState(false);
   const [shots, setShots] = useState<ShotRecord[]>([]);
+
+  // 本机主存档与其他电脑的主存档（U-41）。
+  const myPrimary = hist?.primaries?.find((p) => p.mine)?.branch ?? row?.primary ?? "main";
+  const othersOf = (branch: string) => (hist?.primaries ?? []).filter((p) => !p.mine && p.branch === branch).map((p) => p.label || p.key);
+  const [primaryOf, setPrimaryOf] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -106,6 +113,10 @@ export default function GameDetail({ id }: { id: string }) {
         onImport={() => setImporting(true)}
         onChanged={afterChange}
         onFail={fail}
+        onGoPrimary={() => {
+          const tip = hist.refs.find((r) => r.kind === "branch" && r.name === myPrimary)?.target;
+          if (tip) setRestore({ target: tip, paths: [] });
+        }}
       />
       {undoTarget && (
         <div className="undo-bar" role="status">
@@ -177,9 +188,20 @@ export default function GameDetail({ id }: { id: string }) {
               {branches.map((b) => {
                 const col = laneOf.get(b.target);
                 return (
-                  <button key={b.name} className={`ref-chip branch${b.current ? " current" : ""}`} onClick={() => setSelected(b.target)} title={t("ui.history.goBranch", { name: b.name })}>
+                  <button
+                    key={b.name}
+                    className={`ref-chip branch${b.current ? " current" : ""}${b.name === myPrimary ? " primary" : ""}`}
+                    onClick={() => setSelected(b.target)}
+                    title={[t("ui.history.goBranch", { name: b.name }), b.name === myPrimary ? t("ui.primary.mine") : "", ...othersOf(b.name).map((l) => t("ui.primary.ofOther", { name: l }))].filter(Boolean).join("\n")}
+                  >
                     <i className="lane-dot" style={{ background: laneColor(col ?? 0) }} />
                     {b.name}
+                    {b.name === myPrimary && (
+                      <span className="primary-mark" aria-label={t("ui.primary.mine")}>
+                        <Icon name="home" size={12} />
+                      </span>
+                    )}
+                    {othersOf(b.name).length > 0 && <span className="primary-other" aria-label={othersOf(b.name).map((l) => t("ui.primary.ofOther", { name: l })).join("，")} />}
                   </button>
                 );
               })}
@@ -213,6 +235,9 @@ export default function GameDetail({ id }: { id: string }) {
               node={node}
               isHead={node.id === hist.head}
               onRestore={(paths) => setRestore({ target: node.id, paths })}
+              primary={myPrimary}
+              onSetPrimary={setPrimaryOf}
+              onRename={setRenaming}
               onExport={() => setExporting({ kind: "files", snapshot: node.id })}
               onChanged={afterChange}
               shots={shots.filter((s) => shotSnap.get(s.blob) === node.id)}
@@ -239,6 +264,22 @@ export default function GameDetail({ id }: { id: string }) {
           }}
         />
       )}
+      {primaryOf && hist && (
+        <PrimaryDialog
+          gameId={id}
+          branch={primaryOf}
+          branches={hist.refs.filter((r) => r.kind === "branch").map((r) => r.name)}
+          host={store.info?.host ?? ""}
+          onClose={() => setPrimaryOf(null)}
+          onDone={async (restoreTo) => {
+            const h = await api.history(id).catch(() => null);
+            await afterChange();
+            const tip = h?.refs.find((r) => r.kind === "branch" && r.name === restoreTo)?.target;
+            if (restoreTo && tip) setRestore({ target: tip, paths: [] });
+          }}
+        />
+      )}
+      {renaming && <RenameBranchDialog gameId={id} branch={renaming} onClose={() => setRenaming(null)} onDone={() => void afterChange()} />}
       {restore && (
         <RestoreDialog
           row={row}
@@ -293,7 +334,9 @@ function Hero({
   onImport,
   onChanged,
   onFail,
+  onGoPrimary,
 }: {
+  onGoPrimary: () => void;
   hist: HistoryView;
   meta: MetadataView | null;
   row: NonNullable<ReturnType<typeof useStore.getState>["rows"][string]>;
@@ -361,6 +404,11 @@ function Hero({
           ) : (
             <button className="btn primary" onClick={onBackup}>
               <Icon name="backup" /> {t("ui.history.backupNow")}
+            </button>
+          )}
+          {row.offPrimary && !row.shotsOnly && (
+            <button className="btn go-primary" onClick={onGoPrimary} title={t("ui.primary.goHint", { branch: row.primary })}>
+              <Icon name="home" /> {t("ui.primary.go")}
             </button>
           )}
           {folders.length === 1 ? (
@@ -449,6 +497,9 @@ function SnapshotPanel({
   node,
   isHead,
   onRestore,
+  primary,
+  onSetPrimary,
+  onRename,
   onExport,
   onChanged,
   shots,
@@ -458,6 +509,9 @@ function SnapshotPanel({
   node: SnapshotNode;
   isHead: boolean;
   onRestore: (paths: string[]) => void;
+  primary: string;
+  onSetPrimary: (branch: string) => void;
+  onRename: (branch: string) => void;
   onExport: () => void;
   onChanged: () => void;
   /** 这次存档前拍的截图。 */
@@ -651,7 +705,17 @@ function SnapshotPanel({
             { label: t("ui.history.addTag"), onClick: () => setRefKind("tag") },
             { label: t("ui.history.addBranch"), onClick: () => setRefKind("branch") },
             ...tagNames.map((name) => ({ label: t("ui.history.deleteTag", { name }), onClick: () => void deleteTag(name) })),
-            ...branchNames.map((name) => ({ label: t("ui.history.deleteBranch", { name }), danger: true, onClick: () => void deleteBranch(name) })),
+            ...branchNames
+              .filter((name) => name !== primary)
+              .map((name) => ({ label: t("ui.primary.set", { name }), onClick: () => onSetPrimary(name) })),
+            ...branchNames.map((name) => ({ label: t("ui.branch.renameMenu", { name }), onClick: () => onRename(name) })),
+            ...branchNames.map((name) => ({
+              label: t("ui.history.deleteBranch", { name }),
+              danger: true,
+              disabled: name === primary,
+              hint: name === primary ? t("ui.primary.cannotDelete") : undefined,
+              onClick: () => void deleteBranch(name),
+            })),
             {
               label: t("ui.history.deleteSnapshot"),
               danger: true,

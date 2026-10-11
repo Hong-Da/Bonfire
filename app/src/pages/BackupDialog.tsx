@@ -445,6 +445,11 @@ function NoteRow({ row, value, onChange, onRemove }: { row: GameRow; value: stri
           </span>
           <RemoveButton name={name} onClick={onRemove} />
         </div>
+        {row.offPrimary && (
+          <p className="off-primary-note">
+            <Icon name="home" size={13} /> {row.detached ? t("ui.primary.backupDetached", { primary: row.primary }) : t("ui.primary.backupOff", { branch: row.branch, primary: row.primary })}
+          </p>
+        )}
         <textarea
           className="field comment-edit"
           rows={2}

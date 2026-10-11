@@ -225,6 +225,10 @@ export interface GameRow {
   mode: ManageMode;
   /** 磁盘上还没有收集的新截图数。 */
   newShots: number;
+  /** 本机主存档（U-41） */
+  primary: string;
+  /** 当前不在本机主存档上 */
+  offPrimary: boolean;
 }
 
 export type FileStatus = "added" | "modified" | "deleted" | "unchanged";
@@ -285,6 +289,22 @@ export interface HistoryView {
   refs: RefView[];
   nodes: SnapshotNode[];
   locations: LocationRecord[];
+  /** 各电脑的主存档（本机在前） */
+  primaries?: PrimaryView[];
+}
+
+/** 一台电脑的主存档（U-41）。 */
+export interface PrimaryView {
+  key: string;
+  branch: string;
+  /** 电脑名 */
+  label: string;
+  mine: boolean;
+}
+
+export interface SetPrimaryReport {
+  branch: string;
+  renamed: [string, string][];
 }
 
 export interface TreeEntry {
@@ -498,6 +518,8 @@ export interface BundlePreview {
   /** 包内的截图数，其中本地相册没有的。 */
   shots: number;
   newShots: number;
+  /** 包内的 main 与本机分叉时导入后的名字（如 main-旧电脑） */
+  mainConflict?: string | null;
 }
 
 export interface BundleImportReport {
@@ -548,6 +570,8 @@ export interface ArchiveImportItem {
   gameName: string;
   report: BundleImportReport | null;
   error: string | null;
+  /** 以导入的路线为本机主存档后它的名字 */
+  adoptedMain?: string | null;
 }
 
 export interface FilesSource {

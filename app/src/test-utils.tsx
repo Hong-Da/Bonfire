@@ -78,6 +78,8 @@ export function mockApi() {
     onCloseRequested: vi.fn().mockResolvedValue(() => {}),
     syncShots: vi.fn(),
     assignUnsorted: vi.fn(),
+    setPrimaryBranch: vi.fn(),
+    renameBranch: vi.fn(),
     uiStateGet: vi.fn().mockResolvedValue({}),
     uiStateSet: vi.fn().mockResolvedValue(undefined),
     shotSourceDirs: vi.fn().mockResolvedValue({ steamUserdata: "C:/Steam/userdata", captures: "C:/Users/me/Videos/Captures" }),
@@ -127,6 +129,8 @@ export function row(over: Partial<GameRow> = {}): GameRow {
     shotsOnly: false,
     mode: "both",
     newShots: 0,
+    primary: "main",
+    offPrimary: false,
     ...over,
   };
 }

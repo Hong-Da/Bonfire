@@ -1,6 +1,6 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type {
+import type { SetPrimaryReport,
   AlbumView,
   AutoReport,
   AutoStatus,
@@ -160,7 +160,9 @@ export const api = {
   onAutoBackup: (cb: (r: AutoReport) => void): Promise<UnlistenFn> => listen<AutoReport>("auto-backup", (e) => cb(e.payload)),
   onShotsSynced: (cb: (added: number) => void): Promise<UnlistenFn> => listen<number>("shots-synced", (e) => cb(e.payload)),
   inspectArchive: (path: string) => invoke<ArchivePreview>("inspect_archive", { path }),
-  importArchive: (path: string, picks: { key: string; target: string | null; saves?: boolean; shots?: boolean }[]) => invoke<ArchiveImportItem[]>("import_archive", { path, picks }),
+  setPrimaryBranch: (gameId: string, branch: string, tidy: boolean) => invoke<SetPrimaryReport>("set_primary_branch", { gameId, branch, tidy }),
+  renameBranch: (gameId: string, from: string, to: string) => invoke<void>("rename_branch", { gameId, from, to }),
+  importArchive: (path: string, picks: { key: string; target: string | null; saves?: boolean; shots?: boolean; adoptMain?: boolean }[]) => invoke<ArchiveImportItem[]>("import_archive", { path, picks }),
   exportPackage: (gameIds: string[], dest: string, options: PackageOptions) => invoke<CollectionReport>("export_package", { gameIds, dest, options }),
   syncShotsToDisk: (gameId: string, blobs: string[]) => invoke<WriteBackReport>("sync_shots_to_disk", { gameId, blobs }),
   inspectFilesSource: (src: string) => invoke<FilesSource>("inspect_files_source", { src }),
