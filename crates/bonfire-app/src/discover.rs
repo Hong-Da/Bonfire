@@ -115,9 +115,12 @@ impl App {
             .and_then(|p| p.parent().map(PathBuf::from));
         let bundled = exe_dir
             .map(|d| {
+                // 安装包中的命令行在 cli 子目录：规则库快照在上一级（安装目录）。
+                let root = crate::paths::program_root(&d);
                 vec![
                     d.join(BUNDLED_MANIFEST),
                     d.join("resources").join(BUNDLED_MANIFEST),
+                    root.join(BUNDLED_MANIFEST),
                 ]
             })
             .unwrap_or_default();

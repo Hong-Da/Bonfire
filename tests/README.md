@@ -15,6 +15,7 @@ tests/
 │   └── cli_cases.toml   CLI 用例，同时生成 docs/cli.md 的示例
 ├── cli/                 CLI 测试（执行真实的 bonfire 二进制）
 ├── docs/                文档测试
+├── installer/           安装包验收脚本 check-installer.ps1（构建安装包后手动运行）
 └── output/              运行时产生的文件（不入库）
 ```
 
@@ -55,3 +56,13 @@ tests/
 ## Linux
 
 未使用 Linux 环境（L1），首版未经 Linux 实测；M5 支持 Linux 时补充。
+
+## 安装包测试
+
+构建安装包（`build.bat`）后运行：
+
+```bat
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\installer\check-installer.ps1
+```
+
+脚本把安装包静默安装到临时目录，依次检查：安装成功、卸载登记与开始菜单快捷方式、桌面程序为图形界面而命令行为控制台程序、命令行能读到内置规则库并在安装目录的 `data` 下建仓库、覆盖安装（升级）后数据仍在、卸载后程序与登记清除而 `data` 保留。输出 JSON，`passed` 为 `true` 时退出码 0。不启动桌面程序；本机已安装篝火时不运行（避免卸载测试清掉它的登记）。

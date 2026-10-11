@@ -24,9 +24,27 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 150 项，更新于 2026-10-11 03:04。需要改动的项请在对话中告诉 Claude（附编号）。</p>
-<nav><a href="#s-0">界面</a><a href="#s-1">导入</a><a href="#s-2">导出</a><a href="#s-3">开发</a><a href="#s-4">缺陷修复</a><a href="#s-5">用户修改</a><a href="#s-6">M3 GUI MVP</a><a href="#s-7">M2 存档发现</a><a href="#s-8">M1 核心库</a><a href="#s-9">全局</a></nav>
-<section id="s-0"><h2>界面<small>4 项</small></h2>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 153 项，更新于 2026-10-11 03:16。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<nav><a href="#s-0">M3</a><a href="#s-1">界面</a><a href="#s-2">导入</a><a href="#s-3">导出</a><a href="#s-4">开发</a><a href="#s-5">缺陷修复</a><a href="#s-6">用户修改</a><a href="#s-7">M3 GUI MVP</a><a href="#s-8">M2 存档发现</a><a href="#s-9">M1 核心库</a><a href="#s-10">全局</a></nav>
+<section id="s-0"><h2>M3<small>3 项</small></h2>
+      <article id="M3-6c">
+        <header><code>M3-6c</code><h3>安装、升级、卸载如何验收</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">脚本静默安装到临时目录自动检查，再由用户本机安装按清单验收 P0（推荐） <b>✓ 采用</b></li><li class="">只做手工验收</li></ul>
+        <p class="reason"><span>理由</span>自动检查可重复；桌面程序与开发版标识相同，测试中不启动，界面由用户本机验收。</p><p class="impact"><span>影响</span>tests/installer/check-installer.ps1；本机已安装篝火时脚本不运行。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M3-6b">
+        <header><code>M3-6b</code><h3>卸载时是否删除数据（配置与备份仓库）</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">保留 &lt;安装目录&gt;\data（推荐） <b>✓ 采用</b></li><li class="">一并删除</li></ul>
+        <p class="reason"><span>理由</span>备份仓库是用户的存档历史，卸载或重装不应丢失；已测试升级与卸载后数据都保留。</p><p class="impact"><span>影响</span>彻底清除需手动删除安装目录。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="M3-6a">
+        <header><code>M3-6a</code><h3>安装包中命令行 bonfire.exe 与桌面程序 Bonfire.exe 同名冲突怎么办</h3><span class="status">默认推荐</span></header>
+        <ul><li class="chosen">命令行放在 &lt;安装目录&gt;\clionfire.exe，数据与规则库与桌面程序共用（推荐） <b>✓ 采用</b></li><li class="">桌面程序改名（如 Bonfire-Desktop.exe）</li><li class="">命令行改名（如 bonfire-cli.exe）</li></ul>
+        <p class="reason"><span>理由</span>Windows 文件名不区分大小写，安装后命令行覆盖了桌面程序；放到子目录后两个名字都不变，命令仍是 bonfire。</p><p class="impact"><span>影响</span>使用命令行需把 &lt;安装目录&gt;\cli 加入 PATH；开发时 cli.bat 不受影响。</p>
+        <footer>2026-10-11</footer>
+      </article></section><section id="s-1"><h2>界面<small>4 项</small></h2>
       <article id="U-51a">
         <header><code>U-51a</code><h3>图库的导出能否导出全部</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">导出改为菜单：导出所选截图 / 导出全部截图（相册全部，不受筛选影响）（推荐） <b>✓ 采用</b></li><li class="">只能导出所选</li></ul>
@@ -50,7 +68,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">换成导出完成页：文件名、内容、大小、所在文件夹、打开位置与怎么用（推荐） <b>✓ 采用</b></li><li class="">保留原页面，只改底部按钮</li></ul>
         <p class="reason"><span>理由</span>用户反馈导出后还停在“导出xxx的存档”页面。</p><p class="impact"><span>影响</span>详情页导出与游戏库导出共用 ExportDone 组件。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-1"><h2>导入<small>6 项</small></h2>
+      </article></section><section id="s-2"><h2>导入<small>6 项</small></h2>
       <article id="U-49c">
         <header><code>U-49c</code><h3>zip 中有多个游戏的存档时怎么导入</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">按说明找出每个存档文件夹，游戏库导入逐个勾选；详情页导入挑出本游戏的（推荐） <b>✓ 采用</b></li><li class="">只支持一个游戏</li></ul>
@@ -86,7 +104,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">每行可选“覆盖 / 不替换”，多个时提供全部覆盖 / 全部不替换（推荐） <b>✓ 采用</b></li><li class="">只能整体选叠加或替换</li></ul>
         <p class="reason"><span>理由</span>用户要求可手工选择不替换；有时只想要下载存档中的部分文件。</p><p class="impact"><span>影响</span>选不替换的文件不导入；全部不替换且无新增文件时无法下一步。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-2"><h2>导出<small>3 项</small></h2>
+      </article></section><section id="s-3"><h2>导出<small>3 项</small></h2>
       <article id="U-49b">
         <header><code>U-49b</code><h3>存档和截图分别导出一个文件还是两个文件</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">默认合成一个文件，可选各一个文件（选文件夹，名称带“存档 / 截图”与时间）（推荐） <b>✓ 采用</b></li><li class="">总是一个文件</li></ul>
@@ -104,7 +122,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">文件名以 Bonfire- 开头，附中英双语 readme.txt（说明、用法、Gitee / GitHub 地址），说明文件写 generator（推荐） <b>✓ 采用</b></li><li class="">只改文件名</li></ul>
         <p class="reason"><span>理由</span>用户要求导出的包都带篝火标识与命名、readme.txt 与仓库地址。readme 用 UTF-8 带 BOM 与 Windows 换行，记事本能正确显示。</p><p class="impact"><span>影响</span>存档文件导出（zip / 文件夹）、篝火包、合集包、截图导出都带 readme.txt；设置“关于”显示仓库地址。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-3"><h2>开发<small>88 项</small></h2>
+      </article></section><section id="s-4"><h2>开发<small>88 项</small></h2>
       <article id="U-45a">
         <header><code>U-45a</code><h3>7z 或 rar 压缩包能不能内置解压</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">都内置：7z 用纯 Rust 的 sevenz-rust2，rar 用 unrar（内含 RarLab unRAR 解压源码），都支持加密（推荐） <b>✓ 采用</b></li><li class="">只内置 7z，rar 仍提示先解压</li><li class="">调用用户电脑上已安装的 7-Zip</li></ul>
@@ -632,7 +650,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">按方案实现</li><li class="chosen">按方案实现；以下几点为实现细节：原图沿用文件对象写入（不重新编码，zstd 对图片收益很小）；Steam 截图按文件名取拍摄时间，不解析 screenshots.vdf；截图与快照的对应为“拍摄之后最早的快照（任何分支）”；定时收集的默认值为关闭（只随备份收集）；缩略图按需生成 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>方案 S1–S6 已确认；这些是方案没有细到的地方，取最简单且不影响效果的做法。</p><p class="impact"><span>影响</span>新增 REQ-014（已完成）。相册的文件对象需作为 M4-4 GC 的根（已写入里程碑说明）。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-4"><h2>缺陷修复<small>6 项</small></h2>
+      </article></section><section id="s-5"><h2>缺陷修复<small>6 项</small></h2>
       <article id="U-16b">
         <header><code>U-16b</code><h3>游戏库底部“已选 0 个”被挤成竖排</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">操作栏中的按钮与文字不压缩、放不下时换行；全选 / 全不选 / 反选合为分段按钮；保存方案、导出所选、移出游戏库收进“所选游戏”菜单（推荐） <b>✓ 采用</b></li></ul>
@@ -668,7 +686,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>资源管理器不认识正斜杠路径（存档位置记录为 C:/Users/...），会忽略参数并打开默认目录；另外不含通配符的目录型位置被当成通配位置，打开了上一级。</p><p class="impact"><span>影响</span>open_path 打开前统一转为反斜杠（安装目录、导出位置同样受益）；不含通配符的位置直接打开该目录。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-5"><h2>用户修改<small>18 项</small></h2>
+      </article></section><section id="s-6"><h2>用户修改<small>18 项</small></h2>
       <article id="U-8c">
         <header><code>U-8c</code><h3>存档安全保护在游戏库中可以设置，并给出相应提示</h3><span class="status">默认推荐</span></header>
         <ul><li class="">只在设置页中设置</li><li class="chosen">游戏库底部操作栏放一个开关（与设置中的同一项）：开启为绿色盾牌“保护已开启”，关闭为醒目的“保护已关闭”；悬停说明当前效果，关闭需确认，切换后提示结果 <b>✓ 采用</b></li></ul>
@@ -776,7 +794,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">配置在 %APPDATA%/Bonfire，仓库、日志、缓存在 %LOCALAPPDATA%/Bonfire（原默认）</li><li class="chosen">全部放在项目（程序）目录下的 data：data/config.toml、data/repo、data/logs、data/cache、data/webview <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>用户 2026-10-09 要求默认仓库在项目目录下的 data，并选择配置、日志、缓存也一并放入（推荐项）。开发时为项目根目录下的 data（.gitignore 已排除），安装后为程序所在目录下的 data；仓库不能设为 data 本身（避免与应用配置文件同名冲突）。BONFIRE_HOME 仍可指定其他数据根目录。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-6"><h2>M3 GUI MVP<small>8 项</small></h2>
+      </article></section><section id="s-7"><h2>M3 GUI MVP<small>8 项</small></h2>
       <article id="M3-ACC">
         <header><code>M3-ACC</code><h3>M3 验收方式</h3><span class="status">按默认推荐自动决定，待复核</span></header>
         <ul><li class="">等待用户本机安装验收</li><li class="chosen">自动化测试 + 真实窗口截图检查后视为通过；安装、卸载、升级由用户事后复核 <b>✓ 采用</b></li></ul>
@@ -824,7 +842,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">通用的 SaaS 卡片风格</li><li class="chosen">冷灰“烟与夜色”为底，余烬橙只标记需要处理的东西；游戏名与数字用 Windows 自带的 Bahnschrift；历史时间线画成“篝火路线”（每个快照一处火焰，分支为分岔小路，当前所在快照发光） <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>按 frontend-design 技能先定设计方案再实现：主色来自用户选定的 Logo（#E8590C），避免与米色底搭配的常见套路；字体全部为系统自带，离线可用、无需打包字体。明/暗/自动三态主题。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-7"><h2>M2 存档发现<small>15 项</small></h2>
+      </article></section><section id="s-8"><h2>M2 存档发现<small>15 项</small></h2>
       <article id="M2-D15">
         <header><code>M2-D15</code><h3>用户手动修改的游戏信息如何保护？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
         <ul><li class="">自动刷新时覆盖</li><li class="chosen">手动修改的字段加锁，自动刷新不覆盖；info --unlock 解除 <b>✓ 采用</b></li></ul>
@@ -914,13 +932,13 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">原样内置 YAML</li><li class="chosen">构建时转换为精简的 zstd 压缩 JSON 内置（只保留 Windows 相关字段），运行时按 ETag 增量更新到缓存目录 <b>✓ 采用</b></li><li class="">不内置，只在首次启动时下载</li></ul>
         <p class="reason"><span>理由</span>Q3 已确认“内置快照 + 联网增量更新”；精简后体积预计 1–2 MB，启动解析快。规则库快照不提交到 git，由 scripts 在构建前下载生成，测试使用小型示例规则。</p><p class="impact"><span>影响</span>离线首次启动也能识别游戏；规则更新失败时继续使用内置快照。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-8"><h2>M1 核心库<small>1 项</small></h2>
+      </article></section><section id="s-9"><h2>M1 核心库<small>1 项</small></h2>
       <article id="M1-ACC">
         <header><code>M1-ACC</code><h3>M1 用户验收</h3><span class="status">按默认推荐自动决定，待复核</span></header>
         <ul><li class="">等待用户手工验收后再进入 M2</li><li class="chosen">自动化验收全部通过即视为通过，进入 M2，用户事后复核 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>崩溃一致性（9 个写入点 + 恢复中途 + 24 处压力测试）、fsck、57 条 CLI 用例全部通过；见 docs/project-spec.md「开发记录」M1-7。</p><p class="impact"><span>影响</span>如复核发现问题，修复会在后续版本中进行并记入更新记录。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-9"><h2>全局<small>1 项</small></h2>
+      </article></section><section id="s-10"><h2>全局<small>1 项</small></h2>
       <article id="G-1">
         <header><code>G-1</code><h3>后续开发中的待确认事项如何处理？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
         <ul><li class="">每项停下来询问</li><li class="chosen">按默认推荐方案自动决定并记录到本页，供事后复核 <b>✓ 采用</b></li></ul>

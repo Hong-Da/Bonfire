@@ -4,7 +4,7 @@
 
 Windows 桌面端游戏存档备份工具：自动扫描各平台的游戏存档，判断哪些有更新，按 Git 式快照保存完整历史，随时恢复到任意版本。
 
-> 开发中：M1（核心库 + 命令行）、M2（存档发现）已完成，桌面界面在 M3 提供。
+> 开发中：M1（核心库 + 命令行）、M2（存档发现）、M3（桌面应用与安装包）已完成；M4（其余平台、历史清理等）进行中。
 
 ## 代码仓库
 
@@ -19,6 +19,15 @@ Windows 桌面端游戏存档备份工具：自动扫描各平台的游戏存档
 - **安全恢复**：恢复前预览差异、自动生成保护快照、失败自动回滚，恢复后可一键撤销；游戏运行时阻止恢复。
 - **可靠**：任何时刻中断都不会损坏已有快照，`fsck` 可校验整个仓库。
 - **自动识别**：扫描 Steam、Epic、GOG，按 Ludusavi 社区规则库（2 万多款游戏）定位存档，并获取中文名、封面、游玩时长等信息；规则库没有的游戏用启发式探测，确认后转为自定义规则。
+
+## 安装
+
+运行 `build.bat` 生成安装包 `target\release\bundle\nsis\Bonfire_<版本>_x64-setup.exe`（`build.bat --offline` 不下载规则库，使用已有快照）。安装包：
+
+- 按当前用户安装（不需要管理员权限），默认装在 `%LOCALAPPDATA%\Bonfire`，开始菜单有“Bonfire”快捷方式；安装界面可选中文或英文。
+- 数据（配置、备份仓库、日志、缓存）都在 `<安装目录>\data`。**卸载不会删除 `data`**，重新安装或升级后备份历史仍在。
+- 命令行在 `<安装目录>\cli\bonfire.exe`，与桌面应用共用同一份数据；把 `<安装目录>\cli` 加入 PATH 后即可直接使用 `bonfire`。
+- 内置 Ludusavi 规则库快照，首次启动不联网也能识别游戏，联网时自动增量更新。
 
 ## 使用方式
 
@@ -59,10 +68,11 @@ bonfire/
 ├── rust-toolchain.toml         固定 Rust 稳定版
 ├── .gitignore / .gitattributes
 ├── start.bat                   一键运行
+├── build.bat                   构建安装包（NSIS）
 ├── cli.bat                     CLI 包装脚本
 ├── test.bat                    一键测试
 ├── config/
-│   └── config.example.toml     应用配置示例（实际配置在 %APPDATA%\Bonfire\）
+│   └── config.example.toml     应用配置示例（实际配置在程序目录的 data\ 中）
 ├── crates/
 │   ├── bonfire-core/           引擎·版本存储：对象库、refs、索引、变更检测、fsck、GC
 │   ├── bonfire-discovery/      引擎·存档发现：平台适配器、规则库、游戏信息提供者、截图来源

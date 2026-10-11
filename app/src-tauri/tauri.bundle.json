@@ -1,6 +1,8 @@
 {
   "bundle": {
-    "externalBin": ["binaries/bonfire"],
-    "resources": { "resources/manifest.json.zst": "manifest.json.zst" }
+    "resources": {
+      "resources/manifest.json.zst": "manifest.json.zst",
+      "binaries/bonfire-x86_64-pc-windows-msvc.exe": "cli/bonfire.exe"
+    }
   }
 }

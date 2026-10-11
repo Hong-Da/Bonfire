@@ -12,6 +12,10 @@ use std::path::{Path, PathBuf};
 pub const PORTABLE_MARKER: &str = "portable";
 pub const ENV_HOME: &str = "BONFIRE_HOME";
 pub const ENV_CONFIG: &str = "BONFIRE_CONFIG";
+/// 安装包中放命令行的子目录。
+pub const CLI_DIR: &str = "cli";
+/// 安装目录中的桌面程序。
+pub const DESKTOP_EXE: &str = "Bonfire.exe";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppPaths {
@@ -74,6 +78,16 @@ pub const DATA_DIR: &str = "data";
 /// 程序的根目录：开发时从 `<项目>\target\<debug|release>[\deps]` 运行，返回项目根目录；
 /// 安装后返回程序所在目录。默认仓库为其下的 `data`。
 pub fn program_root(exe_dir: &Path) -> PathBuf {
+    // 安装包中的命令行在 `<安装目录>\clionfire.exe`（与桌面程序 Bonfire.exe 不能同名同目录）：
+    // 数据与桌面程序共用 `<安装目录>\data`。
+    if exe_dir
+        .file_name()
+        .is_some_and(|n| n.eq_ignore_ascii_case(CLI_DIR))
+        && let Some(install) = exe_dir.parent()
+        && install.join(DESKTOP_EXE).is_file()
+    {
+        return install.to_path_buf();
+    }
     let target = exe_dir.ancestors().take(3).find(|p| {
         p.file_name()
             .is_some_and(|n| n.eq_ignore_ascii_case("target"))
@@ -135,6 +149,13 @@ mod tests {
         // 安装目录：没有 target 上级，就是程序所在目录。
         let install = d.path().join("Programs/Bonfire");
         assert_eq!(program_root(&install), install);
+        // 安装包中的命令行（cli 子目录）：与桌面程序共用安装目录。
+        std::fs::create_dir_all(install.join("cli")).unwrap();
+        std::fs::write(install.join(DESKTOP_EXE), "").unwrap();
+        assert_eq!(program_root(&install.join("cli")), install);
+        // 只有名为 cli、但上级不是安装目录：按程序目录处理。
+        let lone = d.path().join("x/cli");
+        assert_eq!(program_root(&lone), lone);
         // target 的上级不是 Cargo 项目：仍按程序目录处理。
         let other = tempfile::tempdir().unwrap();
         assert_eq!(
