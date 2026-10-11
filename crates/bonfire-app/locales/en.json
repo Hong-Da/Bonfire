@@ -1221,5 +1221,8 @@
   "ui.backup.shotsSkippedTitle": "No new screenshots, skipped ({n})",
   "ui.backup.shotsSkippedHint": "There's nothing new in these games' screenshot folders.",
   "ui.backup.shotsAllNone": "None of the {n} selected games has new screenshots.",
-  "ui.gallery.foldRange": "{from} – {to}"
+  "ui.gallery.foldRange": "{from} – {to}",
+  "ui.settings.remember": "Remember my choices",
+  "ui.settings.rememberFilters": "Library filters and management view (when off, every launch shows all games)",
+  "ui.settings.rememberSelection": "Selected games in the library (when off, games with changes or never backed up are selected each launch)"
 }

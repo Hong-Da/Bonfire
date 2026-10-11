@@ -580,3 +580,34 @@ describe("U-39 记住勾选的游戏", () => {
     localStorage.removeItem("bonfire.library.selected");
   });
 });
+
+describe("U-40 是否记住上次的选择", () => {
+  it("关闭后清除已保存的筛选与勾选，之后不再保存，启动时用默认", async () => {
+    seed([row({ id: "a", name: "Alpha", nameZh: null, mode: "shots" })]);
+    useStore.getState().setModeFilter("shots");
+    expect(localStorage.getItem("bonfire.library.filters")).toContain("shots");
+    useStore.getState().setInfo({ ...info, rememberFilters: false, rememberSelection: false });
+    expect(localStorage.getItem("bonfire.library.filters")).toBeNull();
+    expect(api.uiStateSet).toHaveBeenCalledWith("bonfire.library.filters", null);
+    useStore.getState().setStateFilter("has-changes");
+    expect(localStorage.getItem("bonfire.library.filters")).toBeNull();
+    useStore.getState().toggle("a");
+    expect(localStorage.getItem("bonfire.library.selected")).toBeNull();
+    useStore.getState().restoreFilters();
+    expect(useStore.getState()).toMatchObject({ stateFilter: "all", modeFilter: "all" });
+    useStore.getState().setInfo(info);
+  });
+
+  it("设置页：界面分组中可以关闭记住筛选与勾选", async () => {
+    useStore.setState({ info, toasts: [], view: { name: "settings" } });
+    api.saveSettings.mockResolvedValue(info);
+    render(<Settings />);
+    const box = await screen.findByRole("checkbox", { name: /游戏库的筛选与管理方式/ });
+    expect(box).toBeChecked();
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole("checkbox", { name: /游戏库中勾选的游戏/ }));
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalled());
+    expect(api.saveSettings.mock.calls[0][0].general).toMatchObject({ remember_filters: false, remember_selection: false });
+  });
+});

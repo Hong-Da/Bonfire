@@ -153,6 +153,9 @@ pub struct AppInfo {
     host: String,
     /// 存档安全保护是否开启。
     protect_local: bool,
+    /// 记住游戏库的筛选 / 勾选的游戏。
+    remember_filters: bool,
+    remember_selection: bool,
 }
 
 #[tauri::command]
@@ -168,6 +171,7 @@ pub async fn app_info(h: AppHandle) -> CmdResult<AppInfo> {
         ),
         None => (Locale::resolve(None), Default::default(), None, true),
     };
+    let general = guard.as_ref().map(|a| a.config.general.clone()).unwrap_or_default();
     Ok(AppInfo {
         version: bonfire_app::VERSION,
         portable: shared.paths.portable,
@@ -180,6 +184,8 @@ pub async fn app_info(h: AppHandle) -> CmdResult<AppInfo> {
         config_error: shared.config_error.lock().unwrap().clone(),
         host: bonfire_app::util::host_name(),
         protect_local,
+        remember_filters: general.remember_filters,
+        remember_selection: general.remember_selection,
     })
 }
 

@@ -25,9 +25,10 @@ export default function App() {
 
   useEffect(() => {
     // 先读入界面状态（筛选、图库查看方式等），再加载游戏库。
-    Promise.all([api.appInfo(), loadUiState().then(() => useStore.getState().restoreFilters())])
+    Promise.all([api.appInfo(), loadUiState()])
       .then(([i]) => {
         setInfo(i);
+        useStore.getState().restoreFilters();
         // 主题以配置为准；本地存储只用于避免启动时闪烁。首次运行时还没有配置，回到“自动”。
         applyTheme(i.firstRun ? "auto" : i.theme);
         if (!i.firstRun) {

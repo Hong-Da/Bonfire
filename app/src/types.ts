@@ -17,10 +17,13 @@ export interface AppInfo {
   host: string;
   /** 存档安全保护是否开启。 */
   protectLocal: boolean;
+  /** 记住游戏库的筛选 / 勾选的游戏（缺省为是）。 */
+  rememberFilters?: boolean;
+  rememberSelection?: boolean;
 }
 
 export interface Config {
-  general: { language?: string; theme: Theme; repo?: string; close_to_tray: boolean; close_asked?: boolean };
+  general: { language?: string; theme: Theme; repo?: string; close_to_tray: boolean; close_asked?: boolean; remember_filters?: boolean; remember_selection?: boolean };
   backup: { include_config_files: boolean; size_warning_gb: number; disabled_platforms: string[]; protect_local: boolean };
   shots: ShotsConfig;
   auto_backup: AutoBackupConfig;

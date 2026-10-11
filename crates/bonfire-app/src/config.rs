@@ -67,6 +67,10 @@ pub struct General {
     pub close_to_tray: bool,
     /// 已经问过（或在设置中选过）关闭窗口时的做法；为 false 时第一次关闭窗口会询问。
     pub close_asked: bool,
+    /// 记住游戏库的筛选（状态、管理方式、平台、筛选方案），重新打开时恢复。
+    pub remember_filters: bool,
+    /// 记住游戏库中勾选的游戏，重新打开时恢复；关闭时每次按默认勾选有更新与未备份的游戏。
+    pub remember_selection: bool,
 }
 
 impl Default for General {
@@ -77,6 +81,8 @@ impl Default for General {
             repo: None,
             close_to_tray: true,
             close_asked: false,
+            remember_filters: true,
+            remember_selection: true,
         }
     }
 }
@@ -417,6 +423,10 @@ theme = "{theme}"
 close_to_tray = {tray}
 # 是否已经选过关闭窗口时的做法；为 false 时第一次关闭窗口会询问“最小化到托盘还是退出”
 close_asked = {asked}
+# 记住游戏库的筛选（状态、管理方式、平台、筛选方案），重新打开时恢复
+remember_filters = {rem_filters}
+# 记住游戏库中勾选的游戏；关闭时每次按默认勾选有更新与未备份的游戏
+remember_selection = {rem_sel}
 
 [backup]
 # 是否同时备份游戏的配置文件（画质、按键等设置）
@@ -484,6 +494,8 @@ keep_days = {keep}
             theme = "auto",
             tray = d.general.close_to_tray,
             asked = d.general.close_asked,
+            rem_filters = d.general.remember_filters,
+            rem_sel = d.general.remember_selection,
             protect = d.backup.protect_local,
             shots = d.shots.enabled,
             schedule = "off",

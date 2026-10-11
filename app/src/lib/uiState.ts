@@ -39,6 +39,21 @@ export function prefSet(key: string, value: string) {
   }
 }
 
+/** 删除一项（关闭“记住”时清除已保存的选择）。 */
+export function prefRemove(key: string) {
+  delete cache[key];
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // 忽略
+  }
+  try {
+    void Promise.resolve(api.uiStateSet(key, null)).catch(() => {});
+  } catch {
+    // 后台不可用时只影响本次。
+  }
+}
+
 /** 测试用：清空读入的状态。 */
 export function resetUiStateForTest() {
   cache = {};

@@ -140,6 +140,19 @@ export default function Settings() {
                 ))}
               </div>
             </div>
+            <div className="row">
+              <label>{t("ui.settings.remember")}</label>
+              <div>
+                <label className="opt">
+                  <input type="checkbox" className="check" checked={cfg.general.remember_filters ?? true} onChange={(e) => update((c) => (c.general.remember_filters = e.target.checked))} />
+                  {t("ui.settings.rememberFilters")}
+                </label>
+                <label className="opt">
+                  <input type="checkbox" className="check" checked={cfg.general.remember_selection ?? true} onChange={(e) => update((c) => (c.general.remember_selection = e.target.checked))} />
+                  {t("ui.settings.rememberSelection")}
+                </label>
+              </div>
+            </div>
           </section>
 
           <section id="settings-auto" className={section === "auto" ? "flash" : undefined}>

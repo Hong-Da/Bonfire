@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { prefGet, prefSet } from "./lib/uiState";
+import { prefGet, prefRemove, prefSet } from "./lib/uiState";
 import { markSeen, noteGames } from "./lib/fresh";
 import { api, errorMessage } from "./api";
 import type { AppInfo, GameRow, GameState, ManageMode, Phase, ScanReport } from "./types";
@@ -179,7 +179,12 @@ export const useStore = create<Store>((set, get) => ({
   scanning: false,
   scanPhase: "idle",
 
-  setInfo: (info) => set({ info }),
+  setInfo: (info) => {
+    // 关闭“记住”时清除已保存的选择，之后也不再保存。
+    if (info.rememberFilters === false) prefRemove(FILTER_KEY);
+    if (info.rememberSelection === false) prefRemove(SELECTION_KEY);
+    set({ info });
+  },
   go: (view) => {
     // 打开游戏详情后不再标为“新加入”。
     if (view.name === "game" && get().fresh[view.id]) get().markSeen([view.id]);
@@ -210,7 +215,7 @@ export const useStore = create<Store>((set, get) => ({
       const map = Object.fromEntries(rows.map((r) => [r.id, r]));
       // 用户在加载过程中已经勾选过时保留其选择；否则默认勾选有更新与未备份的游戏。
       const keep = get().selected.size > 0 && [...get().selected].every((id) => map[id]);
-      const saved = readSelection();
+      const saved = get().info?.rememberSelection === false ? null : readSelection();
       const selected = keep ? get().selected : saved ? new Set(saved.filter((id) => map[id])) : defaultSelection(rows);
       set({ rows: map, order: sortIds(map), selected, fresh: noteGames(rows.map((r) => r.id)) });
     } catch (e) {
@@ -275,7 +280,7 @@ export const useStore = create<Store>((set, get) => ({
     set({ profileFilter });
     persistFilters(get());
   },
-  restoreFilters: () => set(readFilters()),
+  restoreFilters: () => set(get().info?.rememberFilters === false ? DEFAULT_FILTERS : readFilters()),
   setNewOnly: (newOnly) => {
     set({ newOnly });
     persistFilters(get());
@@ -307,11 +312,15 @@ export const useStore = create<Store>((set, get) => ({
     }),
 }));
 
-function persistFilters(s: SavedFilters) {
+const DEFAULT_FILTERS: SavedFilters = { stateFilter: "all", modeFilter: "all", platformFilter: "all", profileFilter: null, newOnly: false };
+
+function persistFilters(s: SavedFilters & { info?: Store["info"] }) {
+  if (s.info?.rememberFilters === false) return;
   saveFilters({ stateFilter: s.stateFilter, modeFilter: s.modeFilter, platformFilter: s.platformFilter, profileFilter: s.profileFilter, newOnly: s.newOnly });
 }
 
 // 勾选变化时保存（加载游戏库之前的空勾选不保存）。
 useStore.subscribe((s, prev) => {
-  if (s.selected !== prev.selected && Object.keys(s.rows).length > 0) prefSet(SELECTION_KEY, JSON.stringify([...s.selected]));
+  if (s.selected !== prev.selected && Object.keys(s.rows).length > 0 && s.info?.rememberSelection !== false)
+    prefSet(SELECTION_KEY, JSON.stringify([...s.selected]));
 });

@@ -1221,5 +1221,8 @@
   "ui.backup.shotsSkippedTitle": "没有新截图，将跳过（{n}）",
   "ui.backup.shotsSkippedHint": "这些游戏的截图文件夹中没有还没收集的截图。",
   "ui.backup.shotsAllNone": "所选的 {n} 个游戏都没有新截图，不需要收集。",
-  "ui.gallery.foldRange": "{from}至{to}"
+  "ui.gallery.foldRange": "{from}至{to}",
+  "ui.settings.remember": "记住上次的选择",
+  "ui.settings.rememberFilters": "游戏库的筛选与管理方式（关闭后每次打开都显示全部游戏）",
+  "ui.settings.rememberSelection": "游戏库中勾选的游戏（关闭后每次打开按默认勾选有更新与未备份的游戏）"
 }
