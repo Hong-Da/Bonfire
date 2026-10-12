@@ -49,7 +49,7 @@ description: 篝火（Bonfire）的项目更新流程：出现新需求、任务
 4. 配置定义 `crates/bonfire-app/src/config.rs`、首次运行向导、文案 `crates/bonfire-app/locales/{zh-CN,en}.json`
 5. 测试输入与用例数据（`tests/inputs/`、`tests/cases/cli_cases.toml`）、单元测试、前端测试
 6. `test.bat --bless` 重新生成 `docs/cli.md` 示例与 `config/config.example.toml`，再更新其余文档（`docs/cli.md` 命令表、`tests/README.md`）
-7. 脚本：`start.bat`、`test.bat`、`build.bat`、`cli.bat`；安装包配置 `app/src-tauri/tauri.bundle.json`
+7. 脚本：`start.bat`、`test.bat`、`build.bat`、`pack.bat`（`scripts/pack.ps1`）、`cli.bat`；安装包配置 `app/src-tauri/tauri.bundle.json`
 8. `README.md`（功能、项目结构）
 9. 按检测结论更新项目专属 skill（含 `bonfire-test` 的功能清单），`bonfire-update` 自身放最后
 10. 版本号（`Cargo.toml` 与 `app/package.json` 两处）、更新记录、`CHANGELOG.md`：按 `references/changelog-rules.md` 生成，测试情况先写“待测试”
@@ -61,7 +61,7 @@ description: 篝火（Bonfire）的项目更新流程：出现新需求、任务
 2. 结果写入本次更新记录，重新生成所在次版本的 `SUMMARY.md`；不测试时如实记为“未测试”。
 3. 失败时汇报失败的功能编号，询问修复后重测，还是如实记为“测试未通过”后结束（此时不更新 `last_synced_commit`）。
 4. 通过或用户明确不测试后：把 `last_synced_commit` 设为 `v<新版本>`；询问是否提交并打标签 `v<新版本>`。暂不提交时提醒：提交时必须打同名标签。
-5. 需要安装包时运行 `build.bat`（PowerShell：`$env:BONFIRE_NO_PAUSE="1"; cmd /c ".\build.bat --offline"`），产物在 `target\release\bundle\nsis\`。
+5. 需要发布包时先运行 `build.bat`（PowerShell：`$env:BONFIRE_NO_PAUSE="1"; cmd /c ".\build.bat --offline"`），再运行 `pack.bat --type all --no-data --yes`，在 `dist\` 生成带运行环境的免安装包 `Bonfire_<版本>_win-x64_portable.zip` 与安装包 `Bonfire_<版本>_win-x64_setup.exe`。
 6. 汇报：版本号变化、改动文件、各 skill 更新情况、测试结果、更新记录位置。
 
 ### 8. 需求盘点

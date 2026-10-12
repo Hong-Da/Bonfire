@@ -2,7 +2,7 @@
 
 > 生成日期：2026-10-09
 > 读取日期：2026-10-08（任务文档）
-> last_synced_commit：v0.4.2
+> last_synced_commit：v0.4.3
 > 每条决定后标注【默认】【建议：原因】或【用户修改】。
 > 选项记录：DevelopDocs/project-config/config.json（确认方式：网页）
 
@@ -210,6 +210,7 @@
   - 恢复出厂设置（`bonfire-app` 的 `reset` 模块）：清除设置、自定义规则、界面状态、`keys`（记住的仓库密码、同步令牌）、缓存、操作记录、日志与窗口数据；保留本机标识 `machine-id`；可选同时删除备份仓库（只删篝火仓库自己的文件，文件夹中其他文件保留）；游戏存档与远程备份不碰。必须输入确认文字（“恢复出厂设置”，删除仓库时“删除全部备份”；English：RESET / DELETE ALL BACKUPS），界面与命令层都核对。桌面程序写下待办标记 `factory-reset.pending` 后重启，在下次启动、打开日志与仓库之前执行；CLI `bonfire reset --confirm <文字> [--delete-repo]` 立即执行。
   - 设置中去掉“重新运行向导”（首次运行向导保留）。
   - 功能导览：“去试试”跳到页面后收起到右下角“继续篝火入门（n/8）”，点击回到下一张，× 结束。
+- 0.4.3（2026-10-11，决策 F1d）：`pack.bat` 可选包的类型：免安装包（默认，`portable`）、安装包（`setup`）、迁移包（`migrate`）、全部（`all`）；所有包名带版本号与运行环境 `Bonfire_<版本>_<win-x64|win-x86|win-arm64>_<类型>`，运行环境从 `Bonfire.exe` 的 PE 文件头读取（并检查它是桌面程序而不是命令行）。免安装包结构与安装目录相同（`Bonfire.exe`、`cli\bonfire.exe`、规则库、`portable` 标记、使用说明），数据在同目录 `data`；可选带上数据。
 
 ## N 名称与标识
 

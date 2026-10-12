@@ -1,10 +1,39 @@
 # 篝火 Bonfire 迁移与部署
 
-篝火是 Windows 桌面程序，部署就是运行安装包。本文说明怎样安装，以及怎样把备份历史搬到另一台电脑。
+篝火是 Windows 桌面程序，有免安装包和安装包两种。本文说明怎样使用，以及怎样把备份历史搬到另一台电脑。
 
-## 安装
+## 发布包
 
-运行 `Bonfire_<版本>_x64-setup.exe`：
+所有发布包的文件名都带版本号和运行环境（如 `win-x64`、`win-x86`、`win-arm64`），由 `pack.bat` 生成在 `dist\`（先运行 `build.bat`）：
+
+| 包 | 文件名 | 说明 |
+|---|---|---|
+| 免安装包（默认） | `Bonfire_<版本>_<环境>_portable.zip` | 解压即用，数据保存在同目录的 `data` 中；可选带上数据 |
+| 安装包 | `Bonfire_<版本>_<环境>_setup.exe` | NSIS 安装程序，有开始菜单与卸载 |
+| 迁移包 | `Bonfire_<版本>_<环境>_migrate_<日期>.zip` | 安装包 + 本说明 + 可选的数据，换电脑用 |
+
+```bat
+pack.bat                                         :: 交互：选择类型（回车为免安装包），需要时询问数据
+pack.bat --type portable --no-data --yes         :: 免安装包
+pack.bat --type all --no-data --yes              :: 免安装包与安装包（发布时用）
+pack.bat --type migrate --data "%LOCALAPPDATA%\Bonfire\data" --include config+repo --yes
+```
+
+运行环境从构建出的 `Bonfire.exe` 文件头读取。需要 Windows 10 / 11 自带的 WebView2 运行库，极少数旧系统要先从微软官网安装“WebView2 Runtime”。
+
+## 免安装版
+
+解压 `Bonfire_<版本>_<环境>_portable.zip`，双击文件夹中的 `Bonfire.exe`：
+
+- 设置、备份仓库、日志都保存在同目录的 `data` 中，不写注册表、不写用户目录，可以放在 U 盘里用。
+- 命令行是 `cli\bonfire.exe`，与桌面程序共用 `data`。
+- 换电脑：把整个文件夹拷过去即可（本机记住的密码与同步令牌需要重新输入）。
+- 升级：退出篝火后，用新版本的 `Bonfire.exe`、`cli\`、`manifest.json.zst` 覆盖旧文件，保留 `data`。
+- 卸载：退出篝火（托盘菜单“退出”）后删除整个文件夹；要保留备份请先拷出 `data\repo`。
+
+## 安装版
+
+运行 `Bonfire_<版本>_<环境>_setup.exe`：
 
 - 按当前用户安装，不需要管理员权限；默认装在 `%LOCALAPPDATA%\Bonfire`，可以改。
 - 安装后从开始菜单启动“Bonfire”，第一次启动进入配置向导。
@@ -23,23 +52,23 @@
 
 建议同时开启“设置 → 仓库加密”，网盘上的数据只有输入密码才能读取。
 
-### 二、用打包迁移脚本（一次性搬家）
+### 二、用打包脚本（一次性搬家）
 
-在开发环境或已有安装包的电脑上运行根目录的 `pack.bat`：
+在开发环境运行根目录的 `pack.bat`，选“迁移包”或带数据的“免安装包”：
 
 ```bat
-pack.bat                                      :: 交互：询问数据目录和要包含的内容，列出大小后确认
-pack.bat --no-data --yes                      :: 只打包安装包与本说明
-pack.bat --data "%LOCALAPPDATA%\Bonfire\data" --include config+repo --yes
+pack.bat --type migrate --data "%LOCALAPPDATA%\Bonfire\data" --include config+repo --yes
+pack.bat --type portable --data "%LOCALAPPDATA%\Bonfire\data" --include config+repo --yes
 ```
 
-- 输出 `dist\Bonfire_<版本>_<日期>.zip`，包含安装包、本说明，以及选中的 `data\config.toml`（配置）、`data\repo`（备份仓库）、`data\logs`（日志）。
+- 迁移包输出 `dist\Bonfire_<版本>_<环境>_migrate_<日期>.zip`，包含安装包、本说明，以及选中的 `data\config.toml`（配置，含自定义规则）、`data\repo`（备份仓库）、`data\logs`（日志）。
+- 带数据的免安装包解压后直接就是能用的篝火，数据已在 `data` 中，不需要下面的第 2 步。
 - 默认不包含任何数据，需要时逐项选择；打包前列出每项大小和合计，确认后才开始。
-- 始终不包含：本机记住的密码（`keys\`，与这台电脑的 Windows 账户绑定，换电脑无效）、缓存（`cache\`，新电脑上自动重建）。
+- 始终不包含：本机记住的密码与同步令牌（`keys\`，与这台电脑的 Windows 账户绑定，换电脑无效）、缓存（`cache\`，新电脑上自动重建）、窗口数据。
 
 在新电脑上：
 
-1. 解压 zip，运行安装包。
+1. 解压迁移包，运行安装包。
 2. 包含数据时，**先不要启动篝火**，把解压出来的 `data` 文件夹复制到安装目录（默认 `%LOCALAPPDATA%\Bonfire\data`），再启动。
 3. 配置中的仓库位置如果是旧电脑上的其他盘符，第一次启动后在“设置 → 存档仓库”改到实际位置。
 4. 加密的仓库：启动时输入密码，可以勾选在这台电脑上记住。

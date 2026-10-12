@@ -35,7 +35,7 @@ Windows 桌面端游戏存档备份工具：自动扫描各平台的游戏存档
 - 命令行在 `<安装目录>\cli\bonfire.exe`，与桌面应用共用同一份数据；把 `<安装目录>\cli` 加入 PATH 后即可直接使用 `bonfire`。
 - 内置 Ludusavi 规则库快照，首次启动不联网也能识别游戏，联网时自动增量更新。
 
-换电脑、升级与打包迁移见 [docs/migration.md](docs/migration.md)：`pack.bat` 把安装包、迁移说明与（可选）配置和备份仓库打成一个 zip。
+发布包与换电脑见 [docs/migration.md](docs/migration.md)：`pack.bat` 生成带版本号与运行环境的免安装包（默认，如 `Bonfire_<版本>_win-x64_portable.zip`）、安装包或迁移包（安装包 + 迁移说明 + 可选数据）。
 
 ## 使用方式
 
@@ -77,7 +77,7 @@ bonfire/
 ├── .gitignore / .gitattributes
 ├── start.bat                   一键运行
 ├── build.bat                   构建安装包（NSIS）
-├── pack.bat                    打包迁移：安装包 + 迁移说明 +（可选）数据 → dist\*.zip
+├── pack.bat                    打包：免安装包（默认）/ 安装包 / 迁移包，文件名带版本与运行环境 → dist\
 ├── cli.bat                     CLI 包装脚本
 ├── test.bat                    一键测试
 ├── CHANGELOG.md                更新记录总览
