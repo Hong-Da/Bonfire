@@ -350,11 +350,16 @@ export default function OverviewPage() {
         {hidden > 0 && <p className="ov-foot">{t("ui.ov.hiddenTodos", { n: hidden })}</p>}
       </section>
 
-      <div className="ov-pair">
-        <StoragePanel stats={stats} reclaim={reclaim} targets={targets} onClean={() => setCleanOpen(true)} />
-        <section className="ov-panel" aria-label={t("ui.ov.diskTitle")}>
-          <h2>{t("ui.ov.diskTitle")}</h2>
-          <p className="muted ov-small">{comparing ? t("ui.ov.comparing") : disk ? t("ui.ov.compared", { n: disk.compared, when: relative(disk.at, lang) }) : ""}</p>
+      <section className="ov-panel" aria-label={t("ui.ov.diskTitle")}>
+          <div className="ov-panel-head">
+            <h2>{t("ui.ov.diskTitle")}</h2>
+            <span className="muted ov-small">{comparing ? t("ui.ov.comparing") : disk ? t("ui.ov.compared", { n: disk.compared, when: relative(disk.at, lang) }) : ""}</span>
+            <span className="grow" />
+            <span className="muted ov-small">{t("ui.ov.noOverwrite")}</span>
+            <button className="btn small" disabled={comparing} onClick={() => void compare(true)}>
+              {t("ui.ov.compareAgain")}
+            </button>
+          </div>
           {disk && (
             <div className="ov-disk">
               <div className="row">
@@ -410,14 +415,9 @@ export default function OverviewPage() {
               </div>
             </div>
           )}
-          <div className="ov-inline">
-            <button className="btn" disabled={comparing} onClick={() => void compare(true)}>
-              {t("ui.ov.compareAgain")}
-            </button>
-            <span className="muted ov-small">{t("ui.ov.noOverwrite")}</span>
-          </div>
-        </section>
-      </div>
+      </section>
+
+      <StoragePanel stats={stats} reclaim={reclaim} targets={targets} onClean={() => setCleanOpen(true)} />
 
       <ActivityLog rows={rows} />
 
@@ -468,6 +468,8 @@ function StoragePanel({ stats, reclaim, targets, onClean }: { stats: StorageStat
   return (
     <section className="ov-panel" aria-label={t("ui.ov.storage")}>
       <h2>{t("ui.ov.storage")}</h2>
+      <div className="ov-storage-grid">
+      <div className="ov-storage-main">
       <div className="ov-bigline">
         <b className="num">{bytes(stats.total)}</b>
         <span className="muted">{stats.free !== null ? t("ui.ov.repoAtFree", { dir: stats.repoDir, free: bytes(stats.free) }) : t("ui.ov.repoAt", { dir: stats.repoDir })}</span>
@@ -509,6 +511,8 @@ function StoragePanel({ stats, reclaim, targets, onClean }: { stats: StorageStat
           )}
         </div>
       </div>
+      </div>
+      <div className="ov-storage-side">
       {top.length > 0 && (
         <>
           <p className="ov-subh">{t("ui.ov.topGames")}</p>
@@ -551,6 +555,8 @@ function StoragePanel({ stats, reclaim, targets, onClean }: { stats: StorageStat
           </ul>
         </>
       )}
+      </div>
+      </div>
     </section>
   );
 }
