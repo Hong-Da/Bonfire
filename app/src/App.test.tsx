@@ -134,11 +134,11 @@ describe("游戏库", () => {
     expect(api.runBackup.mock.calls[0][2]).toEqual({ mode: "move" });
   });
 
-  it("空游戏库引导去发现游戏", () => {
+  it("空游戏库引导去扫描游戏", () => {
     seed([]);
     render(<Library />);
     expect(screen.getByText("还没有游戏")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "发现游戏" }));
+    fireEvent.click(screen.getByRole("button", { name: "扫描游戏" }));
     expect(useStore.getState().view).toEqual({ name: "scan" });
   });
 });
