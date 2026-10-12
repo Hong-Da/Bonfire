@@ -94,7 +94,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: none; border: 0; border-radius: var(--radius); color: var(--muted); cursor: pointer; font-size: 11px;
 }
 .rail button:hover { color: var(--ink); background: var(--smoke); }
-.rail button[aria-current="page"] { color: var(--ink); }
+.rail button[aria-current="page"], .rail button[aria-current="page"]:hover { color: var(--ink); background: var(--ember-soft); font-weight: 600; }
 .rail button[aria-current="page"] svg { color: var(--ember); }
 .rail .spacer { flex: 1; }
 .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -126,7 +126,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 /* ---------- 顶部工具栏 ---------- */
 
 .toolbar {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 58px;
   padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--surface);
 }
 .toolbar h1 { font: 700 22px/1.2 var(--font-sign); margin: 0 12px 0 4px; letter-spacing: 0.01em; }
@@ -147,7 +147,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .game-list { list-style: none; margin: 0; padding: 4px 16px 96px; display: grid; gap: 6px; }
 /* 每个游戏一张卡片；有更新的左侧亮一道余烬色，勾选的整张卡片描边 */
 .game {
-  display: grid; grid-template-columns: 24px 44px minmax(180px, 1fr) 150px 130px 110px 32px; align-items: center; gap: 14px;
+  display: grid; grid-template-columns: 24px 44px minmax(200px, 2.4fr) minmax(170px, 1fr) minmax(130px, 0.8fr) minmax(110px, 0.7fr) 32px; align-items: center; gap: 14px;
   padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
   transition: border-color 0.12s, background 0.12s;
 }
@@ -166,7 +166,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .game .title { min-width: 0; cursor: pointer; }
 .game .title strong { display: block; font: 500 16px/1.25 var(--font-sign); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game .title .sub { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); overflow: hidden; white-space: nowrap; }
-.game .meta { font-size: 12px; color: var(--muted); }
+.game .meta { font-size: 12.5px; color: var(--muted); }
 .game .meta b { color: var(--ink); font-weight: normal; }
 
 .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
@@ -180,8 +180,8 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .badge.pending::before { border: 1.5px dashed var(--muted); width: 6px; height: 6px; }
 
 .empty { display: grid; place-content: center; text-align: center; gap: 10px; padding: 64px 24px; color: var(--muted); }
-.empty h2 { font: 500 20px var(--font-sign); color: var(--ink); margin: 0; }
-.empty p { max-width: 56ch; margin: 0 auto; }
+.empty h2 { font: 600 20px var(--font-sign); color: var(--ink); margin: 0; }
+.empty p { width: min(56ch, 100%); margin: 0 auto; }
 .empty .actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 
 /* 列表上方的全选框与筛选结果 */
@@ -450,7 +450,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .page { flex: 1; overflow: auto; padding: 16px 24px 48px; }
 /* 设置页铺满宽度：窗口够宽时分两栏（每栏至少 560 像素），各分组不跨栏 */
 /* 单栏铺满窗口宽度（U-26 右侧不留空白；U-54 全屏时也不分两栏）；长说明限制行宽便于阅读 */
-.settings { display: block; }
+.settings { display: block; max-width: 1080px; margin-inline: auto; }
 .settings .hint, .settings .row .opt { max-width: 80ch; }
 .settings section { padding: 16px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; break-inside: avoid; margin: 0 0 14px; }
 .settings h2 { font: 600 16px var(--font-sign); margin: 0 0 8px; }
@@ -574,6 +574,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 /* 选中：内描边，不占位置、不挤压缩略图 */
 .shot-grid li::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 0 var(--ember); transition: box-shadow 0.12s; }
 .shot-grid li.on::after { box-shadow: inset 0 0 0 2px var(--ember); }
+.shot-grid li:not(.on):hover::after { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ember) 45%, transparent); }
 .shot-open { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
 .shot-thumb { display: block; aspect-ratio: 16 / 9; background: color-mix(in srgb, var(--muted) 12%, var(--surface)); }
 .shot-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -598,7 +599,7 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .include-shots { margin: 8px 0; }
 
 /* 大图：图片尽量占满窗口，底部一行精简信息，详情可展开 */
-.lightbox { position: fixed; inset: 0; z-index: 20; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; background: rgba(8, 10, 13, 0.92); }
+.lightbox { position: fixed; inset: 0; z-index: 20; display: grid; grid-template-columns: 72px 1fr 72px; align-items: center; background: rgba(8, 10, 13, 0.92); }
 .lightbox figure { margin: 0; height: 100vh; box-sizing: border-box; display: grid; grid-template-rows: minmax(0, 1fr) auto; padding: 12px 0 10px; }
 .lb-image { min-height: 0; height: 100%; display: grid; place-items: center; overflow: hidden; }
 .lb-image img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 2px; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5); }
@@ -622,7 +623,12 @@ textarea.field { height: auto; padding: 6px 10px; resize: vertical; }
 .lb-info dt { color: #aab4be; flex: none; }
 .lb-info dd { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-info button.link { color: #ffb48a; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lb-nav { height: 64px; border: 0; background: none; color: #fff; font-size: 40px; cursor: pointer; opacity: 0.8; }
+/* 上一张 / 下一张：圆形半透明按钮，离图片近、容易点到 */
+.lb-nav {
+  width: 48px; height: 48px; justify-self: center; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.38); color: #fff; font-size: 28px; line-height: 1; cursor: pointer; opacity: 0.9;
+}
+.lb-nav:hover:not(:disabled) { background: rgba(0, 0, 0, 0.6); opacity: 1; }
 .lb-nav:disabled { opacity: 0.2; cursor: default; }
 button.link { padding: 0; border: 0; background: none; color: var(--ember); cursor: pointer; text-align: left; font: inherit; }
 button.link:hover { text-decoration: underline; }
@@ -789,7 +795,7 @@ button.link:hover { text-decoration: underline; }
 .shot-grid.look-large { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .shot-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .shot-list li {
-  display: grid; grid-template-columns: 22px 96px minmax(0, 2fr) minmax(0, 1.2fr) 150px 90px 90px 70px; align-items: center; gap: 12px;
+  display: grid; grid-template-columns: 22px 96px minmax(0, 2.6fr) minmax(0, 0.9fr) 150px 140px 90px 70px; align-items: center; gap: 12px;
   padding: 4px 8px; border-radius: 6px; border: 1px solid transparent; font-size: 13px;
 }
 .shot-list li:hover { background: var(--surface); }
@@ -899,7 +905,8 @@ button.link:hover { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) { .note-row .head .row-skip { transition: none; } }
 
 /* 工具栏搜索框填满空余位置 */
-.toolbar input[type="search"].fill { flex: 1 1 200px; width: auto; min-width: 160px; max-width: none; }
+/* 宽屏时不铺满整行：固定宽度、靠右放 */
+.toolbar input[type="search"].fill { flex: 0 1 360px; width: auto; min-width: 160px; max-width: 360px; margin-left: auto; }
 
 /* 分步对话框的上一步 / 下一步：上一步为普通按钮带向左箭头，下一步为主按钮带向右箭头 */
 .btn .flip { display: inline-flex; transform: scaleX(-1); }
@@ -1436,3 +1443,20 @@ button.link:hover { text-decoration: underline; }
 .ov-tour-tip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
 .ov-tour-tip .grow { flex: 1; }
 @media (max-width: 700px) { .tour-card { grid-template-columns: 1fr; } .tour-scene { height: 100px; } .wizard .options.cols { grid-template-columns: 1fr; } }
+
+/* 界面优化（0.4.1，预览 docs/design/ui-polish-2026-10-11） */
+/* 图库 G1：分组标题旁的“全选 / 反选”平时隐藏；悬停标题、这一组有勾选或已折叠时显示 */
+.shot-day h3 .sel-seg { opacity: 0; transition: opacity 0.12s; }
+.shot-day h3:hover .sel-seg,
+.shot-day h3:focus-within .sel-seg,
+.shot-day:has(li.on) h3 .sel-seg,
+.shot-day.folded h3 .sel-seg { opacity: 1; }
+/* 图库 G3：列表中短字段不换行 */
+.shot-list li > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 图库 G5：缩略图与列表与分组标题中的游戏名对齐（展开箭头的宽度 + 间距） */
+.shot-day > .shot-grid { margin-left: 37px; }
+.shot-day > .shot-list { margin-left: 24px; } /* 列表行自带内边距：勾选框与游戏名对齐 */
+@media (max-width: 900px) { .shot-day > .shot-grid, .shot-day > .shot-list { margin-left: 0; } }
+@media (prefers-reduced-motion: reduce) { .shot-day h3 .sel-seg { transition: none; } }
+/* 同步页 7：目标上的“立即同步”是次要按钮，悬停时提示可以点 */
+.sync-actions .btn.sync-now:hover:not(:disabled) { border-color: var(--ember); color: var(--ember); }

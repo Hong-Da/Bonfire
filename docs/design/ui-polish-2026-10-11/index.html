@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>篝火界面优化预览</title>
+<style>
+:root { --smoke:#e7e9ec; --surface:#f7f8f9; --raised:#fff; --ink:#1f2429; --muted:#5f6872; --line:#d5d9de; --ember:#e8590c; --ember-soft:#fde6d8; --moss:#3e7d5a;
+  --font-sign:"Bahnschrift","Segoe UI Variable Display","Microsoft YaHei UI",sans-serif; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --smoke:#11161c; --surface:#1a2129; --raised:#222b35; --ink:#e6eaee; --muted:#9aa5b1; --line:#2d3742; --ember-soft:#3a2418; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--smoke); color:var(--ink); font:14px/1.6 "Microsoft YaHei UI","Segoe UI",sans-serif; }
+.doc { max-width:1500px; margin:0 auto; padding:32px 16px 80px; }
+h1 { font:600 28px/1.2 var(--font-sign); margin:0 0 6px; }
+.lead { color:var(--muted); max-width:80ch; margin:0 0 6px; }
+nav.toc { display:flex; flex-wrap:wrap; gap:6px; margin:16px 0 8px; }
+nav.toc a { font-size:13px; padding:3px 12px; border-radius:999px; background:var(--raised); border:1px solid var(--line); color:var(--ink); text-decoration:none; }
+table.list { border-collapse:collapse; width:100%; max-width:1000px; background:var(--surface); border:1px solid var(--line); border-radius:8px; overflow:hidden; font-size:13px; margin-top:12px; }
+table.list th, table.list td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+table.list th { color:var(--muted); font-weight:600; }
+table.list tr:last-child td { border-bottom:0; }
+.page { margin-top:36px; }
+.page h2 { font:600 20px var(--font-sign); margin:0 0 4px; }
+.notes { margin:0 0 10px; padding-left:18px; color:var(--muted); font-size:13px; }
+.pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+figure { margin:0; background:var(--surface); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+figcaption { padding:6px 12px; font-size:12px; font-weight:600; color:var(--muted); border-bottom:1px solid var(--line); }
+figcaption.after { color:var(--ember); background:var(--ember-soft); }
+figure img { display:block; width:100%; height:auto; }
+.callout { background:var(--ember-soft); border-radius:8px; padding:10px 14px; max-width:80ch; margin-top:32px; }
+@media (max-width:900px) { .pair { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="doc">
+<h1>界面优化预览</h1>
+<p class="lead">2026-10-11 · 用户已全部确认，0.4.1 实现（图库列表的缩进实际为 24 px，使勾选框与游戏名对齐）。逐页检查后只修问题、不改风格（颜色、字体、圆角、布局结构都保持不变）。左边是现在的界面，右边是改后的效果——改后截图是把下面 7 处样式临时加到同一个测试实例上截的，和最终效果一致。编号 1–7 是各页通用的问题，G1–G5 是图库专门的问题。点图片可以看大图。</p>
+<table class="list">
+  <tr><th style="width:36px">#</th><th>问题</th><th style="width:42%">改法</th></tr>
+  <tr><td>1</td><td>导航栏中当前在哪一页只靠图标变色，不明显</td><td>当前页加淡色底、文字加粗</td></tr>
+  <tr><td>2</td><td>扫描页顶部栏比其他页矮，切换页面时标题会跳动</td><td>各页顶部栏统一高度</td></tr>
+  <tr><td>3</td><td>游戏库、图库的搜索框铺满整行，宽屏时很长</td><td>固定 360 px，靠右放</td></tr>
+  <tr><td>4</td><td>游戏库宽屏时名称与右边三列之间空一大段，右边三列挤在一起</td><td>四列按比例分配宽度；说明文字略放大</td></tr>
+  <tr><td>5</td><td>设置页在宽屏拉满整屏，仓库位置输入框有 1500 px 长</td><td>内容限制在 1080 px 并居中</td></tr>
+  <tr><td>6</td><td>扫描页空状态的说明被挤成很窄的一列</td><td>按正常宽度换行，标题加粗</td></tr>
+  <tr><td>7</td><td>同步页每个目标都有橙色“立即同步”，和“添加同步目标”抢视线</td><td>目标上的“立即同步”改为次要按钮（悬停时变橙色）</td></tr>
+  <tr><td>G1</td><td>图库每个分组标题旁都有“全选 / 反选”，没勾选时也一直显示，分组多时很杂</td><td>平时隐藏；悬停标题、这一组有勾选或已折叠时才显示</td></tr>
+  <tr><td>G2</td><td>鼠标停在缩略图上没有反馈（只出现一个很小的勾选框）</td><td>悬停时出现淡色描边</td></tr>
+  <tr><td>G3</td><td>列表视图中文件名列很宽却留白，“来源”列太窄，“Windows 游戏栏截图”折成两行</td><td>文件名列更宽，短字段不换行</td></tr>
+  <tr><td>G5</td><td>缩略图和分组标题的展开箭头左对齐，看起来不协调</td><td>缩略图与列表向右缩进 37 px，与游戏名对齐；折叠后的分组不变</td></tr>
+  <tr><td>G4</td><td>查看大图时上一张 / 下一张只是贴在窗口边上的细箭头，不容易看到和点到</td><td>圆形半透明按钮，离图片更近</td></tr>
+</table>
+<nav class="toc"><a href="#library">游戏库</a><a href="#settings">设置</a><a href="#sync">同步</a><a href="#scan">扫描</a><a href="#gallery">图库</a><a href="#gallery-hover">图库 · 鼠标悬停缩略图</a><a href="#gallery-header-hover">图库 · 鼠标悬停分组标题（列表视图）</a><a href="#gallery-viewer">图库 · 查看大图</a><a href="#gallery-large">图库 · 大缩略图</a><a href="#overview">总览</a><a href="#detail">游戏详情</a><a href="#backup-dialog">备份对话框</a></nav>
+
+<section class="page" id="library">
+  <h2>游戏库</h2>
+  <ul class="notes"><li>4 名称与状态、上次备份、大小三列按比例分配，宽屏时不再中间空一大段</li><li>3 搜索框不再铺满整行，靠右放</li><li>1 导航中当前页加淡色底</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/library-before.jpg" target="_blank"><img src="img/library-before.jpg" alt="游戏库 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/library-after.jpg" target="_blank"><img src="img/library-after.jpg" alt="游戏库 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="settings">
+  <h2>设置</h2>
+  <ul class="notes"><li>5 内容限制在 1080 px 并居中，输入框与说明不再拉到整屏</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/settings-before.jpg" target="_blank"><img src="img/settings-before.jpg" alt="设置 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/settings-after.jpg" target="_blank"><img src="img/settings-after.jpg" alt="设置 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="sync">
+  <h2>同步</h2>
+  <ul class="notes"><li>7 每个目标的“立即同步”改为次要按钮，页面只保留右上角一个主要按钮“添加同步目标”</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/sync-before.jpg" target="_blank"><img src="img/sync-before.jpg" alt="同步 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/sync-after.jpg" target="_blank"><img src="img/sync-after.jpg" alt="同步 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="scan">
+  <h2>扫描</h2>
+  <ul class="notes"><li>2 顶部栏与其他页面一样高</li><li>6 空状态说明按正常宽度换行，标题加粗</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/scan-before.jpg" target="_blank"><img src="img/scan-before.jpg" alt="扫描 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/scan-after.jpg" target="_blank"><img src="img/scan-after.jpg" alt="扫描 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="gallery">
+  <h2>图库</h2>
+  <ul class="notes"><li>G5 缩略图向右缩进，与分组标题中的游戏名对齐（不再和展开箭头对齐）</li><li>3 搜索框不再铺满整行，靠右放</li><li>G1 分组标题旁的“全选 / 反选”平时隐藏</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/gallery-before.jpg" target="_blank"><img src="img/gallery-before.jpg" alt="图库 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/gallery-after.jpg" target="_blank"><img src="img/gallery-after.jpg" alt="图库 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="gallery-hover">
+  <h2>图库 · 鼠标悬停缩略图</h2>
+  <ul class="notes"><li>G1 分组标题旁的“全选 / 反选”平时隐藏，只显示游戏名与张数</li><li>G2 悬停的缩略图出现淡色描边</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/gallery-hover-before.jpg" target="_blank"><img src="img/gallery-hover-before.jpg" alt="图库 · 鼠标悬停缩略图 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/gallery-hover-after.jpg" target="_blank"><img src="img/gallery-hover-after.jpg" alt="图库 · 鼠标悬停缩略图 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="gallery-header-hover">
+  <h2>图库 · 鼠标悬停分组标题（列表视图）</h2>
+  <ul class="notes"><li>G1 悬停标题（或这一组有勾选、已折叠）时才出现“全选 / 反选”</li><li>G3 列表中文件名更宽，“Windows 游戏栏截图”不再折成两行</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/gallery-header-hover-before.jpg" target="_blank"><img src="img/gallery-header-hover-before.jpg" alt="图库 · 鼠标悬停分组标题（列表视图） 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/gallery-header-hover-after.jpg" target="_blank"><img src="img/gallery-header-hover-after.jpg" alt="图库 · 鼠标悬停分组标题（列表视图） 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="gallery-viewer">
+  <h2>图库 · 查看大图</h2>
+  <ul class="notes"><li>G4 上一张 / 下一张改为圆形半透明按钮，离图片更近，更容易看到和点到</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/gallery-viewer-before.jpg" target="_blank"><img src="img/gallery-viewer-before.jpg" alt="图库 · 查看大图 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/gallery-viewer-after.jpg" target="_blank"><img src="img/gallery-viewer-after.jpg" alt="图库 · 查看大图 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="gallery-large">
+  <h2>图库 · 大缩略图</h2>
+  <ul class="notes"><li>G1 同上</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/gallery-large-before.jpg" target="_blank"><img src="img/gallery-large-before.jpg" alt="图库 · 大缩略图 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/gallery-large-after.jpg" target="_blank"><img src="img/gallery-large-after.jpg" alt="图库 · 大缩略图 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="overview">
+  <h2>总览</h2>
+  <ul class="notes"><li>1 导航中当前页加淡色底（其余不变）</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/overview-before.jpg" target="_blank"><img src="img/overview-before.jpg" alt="总览 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/overview-after.jpg" target="_blank"><img src="img/overview-after.jpg" alt="总览 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="detail">
+  <h2>游戏详情</h2>
+  <ul class="notes"><li>1 导航中当前页加淡色底（其余不变）</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/detail-before.jpg" target="_blank"><img src="img/detail-before.jpg" alt="游戏详情 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/detail-after.jpg" target="_blank"><img src="img/detail-after.jpg" alt="游戏详情 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<section class="page" id="backup-dialog">
+  <h2>备份对话框</h2>
+  <ul class="notes"><li>无改动（检查后没有发现问题）</li></ul>
+  <div class="pair">
+    <figure><figcaption>改前</figcaption><a href="img/backup-dialog-before.jpg" target="_blank"><img src="img/backup-dialog-before.jpg" alt="备份对话框 改前" loading="lazy"></a></figure>
+    <figure><figcaption class="after">改后</figcaption><a href="img/backup-dialog-after.jpg" target="_blank"><img src="img/backup-dialog-after.jpg" alt="备份对话框 改后" loading="lazy"></a></figure>
+  </div>
+</section>
+<p class="callout">确认后把这 12 处合并进样式表（同时检查暗色主题与窄窗口），并在隔离实例中逐页再截一次图核对。想去掉或调整其中某几处，告诉我编号即可。</p>
+</div>
+</body>
+</html>

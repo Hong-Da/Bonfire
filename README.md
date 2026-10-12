@@ -105,7 +105,7 @@ bonfire/
 │   ├── cli.md                  CLI 调用文档
 │   ├── migration.md            安装、升级与迁移说明
 │   ├── changelog/              各版本更新记录（v0/v0.1/v0.1.0.md…）
-│   ├── design/                 界面设计方案（overview-2026-10-11/：总览页；wizard-2026-10-11/：首次运行向导与功能导览）
+│   ├── design/                 界面设计方案（overview-2026-10-11/：总览页；wizard-2026-10-11/：首次运行向导与功能导览；ui-polish-2026-10-11/：界面优化改前改后对比）
 │   └── acceptance/             里程碑验收报告
 ├── tests/                      测试：输入、用例数据、CLI 与文档测试（见 tests/README.md）
 ├── target/                     Rust 构建输出（不入库）

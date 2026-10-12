@@ -235,7 +235,7 @@ export default function SyncPage() {
                       )}
                     </div>
                     <div className="sync-actions">
-                      <button className="btn primary" onClick={() => setPreview(tg)} disabled={!!r}>
+                      <button className="btn sync-now" onClick={() => setPreview(tg)} disabled={!!r}>
                         {t("ui.sync.syncNow")}
                       </button>
                       <button className="btn" onClick={() => setEditing(tg)} disabled={!!r}>
