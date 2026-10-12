@@ -78,6 +78,17 @@ export interface RetentionConfig {
   scope: "auto" | "all";
 }
 
+/** 恢复出厂设置：将清除的内容与确认文字。 */
+export interface ResetInfo {
+  plan: {
+    items: { kind: string; path: string; bytes: number }[];
+    repoDir: string;
+    repoBytes: number;
+    deleteRepo: boolean;
+  };
+  phrase: string;
+}
+
 /** 首次运行向导：从远程获取的结果。 */
 export interface WizardRestore {
   files: number;

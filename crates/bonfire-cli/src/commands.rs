@@ -364,6 +364,10 @@ pub fn run(app: &mut App, cmd: Cmd, out: &Out) -> Result<()> {
             activity(app, q, game, out)
         }
         Cmd::Stats => stats(app, out),
+        Cmd::Reset {
+            delete_repo,
+            confirm,
+        } => reset(app, delete_repo, confirm, out),
         Cmd::Gc {
             games,
             objects_only,
@@ -2231,6 +2235,36 @@ fn activity(
     }
     if page.more {
         out.line(out.t("cli.out.activity_more"));
+    }
+    Ok(())
+}
+
+/// 恢复出厂设置：必须用 --confirm 写出确认文字（不接受 --yes）。
+fn reset(app: &App, delete_repo: bool, confirm: Option<String>, out: &Out) -> Result<()> {
+    let plan = bonfire_app::reset::plan(&app.paths, delete_repo);
+    let phrase = bonfire_app::reset::phrase(app.locale, delete_repo);
+    let Some(typed) = confirm else {
+        out.emit(serde_json::to_value(&plan).unwrap());
+        for i in &plan.items {
+            out.line(format!(
+                "  {}  {}",
+                i.path,
+                bonfire_app::util::human_bytes(i.bytes)
+            ));
+        }
+        if !delete_repo {
+            out.line(out.tf("cli.out.reset_keep_repo", &[("dir", &plan.repo_dir)]));
+        }
+        return Err(AppError::Invalid(
+            out.tf("cli.out.reset_need_confirm", &[("phrase", &phrase)]),
+        ));
+    };
+    bonfire_app::reset::check_phrase(app.locale, delete_repo, &typed)?;
+    let r = bonfire_app::reset::perform(&app.paths, delete_repo);
+    out.emit(serde_json::to_value(&r).unwrap());
+    out.line(out.tf("cli.out.reset_done", &[("n", &r.removed)]));
+    for (p, e) in &r.failed {
+        eprintln!("  {p}: {e}");
     }
     Ok(())
 }

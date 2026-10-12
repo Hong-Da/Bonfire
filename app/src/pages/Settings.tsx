@@ -18,6 +18,7 @@ import { DEFAULT_AUTO } from "../lib/auto";
 import { CleanupDialog } from "../components/CleanupDialog";
 import { RetentionGuide } from "../components/RetentionGuide";
 import { SecuritySection } from "../components/Security";
+import FactoryReset from "../components/FactoryReset";
 
 /** 历史清理的默认设置（旧配置中没有这一节时使用）。 */
 export const DEFAULT_RETENTION: RetentionConfig = { enabled: false, keep_last: 20, keep_daily: 14, keep_weekly: 8, scope: "auto" };
@@ -39,6 +40,8 @@ export default function Settings() {
   const [busy, setBusy] = useState<string | null>(null);
   const [captures, setCaptures] = useState<string | null>(null);
   const [dirs, setDirs] = useState<{ steamUserdata: string | null; captures: string | null } | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetEncrypted, setResetEncrypted] = useState(false);
   const [cleaning, setCleaning] = useState(false);
 
   useEffect(() => {
@@ -677,15 +680,6 @@ export default function Settings() {
           <section>
             <h2>{t("ui.settings.help")}</h2>
             <div className="row">
-              <label>{t("ui.settings.wizard")}</label>
-              <div>
-                <button className="btn" onClick={() => store.setGuide({ wizard: true })}>
-                  {t("ui.settings.rerunWizard")}
-                </button>
-                <p className="hint">{t("ui.settings.rerunWizardHint")}</p>
-              </div>
-            </div>
-            <div className="row">
               <label>{t("ui.settings.tour")}</label>
               <div>
                 <button className="btn" onClick={() => store.setGuide({ tour: true })}>
@@ -721,9 +715,32 @@ export default function Settings() {
               </ul>
             </div>
           </section>
+
+          <section className="danger-zone">
+            <h2>{t("ui.reset.section")}</h2>
+            <div className="row">
+              <label>{t("ui.reset.title")}</label>
+              <div>
+                <button
+                  className="btn danger-ghost"
+                  onClick={() =>
+                    void api
+                      .repoSecurity()
+                      .then((x) => setResetEncrypted(x.encrypted))
+                      .catch(() => setResetEncrypted(false))
+                      .finally(() => setResetOpen(true))
+                  }
+                >
+                  {t("ui.reset.open")}
+                </button>
+                <p className="hint">{t("ui.reset.hint")}</p>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
       {cleaning && <CleanupDialog onClose={() => setCleaning(false)} />}
+      {resetOpen && <FactoryReset encrypted={resetEncrypted} onClose={() => setResetOpen(false)} />}
     </>
   );
 }

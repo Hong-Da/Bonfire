@@ -17,6 +17,8 @@ use tauri::Manager;
 
 fn main() {
     let paths = AppPaths::resolve();
+    // 恢复出厂设置：上次退出前写下的待办，在打开日志、仓库与窗口之前执行。
+    let reset = bonfire_app::reset::run_pending(&paths);
     // 配置文件不存在：首次运行，等向导完成后再打开仓库。配置有误时用默认值启动并在界面中提示。
     let first_run = !paths.config_file.is_file();
     let (config, config_error) = match Config::load(&paths.config_file) {
@@ -27,6 +29,16 @@ fn main() {
         bonfire_app::logging::init(&paths.logs_dir, &config.log, cfg!(debug_assertions));
     if let Some(e) = &config_error {
         tracing::error!("配置加载失败，使用默认配置：{e}");
+    }
+    if let Some(r) = &reset {
+        tracing::warn!(
+            removed = r.removed,
+            failed = r.failed.len(),
+            "已恢复出厂设置"
+        );
+        for (p, e) in &r.failed {
+            tracing::warn!("没能删除 {p}：{e}");
+        }
     }
     tracing::info!(
         version = bonfire_app::VERSION,
@@ -157,6 +169,8 @@ fn main() {
             commands::save_profile,
             commands::delete_profile,
             commands::fsck,
+            commands::reset_plan,
+            commands::factory_reset,
             commands::attention,
             commands::snooze_attention,
             commands::activity_list,

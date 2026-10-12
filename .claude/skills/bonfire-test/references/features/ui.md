@@ -9,4 +9,5 @@
 | UI-03 | 多语言 | 中文 / English 文案齐全 | `app/src/i18n.test.ts`；`crates/bonfire-app/src/i18n.rs` 测试 | 0.1.0 | 有效 |
 | UI-04 | 确认框与界面状态 | 应用内确认框；筛选等界面状态保存 | `app/src/confirm.test.tsx`；`crates/bonfire-app/src/ui_state.rs` 测试 | 0.1.0 | 有效 |
 | UI-05 | 安装与卸载 | NSIS 安装包、升级保留数据、卸载时询问是否删除数据并提示远程备份不会删除 | `tests/installer/check-installer.ps1`（本机未安装篝火时运行；界面卸载的询问手动验收） | 0.2.4 | 有效 |
-| UI-06 | 功能导览 | 8 个常用功能的卡片，去试试跳到对应页面；设置中查看；升级用户在总览提示 | `app/src/App.test.tsx`（功能导览） | 0.4.0 | 有效 |
+| UI-06 | 功能导览 | 8 个常用功能的卡片，去试试跳到对应页面后收起到右下角、可继续；设置中查看；升级用户在总览提示 | `app/src/App.test.tsx`（功能导览） | 0.4.0 | 有效 |
+| UI-07 | 恢复出厂设置 | 清除本机设置与数据，可选删除备份仓库；输入确认文字才执行；重启后执行 | `crates/bonfire-app/src/reset.rs` 测试；`app/src/App.test.tsx`（恢复出厂设置）；实际执行手动验收 | 0.4.2 | 有效 |

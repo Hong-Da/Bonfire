@@ -63,7 +63,7 @@ description: 通过命令行 bonfire 操作篝火（Bonfire）游戏存档备份
 
 ## 安全约束
 
-- 以下操作执行前**必须先向用户确认**，即使命令支持 `--yes`：`restore`、`undo-restore`、`rm`、`gc`、`branch -d`、`tag -d`、`game rm --delete-snapshots/--delete-shots`、`shots rm --purge/--delete-originals`、`repo decrypt`、`repo encrypt`、`sync compact`（改写远程历史）、`sync pull`。同步前先 `sync preview` 给用户看要上传的内容与大小。能 `--dry-run` 的先 dry-run 给用户看结果。
+- 以下操作执行前**必须先向用户确认**，即使命令支持 `--yes`：`restore`、`undo-restore`、`rm`、`gc`、`branch -d`、`tag -d`、`game rm --delete-snapshots/--delete-shots`、`shots rm --purge/--delete-originals`、`repo decrypt`、`repo encrypt`、`sync compact`（改写远程历史）、`sync pull`。`bonfire reset`（恢复出厂设置）只在用户明确要求并亲自给出确认文字时执行，绝不自行补上 `--confirm`。同步前先 `sync preview` 给用户看要上传的内容与大小。能 `--dry-run` 的先 dry-run 给用户看结果。
 - 恢复会改写真实存档目录：先 `--dry-run`，并提醒用户关闭游戏。
 - 测试或演示时绝不对真实游戏存档做恢复、写回；用 `BONFIRE_HOME`、`--repo` 指向临时目录。
 - 不读取、不保存、不打印用户的密码；只通过 `BONFIRE_PASSWORD` 环境变量传入。

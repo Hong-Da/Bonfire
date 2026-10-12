@@ -1460,3 +1460,27 @@ button.link:hover { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) { .shot-day h3 .sel-seg { transition: none; } }
 /* 同步页 7：目标上的“立即同步”是次要按钮，悬停时提示可以点 */
 .sync-actions .btn.sync-now:hover:not(:disabled) { border-color: var(--ember); color: var(--ember); }
+
+/* 恢复出厂设置（0.4.2） */
+.settings section.danger-zone { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+.settings section.danger-zone h2 { color: var(--danger); }
+.btn.danger-solid { color: #fff; background: var(--danger); border-color: var(--danger); font-weight: 600; }
+.btn.danger-solid:disabled { opacity: 0.45; }
+.reset { display: grid; gap: 14px; }
+.reset-lead { display: flex; gap: 8px; align-items: flex-start; margin: 0; }
+.reset-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.reset-cols h3 { font: 600 13px var(--font-sign); margin: 0 0 6px; color: var(--muted); }
+.reset-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.reset-list li { display: flex; justify-content: space-between; gap: 10px; padding: 4px 8px; border-radius: 6px; }
+.reset-list.del li { background: var(--danger-soft); }
+.reset-list.keep li { background: color-mix(in srgb, var(--moss) 12%, var(--surface)); overflow-wrap: anywhere; }
+.reset-repo { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.reset-repo.on { border-color: var(--danger); background: var(--danger-soft); }
+.reset-repo span { display: grid; gap: 2px; }
+.reset-repo small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.reset-repo.on b, .reset-repo.on small { color: var(--danger); }
+.reset-type { display: grid; gap: 6px; font-size: 13px; }
+.reset-type span { font-weight: 600; }
+@media (max-width: 700px) { .reset-cols { grid-template-columns: 1fr; } }
+/* 功能导览收起后的“继续篝火入门” */
+.tour-resume { position: fixed; right: 20px; bottom: 76px; z-index: 15; display: flex; gap: 4px; align-items: center; padding: 6px; border-radius: 10px; background: var(--raised); border: 1px solid var(--line); box-shadow: var(--shadow); }

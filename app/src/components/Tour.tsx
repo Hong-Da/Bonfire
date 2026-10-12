@@ -22,7 +22,7 @@ export const TOUR = [
 const INDEX_KEY = "tour.index";
 export const SEEN_KEY = "tour.seen";
 
-export default function Tour({ onClose, onGo }: { onClose: () => void; onGo: (v: View) => void }) {
+export default function Tour({ onClose, onGo, onMinimize }: { onClose: () => void; onGo: (v: View) => void; onMinimize?: (more: boolean) => void }) {
   const { t } = useTranslation();
   const [i, setI] = useState(() => Math.min(TOUR.length - 1, Math.max(0, Number(prefGet(INDEX_KEY) ?? 0) || 0)));
   const card = TOUR[i];
@@ -52,10 +52,11 @@ export default function Tour({ onClose, onGo }: { onClose: () => void; onGo: (v:
           <button
             className="btn"
             onClick={() => {
-              prefSet(INDEX_KEY, String(i));
+              // 去试试：跳到对应页面，导览收起到右下角，回来时从下一张继续。
+              prefSet(INDEX_KEY, String(Math.min(i + 1, TOUR.length - 1)));
               prefSet(SEEN_KEY, "1");
               onGo(card.go);
-              onClose();
+              onMinimize?.(i < TOUR.length - 1);
             }}
           >
             {t("ui.tour.try")}
@@ -90,5 +91,21 @@ export default function Tour({ onClose, onGo }: { onClose: () => void; onGo: (v:
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** 收起后的“继续篝火入门”：在右下角，点击回到导览的下一张，× 结束导览。 */
+export function TourResume({ onResume, onClose }: { onResume: () => void; onClose: () => void }) {
+  const { t } = useTranslation();
+  const n = Math.min(TOUR.length, (Number(prefGet(INDEX_KEY) ?? 0) || 0) + 1);
+  return (
+    <div className="tour-resume" role="region" aria-label={t("ui.tour.title")}>
+      <button className="btn primary small" onClick={onResume}>
+        {t("ui.tour.resume", { n, total: TOUR.length })}
+      </button>
+      <button className="btn ghost small icon-only" onClick={onClose} aria-label={t("ui.tour.end")} title={t("ui.tour.end")}>
+        <Icon name="close" size={14} />
+      </button>
+    </div>
   );
 }

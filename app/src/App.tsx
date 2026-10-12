@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { UnlockScreen } from "./components/Security";
 import SyncPage from "./pages/SyncPage";
 import OverviewPage from "./pages/OverviewPage";
-import Tour from "./components/Tour";
+import Tour, { TourResume } from "./components/Tour";
 import { prefGet, prefRemove } from "./lib/uiState";
 import { confirm } from "./lib/confirm";
 import { api, errorMessage } from "./api";
@@ -228,7 +228,16 @@ export default function App() {
         {view.name === "game" && <GameDetail id={view.id} />}
         {view.name === "settings" && <Settings />}
       </main>
-      {guide.tour && <Tour onClose={() => useStore.getState().setGuide({ tour: false })} onGo={(v) => go(v)} />}
+      {guide.tour && (
+        <Tour
+          onClose={() => useStore.getState().setGuide({ tour: false, tourMini: false })}
+          onGo={(v) => go(v)}
+          onMinimize={(more) => useStore.getState().setGuide({ tour: false, tourMini: more })}
+        />
+      )}
+      {guide.tourMini && !guide.tour && (
+        <TourResume onResume={() => useStore.getState().setGuide({ tour: true, tourMini: false })} onClose={() => useStore.getState().setGuide({ tourMini: false })} />
+      )}
       {closeAsk && <CloseDialog onClose={() => setCloseAsk(false)} />}
       <ConfirmHost />
       <Toasts />

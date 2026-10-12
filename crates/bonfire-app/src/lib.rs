@@ -24,6 +24,7 @@ pub mod paths;
 pub mod primary;
 pub mod process;
 pub mod prune;
+pub mod reset;
 pub mod restore;
 pub mod retention;
 pub mod security;

@@ -42,6 +42,7 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.ov.issue.": ["locked", "unstable", "running", "network", "io", "rolled-back", "auth", "not-found", "public", "size", "file-limit", "local", "excluded", "damaged", "other"],
   "ui.ov.hint.": ["locked", "unstable", "running", "network", "auth", "not-found", "public", "size", "damaged", "io"],
   "ui.tour.": ["scan.title", "scan.body", "scan.points", "backup.title", "backup.body", "backup.points", "restore.title", "restore.body", "restore.points", "auto.title", "auto.body", "auto.points", "gallery.title", "gallery.body", "gallery.points", "sync.title", "sync.body", "sync.points", "overview.title", "overview.body", "overview.points", "share.title", "share.body", "share.points"],
+  "ui.reset.kind.": ["settings", "rules", "ui", "keys", "cache", "activity", "logs", "webview", "repo"],
   "ui.ov.range.": ["7", "30", "0"],
   "ui.ov.cat.": ["all", "failed", "backup", "restore", "history", "sync", "shots", "transfer", "maintain"],
   "ui.ov.unit.": ["files", "snapshots", "shots", "games", "problems"],

@@ -243,6 +243,12 @@ pub enum Cmd {
         days: u32,
     },
     Stats,
+    Reset {
+        #[arg(long)]
+        delete_repo: bool,
+        #[arg(long, value_name = "TEXT")]
+        confirm: Option<String>,
+    },
     Repo {
         #[command(subcommand)]
         cmd: RepoCmd,

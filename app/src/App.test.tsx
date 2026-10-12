@@ -15,7 +15,8 @@ import { useStore, defaultSelection } from "./store";
 import Library from "./pages/Library";
 import ScanPage from "./pages/ScanPage";
 import RestoreDialog from "./pages/RestoreDialog";
-import Tour from "./components/Tour";
+import Tour, { TourResume } from "./components/Tour";
+import FactoryReset from "./components/FactoryReset";
 import { newTarget } from "./pages/SyncPage";
 import Wizard, { DEFAULT_CONFIG } from "./pages/Wizard";
 import GameDetail from "./pages/GameDetail";
@@ -306,7 +307,8 @@ describe("功能导览", () => {
     await i18n.changeLanguage("zh-CN");
     const onGo = vi.fn();
     const onClose = vi.fn();
-    render(<Tour onClose={onClose} onGo={onGo} />);
+    const onMinimize = vi.fn();
+    render(<Tour onClose={onClose} onGo={onGo} onMinimize={onMinimize} />);
     expect(screen.getByRole("heading", { name: "扫描并加入游戏" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "下一个" }));
     fireEvent.click(screen.getByRole("button", { name: "下一个" }));
@@ -314,7 +316,47 @@ describe("功能导览", () => {
     fireEvent.click(screen.getByRole("tab", { name: "同步到远程" }));
     fireEvent.click(screen.getByRole("button", { name: "去试试" }));
     expect(onGo).toHaveBeenCalledWith({ name: "sync" });
-    expect(onClose).toHaveBeenCalled();
+    // 去试试后导览收起到右下角，不结束，回来时从下一张继续。
+    expect(onMinimize).toHaveBeenCalledWith(true);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("收起后点“继续篝火入门”回到下一张", async () => {
+    await i18n.changeLanguage("zh-CN");
+    const onResume = vi.fn();
+    render(<TourResume onResume={onResume} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /继续篝火入门/ }));
+    expect(onResume).toHaveBeenCalled();
+  });
+});
+
+describe("恢复出厂设置", () => {
+  it("输入确认文字后才能执行；删除仓库要输入另一句", async () => {
+    await i18n.changeLanguage("zh-CN");
+    const plan = (deleteRepo: boolean) => ({
+      plan: { items: [{ kind: "settings", path: "D:/data/config.toml", bytes: 100 }, ...(deleteRepo ? [{ kind: "repo", path: "D:/data/repo", bytes: 5000 }] : [])], repoDir: "D:/data/repo", repoBytes: 5000, deleteRepo },
+      phrase: deleteRepo ? "删除全部备份" : "恢复出厂设置",
+    });
+    api.resetPlan.mockImplementation((d: boolean) => Promise.resolve(plan(d)));
+    api.factoryReset.mockResolvedValue(undefined);
+    render(<FactoryReset encrypted={false} onClose={vi.fn()} />);
+    expect(await screen.findByText("全部设置")).toBeInTheDocument();
+    expect(screen.getByText(/备份仓库（全部快照与截图）：D:\/data\/repo/)).toBeInTheDocument();
+    const go = screen.getByRole("button", { name: "恢复出厂设置并重启" });
+    expect(go).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("请输入“恢复出厂设置”以确认"), { target: { value: "恢复出厂" } });
+    expect(go).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("请输入“恢复出厂设置”以确认"), { target: { value: "恢复出厂设置" } });
+    expect(go).toBeEnabled();
+    // 勾选删除仓库：确认文字变为另一句，已输入的清空。
+    fireEvent.click(screen.getByRole("checkbox", { name: /同时删除备份仓库/ }));
+    const input = await screen.findByLabelText("请输入“删除全部备份”以确认");
+    expect(input).toHaveValue("");
+    const goRepo = screen.getByRole("button", { name: "删除全部备份并重启" });
+    expect(goRepo).toBeDisabled();
+    fireEvent.change(input, { target: { value: "删除全部备份" } });
+    fireEvent.click(goRepo);
+    await waitFor(() => expect(api.factoryReset).toHaveBeenCalledWith(true, "删除全部备份"));
   });
 });
 

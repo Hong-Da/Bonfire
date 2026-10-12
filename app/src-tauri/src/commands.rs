@@ -1824,6 +1824,57 @@ fn start_exit_watcher(h: AppHandle) {
     });
 }
 
+// ---------- 恢复出厂设置（0.4.2） ----------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResetInfo {
+    plan: bonfire_app::reset::ResetPlan,
+    /// 需要输入的确认文字。
+    phrase: &'static str,
+}
+
+fn current_locale(shared: &Shared) -> Locale {
+    let guard = shared.app.lock().unwrap_or_else(|p| p.into_inner());
+    match guard.as_ref() {
+        Some(a) => a.locale,
+        None => Locale::resolve(
+            Config::load(&shared.paths.config_file)
+                .ok()
+                .and_then(|c| c.general.language)
+                .as_deref(),
+        ),
+    }
+}
+
+/// 恢复出厂设置会清除的内容与大小、需要输入的确认文字。
+#[tauri::command]
+pub async fn reset_plan(h: AppHandle, delete_repo: bool) -> CmdResult<ResetInfo> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let shared = h.state::<Shared>();
+        ResetInfo {
+            plan: bonfire_app::reset::plan(&shared.paths, delete_repo),
+            phrase: bonfire_app::reset::phrase(current_locale(&shared), delete_repo),
+        }
+    })
+    .await
+    .map_err(|e| CmdError {
+        kind: "general",
+        message: e.to_string(),
+    })
+}
+
+/// 恢复出厂设置：核对确认文字，关闭仓库，写下待办并重启；清除在下次启动、打开任何文件之前进行。
+#[tauri::command]
+pub async fn factory_reset(h: AppHandle, delete_repo: bool, phrase: String) -> CmdResult<()> {
+    let shared = h.state::<Shared>();
+    bonfire_app::reset::check_phrase(current_locale(&shared), delete_repo, &phrase)?;
+    bonfire_app::reset::schedule(&shared.paths, delete_repo)?;
+    tracing::warn!(delete_repo, "恢复出厂设置：重启后清除本机数据");
+    *shared.app.lock().unwrap_or_else(|p| p.into_inner()) = None;
+    h.restart();
+}
+
 // ---------- 总览（0.3.0） ----------
 
 /// 需要处理的问题（同时更新红点）。
