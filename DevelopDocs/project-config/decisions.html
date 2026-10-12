@@ -24,9 +24,51 @@ ul { margin:8px 0; padding-left:20px } li { color:var(--muted) } li.chosen { col
 p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
 </style></head><body><div class="wrap">
 <h1>篝火 Bonfire · 决策记录</h1>
-<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 210 项，更新于 2026-10-11 21:37。需要改动的项请在对话中告诉 Claude（附编号）。</p>
-<nav><a href="#s-0">0.3.0 总览</a><a href="#s-1">安装与卸载</a><a href="#s-2">0.2.0 同步备份</a><a href="#s-3">版本</a><a href="#s-4">界面</a><a href="#s-5">第三轮 收尾</a><a href="#s-6">M5-4 Linux / Steam Deck</a><a href="#s-7">M5-2 仓库加密</a><a href="#s-8">M5-3 读取被占用的文件</a><a href="#s-9">M4-5 性能与资源</a><a href="#s-10">M4-1 其余平台</a><a href="#s-11">M4-3 自动备份</a><a href="#s-12">M4-2 游戏运行保护</a><a href="#s-13">M4-4 历史清理</a><a href="#s-14">M3</a><a href="#s-15">导入</a><a href="#s-16">导出</a><a href="#s-17">开发</a><a href="#s-18">缺陷修复</a><a href="#s-19">用户修改</a><a href="#s-20">M3 GUI MVP</a><a href="#s-21">M2 存档发现</a><a href="#s-22">M1 核心库</a><a href="#s-23">全局</a></nav>
-<section id="s-0"><h2>0.3.0 总览<small>8 项</small></h2>
+<p class="sub">开发过程中需要确认的事项均按默认推荐方案自动决定，记录于此供复核，最新的决策排在最前。共 217 项，更新于 2026-10-11 21:53。需要改动的项请在对话中告诉 Claude（附编号）。</p>
+<nav><a href="#s-0">0.4.0 向导</a><a href="#s-1">0.3.0 总览</a><a href="#s-2">安装与卸载</a><a href="#s-3">0.2.0 同步备份</a><a href="#s-4">版本</a><a href="#s-5">界面</a><a href="#s-6">第三轮 收尾</a><a href="#s-7">M5-4 Linux / Steam Deck</a><a href="#s-8">M5-2 仓库加密</a><a href="#s-9">M5-3 读取被占用的文件</a><a href="#s-10">M4-5 性能与资源</a><a href="#s-11">M4-1 其余平台</a><a href="#s-12">M4-3 自动备份</a><a href="#s-13">M4-2 游戏运行保护</a><a href="#s-14">M4-4 历史清理</a><a href="#s-15">M3</a><a href="#s-16">导入</a><a href="#s-17">导出</a><a href="#s-18">开发</a><a href="#s-19">缺陷修复</a><a href="#s-20">用户修改</a><a href="#s-21">M3 GUI MVP</a><a href="#s-22">M2 存档发现</a><a href="#s-23">M1 核心库</a><a href="#s-24">全局</a></nav>
+<section id="s-0"><h2>0.4.0 向导<small>7 项</small></h2>
+      <article id="WZ-7">
+        <header><code>WZ-7</code><h3>设置中的入口</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">设置页新增“帮助”：重新运行向导、查看功能导览 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求可以在设置重新运行向导。</p><p class="impact"><span>影响</span>版本 0.4.0。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="WZ-6">
+        <header><code>WZ-6</code><h3>已在使用的用户是否自动弹出导览</h3><span class="status">按推荐</span></header>
+        <ul><li class="chosen">不自动弹出；总览显示一次“看看新功能导览”的提示，可关闭（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>按建议。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="WZ-5">
+        <header><code>WZ-5</code><h3>导览形式</h3><span class="status">按推荐</span></header>
+        <ul><li class="chosen">对话框中的卡片（图标、要点、去试试），不做真实界面逐个高亮（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>按建议。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="WZ-4">
+        <header><code>WZ-4</code><h3>重新运行向导时能否改仓库位置</h3><span class="status">按推荐</span></header>
+        <ul><li class="chosen">不能，只显示；完成时询问是否重新扫描（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>按建议：换仓库位置涉及已有备份，仍在设置“存档仓库”中修改。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="WZ-3">
+        <header><code>WZ-3</code><h3>向导中的远程</h3><span class="status">用户要求</span></header>
+        <ul><li class="chosen">在“语言”之后增加“以前用篝火备份过吗？”：可从远程获取以前的备份和设置，可跳过，并提示有备份时可以从远程获取；可选以后继续同步到这里 <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求“在向导里设置从远程获取配置，可以跳过，并且提示如果有备份可以远程获取配置”（取代原建议“不在向导中设置同步”）。</p><p class="impact"><span>影响</span>远程恢复不再依赖已打开的仓库。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="WZ-2">
+        <header><code>WZ-2</code><h3>自动备份一步的默认值</h3><span class="status">按推荐</span></header>
+        <ul><li class="chosen">默认勾选“退出游戏后自动备份”和“关闭窗口时留在托盘”，“存档变化后”不勾选（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>按建议。之前新装默认都不自动备份。</p><p class="impact"><span>影响</span>只影响新装（向导）；已有配置不变。</p>
+        <footer>2026-10-11</footer>
+      </article>
+      <article id="WZ-1">
+        <header><code>WZ-1</code><h3>向导结构</h3><span class="status">按推荐</span></header>
+        <ul><li class="chosen">分“设置”与“功能导览”两段：设置必须完成且尽量短；导览可跳过、可随时再看（推荐） <b>✓ 采用</b></li></ul>
+        <p class="reason"><span>理由</span>用户要求向导包含常用功能使用指导；其余点按建议。</p><p class="impact"><span>影响</span>设计稿 docs/design/wizard-2026-10-11/。</p>
+        <footer>2026-10-11</footer>
+      </article></section><section id="s-1"><h2>0.3.0 总览<small>8 项</small></h2>
       <article id="OV-8">
         <header><code>OV-8</code><h3>截图与磁盘、存储的布局</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">“截图与磁盘”单独一行、三项并排，“重新对比”在标题行；“存储”在下一行，左边总量与构成，右边最占空间的游戏与远程；窄窗口单列（推荐） <b>✓ 采用</b></li></ul>
@@ -74,13 +116,13 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">导航第一项，带“需要处理”的红色数字；启动后仍显示游戏库（推荐） <b>✓ 采用</b></li><li class="">启动后显示总览</li></ul>
         <p class="reason"><span>理由</span>用户确认按建议。</p><p class="impact"><span>影响</span>设计稿 docs/design/overview-2026-10-11/index.html。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-1"><h2>安装与卸载<small>1 项</small></h2>
+      </article></section><section id="s-2"><h2>安装与卸载<small>1 项</small></h2>
       <article id="F1c">
         <header><code>F1c</code><h3>卸载时如何处理 data 数据</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">询问是否删除，默认“否”保留；选“是”后再确认一次；提示远程同步的备份不会删除、仓库位置在 data 以外时那里的仓库不会删除；升级不询问；静默卸载保留，/DELETEDATA 删除（推荐） <b>✓ 采用</b></li><li class="">卸载时总是保留 data（原做法）</li><li class="">卸载时总是删除 data</li></ul>
         <p class="reason"><span>理由</span>用户要求卸载应完全删除软件、询问是否删除 data，并提示远程备份不会被删除。默认保留与二次确认防止误删全部存档备份。</p><p class="impact"><span>影响</span>取代 M3-6 中“卸载保留 data”的做法。版本 0.2.4。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-2"><h2>0.2.0 同步备份<small>12 项</small></h2>
+      </article></section><section id="s-3"><h2>0.2.0 同步备份<small>12 项</small></h2>
       <article id="S4h">
         <header><code>S4h</code><h3>展示失败原因与忽略</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">卡片显示原因、解决办法、详细信息；可忽略三类：连不上目标（不算作问题，仍重试）、超过总大小上限（照常同步）、单文件超限被排除（不再提醒）；忽略前确认说明后果，可在编辑中恢复；令牌错误、公开仓库等不能忽略（推荐） <b>✓ 采用</b></li></ul>
@@ -152,13 +194,13 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">每个目标可选：完整仓库（历史、可从远程恢复，加密仓库远程也加密）/ 最新存档（游戏名/文件原样，不加密）/ 只同步截图；可另选带截图、篝火设置；可同时添加多个目标（推荐） <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>用户确认（按推荐，含多目标、截图、篝火设置）。</p><p class="impact"><span>影响</span>截图默认：WebDAV、网盘、远程目录、指定目录带；GitHub、Gitee 不带。篝火设置默认带，不含密钥、令牌与本机记住的密码；恢复时询问是否套用。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-3"><h2>版本<small>1 项</small></h2>
+      </article></section><section id="s-4"><h2>版本<small>1 项</small></h2>
       <article id="V-020">
         <header><code>V-020</code><h3>版本号</h3><span class="status">用户确认</span></header>
         <ul><li class="chosen">0.1.0 → 0.2.0（新增功能升次版本）（推荐） <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>按用户“开始开发 0.2.0”。</p><p class="impact"><span>影响</span>Cargo.toml、app/package.json；更新记录 docs/changelog/v0/v0.2/v0.2.0.md。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-4"><h2>界面<small>13 项</small></h2>
+      </article></section><section id="s-5"><h2>界面<small>13 项</small></h2>
       <article id="U-58a">
         <header><code>U-58a</code><h3>游戏库勾选是否跨启动保留</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">重启篝火后全部不勾选；同一次运行中切换页面、刷新、备份后保留勾选（去掉已不在库中的游戏）；设置页去掉“记住勾选的游戏”开关（推荐） <b>✓ 采用</b></li><li class="">沿用 U-39 记住勾选</li></ul>
@@ -236,7 +278,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">换成导出完成页：文件名、内容、大小、所在文件夹、打开位置与怎么用（推荐） <b>✓ 采用</b></li><li class="">保留原页面，只改底部按钮</li></ul>
         <p class="reason"><span>理由</span>用户反馈导出后还停在“导出xxx的存档”页面。</p><p class="impact"><span>影响</span>详情页导出与游戏库导出共用 ExportDone 组件。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-5"><h2>第三轮 收尾<small>6 项</small></h2>
+      </article></section><section id="s-6"><h2>第三轮 收尾<small>6 项</small></h2>
       <article id="R3-VER">
         <header><code>R3-VER</code><h3>初始版本</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">生成 v0.1.0 更新记录、SUMMARY.md 与 CHANGELOG.md，提交并打本地标签 v0.1.0（不推送）；项目规范 last_synced_commit 设为 v0.1.0（推荐） <b>✓ 采用</b></li><li class="">暂不打标签</li></ul>
@@ -272,13 +314,13 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">需要：pack.bat 把安装包、迁移说明与（可选）数据目录中的配置、备份仓库、日志打成 dist\Bonfire_&lt;版本&gt;_&lt;日期&gt;.zip；默认不包含数据，逐项询问并列出大小后确认；始终不包含本机记住的密码与缓存（推荐） <b>✓ 采用</b></li><li class="">不需要</li></ul>
         <p class="reason"><span>理由</span>第一轮初选：需要，默认不包含数据 / 配置 / 日志。桌面程序的部署单位是安装包，数据随 data 文件夹迁移。</p><p class="impact"><span>影响</span>新增 pack.bat、scripts/pack.ps1；记住的密码与 Windows 账户绑定，换电脑无效，所以不打包。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-6"><h2>M5-4 Linux / Steam Deck<small>1 项</small></h2>
+      </article></section><section id="s-7"><h2>M5-4 Linux / Steam Deck<small>1 项</small></h2>
       <article id="M5-4a">
         <header><code>M5-4a</code><h3>是否做 Linux / Steam Deck 支持</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">不做（本版本只支持 Windows），需求推迟到后续版本 <b>✓ 采用</b></li><li class="">提供 Linux 机器后做</li><li class="">安装 WSL 后做</li></ul>
         <p class="reason"><span>理由</span>用户选择。开发机没有 Linux 环境，无法实测。</p><p class="impact"><span>影响</span>REQ-013 标为推迟；代码保持跨平台写法（非 Windows 时注册表、DPAPI、卷影复制等功能自动关闭）。M5 以 M5-1–M5-3 结束，进入阶段三收尾。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-7"><h2>M5-2 仓库加密<small>4 项</small></h2>
+      </article></section><section id="s-8"><h2>M5-2 仓库加密<small>4 项</small></h2>
       <article id="M5-2d">
         <header><code>M5-2d</code><h3>已有仓库怎样加密</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">设置页或 bonfire repo encrypt 直接把现有仓库改为加密：先写入加密设置，再逐个改写对象、备注与操作记录；中途中断时新旧格式并存也能读取，再次执行即可继续；取消加密反过来（推荐） <b>✓ 采用</b></li><li class="">只能新建加密仓库</li></ul>
@@ -302,7 +344,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">存档快照（对象库全部对象）、备注、游戏列表 games.toml 与操作记录加密；索引数据库（含备注、路径）移到本机缓存目录，可从仓库重建；截图、分支与标签名不加密，文件内容的哈希可见（用于去重与变更检测）（推荐） <b>✓ 采用</b></li><li class="">连截图也加密</li><li class="">只加密存档文件内容</li></ul>
         <p class="reason"><span>理由</span>加密的目的是仓库放在网盘或别人能访问的地方时看不到存档与备注；截图由图库直接显示图片文件，加密需要另建解密缓存，改动大；哈希不泄露内容。</p><p class="impact"><span>影响</span>界面与文档写明哪些不加密；导出的篝火包与 zip 不加密（用于分享）。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-8"><h2>M5-3 读取被占用的文件<small>2 项</small></h2>
+      </article></section><section id="s-9"><h2>M5-3 读取被占用的文件<small>2 项</small></h2>
       <article id="M5-3b">
         <header><code>M5-3b</code><h3>卷影复制怎样实现</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">遇到被占用的文件时，以管理员身份运行一个隐藏的 PowerShell 脚本：用 Win32_ShadowCopy 为相关磁盘创建卷影副本，把被占用的文件复制到篝火的临时目录，再删除卷影副本；篝火从副本读取入库，修改时间沿用磁盘上的（推荐） <b>✓ 采用</b></li><li class="">整个程序以管理员身份运行</li></ul>
@@ -314,7 +356,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">默认：这次不备份这个游戏，提示哪些文件被占用、请退出游戏后再备份；自动备份不算出错，推迟到游戏退出后（或下次）；设置可开启“用 Windows 卷影复制读取被占用的文件”（推荐） <b>✓ 采用</b></li><li class="">默认就用卷影复制</li><li class="">跳过被占用的文件，只备份其余文件</li></ul>
         <p class="reason"><span>理由</span>卷影复制需要管理员权限，每次都会弹出用户账户控制确认，默认开启会打扰；只备份部分文件会得到不完整的存档。</p><p class="impact"><span>影响</span>设置 backup.use_vss（默认关闭）。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-9"><h2>M4-5 性能与资源<small>2 项</small></h2>
+      </article></section><section id="s-10"><h2>M4-5 性能与资源<small>2 项</small></h2>
       <article id="M4-5b">
         <header><code>M4-5b</code><h3>基准测试放在哪里、怎样测托盘内存</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">tests/bench/main.rs 作为忽略的测试，用 --release --ignored 手动运行，不随 test.bat；托盘内存用隔离的 release 构建（独立程序标识与临时数据）关闭窗口进入托盘后测量，结果写入 M4 验收报告（推荐） <b>✓ 采用</b></li><li class="">每次 test.bat 都运行基准</li></ul>
@@ -326,7 +368,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">备份时多个文件并行入库（rayon），单个文件内部仍按分块顺序处理；每个对象写入后仍 fsync（推荐） <b>✓ 采用</b></li><li class="">改为批量落盘、减少 fsync</li><li class="">单个大文件内部也并行压缩分块</li></ul>
         <p class="reason"><span>理由</span>存档多为多个文件；并行后 64 个文件 512 MB 约 1260 MB/s，单个 256 MB 文件也有约 270 MB/s，都超过目标。保留每个对象 fsync，断电不损坏快照的保证不变。</p><p class="impact"><span>影响</span>对象库写入本来就是“唯一临时文件 + 原子重命名”，同一对象被两个线程同时写入时也安全；崩溃一致性测试仍通过。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-10"><h2>M4-1 其余平台<small>3 项</small></h2>
+      </article></section><section id="s-11"><h2>M4-1 其余平台<small>3 项</small></h2>
       <article id="M4-1c">
         <header><code>M4-1c</code><h3>新平台的开关</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">设置页与首次运行向导的“扫描的平台”增加 Ubisoft Connect、EA app、Xbox、Battle.net，默认全部开启；bonfire scan --platform 也可选这几个（推荐） <b>✓ 采用</b></li><li class="">默认关闭</li></ul>
@@ -344,13 +386,13 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">Windows“卸载程序”登记（Ubisoft 键名 Uplay Install &lt;ID&gt;；EA app 的卸载程序在 EAInstaller 下；Battle.net 的卸载命令带 --uid=&lt;产品&gt;，跳过启动器本身），Ubisoft 另读启动器目录作为规则库的 &lt;root&gt;（推荐） <b>✓ 采用</b></li><li class="">读各启动器的私有数据库或配置（product.db、EA Desktop 安装记录）</li></ul>
         <p class="reason"><span>理由</span>启动器的私有文件格式（product.db 为 protobuf、EA app 安装记录加密）经常变化；卸载登记是公开、稳定的 Windows 接口，三家都会写入，且有名称和安装目录。本机实测识别出 Battle.net 的守望先锋。</p><p class="impact"><span>影响</span>游戏 ID：ubisoft-&lt;游戏 ID&gt;、ea-&lt;登记键名&gt;、battlenet-&lt;产品 ID&gt;；名称取登记的显示名称（会随启动器语言本地化）。规则库按安装文件夹名、名称匹配；匹配不到时按名称在常见存档目录中探测，需用户确认。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-11"><h2>M4-3 自动备份<small>1 项</small></h2>
+      </article></section><section id="s-12"><h2>M4-3 自动备份<small>1 项</small></h2>
       <article id="M4-3a">
         <header><code>M4-3a</code><h3>退出游戏后自动备份</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">新增设置“退出游戏后自动备份”（默认关闭，与其他自动备份一致），开启后桌面程序每 5 秒检测一次游戏进程，游戏退出 10 秒后备份有变化的存档，备注按变化自动生成，触发方式记为“退出游戏后自动”（推荐） <b>✓ 采用</b></li><li class="">默认开启</li></ul>
         <p class="reason"><span>理由</span>文档 F8；关闭时不检测进程，不占资源。退出后等几秒，留给游戏收尾写入与平台云同步；期间重新启动游戏则取消。</p><p class="impact"><span>影响</span>设置页与游戏库工具栏的自动备份菜单都可开关；检测进程时不占用应用，不影响界面操作；仓库被占用时下次再试。也会收集游戏期间拍的截图。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-12"><h2>M4-2 游戏运行保护<small>2 项</small></h2>
+      </article></section><section id="s-13"><h2>M4-2 游戏运行保护<small>2 项</small></h2>
       <article id="M4-2b">
         <header><code>M4-2b</code><h3>检测到游戏在运行时怎么做</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">恢复：阻止（可强制，同 M1）；手动备份：提醒不阻止（同 U-12）；自动备份：推迟到游戏退出后（推荐） <b>✓ 采用</b></li><li class="">全部只提醒</li></ul>
@@ -362,7 +404,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">进程的可执行文件在游戏安装目录下，或进程名是为游戏设置的“游戏程序”（详情页“更多 → 游戏程序…”、bonfire game process）（推荐） <b>✓ 采用</b></li><li class="">再从规则库的启动项（launch）自动推断进程名</li><li class="">只按安装目录</li></ul>
         <p class="reason"><span>理由</span>平台游戏都有安装目录，按目录检测已经准确；需要按进程名检测的是模拟器和手动添加的游戏，这些游戏规则库里也没有启动项，由用户指定最可靠。不必为启动项扩大规则库数据。</p><p class="impact"><span>影响</span>游戏程序存在索引（结构版本 5，新表 game_processes）并写入 games.toml，索引丢失后可恢复；只保留文件名，不区分大小写，可省略 .exe。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-13"><h2>M4-4 历史清理<small>5 项</small></h2>
+      </article></section><section id="s-14"><h2>M4-4 历史清理<small>5 项</small></h2>
       <article id="M4-4e">
         <header><code>M4-4e</code><h3>是否做 packs（GC 后把小对象打包成大文件）</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">暂不做，推迟到 M5（推荐） <b>✓ 采用</b></li><li class="">M4 中实现</li></ul>
@@ -392,7 +434,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">最近 N 个 + 最近几天每天 1 个 + 最近几周每周 1 个；默认 20 个 / 14 天 / 8 周（推荐） <b>✓ 采用</b></li><li class="">只保留最近 N 个</li><li class="">按天数保留（超过 N 天的删除）</li></ul>
         <p class="reason"><span>理由</span>文档 F9 写的是“保留最近 N 个 + 每天 1 个”；加上每周 1 个，长期不玩的游戏也能留下稀疏的历史。</p><p class="impact"><span>影响</span>设置 [retention] 的 keep_last、keep_daily、keep_weekly；同一秒内的快照按历史先后排序，改写 ID 后结果不变。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-14"><h2>M3<small>3 项</small></h2>
+      </article></section><section id="s-15"><h2>M3<small>3 项</small></h2>
       <article id="M3-6c">
         <header><code>M3-6c</code><h3>安装、升级、卸载如何验收</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">脚本静默安装到临时目录自动检查，再由用户本机安装按清单验收 P0（推荐） <b>✓ 采用</b></li><li class="">只做手工验收</li></ul>
@@ -410,7 +452,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">命令行放在 &lt;安装目录&gt;\cli\bonfire.exe，数据与规则库与桌面程序共用（推荐） <b>✓ 采用</b></li><li class="">桌面程序改名（如 Bonfire-Desktop.exe）</li><li class="">命令行改名（如 bonfire-cli.exe）</li></ul>
         <p class="reason"><span>理由</span>Windows 文件名不区分大小写，安装后命令行覆盖了桌面程序；放到子目录后两个名字都不变，命令仍是 bonfire。</p><p class="impact"><span>影响</span>使用命令行需把 &lt;安装目录&gt;\cli 加入 PATH；开发时 cli.bat 不受影响。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-15"><h2>导入<small>6 项</small></h2>
+      </article></section><section id="s-16"><h2>导入<small>6 项</small></h2>
       <article id="U-49c">
         <header><code>U-49c</code><h3>zip 中有多个游戏的存档时怎么导入</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">按说明找出每个存档文件夹，游戏库导入逐个勾选；详情页导入挑出本游戏的（推荐） <b>✓ 采用</b></li><li class="">只支持一个游戏</li></ul>
@@ -446,7 +488,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">每行可选“覆盖 / 不替换”，多个时提供全部覆盖 / 全部不替换（推荐） <b>✓ 采用</b></li><li class="">只能整体选叠加或替换</li></ul>
         <p class="reason"><span>理由</span>用户要求可手工选择不替换；有时只想要下载存档中的部分文件。</p><p class="impact"><span>影响</span>选不替换的文件不导入；全部不替换且无新增文件时无法下一步。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-16"><h2>导出<small>3 项</small></h2>
+      </article></section><section id="s-17"><h2>导出<small>3 项</small></h2>
       <article id="U-49b">
         <header><code>U-49b</code><h3>存档和截图分别导出一个文件还是两个文件</h3><span class="status">用户要求</span></header>
         <ul><li class="chosen">默认合成一个文件，可选各一个文件（选文件夹，名称带“存档 / 截图”与时间）（推荐） <b>✓ 采用</b></li><li class="">总是一个文件</li></ul>
@@ -464,7 +506,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">文件名以 Bonfire- 开头，附中英双语 readme.txt（说明、用法、Gitee / GitHub 地址），说明文件写 generator（推荐） <b>✓ 采用</b></li><li class="">只改文件名</li></ul>
         <p class="reason"><span>理由</span>用户要求导出的包都带篝火标识与命名、readme.txt 与仓库地址。readme 用 UTF-8 带 BOM 与 Windows 换行，记事本能正确显示。</p><p class="impact"><span>影响</span>存档文件导出（zip / 文件夹）、篝火包、合集包、截图导出都带 readme.txt；设置“关于”显示仓库地址。</p>
         <footer>2026-10-11</footer>
-      </article></section><section id="s-17"><h2>开发<small>88 项</small></h2>
+      </article></section><section id="s-18"><h2>开发<small>88 项</small></h2>
       <article id="U-45a">
         <header><code>U-45a</code><h3>7z 或 rar 压缩包能不能内置解压</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">都内置：7z 用纯 Rust 的 sevenz-rust2，rar 用 unrar（内含 RarLab unRAR 解压源码），都支持加密（推荐） <b>✓ 采用</b></li><li class="">只内置 7z，rar 仍提示先解压</li><li class="">调用用户电脑上已安装的 7-Zip</li></ul>
@@ -992,7 +1034,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">按方案实现</li><li class="chosen">按方案实现；以下几点为实现细节：原图沿用文件对象写入（不重新编码，zstd 对图片收益很小）；Steam 截图按文件名取拍摄时间，不解析 screenshots.vdf；截图与快照的对应为“拍摄之后最早的快照（任何分支）”；定时收集的默认值为关闭（只随备份收集）；缩略图按需生成 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>方案 S1–S6 已确认；这些是方案没有细到的地方，取最简单且不影响效果的做法。</p><p class="impact"><span>影响</span>新增 REQ-014（已完成）。相册的文件对象需作为 M4-4 GC 的根（已写入里程碑说明）。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-18"><h2>缺陷修复<small>6 项</small></h2>
+      </article></section><section id="s-19"><h2>缺陷修复<small>6 项</small></h2>
       <article id="U-16b">
         <header><code>U-16b</code><h3>游戏库底部“已选 0 个”被挤成竖排</h3><span class="status">默认推荐</span></header>
         <ul><li class="chosen">操作栏中的按钮与文字不压缩、放不下时换行；全选 / 全不选 / 反选合为分段按钮；保存方案、导出所选、移出游戏库收进“所选游戏”菜单（推荐） <b>✓ 采用</b></li></ul>
@@ -1028,7 +1070,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="chosen">修复 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>资源管理器不认识正斜杠路径（存档位置记录为 C:/Users/...），会忽略参数并打开默认目录；另外不含通配符的目录型位置被当成通配位置，打开了上一级。</p><p class="impact"><span>影响</span>open_path 打开前统一转为反斜杠（安装目录、导出位置同样受益）；不含通配符的位置直接打开该目录。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-19"><h2>用户修改<small>18 项</small></h2>
+      </article></section><section id="s-20"><h2>用户修改<small>18 项</small></h2>
       <article id="U-8c">
         <header><code>U-8c</code><h3>存档安全保护在游戏库中可以设置，并给出相应提示</h3><span class="status">默认推荐</span></header>
         <ul><li class="">只在设置页中设置</li><li class="chosen">游戏库底部操作栏放一个开关（与设置中的同一项）：开启为绿色盾牌“保护已开启”，关闭为醒目的“保护已关闭”；悬停说明当前效果，关闭需确认，切换后提示结果 <b>✓ 采用</b></li></ul>
@@ -1136,7 +1178,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">配置在 %APPDATA%/Bonfire，仓库、日志、缓存在 %LOCALAPPDATA%/Bonfire（原默认）</li><li class="chosen">全部放在项目（程序）目录下的 data：data/config.toml、data/repo、data/logs、data/cache、data/webview <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>用户 2026-10-09 要求默认仓库在项目目录下的 data，并选择配置、日志、缓存也一并放入（推荐项）。开发时为项目根目录下的 data（.gitignore 已排除），安装后为程序所在目录下的 data；仓库不能设为 data 本身（避免与应用配置文件同名冲突）。BONFIRE_HOME 仍可指定其他数据根目录。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-20"><h2>M3 GUI MVP<small>8 项</small></h2>
+      </article></section><section id="s-21"><h2>M3 GUI MVP<small>8 项</small></h2>
       <article id="M3-ACC">
         <header><code>M3-ACC</code><h3>M3 验收方式</h3><span class="status">按默认推荐自动决定，待复核</span></header>
         <ul><li class="">等待用户本机安装验收</li><li class="chosen">自动化测试 + 真实窗口截图检查后视为通过；安装、卸载、升级由用户事后复核 <b>✓ 采用</b></li></ul>
@@ -1184,7 +1226,7 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">通用的 SaaS 卡片风格</li><li class="chosen">冷灰“烟与夜色”为底，余烬橙只标记需要处理的东西；游戏名与数字用 Windows 自带的 Bahnschrift；历史时间线画成“篝火路线”（每个快照一处火焰，分支为分岔小路，当前所在快照发光） <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>按 frontend-design 技能先定设计方案再实现：主色来自用户选定的 Logo（#E8590C），避免与米色底搭配的常见套路；字体全部为系统自带，离线可用、无需打包字体。明/暗/自动三态主题。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-21"><h2>M2 存档发现<small>15 项</small></h2>
+      </article></section><section id="s-22"><h2>M2 存档发现<small>15 项</small></h2>
       <article id="M2-D15">
         <header><code>M2-D15</code><h3>用户手动修改的游戏信息如何保护？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
         <ul><li class="">自动刷新时覆盖</li><li class="chosen">手动修改的字段加锁，自动刷新不覆盖；info --unlock 解除 <b>✓ 采用</b></li></ul>
@@ -1274,13 +1316,13 @@ p { margin:6px 0 } footer { font-size:12px; color:var(--muted) }
         <ul><li class="">原样内置 YAML</li><li class="chosen">构建时转换为精简的 zstd 压缩 JSON 内置（只保留 Windows 相关字段），运行时按 ETag 增量更新到缓存目录 <b>✓ 采用</b></li><li class="">不内置，只在首次启动时下载</li></ul>
         <p class="reason"><span>理由</span>Q3 已确认“内置快照 + 联网增量更新”；精简后体积预计 1–2 MB，启动解析快。规则库快照不提交到 git，由 scripts 在构建前下载生成，测试使用小型示例规则。</p><p class="impact"><span>影响</span>离线首次启动也能识别游戏；规则更新失败时继续使用内置快照。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-22"><h2>M1 核心库<small>1 项</small></h2>
+      </article></section><section id="s-23"><h2>M1 核心库<small>1 项</small></h2>
       <article id="M1-ACC">
         <header><code>M1-ACC</code><h3>M1 用户验收</h3><span class="status">按默认推荐自动决定，待复核</span></header>
         <ul><li class="">等待用户手工验收后再进入 M2</li><li class="chosen">自动化验收全部通过即视为通过，进入 M2，用户事后复核 <b>✓ 采用</b></li></ul>
         <p class="reason"><span>理由</span>崩溃一致性（9 个写入点 + 恢复中途 + 24 处压力测试）、fsck、57 条 CLI 用例全部通过；见 docs/project-spec.md「开发记录」M1-7。</p><p class="impact"><span>影响</span>如复核发现问题，修复会在后续版本中进行并记入更新记录。</p>
         <footer>2026-10-09</footer>
-      </article></section><section id="s-23"><h2>全局<small>1 项</small></h2>
+      </article></section><section id="s-24"><h2>全局<small>1 项</small></h2>
       <article id="G-1">
         <header><code>G-1</code><h3>后续开发中的待确认事项如何处理？</h3><span class="status">按默认推荐自动决定，待复核</span></header>
         <ul><li class="">每项停下来询问</li><li class="chosen">按默认推荐方案自动决定并记录到本页，供事后复核 <b>✓ 采用</b></li></ul>

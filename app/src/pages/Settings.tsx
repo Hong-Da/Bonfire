@@ -675,6 +675,28 @@ export default function Settings() {
           </section>
 
           <section>
+            <h2>{t("ui.settings.help")}</h2>
+            <div className="row">
+              <label>{t("ui.settings.wizard")}</label>
+              <div>
+                <button className="btn" onClick={() => store.setGuide({ wizard: true })}>
+                  {t("ui.settings.rerunWizard")}
+                </button>
+                <p className="hint">{t("ui.settings.rerunWizardHint")}</p>
+              </div>
+            </div>
+            <div className="row">
+              <label>{t("ui.settings.tour")}</label>
+              <div>
+                <button className="btn" onClick={() => store.setGuide({ tour: true })}>
+                  {t("ui.settings.openTour")}
+                </button>
+                <p className="hint">{t("ui.settings.openTourHint")}</p>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h2>{t("ui.settings.about")}</h2>
             <p className="muted num">
               {t("ui.settings.version", { v: store.info?.version ?? "" })}

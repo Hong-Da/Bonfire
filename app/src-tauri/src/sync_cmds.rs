@@ -215,3 +215,44 @@ pub async fn sync_apply_settings(h: AppHandle, dest: PathBuf) -> CmdResult<()> {
     })
     .await
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WizardRestore {
+    files: usize,
+    /// 远程的篝火设置（向导用来预填各步骤）；远程没有时为空。
+    config: Option<bonfire_app::Config>,
+    /// 恢复的仓库已加密：完成向导后需要输入密码。
+    encrypted: bool,
+}
+
+/// 首次运行向导：从远程把完整仓库下载到空文件夹（此时还没有打开仓库）。
+#[tauri::command]
+pub async fn wizard_restore(
+    h: AppHandle,
+    target: SyncTarget,
+    secret: Option<String>,
+    dest: PathBuf,
+) -> CmdResult<WizardRestore> {
+    tauri::async_runtime::spawn_blocking(move || -> CmdResult<WizardRestore> {
+        let cache = h.state::<Shared>().paths.cache_dir.clone();
+        let secret = secret.filter(|s| !s.is_empty());
+        let files = bonfire_app::sync::restore_repo(&cache, &target, secret, &dest)?;
+        let config = std::fs::read_to_string(dest.join(bonfire_app::sync::SETTINGS_FILE))
+            .ok()
+            .and_then(|t| bonfire_app::sync::parse_portable_settings(&t).ok());
+        let encrypted = bonfire_app::core::Repo::open(&dest)
+            .map(|r| r.is_encrypted())
+            .unwrap_or(false);
+        Ok(WizardRestore {
+            files,
+            config,
+            encrypted,
+        })
+    })
+    .await
+    .map_err(|e| CmdError {
+        kind: "general",
+        message: e.to_string(),
+    })?
+}

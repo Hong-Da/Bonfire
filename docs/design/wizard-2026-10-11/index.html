@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>篝火首次运行向导设计</title>
+<style>
+:root {
+  --smoke: #e7e9ec; --surface: #f7f8f9; --raised: #ffffff; --ink: #1f2429; --muted: #5f6872;
+  --line: #d5d9de; --ember: #e8590c; --ember-soft: #fde6d8; --moss: #3e7d5a; --sky: #3d6fa8; --danger: #c2362f;
+  --font-sign: "Bahnschrift", "Segoe UI Variable Display", "Microsoft YaHei UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --smoke: #11161c; --surface: #1a2129; --raised: #222b35; --ink: #e6eaee; --muted: #9aa5b1; --line: #2d3742; --ember-soft: #3a2418; --moss: #6cc08c; --sky: #7aa7d8; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--smoke); color: var(--ink); font: 14px/1.6 "Microsoft YaHei UI", "Segoe UI", sans-serif; }
+.doc { max-width: 1180px; margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font: 600 28px/1.2 var(--font-sign); margin: 0 0 6px; }
+h2.part { font: 600 19px var(--font-sign); margin: 40px 0 10px; }
+.lead { color: var(--muted); max-width: 72ch; margin: 0; }
+.note { max-width: 76ch; }
+.note p { margin: 6px 0; }
+table.spec { border-collapse: collapse; width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 13px; }
+table.spec th, table.spec td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.spec th { color: var(--muted); font-weight: 600; }
+table.spec tr:last-child td { border-bottom: 0; }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0; font-size: 13px; }
+.flow span { padding: 4px 10px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); }
+.flow span.new { border-color: var(--ember); color: var(--ember); }
+.flow i { color: var(--muted); font-style: normal; }
+.frames { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 14px; }
+.frame { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; }
+.frame > header { padding: 8px 14px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); }
+.frame > header b { color: var(--ink); }
+/* ---------- 向导窗口 ---------- */
+.wiz { display: grid; grid-template-columns: 200px minmax(0, 1fr); min-height: 380px; }
+.wiz-side { background: var(--raised); border-right: 1px solid var(--line); padding: 18px 14px; display: grid; align-content: start; gap: 4px; }
+.wiz-side .brand { display: flex; align-items: center; gap: 8px; font: 600 15px var(--font-sign); margin-bottom: 14px; }
+.wiz-side .brand i { width: 22px; height: 22px; border-radius: 6px; background: var(--ember); }
+.wiz-side ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: s; }
+.wiz-side li { counter-increment: s; display: flex; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 6px; font-size: 13px; color: var(--muted); }
+.wiz-side li::before { content: counter(s); width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; font: 600 10px var(--font-sign); flex: none; }
+.wiz-side li.done { color: var(--moss); }
+.wiz-side li.done::before { content: "✓"; background: var(--moss); color: #fff; border-color: var(--moss); }
+.wiz-side li.cur { color: var(--ink); background: var(--ember-soft); font-weight: 600; }
+.wiz-side li.cur::before { border-color: var(--ember); color: var(--ember); }
+.wiz-main { padding: 22px 26px; display: grid; gap: 12px; align-content: start; }
+.wiz-main h3 { font: 600 20px var(--font-sign); margin: 0; }
+.wiz-main p { margin: 0; color: var(--muted); font-size: 13px; max-width: 60ch; }
+.opt { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--raised); font-size: 13px; }
+.opt.on { border-color: var(--ember); background: var(--ember-soft); }
+.opt .box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--muted); margin-top: 2px; }
+.opt.on .box { background: var(--ember); border-color: var(--ember); }
+.opt.radio .box { border-radius: 50%; }
+.opt small { display: block; color: var(--muted); }
+.wiz-foot { display: flex; gap: 8px; justify-content: flex-end; padding-top: 6px; }
+.btn { border: 1px solid var(--line); background: var(--raised); color: var(--ink); border-radius: 7px; padding: 6px 14px; font: inherit; font-size: 13px; }
+.btn.primary { background: var(--ember); border-color: var(--ember); color: #fff; font-weight: 600; }
+.btn.ghost { background: none; border-color: transparent; color: var(--muted); }
+.grow { flex: 1; }
+/* ---------- 功能导览 ---------- */
+.tour { padding: 18px 22px; display: grid; gap: 14px; }
+.tour-head { display: flex; align-items: baseline; gap: 10px; }
+.tour-head h3 { font: 600 18px var(--font-sign); margin: 0; }
+.tour-head span { color: var(--muted); font-size: 12px; }
+.tour-card { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; align-items: center; }
+.scene { height: 150px; border-radius: 10px; background: var(--raised); border: 1px solid var(--line); position: relative; overflow: hidden; }
+.tour-card h4 { font: 600 17px var(--font-sign); margin: 0 0 6px; }
+.tour-card ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 22px; height: 4px; border-radius: 2px; background: var(--line); }
+.dots i.on { background: var(--ember); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); }
+.chip.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+/* 示意小图 */
+.s-row { position: absolute; left: 14px; right: 14px; height: 18px; border-radius: 4px; background: var(--smoke); }
+.s-row b { position: absolute; left: 6px; top: 5px; width: 8px; height: 8px; border-radius: 2px; border: 1.5px solid var(--muted); }
+.s-row.sel b { background: var(--ember); border-color: var(--ember); }
+.s-btn { position: absolute; right: 14px; bottom: 12px; padding: 3px 10px; border-radius: 6px; background: var(--ember); color: #fff; font-size: 11px; font-weight: 600; }
+.s-graph { position: absolute; inset: 18px; }
+.s-graph i { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--sky); }
+.s-graph em { position: absolute; height: 2px; background: var(--sky); }
+.guide-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.guide-list div { background: var(--raised); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
+.guide-list b { display: block; font: 600 14px var(--font-sign); margin-bottom: 2px; }
+.guide-list span { color: var(--muted); }
+.settings-row { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 12px; padding: 14px 18px; font-size: 13px; align-items: start; }
+.settings-row + .settings-row { border-top: 1px solid var(--line); }
+.settings-row label { color: var(--muted); padding-top: 4px; }
+.callout { background: var(--ember-soft); border-radius: 8px; padding: 10px 14px; max-width: 80ch; }
+@media (max-width: 900px) { .frames, .guide-list { grid-template-columns: 1fr; } .tour-card, .wiz { grid-template-columns: 1fr; } .wiz-side { display: none; } }
+</style>
+</head>
+<body>
+<div class="doc">
+<h1>首次运行向导与功能导览</h1>
+<p class="lead">2026-10-11 · 已确认并在 0.4.0 实现；按用户要求在“语言”之后增加“以前用篝火备份过吗？——从远程获取”（可跳过）。现在的向导只有设置步骤，没有使用指导。方案分两段：先用几步完成必要设置，再用一组卡片介绍常用功能；两段都可以在设置中重新打开。</p>
+
+<h2 class="part">一、流程</h2>
+<div class="note">
+  <p><b>第一段：设置（必须完成，约 1 分钟）</b>——只问会影响备份的事，每一步都有推荐值，直接点“下一步”即可。</p>
+  <div class="flow">
+    <span>语言</span><i>→</i><span>存档仓库位置</span><i>→</i><span>扫描哪些平台（含“一起备份游戏设置”）</span><i>→</i><span class="new">自动备份（新增）</span><i>→</i><span>游戏信息（可选）</span><i>→</i><span>确认</span><i>→</i><span>扫描本机游戏</span>
+  </div>
+  <p>相比现在：“备份游戏设置”并入平台一步；新增“自动备份”一步（退出游戏后自动备份、关闭窗口时留在托盘），因为这是用户最常问“要不要每次手动备份”的地方。</p>
+  <p><b>第二段：功能导览（可跳过）</b>——扫描完成、进入游戏库后弹出，8 张卡片，每张一个常用功能：做什么、怎么做（2–3 步）、一个“去试试”按钮直接跳到对应页面。随时可以关闭；关闭后在设置中可以再看。</p>
+</div>
+
+<h2 class="part">二、效果图</h2>
+<div class="frames">
+  <section class="frame">
+    <header><b>设置 · 第 4 步</b>　新增的“自动备份”</header>
+    <div class="wiz">
+      <aside class="wiz-side">
+        <div class="brand"><i></i>篝火 Bonfire</div>
+        <ol>
+          <li class="done">语言</li>
+          <li class="done">存档仓库位置</li>
+          <li class="done">扫描的平台</li>
+          <li class="cur">自动备份</li>
+          <li>游戏信息</li>
+          <li>确认</li>
+        </ol>
+      </aside>
+      <div class="wiz-main">
+        <h3>要不要自动备份？</h3>
+        <p>自动备份只在存档有变化时生成快照，游戏运行中不会备份。之后可以在设置中修改。</p>
+        <div class="opt on"><span class="box"></span><span><b>退出游戏后自动备份</b><small>推荐：每次玩完都会留下一个快照，不用记得手动备份</small></span></div>
+        <div class="opt"><span class="box"></span><span><b>存档变化后自动备份</b><small>玩的过程中存档停止写入几分钟后备份，适合长时间游玩</small></span></div>
+        <div class="opt on"><span class="box"></span><span><b>关闭窗口时留在托盘</b><small>自动备份需要篝火在后台运行；从托盘菜单“退出”才结束</small></span></div>
+        <div class="wiz-foot"><button class="btn ghost">上一步</button><button class="btn primary">下一步</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="frame">
+    <header><b>功能导览 · 第 3 / 8 张</b>　扫描完成、进入游戏库后弹出</header>
+    <div class="tour">
+      <div class="tour-head"><h3>篝火入门</h3><span>8 个常用功能，约 2 分钟</span><span class="grow"></span><span>跳过</span></div>
+      <div class="tour-card">
+        <div class="scene" aria-hidden="true">
+          <div class="s-graph">
+            <em style="left:6px;top:20px;width:150px"></em>
+            <em style="left:70px;top:20px;width:2px;height:44px"></em>
+            <em style="left:70px;top:62px;width:90px;background:var(--ember)"></em>
+            <i style="left:0;top:14px"></i><i style="left:64px;top:14px"></i><i style="left:120px;top:14px"></i><i style="left:150px;top:14px"></i>
+            <i style="left:110px;top:56px;background:var(--ember)"></i><i style="left:150px;top:56px;background:var(--ember)"></i>
+          </div>
+        </div>
+        <div>
+          <h4>回到以前的存档</h4>
+          <span style="font-size:13px">每次备份是一个快照。打开游戏，在分支图上选一个快照就能恢复。</span>
+          <ul>
+            <li>恢复前先显示会改动哪些文件，并自动保存当前存档</li>
+            <li>恢复后可以一键撤销</li>
+            <li>从旧快照继续玩会开出新分支，原来的路线还在</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+        <span class="grow"></span>
+        <button class="btn ghost">上一张</button><button class="btn">去试试</button><button class="btn primary">下一张</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<h2 class="part">三、功能导览的 8 张卡片</h2>
+<div class="guide-list">
+  <div><b>1 扫描并加入游戏</b><span>扫描页找到本机游戏，勾选要管理的加入游戏库；没扫到的可以手动添加。</span></div>
+  <div><b>2 备份与备注</b><span>游戏库勾选游戏点“备份”，写一句备注方便以后找；带标签的快照永不清理。</span></div>
+  <div><b>3 回到以前的存档</b><span>分支图上选快照恢复；恢复前预览、自动保护、可撤销；分支保留不同路线。</span></div>
+  <div><b>4 自动备份</b><span>退出游戏后 / 存档变化后 / 定时；游戏运行中不备份；托盘常驻。</span></div>
+  <div><b>5 截图图库</b><span>备份时顺带收集 Steam 与游戏栏截图，按游戏与时间浏览，和快照对应。</span></div>
+  <div><b>6 同步到远程</b><span>GitHub、Gitee、WebDAV、网盘或移动硬盘，电脑坏了也能找回。</span></div>
+  <div><b>7 总览与红点</b><span>一眼看出存档是否安全；失败时导航、任务栏、托盘出现红点并通知。</span></div>
+  <div><b>8 分享与导入存档</b><span>导出存档或篝火包给朋友；导入网上下载的存档时先备份当前的。</span></div>
+</div>
+<p class="muted" style="font-size:12px;margin-top:8px">每张卡片的“去试试”跳到对应页面（扫描页、游戏库、游戏详情、设置·自动备份、图库、同步页、总览、游戏库的导入导出）并关闭导览；导览记住看到第几张，下次从那里继续。</p>
+
+<h2 class="part">四、在设置中重新运行</h2>
+<div class="frame" style="max-width:760px">
+  <header><b>设置 · 帮助</b>（新增，放在设置页最后）</header>
+  <div>
+    <div class="settings-row"><label>首次运行向导</label><div><button class="btn">重新运行向导</button><p class="muted" style="margin:6px 0 0;font-size:12px">按当前设置重新走一遍；仓库位置只显示不修改（要换位置请在“存档仓库”中修改）。完成后可选择是否重新扫描。</p></div></div>
+    <div class="settings-row"><label>功能导览</label><div><button class="btn">查看功能导览</button><p class="muted" style="margin:6px 0 0;font-size:12px">8 个常用功能的简单介绍。</p></div></div>
+  </div>
+</div>
+
+<h2 class="part">五、需要你确认的问题（括号中为建议）</h2>
+<table class="spec">
+  <tr><th style="width:40px">#</th><th>问题</th><th style="width:48%">建议</th></tr>
+  <tr><td>1</td><td>向导分成“设置”与“功能导览”两段，还是合成一段</td><td>分两段：设置必须完成且尽量短；导览可跳过、可随时再看</td></tr>
+  <tr><td>2</td><td>新增“自动备份”一步的默认值</td><td>默认勾选“退出游戏后自动备份”和“关闭窗口时留在托盘”，“存档变化后”不勾选（现在新装的篝火默认都不自动备份）</td></tr>
+  <tr><td>3</td><td>要不要在向导里设置同步到远程</td><td>不在设置步骤中做（需要令牌、地址，第一次用容易卡住）；导览第 6 张卡片介绍并可一键去同步页</td></tr>
+  <tr><td>4</td><td>重新运行向导时能不能改仓库位置</td><td>不能，只显示；换仓库位置涉及已有备份，仍在设置“存档仓库”中修改。完成时问是否重新扫描</td></tr>
+  <tr><td>5</td><td>导览的形式</td><td>对话框中的卡片（每张有示意图、要点、“去试试”）；不做在真实界面上逐个高亮的引导（界面变动时容易错位）</td></tr>
+  <tr><td>6</td><td>已经在用的用户（升级到 0.4.0）要不要自动弹出功能导览</td><td>不自动弹出；第一次打开总览时显示一条“看看新功能导览”的提示，可关闭</td></tr>
+</table>
+<p class="callout" style="margin-top:14px">确认（或修改）以上 6 点后开发：向导改版与“自动备份”步骤 → 功能导览 → 设置中的“帮助” → 测试与界面检查。</p>
+</div>
+</body>
+</html>

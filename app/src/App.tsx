@@ -4,6 +4,9 @@ import { useTranslation } from "react-i18next";
 import { UnlockScreen } from "./components/Security";
 import SyncPage from "./pages/SyncPage";
 import OverviewPage from "./pages/OverviewPage";
+import Tour from "./components/Tour";
+import { prefGet, prefRemove } from "./lib/uiState";
+import { confirm } from "./lib/confirm";
 import { api, errorMessage } from "./api";
 import logo from "./assets/logo.svg";
 import { Icon, Toasts } from "./components/ui";
@@ -17,6 +20,7 @@ import ScanPage from "./pages/ScanPage";
 import Settings from "./pages/Settings";
 import Wizard from "./pages/Wizard";
 import { useStore } from "./store";
+import type { Config } from "./types";
 import { applyTheme } from "./theme";
 import { checkAndReport } from "./lib/check";
 
@@ -26,6 +30,19 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [closeAsk, setCloseAsk] = useState(false);
   const attentionCount = useStore((s) => s.attention?.items.length ?? 0);
+  const guide = useStore((s) => s.guide);
+  const [settingsForWizard, setSettingsForWizard] = useState<Config | null>(null);
+  useEffect(() => {
+    if (guide.wizard) void api.getSettings().then(setSettingsForWizard);
+  }, [guide.wizard]);
+
+  // 首次运行完成后，第一次进入游戏库时弹出功能导览（决策 WZ-1）。
+  useEffect(() => {
+    if (view.name === "library" && !info?.firstRun && prefGet("tour.pending")) {
+      prefRemove("tour.pending");
+      useStore.getState().setGuide({ tour: true });
+    }
+  }, [view.name, info?.firstRun]);
 
   // 需要处理的问题：后台有变化时推送（同步、自动备份后，每分钟检查）。
   useEffect(() => {
@@ -120,6 +137,34 @@ export default function App() {
     );
   }
 
+  // 在设置中重新运行向导：按当前设置预填，仓库位置不变，完成后询问是否重新扫描。
+  if (guide.wizard && settingsForWizard) {
+    return (
+      <>
+        <Wizard
+          rerun
+          initial={settingsForWizard}
+          onCancel={() => {
+            useStore.getState().setGuide({ wizard: false });
+            setSettingsForWizard(null);
+          }}
+          onDone={async (cfg) => {
+            applyTheme(cfg.general.theme);
+            if (cfg.general.language) setLanguage(cfg.general.language);
+            useStore.getState().setGuide({ wizard: false });
+            setSettingsForWizard(null);
+            if (await confirm(t("ui.wizard.rescanAsk"), { title: t("ui.wizard.rerunTitle"), ok: t("ui.wizard.rescan") })) {
+              go({ name: "scan" });
+              void startScan().then(() => loadLibrary(false));
+            }
+          }}
+        />
+        <ConfirmHost />
+        <Toasts />
+      </>
+    );
+  }
+
   if (info?.firstRun) {
     return (
       <>
@@ -183,6 +228,7 @@ export default function App() {
         {view.name === "game" && <GameDetail id={view.id} />}
         {view.name === "settings" && <Settings />}
       </main>
+      {guide.tour && <Tour onClose={() => useStore.getState().setGuide({ tour: false })} onGo={(v) => go(v)} />}
       {closeAsk && <CloseDialog onClose={() => setCloseAsk(false)} />}
       <ConfirmHost />
       <Toasts />

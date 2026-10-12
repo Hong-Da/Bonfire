@@ -1403,3 +1403,36 @@ button.link:hover { text-decoration: underline; }
 .ov-storage-main, .ov-storage-side { display: grid; gap: 12px; align-content: start; min-width: 0; }
 .ov-storage-side .ov-subh { margin-top: 0; }
 @media (max-width: 1100px) { .ov-disk, .ov-storage-grid { grid-template-columns: 1fr; } }
+
+/* 首次运行向导（0.4.0）与功能导览 */
+.wizard .options.cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wizard .option.plain { border: 0; padding: 4px 0; }
+.wizard .wiz-tip { margin: 8px 0 4px; font-size: 13px; }
+.wizard .wiz-remote { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--raised); }
+.wizard .wiz-field { display: grid; gap: 4px; font-size: 13px; }
+.wizard .wiz-field > span:first-child { color: var(--muted); }
+.wizard .wiz-field .inline { display: flex; gap: 8px; }
+.wizard .wiz-field .inline .field { flex: 1; min-width: 0; }
+.wizard .wiz-actions { display: flex; justify-content: flex-end; }
+.wizard .ok-callout { border-left: 3px solid var(--moss); margin-top: 12px; }
+.wizard .ok-callout p { margin: 4px 0 0; font-size: 13px; }
+.wizard .wiz-left { display: flex; gap: 6px; }
+.tour { display: grid; gap: 14px; }
+.tour-sub { margin: 0; font-size: 13px; }
+.tour-card { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 22px; align-items: center; min-height: 190px; }
+.tour-scene { height: 160px; border-radius: 12px; display: grid; place-items: center; background: var(--ember-soft); color: var(--ember); }
+.tour-scene.scene-sync, .tour-scene.scene-gallery { background: color-mix(in srgb, #3d6fa8 14%, var(--surface)); color: #3d6fa8; }
+.tour-scene.scene-overview, .tour-scene.scene-auto { background: color-mix(in srgb, var(--moss) 14%, var(--surface)); color: var(--moss); }
+.tour-text h3 { font: 600 19px var(--font-sign); margin: 0 0 6px; }
+.tour-text p { margin: 0; }
+.tour-text ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; display: grid; gap: 2px; }
+.tour-step { font-size: 12px; color: var(--muted); margin-bottom: 4px !important; }
+.tour-foot { display: flex; align-items: center; gap: 8px; width: 100%; }
+.tour-foot .grow { flex: 1; }
+.tour-dots { display: flex; gap: 6px; }
+.tour-dots button { width: 22px; height: 6px; padding: 0; border: 0; border-radius: 3px; background: var(--line); cursor: pointer; }
+.tour-dots button.on { background: var(--ember); }
+.tour-dots button:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+.ov-tour-tip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.ov-tour-tip .grow { flex: 1; }
+@media (max-width: 700px) { .tour-card { grid-template-columns: 1fr; } .tour-scene { height: 100px; } .wizard .options.cols { grid-template-columns: 1fr; } }

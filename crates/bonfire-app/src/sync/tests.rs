@@ -564,3 +564,30 @@ fn network_failures_retry_with_backoff() {
     );
     assert!(SyncIssue::Size.ignorable() && !SyncIssue::Public.ignorable());
 }
+
+#[test]
+fn first_run_restore_without_app() {
+    let mut env = Env::new();
+    env.write("a.sav", b"one");
+    let g = env.add_game("Hades");
+    backup(&mut env, &g);
+    env.app.config.auto_backup.on_exit = true;
+    let t = folder_target(&env, "硬盘", SyncContent::Repo);
+    let t = env.app.save_sync_target(t, None).unwrap();
+    env.app.sync_push(&t.id, &mut |_, _| {}).unwrap();
+
+    // 新电脑：还没有仓库，只有向导中填写的目标。
+    let dest = env.dir.path().join("新仓库");
+    let cache = env.dir.path().join("新缓存");
+    let n = restore_repo(&cache, &t, None, &dest).unwrap();
+    assert!(n > 0 && dest.join("config.toml").is_file());
+    let text = std::fs::read_to_string(dest.join(SETTINGS_FILE)).unwrap();
+    let cfg = parse_portable_settings(&text).unwrap();
+    assert!(cfg.auto_backup.on_exit, "带回原来的设置");
+    assert!(cfg.general.repo.is_none(), "不带原来电脑的仓库位置");
+    // 目标文件夹不是空的：拒绝。
+    assert!(restore_repo(&cache, &t, None, &dest).is_err());
+    // 只同步最新存档的目标不能恢复仓库。
+    let latest = folder_target(&env, "最新", SyncContent::Latest);
+    assert!(restore_repo(&cache, &latest, None, &env.dir.path().join("x")).is_err());
+}

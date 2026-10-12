@@ -41,6 +41,7 @@ const DYNAMIC: Record<string, string[]> = {
   "ui.activity.": ["backup", "backup-auto", "restore", "undo-restore", "delete-snapshots", "branch-create", "branch-delete", "branch-rename", "tag-create", "tag-delete", "primary", "sync", "clean", "shots-collect", "shots-write-back", "shots-delete", "shots-purge", "import", "import-bundle", "import-files", "import-download", "export-files", "export-bundle", "export-package", "export-shots", "scan", "rules-update", "fsck", "reindex", "encrypt", "decrypt", "password"],
   "ui.ov.issue.": ["locked", "unstable", "running", "network", "io", "rolled-back", "auth", "not-found", "public", "size", "file-limit", "local", "excluded", "damaged", "other"],
   "ui.ov.hint.": ["locked", "unstable", "running", "network", "auth", "not-found", "public", "size", "damaged", "io"],
+  "ui.tour.": ["scan.title", "scan.body", "scan.points", "backup.title", "backup.body", "backup.points", "restore.title", "restore.body", "restore.points", "auto.title", "auto.body", "auto.points", "gallery.title", "gallery.body", "gallery.points", "sync.title", "sync.body", "sync.points", "overview.title", "overview.body", "overview.points", "share.title", "share.body", "share.points"],
   "ui.ov.range.": ["7", "30", "0"],
   "ui.ov.cat.": ["all", "failed", "backup", "restore", "history", "sync", "shots", "transfer", "maintain"],
   "ui.ov.unit.": ["files", "snapshots", "shots", "games", "problems"],

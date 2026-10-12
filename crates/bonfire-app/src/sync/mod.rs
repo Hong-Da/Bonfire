@@ -296,30 +296,7 @@ impl App {
     }
 
     fn open_remote(&self, t: &SyncTarget, secret: Option<String>) -> Result<Box<dyn Remote>> {
-        match t.kind {
-            SyncKind::Folder => Ok(Box::new(folder::Folder::new(&t.url))),
-            SyncKind::Webdav => Ok(Box::new(webdav::WebDav::new(
-                &t.url,
-                &t.user,
-                secret.as_deref(),
-            )?)),
-            SyncKind::Github | SyncKind::Gitee => {
-                // 还没保存的目标（测试连接）用临时的缓存目录。
-                let id = if t.id.is_empty() {
-                    "test"
-                } else {
-                    t.id.as_str()
-                };
-                Ok(Box::new(git::GitRemote::open(
-                    &git::cache_dir(&self.paths.cache_dir, id),
-                    t.kind,
-                    &t.url,
-                    &t.branch,
-                    &t.user,
-                    secret,
-                )?))
-            }
-        }
+        open_remote_with(&self.paths.cache_dir, t, secret)
     }
 
     /// 同步一个目标。`progress(已上传字节, 总字节)`。
@@ -457,13 +434,7 @@ impl App {
 
     /// 套用从远程恢复的篝火设置：保留本机的仓库位置与密钥（设置文件中没有密钥）。
     pub fn apply_portable_settings(&mut self, text: &str) -> Result<()> {
-        let body: String = text
-            .lines()
-            .filter(|l| !l.starts_with('#'))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let mut c: crate::Config = toml::from_str(&body)
-            .map_err(|e| AppError::Invalid(format!("设置文件格式错误：{e}")))?;
+        let mut c = parse_portable_settings(text)?;
         c.general.repo = self.config.general.repo.clone();
         let m = &self.config.metadata;
         c.metadata.igdb_client_id = m.igdb_client_id.clone();
@@ -544,16 +515,7 @@ impl App {
     }
 
     fn check_private_with(&self, t: &SyncTarget, secret: Option<&str>) -> Result<()> {
-        if !t.kind.is_git() || git::local(&t.url) {
-            return Ok(());
-        }
-        let token = secret.ok_or_else(|| AppError::Invalid("请先填写访问令牌".into()))?;
-        if !git::check_private(t.kind, &t.url, token)? {
-            return Err(AppError::Invalid(
-                "这是公开仓库，所有人都能看到同步的存档；请在网站上改为私有仓库后再同步".into(),
-            ));
-        }
-        Ok(())
+        check_private_for(t, secret)
     }
 
     /// 压缩远程仓库（GitHub / Gitee）：只保留当前内容，去掉已删除内容的旧版本。改写远程历史，调用方先确认。
@@ -581,39 +543,110 @@ impl App {
     /// 从远程恢复完整仓库到空文件夹 `dest`，返回恢复的文件数。之后可把仓库位置改为 `dest`。
     pub fn sync_restore(&self, id: &str, dest: &Path) -> Result<usize> {
         let t = self.sync_target(id)?;
-        if t.content != SyncContent::Repo {
-            return Err(AppError::Invalid("只有“完整仓库”的同步目标可以恢复".into()));
-        }
-        if dest.exists()
-            && std::fs::read_dir(dest)
-                .map_err(|e| AppError::io(dest, e))?
-                .next()
-                .is_some()
-        {
-            return Err(AppError::Invalid(format!(
-                "{} 不是空文件夹",
-                dest.display()
-            )));
-        }
-        let mut remote = self.sync_remote(&t)?;
-        let files = remote.list()?;
-        if !files.iter().any(|(p, _)| p == "config.toml") {
-            return Err(AppError::Invalid(
-                "远程没有篝火仓库（缺少 config.toml）".into(),
-            ));
-        }
-        let mut n = 0;
-        for (p, _) in &files {
-            let data = remote.get(p)?;
-            let out = dest.join(p);
-            if let Some(d) = out.parent() {
-                std::fs::create_dir_all(d).map_err(|e| AppError::io(d, e))?;
-            }
-            std::fs::write(&out, data).map_err(|e| AppError::io(&out, e))?;
-            n += 1;
-        }
-        Ok(n)
+        restore_repo(&self.paths.cache_dir, &t, self.sync_secret(&t.id), dest)
     }
+}
+
+/// 打开远程存储（不需要已打开的仓库：首次运行向导从远程恢复时也使用）。
+pub fn open_remote_with(
+    cache_dir: &Path,
+    t: &SyncTarget,
+    secret: Option<String>,
+) -> Result<Box<dyn Remote>> {
+    match t.kind {
+        SyncKind::Folder => Ok(Box::new(folder::Folder::new(&t.url))),
+        SyncKind::Webdav => Ok(Box::new(webdav::WebDav::new(
+            &t.url,
+            &t.user,
+            secret.as_deref(),
+        )?)),
+        SyncKind::Github | SyncKind::Gitee => {
+            // 还没保存的目标（测试连接）用临时的缓存目录。
+            let id = if t.id.is_empty() {
+                "test"
+            } else {
+                t.id.as_str()
+            };
+            Ok(Box::new(git::GitRemote::open(
+                &git::cache_dir(cache_dir, id),
+                t.kind,
+                &t.url,
+                &t.branch,
+                &t.user,
+                secret,
+            )?))
+        }
+    }
+}
+
+/// GitHub / Gitee 的公开仓库不同步。本机的测试仓库不检查。
+pub fn check_private_for(t: &SyncTarget, secret: Option<&str>) -> Result<()> {
+    if !t.kind.is_git() || git::local(&t.url) {
+        return Ok(());
+    }
+    let token = secret.ok_or_else(|| AppError::Invalid("请先填写访问令牌".into()))?;
+    if !git::check_private(t.kind, &t.url, token)? {
+        return Err(AppError::Invalid(
+            "这是公开仓库，所有人都能看到同步的存档；请在网站上改为私有仓库后再同步".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// 从远程把完整仓库下载到空文件夹，返回文件数。远程的篝火设置（如有）在文件夹中的 [`SETTINGS_FILE`]。
+pub fn restore_repo(
+    cache_dir: &Path,
+    t: &SyncTarget,
+    secret: Option<String>,
+    dest: &Path,
+) -> Result<usize> {
+    if t.content != SyncContent::Repo {
+        return Err(AppError::Invalid("只有“完整仓库”的同步目标可以恢复".into()));
+    }
+    if dest.exists()
+        && std::fs::read_dir(dest)
+            .map_err(|e| AppError::io(dest, e))?
+            .next()
+            .is_some()
+    {
+        return Err(AppError::Invalid(format!(
+            "{} 不是空文件夹",
+            dest.display()
+        )));
+    }
+    check_private_for(t, secret.as_deref())?;
+    let mut remote = open_remote_with(cache_dir, t, secret)?;
+    let files = remote.list()?;
+    if !files.iter().any(|(p, _)| p == "config.toml") {
+        return Err(AppError::Invalid(
+            "远程没有篝火仓库（缺少 config.toml）".into(),
+        ));
+    }
+    let mut n = 0;
+    for (p, _) in &files {
+        let data = remote.get(p)?;
+        let out = dest.join(p);
+        if let Some(d) = out.parent() {
+            std::fs::create_dir_all(d).map_err(|e| AppError::io(d, e))?;
+        }
+        std::fs::write(&out, data).map_err(|e| AppError::io(&out, e))?;
+        n += 1;
+    }
+    Ok(n)
+}
+
+/// 读取同步的篝火设置文件（不含密钥、令牌与本机仓库位置）。
+pub fn parse_portable_settings(text: &str) -> Result<crate::Config> {
+    let body: String = text
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut c: crate::Config =
+        toml::from_str(&body).map_err(|e| AppError::Invalid(format!("设置文件格式错误：{e}")))?;
+    c.general.repo = None;
+    c.validate()?;
+    Ok(c)
 }
 
 #[cfg(test)]

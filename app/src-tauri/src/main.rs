@@ -166,6 +166,7 @@ fn main() {
             commands::write_back_all,
             commands::collect_all_shots,
             sync_cmds::sync_status,
+            sync_cmds::wizard_restore,
             sync_cmds::sync_save,
             sync_cmds::sync_remove,
             sync_cmds::sync_test,

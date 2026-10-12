@@ -78,6 +78,13 @@ export interface RetentionConfig {
   scope: "auto" | "all";
 }
 
+/** 首次运行向导：从远程获取的结果。 */
+export interface WizardRestore {
+  files: number;
+  config: Config | null;
+  encrypted: boolean;
+}
+
 /** 本机操作记录（总览页）。 */
 export interface Activity {
   at: string;

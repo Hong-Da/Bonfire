@@ -6,6 +6,7 @@ import { displayName } from "../components/ui";
 import { confirm } from "../lib/confirm";
 import { bytes, relative } from "../lib/format";
 import { prefGet, prefSet } from "../lib/uiState";
+import { SEEN_KEY } from "../components/Tour";
 import { useStore } from "../store";
 import type { Activity, ActivityPage, AttentionItem, DiskCompare, GameRow, StorageStats, TargetStatus } from "../types";
 import BackupDialog from "./BackupDialog";
@@ -55,6 +56,7 @@ export default function OverviewPage() {
   const [cleanOpen, setCleanOpen] = useState(false);
   const [later, setLater] = useState(0);
   const attention = store.attention?.items ?? [];
+  const [tourTip, setTourTip] = useState(() => !prefGet(SEEN_KEY) && !prefGet("tour.tipClosed"));
 
   const refreshAll = () => {
     void api.syncStatus().then(setTargets).catch(() => setTargets([]));
@@ -270,6 +272,25 @@ export default function OverviewPage() {
           {t("ui.ov.refresh")}
         </button>
       </div>
+
+      {tourTip && (
+        <div className="callout ov-tour-tip">
+          <span>{t("ui.ov.tourTip")}</span>
+          <span className="grow" />
+          <button className="btn small primary" onClick={() => store.setGuide({ tour: true })}>
+            {t("ui.settings.openTour")}
+          </button>
+          <button
+            className="link"
+            onClick={() => {
+              prefSet("tour.tipClosed", "1");
+              setTourTip(false);
+            }}
+          >
+            {t("ui.ov.tourTipClose")}
+          </button>
+        </div>
+      )}
 
       <section className="ov-chain" aria-label={t("ui.ov.chain")}>
         <p className="ov-verdict">{verdict}</p>

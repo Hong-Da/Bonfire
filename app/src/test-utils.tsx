@@ -40,6 +40,7 @@ export function mockApi() {
     fsck: vi.fn(),
     cleanHistory: vi.fn(),
     syncStatus: vi.fn().mockResolvedValue([]),
+    wizardRestore: vi.fn(),
     attention: vi.fn().mockResolvedValue({ items: [], snoozed: 0 }),
     snoozeAttention: vi.fn().mockResolvedValue(undefined),
     onAttention: vi.fn().mockResolvedValue(() => {}),

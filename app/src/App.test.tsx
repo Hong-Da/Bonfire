@@ -15,7 +15,9 @@ import { useStore, defaultSelection } from "./store";
 import Library from "./pages/Library";
 import ScanPage from "./pages/ScanPage";
 import RestoreDialog from "./pages/RestoreDialog";
-import Wizard from "./pages/Wizard";
+import Tour from "./components/Tour";
+import { newTarget } from "./pages/SyncPage";
+import Wizard, { DEFAULT_CONFIG } from "./pages/Wizard";
 import GameDetail from "./pages/GameDetail";
 import { nextTheme } from "./theme";
 
@@ -225,11 +227,18 @@ describe("向导", () => {
     fireEvent.click(screen.getByLabelText("English"));
     expect(await screen.findByText("Choose a language")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    // 从远程获取：默认从头开始，直接下一步。
+    expect(screen.getByText("Used Bonfire before?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByLabelText("Repository location")).toHaveValue("C:/repo");
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByLabelText("Epic"));
+    fireEvent.click(screen.getByLabelText(/Also back up game settings/));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByLabelText("Saves only"));
+    // 自动备份：默认退出游戏后备份、留在托盘。
+    expect(screen.getByRole("checkbox", { name: /Back up after quitting a game/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Keep running in the tray when/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Back up when saves change/ }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Steam、GOG、Ubisoft Connect、EA app、Xbox、Battle.net")).toHaveClass("changed");
@@ -240,6 +249,72 @@ describe("向导", () => {
     expect(cfg.general.language).toBe("en");
     expect(cfg.backup.disabled_platforms).toEqual(["epic"]);
     expect(cfg.backup.include_config_files).toBe(false);
+    expect([cfg.auto_backup.on_exit, cfg.auto_backup.on_change, cfg.general.close_to_tray]).toEqual([true, true, true]);
+  });
+
+  it("从远程获取以前的备份与设置，之后继续同步到这里", async () => {
+    await i18n.changeLanguage("zh-CN");
+    useStore.setState({ info: { ...info, firstRun: true, defaultRepoDir: "D:/data/repo" } });
+    api.saveSettings.mockResolvedValue({ ...info, firstRun: false });
+    const remoteCfg = structuredClone(DEFAULT_CONFIG);
+    remoteCfg.backup.disabled_platforms = ["gog"];
+    remoteCfg.auto_backup.on_exit = false;
+    remoteCfg.sync = { targets: [{ ...newTarget("gitee"), id: "old1", name: "码云", url: "https://gitee.com/u/bak.git" }] };
+    api.wizardRestore.mockResolvedValue({ files: 42, config: remoteCfg, encrypted: false });
+    const onDone = vi.fn();
+    render(<Wizard onDone={onDone} />);
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(screen.getByText(/可以从那里取回全部存档历史和篝火设置/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/从远程获取以前的备份和设置/));
+    // 选了从远程获取但还没获取：只能跳过。
+    expect(screen.getByRole("button", { name: "跳过" })).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("https://gitee.com/用户名/仓库.git"), { target: { value: "https://gitee.com/u/bak.git" } });
+    fireEvent.change(screen.getByLabelText("访问令牌"), { target: { value: "tok" } });
+    expect(screen.getByLabelText("下载到")).toHaveValue("D:/data/repo");
+    fireEvent.click(screen.getByRole("button", { name: "获取" }));
+    expect(await screen.findByText("已获取 42 个文件")).toBeInTheDocument();
+    expect(api.wizardRestore).toHaveBeenCalledWith(expect.objectContaining({ kind: "gitee", url: "https://gitee.com/u/bak.git" }), "tok", "D:/data/repo");
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(screen.getByLabelText("仓库位置")).toHaveValue("D:/data/repo");
+    expect(screen.getByLabelText("仓库位置")).toHaveAttribute("readonly");
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(screen.getByLabelText("GOG")).not.toBeChecked();
+    for (let k = 0; k < 3; k++) fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    fireEvent.click(screen.getByRole("button", { name: "完成" }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    const cfg = api.saveSettings.mock.calls[0][0];
+    expect(cfg.general.repo).toBe("D:/data/repo");
+    expect(cfg.auto_backup.on_exit).toBe(false);
+    // 沿用远程设置中同一地址的目标，补上令牌。
+    expect(api.syncSave).toHaveBeenCalledWith(expect.objectContaining({ id: "old1", name: "码云" }), "tok");
+  });
+
+  it("在设置中重新运行：跳过从远程获取，可以取消", async () => {
+    await i18n.changeLanguage("zh-CN");
+    const onCancel = vi.fn();
+    render(<Wizard rerun initial={DEFAULT_CONFIG} onDone={vi.fn()} onCancel={onCancel} />);
+    expect(screen.getByRole("heading", { name: "重新运行向导" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(screen.getByText("扫描哪些平台？")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(onCancel).toHaveBeenCalled();
+  });
+});
+
+describe("功能导览", () => {
+  it("逐张查看，去试试跳到对应页面", async () => {
+    await i18n.changeLanguage("zh-CN");
+    const onGo = vi.fn();
+    const onClose = vi.fn();
+    render(<Tour onClose={onClose} onGo={onGo} />);
+    expect(screen.getByRole("heading", { name: "扫描并加入游戏" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "下一个" }));
+    fireEvent.click(screen.getByRole("button", { name: "下一个" }));
+    expect(screen.getByRole("heading", { name: "回到以前的存档" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "同步到远程" }));
+    fireEvent.click(screen.getByRole("button", { name: "去试试" }));
+    expect(onGo).toHaveBeenCalledWith({ name: "sync" });
+    expect(onClose).toHaveBeenCalled();
   });
 });
 

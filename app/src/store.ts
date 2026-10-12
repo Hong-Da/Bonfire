@@ -49,6 +49,8 @@ interface Store {
   toasts: Toast[];
   /** 需要处理的问题（导航“总览”的红色数字）。 */
   attention: Attention | null;
+  /** 在设置中重新运行向导、打开功能导览。 */
+  guide: { wizard: boolean; tour: boolean };
   /** 恢复后常驻的“撤销本次恢复”提示（按游戏）。 */
   undoable: Record<string, string>;
   /** 最近一次扫描（发现游戏）的结果，离开扫描页后保留。 */
@@ -59,6 +61,7 @@ interface Store {
   setInfo: (info: AppInfo) => void;
   go: (view: View) => void;
   setAttention: (a: Attention | null) => void;
+  setGuide: (g: Partial<{ wizard: boolean; tour: boolean }>) => void;
   loadLibrary: (fetchInfo: boolean) => Promise<void>;
   startScan: () => Promise<void>;
   upsertRow: (row: GameRow) => void;
@@ -172,12 +175,14 @@ export const useStore = create<Store>((set, get) => ({
   query: "",
   toasts: [],
   attention: null,
+  guide: { wizard: false, tour: false },
   undoable: {},
   scan: null,
   scanning: false,
   scanPhase: "idle",
 
   setAttention: (attention) => set({ attention }),
+  setGuide: (g) => set((s) => ({ guide: { ...s.guide, ...g } })),
   setInfo: (info) => {
     // 关闭“记住”时清除已保存的选择，之后也不再保存。
     if (info.rememberFilters === false) prefRemove(FILTER_KEY);
